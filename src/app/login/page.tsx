@@ -1,4 +1,4 @@
-// src/app/(auth)/login/page.tsx
+// src/app/(auth)/login/page.tsx - Updated with registration link
 'use client';
 
 import { useState } from 'react';
@@ -6,12 +6,13 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Church } from 'lucide-react';
+import { Church, UserPlus } from 'lucide-react';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/input';
 import { Card } from '@/ui/Card';
 import { useAuth } from '@/hooks/useAuth';
 import toast from 'react-hot-toast';
+import Link from 'next/link';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -30,13 +31,12 @@ export default function LoginPage() {
     handleSubmit,
     formState: { errors },
   } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(loginSchema) as any,
   });
 
   const onSubmit = async (data: LoginFormData) => {
     try {
       setError('');
-      // Pass the credentials as an object
       await login({
         email: data.email,
         password: data.password
@@ -50,14 +50,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <Card className="w-full max-w-md shadow-lg">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-100 mb-4">
-            <Church className="h-8 w-8 text-primary-600" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-100 mb-4">
+            <Church className="h-8 w-8 text-blue-600" />
           </div>
-          <h1 className="text-2xl font-bold text-secondary-900">Church Admin Panel</h1>
-          <p className="text-secondary-600 mt-2">Sign in to manage your content</p>
+          <h1 className="text-2xl font-bold text-gray-900">Church Admin Panel</h1>
+          <p className="text-gray-600 mt-2">Sign in to manage your content</p>
         </div>
 
         {error && (
@@ -99,11 +99,23 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-secondary-200">
-          <p className="text-center text-sm text-secondary-600">
-            Contact support if you've forgotten your credentials
-          </p>
-        </div>
+<div className="mt-6 pt-6 border-t border-gray-200">
+  <div className="flex flex-col items-center gap-3">
+    <p className="text-sm text-gray-600">
+      Need an admin account?
+    </p>
+    <Link 
+      href="/register" 
+      className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+    >
+      <UserPlus className="h-4 w-4 mr-2" />
+      Register New Admin
+    </Link>
+    <p className="text-center text-sm text-gray-600 mt-2">
+      Contact support if you've forgotten your credentials
+    </p>
+  </div>
+</div>
       </Card>
     </div>
   );

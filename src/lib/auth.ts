@@ -1,6 +1,11 @@
-// src/lib/auth.ts
+// src/lib/auth.ts - Fixed version
 import { apiClient } from './api';
-import type { Admin, LoginCredentials, LoginResponse, AuthState } from './types/auth';
+import type { 
+  Admin, 
+  LoginCredentials, 
+  LoginResponse, 
+  AuthState 
+} from './types';
 
 class AuthService {
   private static instance: AuthService | null = null;
@@ -117,7 +122,7 @@ class AuthService {
       clearTimeout(this.refreshTimeout);
     }
 
-    // Refresh token 5 minutes before expiry
+    // Refresh token 5 minutes before expiry (assuming 1-hour token)
     const refreshTime = 55 * 60 * 1000; // 55 minutes
     
     this.refreshTimeout = setTimeout(() => {
@@ -239,6 +244,3 @@ class AuthService {
 
 // Export singleton instance
 export const authService = AuthService.getInstance();
-
-// Export AuthState type
-export type { AuthState };
