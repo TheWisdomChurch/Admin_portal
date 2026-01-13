@@ -1,48 +1,25 @@
-// src/app/(dashboard)/layout.tsx
-'use client';
+// src/app/layout.tsx
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Sidebar } from '@/components/Sidebar';
-import { Navbar } from '@/components/Navbar';
-import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { ToastProvider } from '@/components/Toast';
-import { useAuth } from '@/hooks/useAuth';
+const inter = Inter({ subsets: ['latin'] });
 
-export default function DashboardLayout({
+export const metadata: Metadata = {
+  title: 'Wisdom Church Admin Portal',
+  description: 'Church administration portal for managing content and members',
+};
+
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login');
-    }
-  }, [isAuthenticated, isLoading, router]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return null;
-  }
-
   return (
-    <div className="min-h-screen bg-secondary-50">
-      <Sidebar />
-      <ToastProvider />
-      <div className="lg:ml-72">
-        <Navbar />
-        <main className="p-6">{children}</main>
-      </div>
-    </div>
+    <html lang="en">
+      <body className={inter.className}>
+        {children}
+      </body>
+    </html>
   );
 }

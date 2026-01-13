@@ -1,11 +1,22 @@
 // src/lib/types.ts
 export interface Admin {
   id: number;
-  username: string;
+  firstName: string;
+  lastName: string;
   email: string;
-  role: 'super_admin' | 'admin' | 'editor';
+  role: 'super_admin' | 'admin';
   createdAt: string;
-  lastLogin?: string;
+  updatedAt: string;
+  // If your backend also returns username, add it
+  username?: string;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export interface EventData {
@@ -47,17 +58,14 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-
 export interface LoginCredentials {
   email: string;
   password: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  admin: Admin;
 }
 
 export interface RegisterEventData {
@@ -74,4 +82,11 @@ export interface RegisterEventData {
   registerLink?: string;
   speaker?: string;
   contactPhone?: string;
+}
+
+export interface AuthState {
+  isAuthenticated: boolean;
+  admin: Admin | null;
+  isLoading: boolean;
+  error: string | null;
 }

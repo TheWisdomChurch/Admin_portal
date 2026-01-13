@@ -1,5 +1,7 @@
-// src/lib/api.ts
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+import { Admin, EventData, PaginatedResponse, ReelData } from "./types";
+
+// src/lib/api.ts - Complete fixed version
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -31,13 +33,18 @@ class ApiClient {
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
     
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
     };
 
+    // Add Authorization header if token exists
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    // Merge with custom headers if provided
+    if (options.headers) {
+      Object.assign(headers, options.headers);
     }
 
     const config: RequestInit = {
@@ -51,7 +58,10 @@ class ApiClient {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new ApiError(response.status, errorData.message || 'API request failed');
+        throw new ApiError(
+          response.status, 
+          errorData.message || errorData.error || 'API request failed'
+        );
       }
 
       return await response.json();
@@ -65,13 +75,32 @@ class ApiClient {
 
   // Auth endpoints
   async login(credentials: { email: string; password: string }) {
-    const response = await this.request<{ token: string; admin: Admin }>(
-      '/api/admin/login',
-      {
-        method: 'POST',
-        body: JSON.stringify(credentials),
-      }
-    );
+    const response = await this.request<{ 
+      token: string; 
+      admin: Admin 
+    }>('/api/admin/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+    this.setToken(response.token);
+    return response;
+  }
+
+  // Add registration method
+  async register(adminData: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    role: 'super_admin' | 'admin';
+  }) {
+    const response = await this.request<{ 
+      token: string; 
+      admin: Admin 
+    }>('/api/admin/register', {
+      method: 'POST',
+      body: JSON.stringify(adminData),
+    });
     this.setToken(response.token);
     return response;
   }
@@ -105,9 +134,10 @@ class ApiClient {
   }
 
   async createEvent(data: FormData) {
+    // Note: For FormData, we don't set Content-Type header
+    // Browser will set it automatically with boundary
     return this.request<EventData>('/api/admin/events', {
       method: 'POST',
-      headers: {}, // Let browser set content-type for FormData
       body: data,
     });
   }
@@ -115,7 +145,6 @@ class ApiClient {
   async updateEvent(id: number, data: FormData) {
     return this.request<EventData>(`/api/admin/events/${id}`, {
       method: 'PUT',
-      headers: {},
       body: data,
     });
   }
@@ -135,7 +164,6 @@ class ApiClient {
   async createReel(data: FormData) {
     return this.request<ReelData>('/api/admin/reels', {
       method: 'POST',
-      headers: {},
       body: data,
     });
   }
