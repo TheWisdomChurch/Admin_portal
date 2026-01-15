@@ -1,205 +1,105 @@
 // src/lib/api.ts
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+import axios from 'axios';
 
-class ApiError extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
-    this.name = 'ApiError';
-  }
-}
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
-class ApiClient {
-  private baseUrl: string;
-  private token: string | null = null;
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 10000,
+});
 
-  constructor(baseUrl?: string) {
-    this.baseUrl = baseUrl || API_BASE_URL;
+api.interceptors.request.use(
+  (config) => {
     if (typeof window !== 'undefined') {
-      this.token = localStorage.getItem('adminToken');
-    }
-  }
-
-  setToken(token: string) {
-    this.token = token;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('adminToken', token);
-    }
-  }
-
-  clearToken() {
-    this.token = null;
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('adminToken');
-    }
-  }
-
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
-    
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    // Add Authorization header if token exists
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
-
-    // Merge with custom headers if provided
-    if (options.headers) {
-      Object.assign(headers, options.headers);
-    }
-
-    const config: RequestInit = {
-      ...options,
-      headers,
-    };
-
-    try {
-      const response = await fetch(url, config);
-      
-      // Handle no content responses
-      if (response.status === 204) {
-        return {} as T;
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
       }
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new ApiError(
-          response.status, 
-          errorData.message || errorData.error || `API request failed: ${response.statusText}`
-        );
-      }
-
-      // Parse JSON response
-      const text = await response.text();
-      return text ? JSON.parse(text) : {} as T;
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      if (error instanceof SyntaxError) {
-        throw new ApiError(0, 'Invalid JSON response from server');
-      }
-      throw new ApiError(0, 'Network error occurred');
     }
-  }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
-  // Test connection to Go backend
-  async testConnection() {
-    return this.request<{ message: string; status: string; version: string }>('/health');
-  }
-
-  // Testimonials endpoints (matching your Go backend)
-  async getTestimonials(params?: {
-    page?: number;
-    limit?: number;
-    approved?: boolean;
-  }) {
-    if (params?.page || params?.limit) {
-      const query = new URLSearchParams({
-        page: params.page?.toString() || '1',
-        limit: params.limit?.toString() || '10',
-        ...(params.approved !== undefined && { approved: params.approved.toString() })
-      }).toString();
-      return this.request<{
-        testimonials: any[];
-        total: number;
-        page: number;
-        limit: number;
-        totalPages: number;
-      }>(`/api/v1/testimonials/paginated?${query}`);
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
+      localStorage.removeItem('token');
     }
-    
-    return this.request<any[]>('/api/v1/testimonials');
+    return Promise.reject(error);
   }
+);
 
-  async getTestimonial(id: string) {
-    return this.request<any>(`/api/v1/testimonials/${id}`);
-  }
+export const apiClient = {
+  async getTestimonials(params?: any) {
+    const { data } = await api.get('/testimonials', { params });
+    return data;
+  },
 
-  async createTestimonial(data: {
-    name: string;
-    email: string;
-    testimony: string;
-    category?: string;
-    approved?: boolean;
-  }) {
-    return this.request<any>('/api/v1/testimonials', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
+  async createTestimonial(data: any) {
+    const { data: response } = await api.post('/testimonials', data);
+    return response;
+  },
 
-  async updateTestimonial(id: string, data: Partial<{
-    name: string;
-    email: string;
-    testimony: string;
-    category: string;
-    approved: boolean;
-  }>) {
-    return this.request<any>(`/api/v1/testimonials/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-  }
+  async updateTestimonial(id: string, data: any) {
+    const { data: response } = await api.put(`/admin/testimonials/${id}`, data);
+    return response;
+  },
 
   async deleteTestimonial(id: string) {
-    return this.request(`/api/v1/testimonials/${id}`, {
-      method: 'DELETE',
-    });
-  }
+    await api.delete(`/admin/testimonials/${id}`);
+  },
 
   async approveTestimonial(id: string) {
-    return this.request<any>(`/api/v1/testimonials/${id}/approve`, {
-      method: 'PATCH',
-    });
-  }
+    const { data } = await api.patch(`/admin/testimonials/${id}/approve`);
+    return data;
+  },
 
-  // Auth endpoints (you'll need to implement these in Go)
-  async login(credentials: { email: string; password: string }) {
-    // Note: You need to implement this endpoint in your Go backend
-    const response = await this.request<{ 
-      token: string; 
-      user: any;
-    }>('/api/v1/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
-    if (response.token) {
-      this.setToken(response.token);
+  async login(credentials: any) {
+    const { data } = await api.post('/auth/login', credentials);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('token', data.token);
     }
-    return response;
-  }
-
-  async register(adminData: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-    role: 'super_admin' | 'admin';
-  }) {
-    return this.request<{ 
-      token: string; 
-      user: any;
-    }>('/api/v1/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(adminData),
-    });
-  }
+    return data;
+  },
 
   async logout() {
-    this.clearToken();
-    // Optional: Call backend logout endpoint if you implement it
-    // await this.request('/api/v1/auth/logout', { method: 'POST' });
-  }
+    await api.post('/auth/logout');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+    }
+  },
 
   async getCurrentUser() {
-    return this.request<any>('/api/v1/auth/me');
-  }
-}
+    const { data } = await api.get('/auth/me');
+    return data;
+  },
 
-export const apiClient = new ApiClient();
+  async getDashboardStats() {
+    const { data } = await api.get('/admin/dashboard');
+    return data;
+  },
+
+  async getPendingTestimonials(params?: any) {
+    const { data } = await api.get('/admin/testimonials/pending', { params });
+    return data;
+  },
+
+  // Add the missing methods for dashboard
+  async getAnalytics() {
+    const { data } = await api.get('/admin/analytics');
+    return data;
+  },
+
+  async getEvents(params?: any) {
+    const { data } = await api.get('/events', { params });
+    return data;
+  },
+  
+  // Expose the axios instance for custom requests
+  api,
+};
