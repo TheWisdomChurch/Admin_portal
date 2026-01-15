@@ -1,121 +1,88 @@
-// src/app/(auth)/login/page.tsx - Updated with registration link
+// src/app/login/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Church, UserPlus } from 'lucide-react';
+import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/input';
-import { Card } from '@/ui/Card';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/providers/AuthProviders';
 import toast from 'react-hot-toast';
-import Link from 'next/link';
-
-const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
-
-type LoginFormData = z.infer<typeof loginSchema>;
+import { LoginCredentials } from '@/lib/types';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, isLoading } = useAuth();
-  const [error, setError] = useState('');
+  const auth = useAuthContext();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema) as any,
-  });
+  useEffect(() => {
+    if (auth.isAuthenticated) {
+      router.push('/');
+    }
+  }, [auth.isAuthenticated, router]);
 
-  const onSubmit = async (data: LoginFormData) => {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
     try {
-      setError('');
-      await login({
-        email: data.email,
-        password: data.password
-      });
-      toast.success('Login successful!');
-      router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Invalid credentials');
-      toast.error('Login failed');
+      const credentials: LoginCredentials = { email, password };
+      await auth.login(credentials);
+      toast.success('Login successful');
+      router.push('/');
+    } catch (error) {
+      toast.error('Login failed. Please check your credentials.');
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
 
+  if (auth.isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-100 mb-4">
-            <Church className="h-8 w-8 text-blue-600" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Church Admin Panel</h1>
-          <p className="text-gray-600 mt-2">Sign in to manage your content</p>
-        </div>
-
-        {error && (
-          <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200">
-            <p className="text-sm text-red-600">{error}</p>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <div className="flex items-center justify-center min-h-screen bg-secondary-50">
+      <Card className="w-full max-w-md p-8">
+        <h1 className="text-2xl font-bold text-secondary-900 mb-6 text-center">Admin Login</h1>
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
+            <label htmlFor="email" className="block text-sm font-medium text-secondary-700 mb-1">
+              Email
+            </label>
             <Input
-              label="Email Address"
+              id="email"
               type="email"
-              placeholder="admin@example.com"
-              error={errors.email?.message}
-              {...register('email')}
-              disabled={isLoading}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full"
             />
           </div>
-
           <div>
+            <label htmlFor="password" className="block text-sm font-medium text-secondary-700 mb-1">
+              Password
+            </label>
             <Input
-              label="Password"
+              id="password"
               type="password"
-              placeholder="••••••••"
-              error={errors.password?.message}
-              {...register('password')}
-              disabled={isLoading}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full"
             />
           </div>
-
-          <Button
-            type="submit"
-            className="w-full"
-            loading={isLoading}
-            disabled={isLoading}
-          >
-            Sign In
+          <Button type="submit" disabled={loading} className="w-full">
+            {loading ? 'Logging in...' : 'Login'}
           </Button>
         </form>
-
-<div className="mt-6 pt-6 border-t border-gray-200">
-  <div className="flex flex-col items-center gap-3">
-    <p className="text-sm text-gray-600">
-      Need an admin account?
-    </p>
-    <Link 
-      href="/register" 
-      className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium"
-    >
-      <UserPlus className="h-4 w-4 mr-2" />
-      Register New Admin
-    </Link>
-    <p className="text-center text-sm text-gray-600 mt-2">
-      Contact support if you've forgotten your credentials
-    </p>
-  </div>
-</div>
+        {auth.error && <p className="text-red-500 text-center mt-4">{auth.error}</p>}
       </Card>
     </div>
   );
