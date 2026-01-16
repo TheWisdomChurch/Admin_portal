@@ -1,4 +1,4 @@
-// src/app/(dashboard)/events/[id]/edit.tsx
+// src/app/(dashboard)/events/[id]/edit/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,6 +14,7 @@ import { ImageUpload } from '@/components/ImageUpload';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
 import { EventData } from '@/lib/types';
+import { withAuth } from '@/providers/AuthProviders';
 
 // Create the event schema
 const eventSchema = z.object({
@@ -34,7 +35,7 @@ const eventSchema = z.object({
 
 type EventFormData = z.infer<typeof eventSchema>;
 
-export default function EditEventPage() {
+function EditEventPage() {
   const router = useRouter();
   const params = useParams();
   const eventId = params?.id ? parseInt(params.id as string) : 0;
@@ -96,7 +97,7 @@ export default function EditEventPage() {
       });
     } catch (error) {
       toast.error('Failed to load event');
-      router.push('/dashboard/events');
+      router.push('/events');
     }
   };
 
@@ -132,7 +133,7 @@ export default function EditEventPage() {
 
       await apiClient.updateEvent(eventId, formData);
       toast.success('Event updated successfully!');
-      router.push('/dashboard/events');
+      router.push('/events');
     } catch (error: any) {
       toast.error(error.message || 'Failed to update event');
       console.error(error);
@@ -151,7 +152,7 @@ export default function EditEventPage() {
     try {
       await apiClient.deleteEvent(eventId);
       toast.success('Event deleted successfully');
-      router.push('/dashboard/events');
+      router.push('/events');
     } catch (error: any) {
       toast.error(error.message || 'Failed to delete event');
       console.error(error);
@@ -507,3 +508,5 @@ export default function EditEventPage() {
     </div>
   );
 }
+
+export default withAuth(EditEventPage, { requiredRole: 'admin' });

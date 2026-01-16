@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
@@ -13,31 +13,58 @@ import { LoginCredentials } from '@/lib/types';
 
 export default function LoginPage() {
   const router = useRouter();
-  const auth = useAuthContext(); // This will now work
+  const searchParams = useSearchParams();
+  const auth = useAuthContext();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [redirectPath, setRedirectPath] = useState('/');
 
-  // Use useEffect to set mounted only on client side
+  // Use useEffect to set mounted and get redirect path only on client side
   useEffect(() => {
     setMounted(true);
-  }, []);
+    
+    // Get redirect path from query params or sessionStorage (client-side only)
+    const queryRedirect = searchParams.get('redirect');
+    const storedRedirect = typeof window !== 'undefined' 
+      ? sessionStorage.getItem('redirect_path') 
+      : null;
+    
+    setRedirectPath(queryRedirect || storedRedirect || '/');
+  }, [searchParams]);
 
+  // Redirect if already authenticated (but only after mount)
   useEffect(() => {
     if (mounted && auth.isAuthenticated) {
-      router.push('/');
+      // Clear the stored redirect path
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('redirect_path');
+      }
+      router.replace(redirectPath);
     }
-  }, [auth.isAuthenticated, router, mounted]);
+  }, [auth.isAuthenticated, router, mounted, redirectPath]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!email || !password) {
+      toast.error('Please enter both email and password');
+      return;
+    }
+    
     setLoading(true);
     try {
       const credentials: LoginCredentials = { email, password };
-      const response = await auth.login(credentials); // Make sure this returns the user data
+      await auth.login(credentials);
+      
       toast.success('Login successful');
-      // The router.push('/') will be handled by the useEffect above
+      
+      // Clear form
+      setEmail('');
+      setPassword('');
+      
+      // Redirect will be handled by the useEffect above
     } catch (error: any) {
       toast.error(error?.message || 'Login failed. Please check your credentials.');
       console.error('Login error:', error);
@@ -48,7 +75,6 @@ export default function LoginPage() {
 
   // Handle initial loading state without hydration mismatch
   if (!mounted) {
-    // Return a skeleton during SSR that matches client render
     return (
       <div className="flex items-center justify-center min-h-screen bg-secondary-50 p-4">
         <div className="bg-white rounded-xl border border-secondary-200 shadow-sm w-full max-w-md p-8">
@@ -71,12 +97,18 @@ export default function LoginPage() {
     );
   }
 
+  // Show loading while checking auth
   if (auth.isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-secondary-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
     );
+  }
+
+  // Don't render if already authenticated (will redirect)
+  if (auth.isAuthenticated) {
+    return null;
   }
 
   return (
@@ -96,7 +128,7 @@ export default function LoginPage() {
             required
             placeholder="admin@wisdomchurch.org"
             disabled={loading}
-            error={auth.error ? '' : undefined}
+            autoComplete="email"
           />
           
           <Input
@@ -107,6 +139,7 @@ export default function LoginPage() {
             required
             placeholder="••••••••"
             disabled={loading}
+            autoComplete="current-password"
           />
           
           <Button 
