@@ -16,7 +16,7 @@ import { Button } from '@/ui/Button';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
 import { withAuth } from '@/providers/AuthProviders';
-
+import { useAuthContext } from '@/providers/AuthProviders';
 
 function DashboardPage() {
   const [stats, setStats] = useState({
@@ -28,13 +28,18 @@ function DashboardPage() {
   });
   const [recentEvents, setRecentEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const auth = useAuthContext();
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    // Only load data if authenticated
+    if (auth.isAuthenticated) {
+      loadDashboardData();
+    }
+  }, [auth.isAuthenticated]);
 
   const loadDashboardData = async () => {
     try {
+      setLoading(true);
       const [analytics, events] = await Promise.all([
         apiClient.getAnalytics(),
         apiClient.getEvents({ limit: 5, page: 1 }),
@@ -66,12 +71,20 @@ function DashboardPage() {
   const categoryValues = Object.values(stats.eventsByCategory);
   const maxCategoryValue = categoryValues.length > 0 ? Math.max(...categoryValues) : 1;
 
+  // Get user's first name
+  const getUserFirstName = () => {
+    if (!auth.user) return 'Admin';
+    return auth.user.first_name || 'Admin';
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-secondary-900">Dashboard</h1>
-        <p className="text-secondary-600 mt-2">Welcome back! Here's what's happening.</p>
+        <p className="text-secondary-600 mt-2">
+          Welcome back, {getUserFirstName()}! Here's what's happening.
+        </p>
       </div>
 
       {/* Stats Cards */}
