@@ -1,42 +1,36 @@
-
-
 services:
   nextjs-app:
     build:
       context: .
-      target: development # Builds the development stage[citation:2]
+      target: development
     container_name: wisdomchurch-admin-dev
     restart: unless-stopped
-    develop:
-      watch:
-        - action: sync
-          path: .
-          target: /app
-          ignore:
-            - node_modules/
-            - .next/
     ports:
       - "3000:3000"
     environment:
-      - WATCHPACK_POLLING=true # Enables hot reload in Docker[citation:2]
-      - CHOKIDAR_USEPOLLING=true
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      NEXT_PUBLIC_API_URL: "http://localhost:8080/api/v1"
     volumes:
       - .:/app
       - /app/node_modules
       - /app/.next
+    command: npm run dev
     profiles:
-      - dev # Only runs with the dev profile
+      - dev
 
   nextjs-app-prod:
     build:
       context: .
-      target: production # Builds the production stage[citation:4][citation:8]
+      target: production
     container_name: wisdomchurch-admin-prod
     restart: unless-stopped
     ports:
       - "3000:3000"
+    environment:
+      NODE_ENV: production
     profiles:
-      - prod # Only runs with the prod profile
+      - prod
 
   nginx:
     image: nginx:alpine
@@ -47,8 +41,9 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro # Mount SSL certificates here for HTTPS
+      - ./ssl:/etc/nginx/ssl:ro
     depends_on:
-      - nextjs-app-prod
+      nextjs-app-prod:
+        condition: service_started
     profiles:
       - prod
