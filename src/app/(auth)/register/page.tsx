@@ -10,12 +10,14 @@ import { ArrowLeft, UserPlus } from 'lucide-react';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
+import { Checkbox } from '@/ui/Checkbox';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api';
 import { AxiosError } from 'axios';
+import { RegisterData } from '@/lib/types';
 
-// Updated schema to match backend - role is now 'user' | 'admin'
+// Schema matched to backend requirements
 const registerSchema = z.object({
   first_name: z.string()
     .min(1, 'First name is required')
@@ -27,11 +29,11 @@ const registerSchema = z.object({
     .email('Invalid email address')
     .max(100, 'Email cannot exceed 100 characters'),
   password: z.string()
-    .min(6, 'Password must be at least 6 characters') // Changed from 8 to match backend
+    .min(6, 'Password must be at least 6 characters')
     .max(100, 'Password cannot exceed 100 characters'),
-    // Removed regex requirements to match backend
   confirmPassword: z.string().min(1, 'Please confirm your password'),
-  role: z.enum(['user', 'admin']), // Changed from 'super_admin' | 'admin'
+  role: z.enum(['user', 'admin']),
+  rememberMe: z.boolean().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -52,12 +54,13 @@ export default function RegisterPage() {
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      role: 'admin', // Default to 'admin' instead of 'user'
+      role: 'admin',
       first_name: '',
       last_name: '',
       email: '',
       password: '',
       confirmPassword: '',
+      rememberMe: false,
     },
   });
 
@@ -68,31 +71,31 @@ export default function RegisterPage() {
       setLoading(true);
       setServerError('');
 
-      // Prepare data for backend - use snake_case
-      const registrationData = {
+      // Prepare data matching backend expectations
+      const registrationData: RegisterData & { rememberMe?: boolean } = {
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim(),
         email: formData.email.trim().toLowerCase(),
         password: formData.password,
         role: formData.role,
+        rememberMe: formData.rememberMe,
       };
 
       console.log('Registration data:', registrationData);
 
-      // Call API to register
+      // Register via API
       const response = await apiClient.register(registrationData);
       
       toast.success('Account created successfully!');
       
-      // Store token and user
+      // Store user data (token handled via HttpOnly cookie)
       if (typeof window !== 'undefined') {
-        localStorage.setItem('token', response.token);
         localStorage.setItem('user', JSON.stringify(response.user));
       }
       
       toast.success('Logged in automatically!');
       
-      // Redirect based on role
+      // Role-based redirect
       if (response.user.role === 'admin') {
         router.push('/dashboard');
       } else {
@@ -269,6 +272,15 @@ export default function RegisterPage() {
                 </label>
               </div>
             </div>
+          </div>
+
+          {/* Remember Me */}
+          <div className="pt-2">
+            <Checkbox
+              label="Remember me on this device"
+              {...register('rememberMe')}
+              disabled={loading}
+            />
           </div>
 
           <Button
