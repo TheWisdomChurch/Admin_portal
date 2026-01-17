@@ -1,107 +1,184 @@
-// src/app/(auth)/login/page.tsx
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Church } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/input';
-import { Card } from '@/ui/Card';
-import { useAuth } from '@/hooks/useAuth';
+import { Checkbox } from '@/ui/Checkbox';
+import { useAuthContext } from '@/providers/AuthProviders';
 import toast from 'react-hot-toast';
-
-const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
-
-type LoginFormData = z.infer<typeof loginSchema>;
+import { LoginCredentials } from '@/lib/types';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, isLoading } = useAuth();
-  const [error, setError] = useState('');
+  const searchParams = useSearchParams();
+  const auth = useAuthContext();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [redirectPath, setRedirectPath] = useState('/');
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-  });
+  // Use useEffect to set mounted and get redirect path only on client side
+  useEffect(() => {
+    setMounted(true);
+    
+    // Get redirect path from query params or sessionStorage (client-side only)
+    const queryRedirect = searchParams.get('redirect');
+    const storedRedirect = typeof window !== 'undefined' 
+      ? sessionStorage.getItem('redirect_after_login') 
+      : null;
+    
+    setRedirectPath(queryRedirect || storedRedirect || '/');
+  }, [searchParams]);
 
-  const onSubmit = async (data: LoginFormData) => {
+  // Redirect if already authenticated (but only after mount)
+  useEffect(() => {
+    if (mounted && auth.isAuthenticated) {
+      // Clear the stored redirect path
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('redirect_after_login');
+      }
+      router.replace(redirectPath);
+    }
+  }, [auth.isAuthenticated, router, mounted, redirectPath]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email || !password) {
+      toast.error('Please enter both email and password');
+      return;
+    }
+    
+    setLoading(true);
     try {
-      setError('');
-      // Pass the credentials as an object
-      await login({
-        email: data.email,
-        password: data.password
-      });
-      toast.success('Login successful!');
-      router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Invalid credentials');
-      toast.error('Login failed');
+      const credentials: LoginCredentials & { rememberMe?: boolean } = { email, password, rememberMe };
+      await auth.login(credentials);
+      
+      toast.success('Login successful');
+      
+      // Clear form
+      setEmail('');
+      setPassword('');
+      
+      // Redirect will be handled by the useEffect above
+    } catch (error: any) {
+      toast.error(error?.message || 'Login failed. Please check your credentials.');
+      console.error('Login error:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-100 mb-4">
-            <Church className="h-8 w-8 text-primary-600" />
+  // Handle initial loading state without hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-secondary-50 p-4">
+        <div className="bg-white rounded-xl border border-secondary-200 shadow-sm w-full max-w-md p-8">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-3/4 mx-auto mb-6"></div>
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                <div className="h-11 bg-gray-200 rounded"></div>
+              </div>
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                <div className="h-11 bg-gray-200 rounded"></div>
+              </div>
+              <div className="h-11 bg-gray-200 rounded"></div>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold text-secondary-900">Church Admin Panel</h1>
-          <p className="text-secondary-600 mt-2">Sign in to manage your content</p>
         </div>
+      </div>
+    );
+  }
 
-        {error && (
-          <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200">
-            <p className="text-sm text-red-600">{error}</p>
-          </div>
-        )}
+  // Show loading while checking auth
+  if (auth.isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-secondary-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div>
-            <Input
-              label="Email Address"
-              type="email"
-              placeholder="admin@example.com"
-              error={errors.email?.message}
-              {...register('email')}
-              disabled={isLoading}
-            />
-          </div>
+  // Don't render if already authenticated (will redirect)
+  if (auth.isAuthenticated) {
+    return null;
+  }
 
-          <div>
-            <Input
-              label="Password"
-              type="password"
-              placeholder="••••••••"
-              error={errors.password?.message}
-              {...register('password')}
-              disabled={isLoading}
-            />
-          </div>
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-secondary-50 p-4">
+      <Card className="w-full max-w-md">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-secondary-900">Admin Login</h1>
+          <p className="text-secondary-600 mt-2">Sign in to your account</p>
+        </div>
+        
+        <form onSubmit={handleLogin} className="space-y-5">
+          <Input
+            label="Email Address"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="admin@wisdomchurch.org"
+            disabled={loading}
+            autoComplete="email"
+          />
+          
+          <Input
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            placeholder="••••••••"
+            disabled={loading}
+            autoComplete="current-password"
+          />
 
-          <Button
-            type="submit"
+<Checkbox
+            label="Remember me"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            disabled={loading}
+          />
+          
+          <Button 
+            type="submit" 
+            disabled={loading || !email || !password} 
             className="w-full"
-            loading={isLoading}
-            disabled={isLoading}
+            variant="primary"
+            loading={loading}
           >
-            Sign In
+            {loading ? 'Logging in...' : 'Login'}
           </Button>
         </form>
-
-        <div className="mt-8 pt-6 border-t border-secondary-200">
-          <p className="text-center text-sm text-secondary-600">
-            Contact support if you've forgotten your credentials
+        
+        {auth.error && (
+          <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200">
+            <p className="text-sm text-red-600 text-center">{auth.error}</p>
+          </div>
+        )}
+        
+        <div className="mt-6 pt-6 border-t border-secondary-200">
+          <p className="text-sm text-secondary-600 text-center">
+            Don't have an account?{' '}
+            <Link 
+              href="/register" 
+              className="text-blue-600 hover:text-blue-700 font-medium hover:underline transition-colors"
+            >
+              Register here
+            </Link>
+          </p>
+          <p className="text-xs text-secondary-500 text-center mt-3">
+            By logging in, you agree to our terms of service and privacy policy.
           </p>
         </div>
       </Card>

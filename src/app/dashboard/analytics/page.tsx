@@ -27,7 +27,7 @@ import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { apiClient } from '@/lib/api';
 import toast from 'react-hot-toast';
-// import { toast } from '@/components/admin/Toast';
+import { withAuth } from '@/providers/AuthProviders';
 
 ChartJS.register(
   CategoryScale,
@@ -41,7 +41,7 @@ ChartJS.register(
   LineElement
 );
 
-export default function AnalyticsPage() {
+function AnalyticsPage() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [timeRange, setTimeRange] = useState('month');
   const [loading, setLoading] = useState(true);
@@ -291,3 +291,5 @@ export default function AnalyticsPage() {
     </div>
   );
 }
+
+export default withAuth(AnalyticsPage, { requiredRole: 'admin' });

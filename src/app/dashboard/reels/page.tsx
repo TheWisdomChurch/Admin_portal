@@ -10,8 +10,9 @@ import { ImageUpload } from '@/components/ImageUpload';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
 import { ReelData } from '@/lib/types';
+import { withAuth } from '@/providers/AuthProviders';
 
-export default function ReelsPage() {
+function ReelsPage() {
   const [reels, setReels] = useState<ReelData[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -181,3 +182,5 @@ export default function ReelsPage() {
     </div>
   );
 }
+
+export default withAuth(ReelsPage, { requiredRole: 'admin' });
