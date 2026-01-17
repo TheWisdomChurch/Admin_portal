@@ -1,8 +1,7 @@
-// src/providers/AuthProviders.tsx
 'use client';
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { apiClient, getAuthToken, getAuthUser, clearAuthStorage } from '@/lib/api';
+import { apiClient, getAuthUser, setAuthUser, clearAuthStorage } from '@/lib/api';
 import { User, LoginCredentials, AuthContextType } from '@/lib/types';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -10,6 +9,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Combined routes configuration for clarity
 const PUBLIC_ROUTES = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/about', '/contact'];
 const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password']; // Routes that authenticated users should not access
+
+const AUTH_USER_KEY = 'wisdomhouse_auth_user'; // Define here to fix the error
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -29,32 +30,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       setError(null);
 
-      const token = getAuthToken();
       const storedUser = getAuthUser();
 
-      console.log('🔐 [AuthProvider] initializeAuth - Token exists:', !!token);
-      console.log('🔐 [AuthProvider] Stored user exists:', !!storedUser);
+      console.log('🔐 [AuthProvider] initializeAuth - Stored user exists:', !!storedUser);
 
-      if (!token) {
-        console.log('🔐 [AuthProvider] No token found');
-        setUser(null);
-        setIsInitialized(true);
-        setIsLoading(false);
-        return;
-      }
-
-      // Verify with backend first to avoid showing invalid user briefly
+      // Always verify with backend
       const verifiedUser = await checkAuth();
       if (verifiedUser) {
         setUser(verifiedUser);
       } else {
         setUser(null);
+        clearAuthStorage();
       }
 
     } catch (err) {
       console.error('❌ [AuthProvider] Initialization error:', err);
       setUser(null);
       setError(err instanceof Error ? err.message : 'Authentication initialization failed');
+      clearAuthStorage();
     } finally {
       setIsInitialized(true);
       setIsLoading(false);
@@ -66,14 +59,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       setError(null);
 
-      const token = getAuthToken();
-
-      if (!token) {
-        console.log('🔐 [AuthProvider] checkAuth - No token, skipping');
-        setUser(null);
-        return null;
-      }
-
       console.log('🔐 [AuthProvider] checkAuth - Fetching current user...');
       const userData = await apiClient.getCurrentUser();
       console.log('✅ [AuthProvider] checkAuth - User data received');
@@ -84,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('❌ [AuthProvider] checkAuth failed:', err);
 
       if (err.statusCode === 401) {
-        console.log('🔓 [AuthProvider] Token invalid, clearing storage');
+        console.log('🔓 [AuthProvider] Session invalid, clearing storage');
         clearAuthStorage();
       }
 
@@ -152,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setUser(response.user);
+      setAuthUser(response.user, credentials.rememberMe || false);
 
       const redirectPath = typeof window !== 'undefined'
         ? sessionStorage.getItem('redirect_after_login')
@@ -223,6 +209,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('✅ [AuthProvider] Profile updated');
 
       setUser(updatedUser);
+      // Update stored user if exists
+      const rememberMe = !!localStorage.getItem(AUTH_USER_KEY);
+      setAuthUser(updatedUser, rememberMe);
       return updatedUser;
     } catch (err: any) {
       console.error('❌ [AuthProvider] Update profile failed:', err);
@@ -284,15 +273,15 @@ export function withAuth<P extends object>(
       }
 
       // Implement actual permission check (assuming user has 'permissions' array)
-    if (options?.requiredPermissions && auth.user?.permissions) {
-  const hasPermission = options.requiredPermissions.every(perm =>
-    auth.user?.permissions?.includes(perm) ?? false
-  );
-  if (!hasPermission) {
-    router.replace('/unauthorized');
-    return;
-  }
-}
+      if (options?.requiredPermissions && auth.user?.permissions) {
+        const hasPermission = options.requiredPermissions.every(perm =>
+          auth.user?.permissions?.includes(perm) ?? false
+        );
+        if (!hasPermission) {
+          router.replace('/unauthorized');
+          return;
+        }
+      }
     }, [auth, router, pathname]);
 
     if (auth.isLoading || !auth.isInitialized) {

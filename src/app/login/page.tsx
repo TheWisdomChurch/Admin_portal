@@ -1,4 +1,3 @@
-// src/app/login/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,6 +6,7 @@ import Link from 'next/link';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/input';
+import { Checkbox } from '@/ui/Checkbox';
 import { useAuthContext } from '@/providers/AuthProviders';
 import toast from 'react-hot-toast';
 import { LoginCredentials } from '@/lib/types';
@@ -17,6 +17,7 @@ export default function LoginPage() {
   const auth = useAuthContext();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [redirectPath, setRedirectPath] = useState('/');
@@ -28,7 +29,7 @@ export default function LoginPage() {
     // Get redirect path from query params or sessionStorage (client-side only)
     const queryRedirect = searchParams.get('redirect');
     const storedRedirect = typeof window !== 'undefined' 
-      ? sessionStorage.getItem('redirect_path') 
+      ? sessionStorage.getItem('redirect_after_login') 
       : null;
     
     setRedirectPath(queryRedirect || storedRedirect || '/');
@@ -39,7 +40,7 @@ export default function LoginPage() {
     if (mounted && auth.isAuthenticated) {
       // Clear the stored redirect path
       if (typeof window !== 'undefined') {
-        sessionStorage.removeItem('redirect_path');
+        sessionStorage.removeItem('redirect_after_login');
       }
       router.replace(redirectPath);
     }
@@ -55,7 +56,7 @@ export default function LoginPage() {
     
     setLoading(true);
     try {
-      const credentials: LoginCredentials = { email, password };
+      const credentials: LoginCredentials & { rememberMe?: boolean } = { email, password, rememberMe };
       await auth.login(credentials);
       
       toast.success('Login successful');
@@ -140,6 +141,13 @@ export default function LoginPage() {
             placeholder="••••••••"
             disabled={loading}
             autoComplete="current-password"
+          />
+
+<Checkbox
+            label="Remember me"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            disabled={loading}
           />
           
           <Button 

@@ -29,7 +29,7 @@ const api = axios.create({
     'X-Requested-With': 'XMLHttpRequest',
   },
   timeout: 15000,
-  withCredentials: false, // Flip to true if using cookies for auth in production
+  withCredentials: true, // Enable credentials for cookie-based auth
 });
 
 api.interceptors.request.use(
@@ -38,10 +38,7 @@ api.interceptors.request.use(
       return config;
     }
 
-    const token = getAuthToken();
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    // No Authorization header - token is in HttpOnly cookie
 
     // Optional cache-buster for GET requests
     if (config.method?.toLowerCase() === 'get' && config.params?._cacheBust !== false) {
@@ -88,7 +85,7 @@ api.interceptors.response.use(
     });
 
     if (response?.status === 401) {
-      console.log('🔓 [API] Token invalid or expired');
+      console.log('🔓 [API] Session invalid or expired');
       clearAuthStorage();
       const errorMessage = hasMessage(response.data)
         ? response.data.message
@@ -154,34 +151,7 @@ const handleApiError = (error: any, defaultMessage: string): never => {
   throw error.message ? error : new Error(defaultMessage);
 };
 
-const AUTH_TOKEN_KEY = 'wisdomhouse_auth_token';
 const AUTH_USER_KEY = 'wisdomhouse_auth_user';
-
-export const getAuthToken = (): string | null => {
-  if (typeof window === 'undefined') return null;
-
-  try {
-    return localStorage.getItem(AUTH_TOKEN_KEY) || sessionStorage.getItem(AUTH_TOKEN_KEY);
-  } catch (error) {
-    console.warn('⚠️ Failed to get auth token:', error);
-    return null;
-  }
-};
-
-export const setAuthToken = (token: string, rememberMe = false): void => {
-  if (typeof window === 'undefined') return;
-
-  try {
-    if (rememberMe) {
-      localStorage.setItem(AUTH_TOKEN_KEY, token);
-    } else {
-      sessionStorage.setItem(AUTH_TOKEN_KEY, token);
-    }
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  } catch (error) {
-    console.warn('⚠️ Failed to set auth token:', error);
-  }
-};
 
 export const setAuthUser = (user: User, rememberMe = false): void => {
   if (typeof window === 'undefined') return;
@@ -214,11 +184,8 @@ export const clearAuthStorage = (): void => {
   if (typeof window === 'undefined') return;
 
   try {
-    localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
-    sessionStorage.removeItem(AUTH_TOKEN_KEY);
     sessionStorage.removeItem(AUTH_USER_KEY);
-    delete api.defaults.headers.common['Authorization'];
   } catch (error) {
     console.warn('⚠️ Failed to clear auth storage:', error);
   }
@@ -255,14 +222,14 @@ export const apiClient = {
       const response = await api.post('/auth/login', {
         email: credentials.email.trim(),
         password: credentials.password,
+        rememberMe: credentials.rememberMe || false,
       });
 
       console.log('✅ [Login] Response received');
 
       const data = extractData<LoginResponseData>(response);
 
-      if (data.token && data.user) {
-        setAuthToken(data.token, credentials.rememberMe || false);
+      if (data.user) {
         setAuthUser(data.user, credentials.rememberMe || false);
       }
 
@@ -282,12 +249,12 @@ export const apiClient = {
         email: userData.email.trim().toLowerCase(),
         password: userData.password,
         role: userData.role || 'user',
+        rememberMe: userData.rememberMe || false,
       });
 
       const data = extractData<LoginResponseData>(response);
 
-      if (data.token && data.user) {
-        setAuthToken(data.token, userData.rememberMe || false);
+      if (data.user) {
         setAuthUser(data.user, userData.rememberMe || false);
       }
 
@@ -311,20 +278,18 @@ export const apiClient = {
     try {
       console.log('👤 [getCurrentUser] Fetching current user');
 
-      const token = getAuthToken();
-      if (!token) {
-        throw createApiError({}, 'No authentication token found', 401);
-      }
-
       const response = await api.get('/auth/me');
       console.log('✅ [getCurrentUser] Response received');
 
       const userData = extractData<User>(response);
 
       const currentUser = getAuthUser();
+      const rememberMe = !!localStorage.getItem(AUTH_USER_KEY);
       if (currentUser) {
         const mergedUser = { ...currentUser, ...userData };
-        setAuthUser(mergedUser, !!localStorage.getItem(AUTH_USER_KEY));
+        setAuthUser(mergedUser, rememberMe);
+      } else {
+        setAuthUser(userData, rememberMe);
       }
 
       return userData;
@@ -343,11 +308,8 @@ export const apiClient = {
       const response = await api.put('/auth/update-profile', userData);
       const updatedUser = extractData<User>(response);
 
-      const currentUser = getAuthUser();
-      if (currentUser) {
-        const mergedUser = { ...currentUser, ...updatedUser };
-        setAuthUser(mergedUser, !!localStorage.getItem(AUTH_USER_KEY));
-      }
+      const rememberMe = !!localStorage.getItem(AUTH_USER_KEY);
+      setAuthUser(updatedUser, rememberMe);
 
       return updatedUser;
     } catch (error) {
@@ -399,9 +361,8 @@ export const apiClient = {
   // Placeholder for other methods (events, testimonials, etc.) - implement as needed
   // e.g., async getEvents(): Promise<PaginatedResponse<EventData>> { ... }
 
-  getAuthToken,
-  setAuthToken,
   getAuthUser,
+  setAuthUser,
   clearAuthStorage,
 
   async healthCheck(): Promise<HealthCheckResponse> {
