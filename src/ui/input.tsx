@@ -5,10 +5,11 @@ import { cn } from '@/lib/utils';
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
   label?: string;
+  helperText?: string;
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, error, label, id, ...props }, ref) => {
+  ({ className, error, label, helperText, id, ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
     
     return (
@@ -28,6 +29,9 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
           {...props}
         />
+        {helperText && !error && (
+          <p className="text-sm text-secondary-500">{helperText}</p>
+        )}
         {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
     );

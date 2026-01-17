@@ -1,4 +1,4 @@
-// src/app/(dashboard)/events/page.tsx
+// src/app/dashboard/events/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -11,8 +11,9 @@ import { DataTable } from '@/components/DateTable';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
 import { EventData } from '@/lib/types';
+import { withAuth } from '@/providers/AuthProviders';
 
-export default function EventsPage() {
+function EventsPage() {
   const router = useRouter();
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,19 +30,61 @@ export default function EventsPage() {
   const loadEvents = async () => {
     try {
       setLoading(true);
-      const params: any = {
-        page,
-        limit,
-        search: search || undefined,
+      
+      // For development, use mock data
+      const mockResponse = {
+        data: [
+          {
+            id: 1,
+            title: 'Sunday Service',
+            shortDescription: 'Weekly worship service',
+            description: 'Weekly Sunday worship service with prayers and sermons',
+            date: '2024-01-28',
+            time: '10:00 AM',
+            location: 'Main Sanctuary',
+            category: 'Prayer' as const,
+            status: 'upcoming' as const,
+            attendees: 150,
+            isFeatured: true,
+            tags: ['worship', 'prayer'],
+            image: '',
+            createdAt: '2024-01-01',
+            updatedAt: '2024-01-01',
+          },
+          {
+            id: 2,
+            title: 'Youth Conference',
+            shortDescription: 'Annual youth gathering',
+            description: 'Annual youth conference with guest speakers',
+            date: '2024-02-15',
+            time: '9:00 AM - 5:00 PM',
+            location: 'Church Auditorium',
+            category: 'Conference' as const,
+            status: 'upcoming' as const,
+            attendees: 200,
+            isFeatured: true,
+            tags: ['youth', 'conference'],
+            image: '',
+            createdAt: '2024-01-05',
+            updatedAt: '2024-01-05',
+          }
+        ],
+        total: 2,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
       };
       
-      if (categoryFilter !== 'all') {
-        params.category = categoryFilter;
-      }
-
-      const response = await apiClient.getEvents(params);
-      setEvents(response.data);
-      setTotal(response.total);
+      setEvents(mockResponse.data);
+      setTotal(mockResponse.total);
+      
+      // Uncomment this when backend is ready:
+      // const params: any = { page, limit, search: search || undefined };
+      // if (categoryFilter !== 'all') params.category = categoryFilter;
+      // const response = await apiClient.getEvents(params);
+      // setEvents(response.data);
+      // setTotal(response.total);
+      
     } catch (error) {
       toast.error('Failed to load events');
       console.error(error);
@@ -56,9 +99,14 @@ export default function EventsPage() {
     }
 
     try {
-      await apiClient.deleteEvent(event.id);
-      toast.success('Event deleted successfully');
+      // Mock delete for now
+      toast.success('Event deleted successfully (Mock)');
       loadEvents(); // Refresh the list
+      
+      // Uncomment when backend is ready:
+      // await apiClient.deleteEvent(event.id);
+      // toast.success('Event deleted successfully');
+      // loadEvents();
     } catch (error) {
       toast.error('Failed to delete event');
       console.error(error);
@@ -102,6 +150,15 @@ export default function EventsPage() {
     {
       key: 'status' as keyof EventData,
       header: 'Status',
+      cell: (event: EventData) => (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+          event.status === 'upcoming' ? 'bg-green-100 text-green-800' :
+          event.status === 'happening' ? 'bg-yellow-100 text-yellow-800' :
+          'bg-gray-100 text-gray-800'
+        }`}>
+          {event.status}
+        </span>
+      ),
     },
     {
       key: 'attendees' as keyof EventData,
@@ -184,3 +241,5 @@ export default function EventsPage() {
     </div>
   );
 }
+
+export default withAuth(EventsPage, { requiredRole: 'admin' });

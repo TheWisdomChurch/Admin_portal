@@ -1,244 +1,143 @@
 // src/lib/auth.ts
 import { apiClient } from './api';
-import type { Admin, LoginCredentials, LoginResponse, AuthState } from './types/auth';
+import { User, LoginCredentials, LoginResponseData, AuthState } from './types';
 
-class AuthService {
-  private static instance: AuthService | null = null;
-  private listeners: Set<(state: AuthState) => void> = new Set();
-  private refreshTimeout: NodeJS.Timeout | null = null;
-  
+export class AuthService {
   private state: AuthState = {
     isAuthenticated: false,
-    admin: null,
+    user: null,
     isLoading: true,
     error: null,
   };
 
-  private constructor() {
-    // Private constructor to prevent direct instantiation
+  private listeners: ((state: AuthState) => void)[] = [];
+
+  constructor() {
+    this.initialize();
   }
 
-  static getInstance(): AuthService {
-    if (!AuthService.instance) {
-      AuthService.instance = new AuthService();
-      AuthService.instance.initialize();
-    }
-    return AuthService.instance;
-  }
-
-  private async initialize(): Promise<void> {
-    try {
-      const token = this.getStoredToken();
-      
-      if (token) {
-        apiClient.setToken(token);
-        const admin = await apiClient.getCurrentAdmin();
-        
-        this.setState({
-          isAuthenticated: true,
-          admin,
-          isLoading: false,
-          error: null,
-        });
-
-        this.scheduleTokenRefresh();
-      } else {
-        this.setState({
-          ...this.state,
-          isLoading: false,
-        });
-      }
-    } catch (error) {
-      console.error('Auth initialization failed:', error);
-      this.clearAuth();
-      this.setState({
-        ...this.state,
-        isLoading: false,
-        error: 'Session expired. Please login again.',
-      });
-    }
-  }
-
-  private getStoredToken(): string | null {
-    if (typeof window === 'undefined') return null;
+  private async initialize() {
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
     
-    try {
-      return localStorage.getItem('adminToken');
-    } catch (error) {
-      console.error('Failed to access localStorage:', error);
-      return null;
-    }
-  }
-
-  private setStoredToken(token: string): void {
-    if (typeof window === 'undefined') return;
-    
-    try {
-      localStorage.setItem('adminToken', token);
-    } catch (error) {
-      console.error('Failed to set token in localStorage:', error);
-    }
-  }
-
-  private removeStoredToken(): void {
-    if (typeof window === 'undefined') return;
-    
-    try {
-      localStorage.removeItem('adminToken');
-    } catch (error) {
-      console.error('Failed to remove token from localStorage:', error);
-    }
-  }
-
-  private setState(newState: Partial<AuthState>): void {
-    const oldState = this.state;
-    this.state = { ...this.state, ...newState };
-    
-    // Only notify if state actually changed
-    if (JSON.stringify(oldState) !== JSON.stringify(this.state)) {
-      this.notifyListeners();
-    }
-  }
-
-  private notifyListeners(): void {
-    // Copy listeners to prevent modification during iteration
-    const listeners = Array.from(this.listeners);
-    listeners.forEach(listener => {
+    if (token && storedUser) {
       try {
-        listener(this.state);
+        // First try to use stored user
+        const user = JSON.parse(storedUser);
+        this.updateState({ 
+          isAuthenticated: true, 
+          user, 
+          isLoading: false 
+        });
+        
+        // Then verify with server (optional)
+        try {
+          const freshUser = await apiClient.getCurrentUser();
+          this.updateState({ user: freshUser });
+          localStorage.setItem('user', JSON.stringify(freshUser));
+        } catch (error) {
+          // Server verification failed, but keep using stored user
+          console.log('Server verification failed, using stored user');
+        }
       } catch (error) {
-        console.error('Error in auth listener:', error);
+        // Clear invalid stored data
+        this.clearStoredAuth();
+        this.updateState({ 
+          isAuthenticated: false, 
+          user: null, 
+          isLoading: false, 
+          error: 'Session expired' 
+        });
       }
-    });
-  }
-
-  private scheduleTokenRefresh(): void {
-    if (this.refreshTimeout) {
-      clearTimeout(this.refreshTimeout);
-    }
-
-    // Refresh token 5 minutes before expiry
-    const refreshTime = 55 * 60 * 1000; // 55 minutes
-    
-    this.refreshTimeout = setTimeout(() => {
-      this.refreshToken().catch(error => {
-        console.error('Token refresh failed:', error);
-      });
-    }, refreshTime);
-  }
-
-  private clearRefreshTimeout(): void {
-    if (this.refreshTimeout) {
-      clearTimeout(this.refreshTimeout);
-      this.refreshTimeout = null;
+    } else {
+      this.updateState({ isLoading: false });
     }
   }
 
-  // Public API
-  public getState(): AuthState {
-    return { ...this.state };
+  private clearStoredAuth() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
   }
 
-  public subscribe(listener: (state: AuthState) => void): () => void {
-    this.listeners.add(listener);
-    
+  subscribe(listener: (state: AuthState) => void): () => void {
+    this.listeners.push(listener);
     // Immediately notify with current state
-    setTimeout(() => listener(this.state), 0);
-    
-    // Return unsubscribe function
+    listener(this.state);
     return () => {
-      this.listeners.delete(listener);
+      this.listeners = this.listeners.filter((l) => l !== listener);
     };
   }
 
-  public async login(credentials: LoginCredentials): Promise<LoginResponse> {
-    try {
-      this.setState({ isLoading: true, error: null });
-      
-      const response = await apiClient.login(credentials);
-      
-      this.setStoredToken(response.token);
-      apiClient.setToken(response.token);
-      
-      this.setState({
-        isAuthenticated: true,
-        admin: response.admin,
-        isLoading: false,
-        error: null,
-      });
+  private updateState(partialState: Partial<AuthState>) {
+    this.state = { ...this.state, ...partialState };
+    this.listeners.forEach((listener) => listener(this.state));
+  }
 
-      this.scheduleTokenRefresh();
+  getState(): AuthState {
+    return { ...this.state };
+  }
+
+  async login(credentials: LoginCredentials): Promise<LoginResponseData> {
+    this.updateState({ isLoading: true, error: null });
+    try {
+      // Login to get token
+      const loginData = await apiClient.login(credentials);
       
-      return response;
-    } catch (error: any) {
-      const errorMessage = error?.message || 'Login failed. Please check your credentials.';
-      
-      this.setState({
-        isLoading: false,
-        error: errorMessage,
+      // Update state with user from login response
+      this.updateState({ 
+        isAuthenticated: true, 
+        user: loginData.user, 
+        isLoading: false 
       });
       
+      return loginData;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Login failed';
+      this.updateState({ 
+        isLoading: false, 
+        error: errorMessage 
+      });
       throw new Error(errorMessage);
     }
   }
 
-  public async logout(): Promise<void> {
+  async logout(): Promise<void> {
+    this.updateState({ isLoading: true });
     try {
-      if (this.state.isAuthenticated) {
-        await apiClient.logout();
-      }
+      await apiClient.logout();
     } catch (error) {
-      console.error('Logout API call failed:', error);
-      // Continue with local logout even if API call fails
+      console.error('Logout API error:', error);
+      // Continue with local logout even if API fails
     } finally {
-      this.clearAuth();
-    }
-  }
-
-  public async refreshToken(): Promise<void> {
-    if (!this.state.isAuthenticated) return;
-
-    try {
-      // For now, just revalidate the current token
-      const admin = await apiClient.getCurrentAdmin();
-      this.setState({ admin });
-      this.scheduleTokenRefresh();
-    } catch (error) {
-      console.error('Token refresh failed:', error);
-      this.clearAuth();
-      this.setState({
-        error: 'Session expired. Please login again.',
+      this.clearStoredAuth();
+      this.updateState({ 
+        isAuthenticated: false, 
+        user: null, 
+        isLoading: false, 
+        error: null 
       });
     }
   }
 
-  public clearError(): void {
-    this.setState({ error: null });
+  clearError(): void {
+    this.updateState({ error: null });
   }
 
-  private clearAuth(): void {
-    this.clearRefreshTimeout();
-    this.removeStoredToken();
-    apiClient.clearToken();
-    
-    this.setState({
-      isAuthenticated: false,
-      admin: null,
-      isLoading: false,
-      error: null,
-    });
+  // Helper method to manually update user data
+  updateUser(user: User): void {
+    localStorage.setItem('user', JSON.stringify(user));
+    this.updateState({ user });
   }
 
-  // Cleanup method for app shutdown
-  public destroy(): void {
-    this.clearRefreshTimeout();
-    this.listeners.clear();
-    AuthService.instance = null;
+  // Helper method to check if user has specific role
+  hasRole(role: string): boolean {
+    return this.state.isAuthenticated && this.state.user?.role === role;
+  }
+
+  // Helper method to check if user is admin
+  isAdmin(): boolean {
+    return this.hasRole('admin');
   }
 }
 
-// Export singleton instance
-export const authService = AuthService.getInstance();
-
-// Export AuthState type
-export type { AuthState };
+export const authService = new AuthService();

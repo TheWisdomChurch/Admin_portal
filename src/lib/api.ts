@@ -1,169 +1,378 @@
 // src/lib/api.ts
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
+import {
+  LoginCredentials,
+  RegisterData,
+  LoginResponseData,
+  User,
+  PaginatedResponse,
+  ApiError,
+  EventData,
+  ReelData,
+  Testimonial,
+  CreateTestimonialData,
+  DashboardStats,
+  ApiResponse,
+  RegisterEventData,
+  ChangePasswordData,
+  MessageResponse,
+  UploadResponse,
+  HealthCheckResponse,
+} from './types';
 
-class ApiError extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
-    this.name = 'ApiError';
-  }
-}
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
-class ApiClient {
-  private token: string | null = null;
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
+  },
+  timeout: 15000,
+  withCredentials: true, // Enable credentials for cookie-based auth
+});
 
-  setToken(token: string) {
-    this.token = token;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('adminToken', token);
-    }
-  }
-
-  clearToken() {
-    this.token = null;
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('adminToken');
-    }
-  }
-
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    const url = `${API_BASE_URL}${endpoint}`;
-    
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
-
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+api.interceptors.request.use(
+  (config) => {
+    if (typeof window === 'undefined') {
+      return config;
     }
 
-    const config: RequestInit = {
-      ...options,
-      headers,
-      credentials: 'include',
-    };
+    // No Authorization header - token is in HttpOnly cookie
 
-    try {
-      const response = await fetch(url, config);
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new ApiError(response.status, errorData.message || 'API request failed');
-      }
-
-      return await response.json();
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(0, 'Network error occurred');
+    // Optional cache-buster for GET requests
+    if (config.method?.toLowerCase() === 'get' && config.params?._cacheBust !== false) {
+      config.params = {
+        ...config.params,
+        _t: Date.now(),
+      };
     }
-  }
 
-  // Auth endpoints
-  async login(credentials: { email: string; password: string }) {
-    const response = await this.request<{ token: string; admin: Admin }>(
-      '/api/admin/login',
-      {
-        method: 'POST',
-        body: JSON.stringify(credentials),
-      }
-    );
-    this.setToken(response.token);
+    return config;
+  },
+  (error) => {
+    console.error('❌ [API Request Error]', error);
+    return Promise.reject(createApiError(error, 'Request failed'));
+  }
+);
+
+const hasMessage = (obj: any): obj is { message: string } => {
+  return obj && typeof obj === 'object' && 'message' in obj;
+};
+
+api.interceptors.response.use(
+  (response: AxiosResponse) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ [${response.status}] ${response.config.url}`);
+    }
+
+    const data = response.data;
+    if (data && typeof data === 'object' && 'data' in data) {
+      response.data = (data as any).data;
+    }
+
     return response;
-  }
+  },
+  (error: AxiosError) => {
+    const config = error.config;
+    const response = error.response;
 
-  async logout() {
-    try {
-      await this.request('/api/admin/logout', { method: 'POST' });
-    } finally {
-      this.clearToken();
+    console.error('❌ [API Error]', {
+      url: config?.url,
+      method: config?.method,
+      status: response?.status,
+      data: response?.data,
+    });
+
+    if (response?.status === 401) {
+      console.log('🔓 [API] Session invalid or expired');
+      clearAuthStorage();
+      const errorMessage = hasMessage(response.data)
+        ? response.data.message
+        : 'Session expired. Please login again.';
+      return Promise.reject(createApiError(error, errorMessage, 401));
+    }
+
+    if (response?.status === 403) {
+      const errorMessage = hasMessage(response.data)
+        ? response.data.message
+        : 'You do not have permission to perform this action.';
+      return Promise.reject(createApiError(error, errorMessage, 403));
+    }
+
+    if (!response) {
+      return Promise.reject(createApiError(error, 'Network error. Please check your connection.'));
+    }
+
+    if (response?.status === 400) {
+      const errorMessage = hasMessage(response.data)
+        ? response.data.message
+        : 'Invalid request. Please check your input.';
+      return Promise.reject(createApiError(error, errorMessage, 400));
+    }
+
+    if (response?.status >= 500) {
+      const errorMessage = hasMessage(response.data)
+        ? response.data.message
+        : 'Server error. Please try again later.';
+      return Promise.reject(createApiError(error, errorMessage, response.status));
+    }
+
+    let errorMessage = error.message || 'An error occurred';
+    if (response?.data) {
+      if (hasMessage(response.data)) {
+        errorMessage = response.data.message;
+      } else if (typeof response.data === 'string') {
+        errorMessage = response.data;
+      } else if (typeof response.data === 'object' && 'error' in response.data && typeof response.data.error === 'string') {
+        errorMessage = response.data.error;
+      }
+    }
+
+    return Promise.reject(createApiError(error, errorMessage, response?.status));
+  }
+);
+
+const createApiError = (error: any, message: string, statusCode?: number): ApiError => {
+  const apiError: ApiError = new Error(message) as ApiError;
+  apiError.statusCode = statusCode || error.response?.status;
+  apiError.originalError = error;
+  apiError.response = error.response;
+  return apiError;
+};
+
+const handleApiError = (error: any, defaultMessage: string): never => {
+  console.error('🔥 [API Error Handler]', {
+    message: error.message,
+    defaultMessage,
+    statusCode: error.statusCode,
+  });
+
+  throw error.message ? error : new Error(defaultMessage);
+};
+
+const AUTH_USER_KEY = 'wisdomhouse_auth_user';
+
+export const setAuthUser = (user: User, rememberMe = false): void => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const userString = JSON.stringify(user);
+    if (rememberMe) {
+      localStorage.setItem(AUTH_USER_KEY, userString);
+    } else {
+      sessionStorage.setItem(AUTH_USER_KEY, userString);
+    }
+  } catch (error) {
+    console.warn('⚠️ Failed to set auth user:', error);
+  }
+};
+
+export const getAuthUser = (): User | null => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const userString = localStorage.getItem(AUTH_USER_KEY) || sessionStorage.getItem(AUTH_USER_KEY);
+    return userString ? JSON.parse(userString) : null;
+  } catch (error) {
+    console.warn('⚠️ Failed to get auth user:', error);
+    return null;
+  }
+};
+
+export const clearAuthStorage = (): void => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    localStorage.removeItem(AUTH_USER_KEY);
+    sessionStorage.removeItem(AUTH_USER_KEY);
+  } catch (error) {
+    console.warn('⚠️ Failed to clear auth storage:', error);
+  }
+};
+
+const hasKey = <K extends string>(obj: any, key: K): obj is Record<K, any> => {
+  return obj && typeof obj === 'object' && key in obj;
+};
+
+const extractData = <T>(response: AxiosResponse): T => {
+  const data = response.data;
+
+  if (data && typeof data === 'object') {
+    if (hasKey(data, 'data') && data.data !== undefined) {
+      return data.data as T;
+    }
+
+    const possibleKeys = ['user', 'event', 'reel', 'testimonial', 'stats', 'message'];
+    for (const key of possibleKeys) {
+      if (hasKey(data, key)) {
+        return data[key] as T;
+      }
     }
   }
 
-  async getCurrentAdmin() {
-    return this.request<Admin>('/api/admin/me');
-  }
+  return data as T;
+};
 
-  // Event endpoints
-  async getEvents(params?: {
-    page?: number;
-    limit?: number;
-    category?: string;
-    status?: string;
-    search?: string;
-  }) {
-    const query = new URLSearchParams(params as any).toString();
-    return this.request<PaginatedResponse<EventData>>(`/api/events?${query}`);
-  }
+export const apiClient = {
+  async login(credentials: LoginCredentials & { rememberMe?: boolean }): Promise<LoginResponseData> {
+    try {
+      console.log('🔐 [Login] Attempting login');
 
-  async getEvent(id: number) {
-    return this.request<EventData>(`/api/events/${id}`);
-  }
+      const response = await api.post('/auth/login', {
+        email: credentials.email.trim(),
+        password: credentials.password,
+        rememberMe: credentials.rememberMe || false,
+      });
 
-  async createEvent(data: FormData) {
-    return this.request<EventData>('/api/admin/events', {
-      method: 'POST',
-      headers: {}, // Let browser set content-type for FormData
-      body: data,
-    });
-  }
+      console.log('✅ [Login] Response received');
 
-  async updateEvent(id: number, data: FormData) {
-    return this.request<EventData>(`/api/admin/events/${id}`, {
-      method: 'PUT',
-      headers: {},
-      body: data,
-    });
-  }
+      const data = extractData<LoginResponseData>(response);
 
-  async deleteEvent(id: number) {
-    return this.request(`/api/admin/events/${id}`, {
-      method: 'DELETE',
-    });
-  }
+      if (data.user) {
+        setAuthUser(data.user, credentials.rememberMe || false);
+      }
 
-  // Reel endpoints
-  async getReels(params?: { page?: number; limit?: number }) {
-    const query = new URLSearchParams(params as any).toString();
-    return this.request<PaginatedResponse<ReelData>>(`/api/reels?${query}`);
-  }
+      return data;
+    } catch (error) {
+      return handleApiError(error, 'Login failed. Please check your credentials.');
+    }
+  },
 
-  async createReel(data: FormData) {
-    return this.request<ReelData>('/api/admin/reels', {
-      method: 'POST',
-      headers: {},
-      body: data,
-    });
-  }
+  async register(userData: RegisterData & { rememberMe?: boolean }): Promise<LoginResponseData> {
+    try {
+      console.log('📝 [Register] Attempting registration');
 
-  async deleteReel(id: number) {
-    return this.request(`/api/admin/reels/${id}`, {
-      method: 'DELETE',
-    });
-  }
+      const response = await api.post('/auth/register', {
+        firstName: userData.first_name.trim(),
+        lastName: userData.last_name.trim(),
+        email: userData.email.trim().toLowerCase(),
+        password: userData.password,
+        role: userData.role || 'user',
+        rememberMe: userData.rememberMe || false,
+      });
 
-  // Analytics
-  async getAnalytics() {
-    return this.request<{
-      totalEvents: number;
-      upcomingEvents: number;
-      totalAttendees: number;
-      eventsByCategory: Record<string, number>;
-      monthlyStats: Array<{ month: string; events: number; attendees: number }>;
-    }>('/api/admin/analytics');
-  }
-}
+      const data = extractData<LoginResponseData>(response);
 
-export const apiClient = new ApiClient();
+      if (data.user) {
+        setAuthUser(data.user, userData.rememberMe || false);
+      }
 
-// Initialize token from localStorage on client side
-if (typeof window !== 'undefined') {
-  const token = localStorage.getItem('adminToken');
-  if (token) {
-    apiClient.setToken(token);
-  }
-}
+      return data;
+    } catch (error) {
+      return handleApiError(error, 'Registration failed. Please try again.');
+    }
+  },
+
+  async logout(): Promise<void> {
+    try {
+      await api.post('/auth/logout');
+    } catch (error) {
+      console.warn('⚠️ [Logout] Backend logout failed:', error);
+    } finally {
+      clearAuthStorage();
+    }
+  },
+
+  async getCurrentUser(): Promise<User> {
+    try {
+      console.log('👤 [getCurrentUser] Fetching current user');
+
+      const response = await api.get('/auth/me');
+      console.log('✅ [getCurrentUser] Response received');
+
+      const userData = extractData<User>(response);
+
+      const currentUser = getAuthUser();
+      const rememberMe = !!localStorage.getItem(AUTH_USER_KEY);
+      if (currentUser) {
+        const mergedUser = { ...currentUser, ...userData };
+        setAuthUser(mergedUser, rememberMe);
+      } else {
+        setAuthUser(userData, rememberMe);
+      }
+
+      return userData;
+    } catch (error) {
+      if ((error as ApiError).statusCode === 401) {
+        clearAuthStorage();
+      }
+      return handleApiError(error, 'Failed to fetch user profile.');
+    }
+  },
+
+  async updateProfile(userData: Partial<User>): Promise<User> {
+    try {
+      console.log('✏️ [updateProfile] Updating profile');
+
+      const response = await api.put('/auth/update-profile', userData);
+      const updatedUser = extractData<User>(response);
+
+      const rememberMe = !!localStorage.getItem(AUTH_USER_KEY);
+      setAuthUser(updatedUser, rememberMe);
+
+      return updatedUser;
+    } catch (error) {
+      return handleApiError(error, 'Failed to update profile.');
+    }
+  },
+
+  async changePassword(passwordData: ChangePasswordData): Promise<MessageResponse> {
+    try {
+      console.log('🔑 [changePassword] Changing password');
+
+      const response = await api.post('/auth/change-password', passwordData);
+      const result = extractData<MessageResponse>(response);
+
+      return result;
+    } catch (error) {
+      return handleApiError(error, 'Failed to change password.');
+    }
+  },
+
+  async deleteAccount(): Promise<MessageResponse> {
+    try {
+      console.log('🗑️ [deleteAccount] Deleting account');
+
+      const response = await api.delete('/auth/delete-account');
+      const result = extractData<MessageResponse>(response);
+
+      clearAuthStorage();
+
+      return result;
+    } catch (error) {
+      return handleApiError(error, 'Failed to delete account.');
+    }
+  },
+
+  async clearUserData(): Promise<MessageResponse> {
+    try {
+      console.log('🧹 [clearUserData] Clearing user data');
+
+      const response = await api.post('/auth/clear-data');
+      const result = extractData<MessageResponse>(response);
+
+      return result;
+    } catch (error) {
+      return handleApiError(error, 'Failed to clear user data.');
+    }
+  },
+
+  // Placeholder for other methods (events, testimonials, etc.) - implement as needed
+  // e.g., async getEvents(): Promise<PaginatedResponse<EventData>> { ... }
+
+  getAuthUser,
+  setAuthUser,
+  clearAuthStorage,
+
+  async healthCheck(): Promise<HealthCheckResponse> {
+    try {
+      const { data } = await api.get('/health');
+      return data;
+    } catch (error) {
+      return handleApiError(error, 'Health check failed');
+    }
+  },
+
+  api, // Expose for custom requests
+};
