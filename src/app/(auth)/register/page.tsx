@@ -2,7 +2,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -13,9 +12,8 @@ import { Input } from '@/ui/input';
 import { Checkbox } from '@/ui/Checkbox';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
-import { apiClient } from '@/lib/api';
-import { AxiosError } from 'axios';
-import { RegisterData } from '@/lib/types';
+import { useAuthContext } from '@/providers/AuthProviders';
+
 
 // Schema matched to backend requirements
 const registerSchema = z.object({
@@ -42,19 +40,19 @@ const registerSchema = z.object({
 type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const { register: registerUser } = useAuthContext();
   const [serverError, setServerError] = useState('');
 
   const {
     register,
     handleSubmit,
     watch,
-    formState: { errors },
+    reset,
+    formState: { errors, isSubmitting },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      role: 'admin',
+      role: 'user',
       first_name: '',
       last_name: '',
       email: '',
@@ -68,11 +66,10 @@ export default function RegisterPage() {
 
   const onSubmit = async (formData: RegisterFormData) => {
     try {
-      setLoading(true);
       setServerError('');
 
-      // Prepare data matching backend expectations
-      const registrationData: RegisterData & { rememberMe?: boolean } = {
+      // Prepare data
+      const registrationData = {
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim(),
         email: formData.email.trim().toLowerCase(),
@@ -81,56 +78,53 @@ export default function RegisterPage() {
         rememberMe: formData.rememberMe,
       };
 
-      console.log('Registration data:', registrationData);
+      console.log('📝 Registration attempt:', { ...registrationData, password: '***' });
 
-      // Register via API
-      const response = await apiClient.register(registrationData);
+      // Register via AuthContext
+      await registerUser(registrationData);
       
       toast.success('Account created successfully!');
+      toast.success('You are now logged in!');
       
-      // Store user data (token handled via HttpOnly cookie)
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('user', JSON.stringify(response.user));
-      }
+      // Reset form to prevent autofill persistence
+      reset();
       
-      toast.success('Logged in automatically!');
-      
-      // Role-based redirect
-      if (response.user.role === 'admin') {
-        router.push('/dashboard');
-      } else {
-        router.push('/');
-      }
-      
+      // Navigation is handled by AuthProvider
     } catch (err: any) {
-      console.error('Registration error:', err);
+      console.error('❌ Registration error:', err);
       
-      const axiosError = err as AxiosError<{ message?: string; errors?: Record<string, string[]> }>;
-      const errorData = axiosError.response?.data;
+      // Handle different error formats
+      let errorMessage = 'Registration failed';
       
-      if (errorData?.errors) {
-        const validationErrors = Object.entries(errorData.errors)
-          .map(([field, messages]) => {
-            const fieldMap: Record<string, string> = {
-              first_name: 'First Name',
-              last_name: 'Last Name',
-              email: 'Email',
-              password: 'Password',
-              role: 'Role',
-            };
-            const fieldName = fieldMap[field] || field;
-            const messageText = Array.isArray(messages) ? messages.join(', ') : messages;
-            return `${fieldName}: ${messageText}`;
-          })
-          .join('\n');
-        setServerError(validationErrors);
-      } else {
-        setServerError(errorData?.message || err.message || 'Registration failed');
+      if (err.response?.data) {
+        const errorData = err.response.data;
+        
+        // Handle validation errors
+        if (errorData.errors && typeof errorData.errors === 'object') {
+          const validationErrors = Object.entries(errorData.errors)
+            .map(([field, messages]) => {
+              const fieldMap: Record<string, string> = {
+                first_name: 'First Name',
+                last_name: 'Last Name',
+                email: 'Email',
+                password: 'Password',
+                role: 'Role',
+              };
+              const fieldName = fieldMap[field] || field;
+              const messageText = Array.isArray(messages) ? messages.join(', ') : messages;
+              return `${fieldName}: ${messageText}`;
+            })
+            .join('\n');
+          errorMessage = validationErrors;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
       }
       
-      toast.error(errorData?.message || 'Registration failed');
-    } finally {
-      setLoading(false);
+      setServerError(errorMessage);
+      toast.error(errorMessage.split('\n')[0]); // Show first error in toast
     }
   };
 
@@ -151,7 +145,7 @@ export default function RegisterPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" autoComplete="off">
           {/* Name Fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -161,9 +155,10 @@ export default function RegisterPage() {
               <Input
                 type="text"
                 placeholder="John"
+                autoComplete="off"
                 {...register('first_name')}
                 error={errors.first_name?.message}
-                disabled={loading}
+                disabled={isSubmitting}
                 required
               />
             </div>
@@ -175,9 +170,10 @@ export default function RegisterPage() {
               <Input
                 type="text"
                 placeholder="Doe"
+                autoComplete="off"
                 {...register('last_name')}
                 error={errors.last_name?.message}
-                disabled={loading}
+                disabled={isSubmitting}
                 required
               />
             </div>
@@ -191,9 +187,10 @@ export default function RegisterPage() {
             <Input
               type="email"
               placeholder="your.email@example.com"
+              autoComplete="off"
               {...register('email')}
               error={errors.email?.message}
-              disabled={loading}
+              disabled={isSubmitting}
               required
             />
           </div>
@@ -207,9 +204,10 @@ export default function RegisterPage() {
               <Input
                 type="password"
                 placeholder="••••••••"
+                autoComplete="new-password"
                 {...register('password')}
                 error={errors.password?.message}
-                disabled={loading}
+                disabled={isSubmitting}
                 required
               />
               {password && !errors.password && (
@@ -228,9 +226,10 @@ export default function RegisterPage() {
               <Input
                 type="password"
                 placeholder="••••••••"
+                autoComplete="new-password"
                 {...register('confirmPassword')}
                 error={errors.confirmPassword?.message}
-                disabled={loading}
+                disabled={isSubmitting}
                 required
               />
             </div>
@@ -242,32 +241,32 @@ export default function RegisterPage() {
               Account Type *
             </label>
             <div className="space-y-3">
-              <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
+              <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
                 <input
                   type="radio"
                   id="role-user"
                   value="user"
                   className="mt-1 text-blue-600 focus:ring-blue-500"
                   {...register('role')}
-                  disabled={loading}
+                  disabled={isSubmitting}
                 />
-                <label htmlFor="role-user" className="text-sm font-medium text-gray-700">
-                  <div className="font-semibold">Church Member</div>
+                <label htmlFor="role-user" className="flex-1 cursor-pointer">
+                  <div className="font-semibold text-gray-900">Church Member</div>
                   <div className="text-xs text-gray-500">Submit testimonials and view content</div>
                 </label>
               </div>
               
-              <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
+              <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
                 <input
                   type="radio"
                   id="role-admin"
                   value="admin"
                   className="mt-1 text-blue-600 focus:ring-blue-500"
                   {...register('role')}
-                  disabled={loading}
+                  disabled={isSubmitting}
                 />
-                <label htmlFor="role-admin" className="text-sm font-medium text-gray-700">
-                  <div className="font-semibold">Church Administrator</div>
+                <label htmlFor="role-admin" className="flex-1 cursor-pointer">
+                  <div className="font-semibold text-gray-900">Church Administrator</div>
                   <div className="text-xs text-gray-500">Manage testimonials, events, and content</div>
                 </label>
               </div>
@@ -279,7 +278,7 @@ export default function RegisterPage() {
             <Checkbox
               label="Remember me on this device"
               {...register('rememberMe')}
-              disabled={loading}
+              disabled={isSubmitting}
             />
           </div>
 
@@ -287,20 +286,26 @@ export default function RegisterPage() {
             type="submit"
             variant="primary"
             className="w-full mt-6"
-            disabled={loading}
-            loading={loading}
+            disabled={isSubmitting}
+            loading={isSubmitting}
           >
-            {loading ? 'Creating Account...' : 'Create Account'}
+            {isSubmitting ? 'Creating Account...' : 'Create Account'}
           </Button>
         </form>
 
         <div className="mt-8 pt-6 border-t border-gray-200">
-          <div className="flex items-center justify-between">
-            <Link href="/login" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-800">
+          <div className="flex items-center justify-between text-sm">
+            <Link 
+              href="/login" 
+              className="inline-flex items-center text-gray-600 hover:text-gray-800 transition-colors"
+            >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Already have an account? Sign in
+              Already have an account?
             </Link>
-            <Link href="/" className="text-sm text-gray-600 hover:text-gray-800">
+            <Link 
+              href="/" 
+              className="text-gray-600 hover:text-gray-800 transition-colors"
+            >
               Back to Home
             </Link>
           </div>

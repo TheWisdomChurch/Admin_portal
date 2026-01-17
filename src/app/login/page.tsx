@@ -1,6 +1,7 @@
+// src/app/login/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react'; // Added useRef
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card } from '@/ui/Card';
@@ -9,7 +10,6 @@ import { Input } from '@/ui/input';
 import { Checkbox } from '@/ui/Checkbox';
 import { useAuthContext } from '@/providers/AuthProviders';
 import toast from 'react-hot-toast';
-import { LoginCredentials } from '@/lib/types';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,6 +21,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [redirectPath, setRedirectPath] = useState('/');
+  
+  // Refs for auto-complete prevention
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   // Use useEffect to set mounted and get redirect path only on client side
   useEffect(() => {
@@ -33,6 +37,14 @@ export default function LoginPage() {
       : null;
     
     setRedirectPath(queryRedirect || storedRedirect || '/');
+    
+    // 🔒 Clear any autofilled values on mount
+    if (emailRef.current) {
+      emailRef.current.value = '';
+    }
+    if (passwordRef.current) {
+      passwordRef.current.value = '';
+    }
   }, [searchParams]);
 
   // Redirect if already authenticated (but only after mount)
@@ -56,21 +68,35 @@ export default function LoginPage() {
     
     setLoading(true);
     try {
-      const credentials: LoginCredentials & { rememberMe?: boolean } = { email, password, rememberMe };
+      const credentials = { email, password, rememberMe };
       await auth.login(credentials);
       
       toast.success('Login successful');
       
-      // Clear form
-      setEmail('');
-      setPassword('');
+      // 🔒 EXTRA SECURITY: Clear form fields from DOM after successful login
+      setTimeout(() => {
+        setEmail('');
+        setPassword('');
+        if (emailRef.current) emailRef.current.value = '';
+        if (passwordRef.current) passwordRef.current.value = '';
+      }, 100);
       
-      // Redirect will be handled by the useEffect above
     } catch (error: any) {
       toast.error(error?.message || 'Login failed. Please check your credentials.');
       console.error('Login error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 🔒 Handle auto-complete attack prevention
+  const handleInputFocus = (field: 'email' | 'password') => {
+    // Clear any pre-filled values when user focuses
+    if (field === 'email' && emailRef.current) {
+      emailRef.current.value = '';
+    }
+    if (field === 'password' && passwordRef.current) {
+      passwordRef.current.value = '';
     }
   };
 
@@ -120,8 +146,15 @@ export default function LoginPage() {
           <p className="text-secondary-600 mt-2">Sign in to your account</p>
         </div>
         
-        <form onSubmit={handleLogin} className="space-y-5">
+        {/* 🔒 CRITICAL: Add autoComplete="off" to form and use "new-password" for password */}
+        <form 
+          onSubmit={handleLogin} 
+          className="space-y-5"
+          autoComplete="off"
+          id="login-form"
+        >
           <Input
+            ref={emailRef}
             label="Email Address"
             type="email"
             value={email}
@@ -129,10 +162,16 @@ export default function LoginPage() {
             required
             placeholder="admin@wisdomchurch.org"
             disabled={loading}
-            autoComplete="email"
+            autoComplete="off" // 🔒 Prevents browser autofill
+            name="username" // Use "username" instead of "email" to confuse browsers
+            id="login-email"
+            onFocus={() => handleInputFocus('email')}
+            data-lpignore="true" // LastPass ignore
+            data-form-type="other" // Disables password managers
           />
           
           <Input
+            ref={passwordRef}
             label="Password"
             type="password"
             value={password}
@@ -140,10 +179,15 @@ export default function LoginPage() {
             required
             placeholder="••••••••"
             disabled={loading}
-            autoComplete="current-password"
+            autoComplete="new-password" // 🔒 Forces new password, doesn't suggest saved
+            name="current-password" // Confuses password managers
+            id="login-password"
+            onFocus={() => handleInputFocus('password')}
+            data-lpignore="true"
+            data-form-type="other"
           />
 
-<Checkbox
+          <Checkbox
             label="Remember me"
             checked={rememberMe}
             onChange={(e) => setRememberMe(e.target.checked)}
