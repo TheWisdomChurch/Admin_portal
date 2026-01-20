@@ -15,7 +15,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="space-y-2">
         {label && (
-          <label htmlFor={inputId} className="block text-sm font-medium text-secondary-700">
+          <label htmlFor={inputId} className="block text-sm font-medium text-[var(--color-text-secondary)]">
             {label}
           </label>
         )}
@@ -23,14 +23,14 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           ref={ref}
           id={inputId}
           className={cn(
-            'flex h-11 w-full rounded-lg border border-secondary-300 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-secondary-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-            error && 'border-red-500 focus-visible:ring-red-500',
+            'flex h-10 w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] ring-offset-[var(--color-background-primary)] placeholder:text-[var(--color-text-tertiary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-border-focus)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+            error && 'border-[var(--color-border-error)] focus-visible:ring-[var(--color-border-error)]',
             className
           )}
           {...props}
         />
         {helperText && !error && (
-          <p className="text-sm text-secondary-500">{helperText}</p>
+          <p className="text-sm text-[var(--color-text-tertiary)]">{helperText}</p>
         )}
         {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
