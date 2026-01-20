@@ -1,9 +1,9 @@
 // src/components/admin/Sidebar.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
   Calendar, 
@@ -16,45 +16,134 @@ import {
   Home,
   Users,
   MessageSquare,
-  Image
+  Image,
+  Shield,
+  BellRing,
+  FileText
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Badge } from '@/ui/Badge';
+import { LogoutModal } from '@/ui/LogoutModal';
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/events', label: 'Events', icon: Calendar },
-  { href: '/dashboard/reels', label: 'Reels', icon: Video },
-  { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
+  { 
+    href: '/dashboard', 
+    label: 'Dashboard', 
+    icon: LayoutDashboard,
+    description: 'Overview and metrics'
+  },
+  { 
+    href: '/dashboard/events', 
+    label: 'Events', 
+    icon: Calendar,
+    description: 'Manage church events'
+  },
+  { 
+    href: '/dashboard/members', 
+    label: 'Members', 
+    icon: Users,
+    description: 'Church members directory'
+  },
+  { 
+    href: '/dashboard/reels', 
+    label: 'Reels', 
+    icon: Video,
+    description: 'Video content management'
+  },
+  { 
+    href: '/dashboard/testimonials', 
+    label: 'Testimonials', 
+    icon: MessageSquare,
+    description: 'Member testimonials'
+  },
+  { 
+    href: '/dashboard/analytics', 
+    label: 'Analytics', 
+    icon: BarChart3,
+    description: 'Statistics and insights'
+  },
+  { 
+    href: '/dashboard/content', 
+    label: 'Content', 
+    icon: FileText,
+    description: 'Website content'
+  },
+  { 
+    href: '/dashboard/settings', 
+    label: 'Settings', 
+    icon: Settings,
+    description: 'System configuration'
+  },
 ];
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const pathname = usePathname();
-  const router = useRouter();
   const auth = useAuthContext();
 
-  const handleLogout = () => {
-    auth.logout();
-    setIsMobileOpen(false);
-  };
+  // Close mobile sidebar when clicking outside on mobile
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isMobileOpen) {
+        setIsMobileOpen(false);
+      }
+    };
 
-  // Get user's full name
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isMobileOpen]);
+
+  // Prevent body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (isMobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMobileOpen]);
+
   const getUserName = () => {
     if (!auth.user) return 'User';
     return `${auth.user.first_name} ${auth.user.last_name}`.trim();
   };
 
-  // Format role for display
   const formatRole = (role: string = '') => {
     return role
-      .replace('_', ' ')
-      .split(' ')
+      .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
+  };
+
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true);
+    setIsMobileOpen(false);
+  };
+
+  const handleConfirmLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await auth.logout();
+      // AuthProvider will handle the redirect
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setIsLoggingOut(false);
+      setShowLogoutModal(false);
+    }
+  };
+
+  const getInitials = () => {
+    if (!auth.user) return 'U';
+    const first = auth.user.first_name?.charAt(0) || '';
+    const last = auth.user.last_name?.charAt(0) || '';
+    return `${first}${last}`.toUpperCase() || 'U';
   };
 
   return (
@@ -62,49 +151,37 @@ export function Sidebar() {
       {/* Mobile toggle button */}
       <button
         onClick={() => setIsMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white shadow-lg border border-secondary-200"
-        aria-label="Open menu"
+        className="lg:hidden fixed top-4 left-4 z-40 p-2.5 rounded-xl bg-white shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+        aria-label="Open navigation menu"
       >
-        <Menu className="h-5 w-5 text-secondary-700" />
+        <Menu className="h-5 w-5 text-gray-700" />
       </button>
 
-      {/* Mobile overlay */}
-      {isMobileOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-40 backdrop-blur-sm"
-          onClick={() => setIsMobileOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
       {/* Sidebar */}
-      <motion.aside
-        initial={false}
-        animate={{
-          width: isMobileOpen || !isCollapsed ? '256px' : '72px',
-        }}
+      <aside
         className={`
-          fixed left-0 top-0 z-50 h-screen bg-white border-r border-secondary-200
-          transition-all duration-300 ease-in-out flex flex-col
-          shadow-lg
+          fixed left-0 top-0 z-50 h-screen bg-white border-r border-gray-200
+          flex flex-col shadow-xl backdrop-blur-sm bg-white/95
+          transition-transform duration-300 ease-in-out
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          ${isCollapsed && !isMobileOpen ? 'lg:w-20' : 'lg:w-72'}
         `}
       >
         {/* Header */}
-        <div className="p-6 border-b border-secondary-200">
+        <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <Link 
               href="/dashboard" 
-              className="flex items-center gap-3 min-w-0"
+              className="flex items-center gap-3 min-w-0 group"
               onClick={() => setIsMobileOpen(false)}
             >
-              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center flex-shrink-0">
-                <Home className="h-5 w-5 text-white" />
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center flex-shrink-0 shadow-md group-hover:shadow-lg transition-shadow">
+                <Shield className="h-5 w-5 text-white" />
               </div>
               {(!isCollapsed || isMobileOpen) && (
                 <div className="min-w-0">
-                  <h1 className="font-bold text-lg text-secondary-900 truncate">Church Admin</h1>
-                  <p className="text-xs text-secondary-500 truncate">Wisdom Church</p>
+                  <h1 className="font-bold text-lg text-gray-900 truncate">Wisdom Church</h1>
+                  <p className="text-xs text-gray-500 truncate">Administration Panel</p>
                 </div>
               )}
             </Link>
@@ -112,122 +189,177 @@ export function Sidebar() {
             {/* Desktop collapse button */}
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="hidden lg:flex p-2 hover:bg-secondary-100 rounded-lg transition-colors"
+              className="hidden lg:flex p-2 hover:bg-gray-100 rounded-lg transition-colors"
               aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
               {isCollapsed ? (
-                <Menu className="h-4 w-4 text-secondary-600" />
+                <Menu className="h-4 w-4 text-gray-600" />
               ) : (
-                <X className="h-4 w-4 text-secondary-600" />
+                <X className="h-4 w-4 text-gray-600" />
               )}
             </button>
 
             {/* Mobile close button */}
             <button
               onClick={() => setIsMobileOpen(false)}
-              className="lg:hidden p-2 hover:bg-secondary-100 rounded-lg transition-colors"
+              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
               aria-label="Close menu"
             >
-              <X className="h-4 w-4 text-secondary-600" />
+              <X className="h-4 w-4 text-gray-600" />
             </button>
           </div>
 
-          {/* Admin info */}
+          {/* User info */}
           {(!isCollapsed || isMobileOpen) && auth.user && (
-            <div className="mt-6 pt-6 border-t border-secondary-100">
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-6 pt-6 border-t border-gray-100"
+            >
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center flex-shrink-0">
-                  <span className="font-semibold text-primary-700">
-                    {auth.user.first_name?.charAt(0)}
-                    {auth.user.last_name?.charAt(0)}
+                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <span className="font-bold text-lg text-blue-700">
+                    {getInitials()}
                   </span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-secondary-900 truncate">
+                  <p className="text-sm font-semibold text-gray-900 truncate">
                     {getUserName()}
                   </p>
-                  <p className="text-xs text-secondary-500 truncate">
+                  <p className="text-xs text-gray-500 truncate">
                     {auth.user.email}
                   </p>
-                  <Badge variant="primary" className="mt-1 text-xs">
-                    {formatRole(auth.user.role)}
-                  </Badge>
+                  <div className="mt-2">
+                    <Badge variant="primary" className="text-xs">
+                      <Shield className="h-3 w-3 mr-1" />
+                      {formatRole(auth.user.role)}
+                    </Badge>
+                  </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-            const Icon = item.icon;
+          <AnimatePresence>
+            {navItems.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setIsMobileOpen(false)}
-                className={`
-                  flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all
-                  duration-200 ease-out
-                  ${isActive 
-                    ? 'bg-gradient-to-r from-primary-50 to-primary-50 text-primary-700 border-l-4 border-primary-600 pl-2.5' 
-                    : 'text-secondary-700 hover:bg-secondary-100 hover:text-secondary-900 hover:border-l-4 hover:border-secondary-300 hover:pl-2.5'
-                  }
-                `}
-              >
-                <Icon className={`h-5 w-5 flex-shrink-0 ${isActive ? 'text-primary-600' : 'text-secondary-500'}`} />
-                {(!isCollapsed || isMobileOpen) && (
-                  <span className="truncate">{item.label}</span>
-                )}
-                {isActive && (!isCollapsed || isMobileOpen) && (
-                  <div className="ml-auto h-2 w-2 rounded-full bg-primary-600" />
-                )}
-              </Link>
-            );
-          })}
+              return (
+                <motion.div
+                  key={item.href}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                >
+                  <Link
+                    href={item.href}
+                    onClick={() => setIsMobileOpen(false)}
+                    className={`
+                      flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all
+                      duration-200 ease-out group relative
+                      ${isActive 
+                        ? 'bg-gradient-to-r from-blue-50 to-blue-50 text-blue-700 shadow-sm' 
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900 hover:shadow-sm'
+                      }
+                    `}
+                  >
+                    <div className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0
+                      ${isActive 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-100 text-gray-600 group-hover:bg-blue-100 group-hover:text-blue-600'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    
+                    {(!isCollapsed || isMobileOpen) && (
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="truncate font-medium">{item.label}</span>
+                          {isActive && (
+                            <div className="h-1.5 w-1.5 rounded-full bg-blue-600 ml-2" />
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 truncate mt-0.5">
+                          {item.description}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Active indicator for collapsed state */}
+                    {isCollapsed && !isMobileOpen && isActive && (
+                      <div className="absolute right-0 top-1/2 h-6 w-1.5 -translate-y-1/2 bg-blue-600 rounded-l-lg" />
+                    )}
+                  </Link>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-secondary-200 bg-gradient-to-t from-secondary-50/50 to-transparent">
-          <div className="mb-4">
-            {(!isCollapsed || isMobileOpen) && (
-              <div className="px-3 py-2 bg-secondary-100 rounded-lg">
-                <p className="text-xs text-secondary-600">
+        <div className="p-4 border-t border-gray-200 bg-gradient-to-t from-gray-50/50 to-transparent">
+          {(!isCollapsed || isMobileOpen) && (
+            <div className="mb-4 px-3 py-2 bg-gray-100 rounded-lg">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-gray-600">
+                  <BellRing className="h-3 w-3 inline mr-1" />
                   Last login: Today
                 </p>
+                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
               </div>
-            )}
-          </div>
+            </div>
+          )}
           
           <button
-            onClick={handleLogout}
+            onClick={handleLogoutClick}
             className={`
-              flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium 
-              transition-colors w-full
-              text-red-700 hover:bg-red-50 hover:text-red-800
+              flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium 
+              transition-all w-full group
+              text-red-700 hover:bg-red-50 hover:text-red-800 hover:shadow-sm
               ${(!isCollapsed || isMobileOpen) ? 'justify-start' : 'justify-center'}
             `}
             aria-label="Logout"
+            disabled={isLoggingOut}
           >
-            <LogOut className="h-5 w-5 flex-shrink-0" />
-            {(!isCollapsed || isMobileOpen) && <span>Logout</span>}
+            <div className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0
+              bg-red-50 text-red-600 group-hover:bg-red-100 group-hover:text-red-700`}
+            >
+              <LogOut className="h-4 w-4" />
+            </div>
+            {(!isCollapsed || isMobileOpen) && (
+              <span className="font-medium">Logout</span>
+            )}
           </button>
           
           {(!isCollapsed || isMobileOpen) && (
-            <p className="mt-4 text-center text-xs text-secondary-500">
-              v1.0.0 • Wisdom Church
+            <p className="mt-4 text-center text-xs text-gray-500">
+              v1.0.0 • Wisdom Church Admin
             </p>
           )}
         </div>
-      </motion.aside>
+      </aside>
 
-      {/* Spacer for desktop */}
-      <div 
-        className="hidden lg:block flex-shrink-0 transition-all duration-300 ease-in-out" 
-        style={{ width: isCollapsed ? '72px' : '256px' }} 
+      {/* Mobile overlay */}
+      {isMobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/30 z-40 backdrop-blur-sm"
+          onClick={() => setIsMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Logout Confirmation Modal */}
+      <LogoutModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={handleConfirmLogout}
+        userName={getUserName()}
+        loading={isLoggingOut}
       />
     </>
   );

@@ -1,10 +1,17 @@
-// ========== CORE USER TYPES ==========
+// src/lib/types.ts
+
+/* =========================
+   CORE USER TYPES
+========================= */
+
+export type UserRole = 'user' | 'admin' | 'super_admin' | 'editor';
+
 export interface User {
   id: string;
   first_name: string;
   last_name: string;
   email: string;
-  role: 'user' | 'admin' | 'super_admin' | 'editor';
+  role: UserRole;
   permissions?: string[];
   is_active?: boolean;
   created_at?: string;
@@ -12,7 +19,10 @@ export interface User {
   last_login?: string;
 }
 
-// ========== AUTHENTICATION TYPES ==========
+/* =========================
+   AUTH TYPES
+========================= */
+
 export interface LoginCredentials {
   email: string;
   password: string;
@@ -24,21 +34,22 @@ export interface RegisterData {
   last_name: string;
   email: string;
   password: string;
-  role?: User['role'];
+  role?: UserRole;
   rememberMe?: boolean;
 }
 
-export interface ApiResponse<T = any> {
+/**
+ * Generic API response wrapper (your backend uses status/message/data).
+ * Note: For login/register, "data" may not be a User directly (it may be { user: User }).
+ */
+export interface ApiResponse<T = unknown> {
   success?: boolean;
-  status?: string;
+  status?: string; // e.g. "success"
   message: string;
   data?: T;
   error?: string;
   statusCode?: number;
 }
-
-export type AuthResponse = ApiResponse<User>;
-export type GetCurrentUserResponse = ApiResponse<User>;
 
 export interface AuthState {
   isAuthenticated: boolean;
@@ -47,22 +58,26 @@ export interface AuthState {
   error: string | null;
 }
 
-// ========== AUTH CONTEXT TYPE ==========
 export interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   error: string | null;
   isAuthenticated: boolean;
   isInitialized: boolean;
-  login: (credentials: LoginCredentials & { rememberMe?: boolean }) => Promise<User>;
+
+  login: (credentials: LoginCredentials) => Promise<User>;
+  register: (data: RegisterData) => Promise<User>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<User | null>;
-  register: (data: RegisterData & { rememberMe?: boolean }) => Promise<User>;
+
   clearData: () => Promise<MessageResponse>;
   updateProfile: (userData: Partial<User>) => Promise<User>;
 }
 
-// ========== PAGINATION TYPES ==========
+/* =========================
+   PAGINATION
+========================= */
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;
@@ -71,7 +86,20 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
-// ========== EVENT TYPES ==========
+/* =========================
+   EVENTS (as you currently defined)
+========================= */
+
+export type EventCategory =
+  | 'Outreach'
+  | 'Conference'
+  | 'Workshop'
+  | 'Prayer'
+  | 'Revival'
+  | 'Summit';
+
+export type EventStatus = 'upcoming' | 'happening' | 'past';
+
 export interface EventData {
   id: string;
   title: string;
@@ -83,8 +111,8 @@ export interface EventData {
   image: string;
   bannerImage?: string;
   attendees: number;
-  category: 'Outreach' | 'Conference' | 'Workshop' | 'Prayer' | 'Revival' | 'Summit';
-  status: 'upcoming' | 'happening' | 'past';
+  category: EventCategory;
+  status: EventStatus;
   isFeatured: boolean;
   tags: string[];
   registerLink?: string;
@@ -101,8 +129,8 @@ export interface RegisterEventData {
   date: string;
   time: string;
   location: string;
-  category: EventData['category'];
-  status: EventData['status'];
+  category: EventCategory;
+  status: EventStatus;
   isFeatured: boolean;
   tags: string[];
   registerLink?: string;
@@ -110,7 +138,10 @@ export interface RegisterEventData {
   contactPhone?: string;
 }
 
-// ========== REEL TYPES ==========
+/* =========================
+   REELS
+========================= */
+
 export interface ReelData {
   id: string;
   title: string;
@@ -121,7 +152,10 @@ export interface ReelData {
   createdAt: string;
 }
 
-// ========== TESTIMONIAL TYPES ==========
+/* =========================
+   TESTIMONIALS
+========================= */
+
 export interface Testimonial {
   id: string;
   first_name: string;
@@ -143,7 +177,10 @@ export interface CreateTestimonialData {
   is_anonymous: boolean;
 }
 
-// ========== DASHBOARD ANALYTICS TYPES ==========
+/* =========================
+   DASHBOARD ANALYTICS
+========================= */
+
 export interface DashboardAnalytics {
   totalEvents: number;
   upcomingEvents: number;
@@ -152,23 +189,16 @@ export interface DashboardAnalytics {
   monthlyStats: Array<{ month: string; events: number; attendees: number }>;
 }
 
-// ========== ERROR TYPES ==========
-export interface ApiError extends Error {
-  message: string;
-  statusCode?: number;
-  originalError?: any;
-  response?: any;
-  details?: unknown;
-}
+/* =========================
+   MISC
+========================= */
 
-// ========== MESSAGE RESPONSE TYPE ==========
 export interface MessageResponse {
   message: string;
   success?: boolean;
   statusCode?: number;
 }
 
-// ========== PASSWORD CHANGE TYPES ==========
 export interface ChangePasswordData {
   currentPassword: string;
   newPassword: string;
@@ -182,3 +212,70 @@ export interface HealthCheckResponse {
   version: string;
   uptime: string;
 }
+
+// src/lib/types.ts
+
+export type FormFieldType =
+  | 'text'
+  | 'email'
+  | 'tel'
+  | 'textarea'
+  | 'select'
+  | 'checkbox'
+  | 'radio'
+  | 'number'
+  | 'date';
+
+export interface FormFieldOption {
+  label: string;
+  value: string;
+}
+
+export interface FormField {
+  id: string;
+  key: string;
+  label: string;
+  type: FormFieldType;
+  required: boolean;
+  options?: FormFieldOption[];
+  order: number;
+}
+
+export interface FormSettings {
+  capacity?: number;
+  closesAt?: string; // ISO
+  successMessage?: string;
+}
+
+export interface AdminForm {
+  id: string;
+  title: string;
+  description?: string;
+  eventId?: string;
+  slug?: string;
+  isPublished: boolean;
+  settings?: FormSettings;
+  fields: FormField[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PublicFormPayload {
+  form: AdminForm;
+  event?: EventData; // optional - if you want backend to embed event
+}
+
+export interface CreateFormRequest {
+  title: string;
+  description?: string;
+  eventId?: string;
+  settings?: FormSettings;
+  fields: Array<Omit<FormField, 'id'>>;
+}
+
+export interface UpdateFormRequest extends Partial<CreateFormRequest> {}
+
+export interface SubmitFormRequest {
+  values: Record<string, string | boolean>;
+}
+

@@ -11,7 +11,7 @@ import { DataTable } from '@/components/DateTable';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
 import { EventData } from '@/lib/types';
-import { withAuth } from '@/providers/AuthProviders';
+import { withAuth } from '@/providers/withAuth';
 
 function EventsPage() {
   const router = useRouter();
@@ -75,7 +75,7 @@ function EventsPage() {
         totalPages: 1,
       };
       
-      setEvents(mockResponse.data);
+   
       setTotal(mockResponse.total);
       
       // Uncomment this when backend is ready:

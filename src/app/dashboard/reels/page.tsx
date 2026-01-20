@@ -10,7 +10,7 @@ import { ImageUpload } from '@/components/ImageUpload';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
 import { ReelData } from '@/lib/types';
-import { withAuth } from '@/providers/AuthProviders';
+import { withAuth } from '@/providers/withAuth';
 
 function ReelsPage() {
   const [reels, setReels] = useState<ReelData[]>([]);

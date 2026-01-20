@@ -9,7 +9,7 @@ import { Card } from '@/ui/Card';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { apiClient } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { withAuth } from '@/providers/AuthProviders';
+import { withAuth } from '@/providers/withAuth';
 import { ConfirmationModal } from '@/ui/ConfirmationModal';
 
 
@@ -105,7 +105,10 @@ function SettingsPage() {
     
     try {
       // Call API to change password
-      await apiClient.changePassword(passwordFormData);
+      await apiClient.changePassword(
+        passwordFormData.currentPassword,
+        passwordFormData.newPassword
+      );
       
       toast.success('Password changed successfully');
       
