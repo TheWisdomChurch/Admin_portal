@@ -3,20 +3,20 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
   Calendar, 
   Video, 
   BarChart3, 
+  ClipboardList,
   Settings, 
   LogOut,
   Menu,
   X,
-  Home,
   Users,
   MessageSquare,
-  Image,
   Shield,
   BellRing,
   FileText
@@ -25,6 +25,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Badge } from '@/ui/Badge';
 import { LogoutModal } from '@/ui/LogoutModal';
+import { textStyles } from '@/styles/text';
 
 const navItems = [
   { 
@@ -63,6 +64,12 @@ const navItems = [
     icon: BarChart3,
     description: 'Statistics and insights'
   },
+  {
+    href: '/dashboard/forms', 
+    label: 'Forms', 
+    icon: ClipboardList,
+    description: 'Create Registration Links'
+  },
   { 
     href: '/dashboard/content', 
     label: 'Content', 
@@ -82,6 +89,7 @@ export function Sidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const pathname = usePathname();
   const auth = useAuthContext();
 
@@ -108,6 +116,24 @@ export function Sidebar() {
       document.body.style.overflow = 'unset';
     };
   }, [isMobileOpen]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    const handleChange = () => setIsDesktop(mediaQuery.matches);
+    handleChange();
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const shouldCollapse = isDesktop && isCollapsed;
+    document.body.classList.toggle('sidebar-collapsed', shouldCollapse);
+    return () => {
+      document.body.classList.remove('sidebar-collapsed');
+    };
+  }, [isCollapsed, isDesktop]);
 
   const getUserName = () => {
     if (!auth.user) return 'User';
@@ -146,42 +172,54 @@ export function Sidebar() {
     return `${first}${last}`.toUpperCase() || 'U';
   };
 
+  const showLabels = isMobileOpen || !isDesktop || !isCollapsed;
+
   return (
     <>
       {/* Mobile toggle button */}
       <button
         onClick={() => setIsMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-40 p-2.5 rounded-xl bg-white shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+        className="md:hidden fixed top-4 left-4 z-50 p-2.5 rounded-[var(--radius-button)] bg-[var(--color-background-primary)] shadow-lg border border-[var(--color-border-primary)] hover:bg-[var(--color-background-hover)] transition-colors"
         aria-label="Open navigation menu"
       >
-        <Menu className="h-5 w-5 text-gray-700" />
+        <Menu className="h-5 w-5 text-[var(--color-text-secondary)]" />
       </button>
 
       {/* Sidebar */}
       <aside
         className={`
-          fixed left-0 top-0 z-50 h-screen bg-white border-r border-gray-200
-          flex flex-col shadow-xl backdrop-blur-sm bg-white/95
+          fixed left-0 top-0 z-50 h-screen w-72 border-r border-[var(--color-border-primary)]
+          flex flex-col shadow-xl backdrop-blur-sm bg-[var(--color-background-primary)]
           transition-transform duration-300 ease-in-out
-          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          ${isCollapsed && !isMobileOpen ? 'lg:w-20' : 'lg:w-72'}
+          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+          ${isCollapsed && isDesktop && !isMobileOpen ? 'lg:w-20' : 'lg:w-72'}
         `}
       >
         {/* Header */}
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-5 border-b border-[var(--color-border-secondary)]">
           <div className="flex items-center justify-between">
             <Link 
               href="/dashboard" 
               className="flex items-center gap-3 min-w-0 group"
               onClick={() => setIsMobileOpen(false)}
             >
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center flex-shrink-0 shadow-md group-hover:shadow-lg transition-shadow">
-                <Shield className="h-5 w-5 text-white" />
+              <div className="h-11 w-11 rounded-full border-2 border-white bg-black flex items-center justify-center flex-shrink-0 shadow-md group-hover:shadow-lg transition-shadow">
+                <Image
+                  src="/OIP.webp"
+                  alt="Wisdom Church logo"
+                  width={36}
+                  height={36}
+                  className="rounded-full object-cover"
+                />
               </div>
-              {(!isCollapsed || isMobileOpen) && (
+              {showLabels && (
                 <div className="min-w-0">
-                  <h1 className="font-bold text-lg text-gray-900 truncate">Wisdom Church</h1>
-                  <p className="text-xs text-gray-500 truncate">Administration Panel</p>
+                  <div className="flex items-center gap-2">
+                    <h1 className="font-display font-semibold text-base text-[var(--color-text-primary)] truncate">
+                      The Wisdom Church
+                    </h1>
+                  </div>
+                  <p className={textStyles.subtitle}>Administration Panel</p>
                 </div>
               )}
             </Link>
@@ -189,44 +227,44 @@ export function Sidebar() {
             {/* Desktop collapse button */}
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="hidden lg:flex p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="hidden lg:flex p-2 hover:bg-[var(--color-background-hover)] rounded-[var(--radius-button)] transition-colors"
               aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
               {isCollapsed ? (
-                <Menu className="h-4 w-4 text-gray-600" />
+                <Menu className="h-4 w-4 text-[var(--color-text-secondary)]" />
               ) : (
-                <X className="h-4 w-4 text-gray-600" />
+                <X className="h-4 w-4 text-[var(--color-text-secondary)]" />
               )}
             </button>
 
             {/* Mobile close button */}
             <button
               onClick={() => setIsMobileOpen(false)}
-              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="md:hidden p-2 hover:bg-[var(--color-background-hover)] rounded-[var(--radius-button)] transition-colors"
               aria-label="Close menu"
             >
-              <X className="h-4 w-4 text-gray-600" />
+              <X className="h-4 w-4 text-[var(--color-text-secondary)]" />
             </button>
           </div>
 
           {/* User info */}
-          {(!isCollapsed || isMobileOpen) && auth.user && (
+          {showLabels && auth.user && (
             <motion.div 
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-6 pt-6 border-t border-gray-100"
+              className="mt-6 pt-6 border-t border-[var(--color-border-secondary)]"
             >
               <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center flex-shrink-0 shadow-sm">
-                  <span className="font-bold text-lg text-blue-700">
+                <div className="h-12 w-12 rounded-[var(--radius-button)] bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <span className="font-bold text-lg text-amber-700">
                     {getInitials()}
                   </span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-900 truncate">
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
                     {getUserName()}
                   </p>
-                  <p className="text-xs text-gray-500 truncate">
+                  <p className="text-xs text-[var(--color-text-tertiary)] truncate">
                     {auth.user.email}
                   </p>
                   <div className="mt-2">
@@ -258,42 +296,46 @@ export function Sidebar() {
                   <Link
                     href={item.href}
                     onClick={() => setIsMobileOpen(false)}
+                    title={item.label}
                     className={`
                       flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all
                       duration-200 ease-out group relative
                       ${isActive 
-                        ? 'bg-gradient-to-r from-blue-50 to-blue-50 text-blue-700 shadow-sm' 
-                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900 hover:shadow-sm'
+                        ? 'bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)] shadow-sm' 
+                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)] hover:shadow-sm'
                       }
                     `}
                   >
                     <div className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0
                       ${isActive 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-gray-100 text-gray-600 group-hover:bg-blue-100 group-hover:text-blue-600'
+                        ? 'bg-[var(--color-accent-primary)] text-[var(--color-text-onprimary)]' 
+                        : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)] group-hover:bg-[var(--color-background-tertiary)] group-hover:text-[var(--color-accent-primary)]'
                       }`}
                     >
                       <Icon className="h-4 w-4" />
                     </div>
                     
-                    {(!isCollapsed || isMobileOpen) && (
+                    {showLabels && (
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <span className="truncate font-medium">{item.label}</span>
                           {isActive && (
-                            <div className="h-1.5 w-1.5 rounded-full bg-blue-600 ml-2" />
+                            <div className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent-primary)] ml-2" />
                           )}
                         </div>
-                        <p className="text-xs text-gray-500 truncate mt-0.5">
+                        <p className="text-xs text-[var(--color-text-tertiary)] truncate mt-0.5">
                           {item.description}
                         </p>
                       </div>
                     )}
                     
                     {/* Active indicator for collapsed state */}
-                    {isCollapsed && !isMobileOpen && isActive && (
-                      <div className="absolute right-0 top-1/2 h-6 w-1.5 -translate-y-1/2 bg-blue-600 rounded-l-lg" />
+                    {!showLabels && isActive && (
+                      <div className="absolute right-0 top-1/2 h-6 w-1.5 -translate-y-1/2 bg-[var(--color-accent-primary)] rounded-l-lg" />
                     )}
+                    <span className="pointer-events-none absolute left-full top-1/2 ml-3 -translate-y-1/2 whitespace-nowrap rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1 text-xs text-[var(--color-text-secondary)] opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
+                      {item.label}
+                    </span>
                   </Link>
                 </motion.div>
               );
@@ -302,11 +344,11 @@ export function Sidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-200 bg-gradient-to-t from-gray-50/50 to-transparent">
-          {(!isCollapsed || isMobileOpen) && (
-            <div className="mb-4 px-3 py-2 bg-gray-100 rounded-lg">
+        <div className="p-4 border-t border-[var(--color-border-secondary)] bg-gradient-to-t from-[var(--color-background-tertiary)]/60 to-transparent">
+          {showLabels && (
+            <div className="mb-4 px-3 py-2 bg-[var(--color-background-tertiary)] rounded-[var(--radius-button)]">
               <div className="flex items-center justify-between">
-                <p className="text-xs text-gray-600">
+                <p className="text-xs text-[var(--color-text-tertiary)]">
                   <BellRing className="h-3 w-3 inline mr-1" />
                   Last login: Today
                 </p>
@@ -320,8 +362,8 @@ export function Sidebar() {
             className={`
               flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium 
               transition-all w-full group
-              text-red-700 hover:bg-red-50 hover:text-red-800 hover:shadow-sm
-              ${(!isCollapsed || isMobileOpen) ? 'justify-start' : 'justify-center'}
+              text-red-600 hover:bg-red-50 hover:text-red-700 hover:shadow-sm
+              ${showLabels ? 'justify-start' : 'justify-center'}
             `}
             aria-label="Logout"
             disabled={isLoggingOut}
@@ -331,13 +373,13 @@ export function Sidebar() {
             >
               <LogOut className="h-4 w-4" />
             </div>
-            {(!isCollapsed || isMobileOpen) && (
+            {showLabels && (
               <span className="font-medium">Logout</span>
             )}
           </button>
           
-          {(!isCollapsed || isMobileOpen) && (
-            <p className="mt-4 text-center text-xs text-gray-500">
+          {showLabels && (
+            <p className="mt-4 text-center text-xs text-[var(--color-text-tertiary)]">
               v1.0.0 • Wisdom Church Admin
             </p>
           )}
@@ -347,7 +389,7 @@ export function Sidebar() {
       {/* Mobile overlay */}
       {isMobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/30 z-40 backdrop-blur-sm"
+          className="md:hidden fixed inset-0 bg-black/30 z-40 backdrop-blur-sm"
           onClick={() => setIsMobileOpen(false)}
           aria-hidden="true"
         />

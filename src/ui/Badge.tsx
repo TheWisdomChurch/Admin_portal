@@ -24,19 +24,19 @@ export function Badge({
   };
 
   const variants = {
-    default: 'bg-secondary-100 text-secondary-800 border border-secondary-200',
-    primary: 'bg-primary-100 text-primary-800 border border-primary-200',
+    default: 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)] border border-[var(--color-border-secondary)]',
+    primary: 'bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)] border border-[var(--color-accent-primary)]',
     success: 'bg-green-100 text-green-800 border border-green-200',
     warning: 'bg-yellow-100 text-yellow-800 border border-yellow-200',
     danger: 'bg-red-100 text-red-800 border border-red-200',
     info: 'bg-blue-100 text-blue-800 border border-blue-200',
-    outline: 'bg-transparent text-secondary-700 border border-secondary-300',
-    secondary: 'bg-secondary-200 text-secondary-800 border border-secondary-300',
+    outline: 'bg-transparent text-[var(--color-text-secondary)] border border-[var(--color-border-secondary)]',
+    secondary: 'bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)] border border-[var(--color-border-secondary)]',
   };
 
   return (
     <span className={cn(
-      'inline-flex items-center rounded-full font-medium',
+      'inline-flex items-center rounded-[var(--radius-pill)] font-medium',
       'whitespace-nowrap transition-colors',
       sizeClasses[size],
       variants[variant],
@@ -100,7 +100,7 @@ export function PillBadge({
 
   return (
     <span className={cn(
-      'inline-flex items-center rounded-lg font-medium',
+      'inline-flex items-center rounded-[var(--radius-button)] font-medium',
       'whitespace-nowrap transition-colors',
       sizeClasses[size],
       variants[variant],

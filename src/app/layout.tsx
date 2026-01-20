@@ -1,11 +1,9 @@
-// src/app/layout.tsx (updated with AuthProvider)
+// src/app/layout.tsx (updated with ThemeProvider & AuthProvider)
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/providers/AuthProviders';
-
-
-const inter = Inter({ subsets: ['latin'] });
+import { ThemeProvider } from '@/providers/ThemeProviders';
+import { bodyFont, fontVariables } from '@/styles/fonts';
 
 export const metadata: Metadata = {
   title: 'Wisdom Church Admin Portal',
@@ -18,11 +16,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${bodyFont.className} ${fontVariables}`}>
+        <ThemeProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
