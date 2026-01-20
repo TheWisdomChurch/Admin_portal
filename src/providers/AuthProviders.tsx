@@ -1,42 +1,55 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { apiClient,  getAuthUser, setAuthUser, clearAuthStorage} from '@/lib/api';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { User, LoginCredentials, RegisterData, AuthContextType, MessageResponse  } from '@/lib/types';
+'use client';
 
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+  useRef,
+} from 'react';
+
+import { apiClient, getAuthUser, setAuthUser, clearAuthStorage } from '@/lib/api';
+import type {
+  User,
+  LoginCredentials,
+  RegisterData,
+  AuthContextType,
+  MessageResponse,
+} from '@/lib/types';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const PUBLIC_ROUTES = ['/', '/login', '/register', '/about', '/contact'];
-const AUTH_ROUTES = ['/login', '/register'];
-
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
+
+  const initRef = useRef(false);
 
   const initializeAuth = useCallback(async () => {
+    if (initRef.current) return;
+    initRef.current = true;
+
+    setIsLoading(true);
+    setError(null);
+
+    // Optional UI cache only
+    const cached = getAuthUser();
+    if (cached) setUser(cached);
+
     try {
-      setIsLoading(true);
-      setError(null);
-      const storedUser = getAuthUser();
-      
-      try {
-        const verifiedUser = await apiClient.getCurrentUser();
-        setUser(verifiedUser);
-        if (storedUser) {
-          const rememberMe = !!localStorage.getItem('wisdomhouse_auth_user');
-          setAuthUser(verifiedUser, rememberMe);
-        }
-      } catch (err: any) {
-        if (err.statusCode === 401) clearAuthStorage();
-        setUser(null);
-      }
-    } catch (err) {
+      // Cookie session is source of truth
+      const verified = await apiClient.getCurrentUser();
+      setUser(verified);
+
+      const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
+      setAuthUser(verified, remembered);
+    } catch {
+      clearAuthStorage();
       setUser(null);
-      setError(err instanceof Error ? err.message : 'Init failed');
     } finally {
       setIsInitialized(true);
       setIsLoading(false);
@@ -47,137 +60,111 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     initializeAuth();
   }, [initializeAuth]);
 
-  const checkAuth = useCallback(async (): Promise<User | null> => {
+  const login = useCallback(async (credentials: LoginCredentials): Promise<User> => {
+    setIsLoading(true);
+    setError(null);
+
     try {
-      setIsLoading(true);
-      const userData = await apiClient.getCurrentUser();
+      const userData = await apiClient.login(credentials);
       setUser(userData);
+      setAuthUser(userData, !!credentials.rememberMe);
       return userData;
-    } catch (err: any) {
-      if (err.statusCode === 401) {
-        clearAuthStorage();
-        setUser(null);
-      }
-      return null;
+    } catch (e: any) {
+      const msg = e?.message || 'Login failed';
+      setError(msg);
+      throw e;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    if (!isInitialized || isLoading) return;
-    const currentPath = location.pathname;
-    const isPublic = PUBLIC_ROUTES.some(r => currentPath === r || currentPath.startsWith(r + '/'));
-    const isAuthRoute = AUTH_ROUTES.includes(currentPath);
+  // IMPORTANT: registration does NOT authenticate
+  const register = useCallback(async (data: RegisterData): Promise<User> => {
+    setIsLoading(true);
+    setError(null);
 
-    if (user && isAuthRoute) {
-      navigate('/', { replace: true });
-      return;
-    }
-
-    if (!user && !isPublic) {
-      sessionStorage.setItem('redirect_after_login', currentPath);
-      navigate('/login', { replace: true });
-      return;
-    }
-
-    if (user && user.role !== 'admin' && user.role !== 'super_admin' && currentPath.startsWith('/admin')) {
-      navigate('/', { replace: true });
-      return;
-    }
-  }, [user, isLoading, isInitialized, location.pathname, navigate]);
-
-  const login = async (credentials: LoginCredentials & { rememberMe?: boolean }): Promise<User> => {
     try {
-      setIsLoading(true);
-      setError(null);
-      const userData = await apiClient.login(credentials);
-      setUser(userData);
-      const redirectPath = sessionStorage.getItem('redirect_after_login') || '/';
-      sessionStorage.removeItem('redirect_after_login');
-      navigate(redirectPath);
-      return userData;
-    } catch (err: any) {
-      setError(err.message || 'Login failed');
-      throw err;
+      const createdUser = await apiClient.register(data);
+      return createdUser;
+    } catch (e: any) {
+      const msg = e?.message || 'Registration failed';
+      setError(msg);
+      throw e;
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const register = async (data: RegisterData & { rememberMe?: boolean }): Promise<User> => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const userData = await apiClient.register(data);
-      setUser(userData);
-      const redirectPath = (userData.role === 'admin' || userData.role === 'super_admin') ? '/admin/dashboard' : '/';
-      navigate(redirectPath);
-      return userData;
-    } catch (err: any) {
-      setError(err.message || 'Registration failed');
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const logout = useCallback(async (): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
 
-  const logout = async () => {
     try {
-      setIsLoading(true);
       await apiClient.logout();
     } finally {
-      setUser(null);
       clearAuthStorage();
-      navigate('/login');
+      setUser(null);
       setIsLoading(false);
+      // middleware will handle protection; hard-nav is fine
+      window.location.href = '/login';
     }
-  };
+  }, []);
 
-  const clearData = async (): Promise<MessageResponse> => {
+  const checkAuth = useCallback(async (): Promise<User | null> => {
+    try {
+      const me = await apiClient.getCurrentUser();
+      setUser(me);
+
+      const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
+      setAuthUser(me, remembered);
+
+      return me;
+    } catch {
+      clearAuthStorage();
+      setUser(null);
+      return null;
+    }
+  }, []);
+
+  const clearData = useCallback(async (): Promise<MessageResponse> => {
     const res = await apiClient.clearUserData();
     await checkAuth();
     return res;
-  };
+  }, [checkAuth]);
 
-  const updateProfile = async (userData: Partial<User>): Promise<User> => {
+  const updateProfile = useCallback(async (userData: Partial<User>): Promise<User> => {
     const updated = await apiClient.updateProfile(userData);
     setUser(updated);
+
+    const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
+    setAuthUser(updated, remembered);
+
     return updated;
-  };
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, error, isAuthenticated: !!user, isInitialized, login, register, logout, checkAuth, clearData, updateProfile }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        isLoading,
+        isInitialized,
+        error,
+        login,
+        register,
+        logout,
+        checkAuth,
+        clearData,
+        updateProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
-};
+}
 
-export const useAuthContext = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuthContext must be used within AuthProvider');
-  return context;
-};
-
-export function withAuth<P extends object>(
-  Component: React.ComponentType<P>,
-  options?: { requiredRole?: string }
-) {
-  return function WithAuthWrapper(props: P) {
-    const { isAuthenticated, user, isLoading, isInitialized } = useAuthContext();
-    const navigate = useNavigate();
-
-    useEffect(() => {
-      if (!isInitialized || isLoading) return;
-      if (!isAuthenticated) {
-        navigate('/login');
-      } else if (options?.requiredRole && user?.role !== options.requiredRole) {
-        navigate('/');
-      }
-    }, [isAuthenticated, user, isLoading, isInitialized, navigate]);
-
-    if (!isInitialized || isLoading) return <div className="h-screen flex items-center justify-center"><i className="fas fa-circle-notch fa-spin text-indigo-600 text-4xl"></i></div>;
-    if (!isAuthenticated) return null;
-    return <Component {...props} />;
-  };
+export function useAuthContext() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuthContext must be used inside AuthProvider');
+  return ctx;
 }
