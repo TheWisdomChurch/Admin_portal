@@ -85,11 +85,9 @@ const navItems = [
 ];
 
 export function Sidebar() {
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(false);
   const pathname = usePathname();
   const auth = useAuthContext();
 
@@ -116,24 +114,6 @@ export function Sidebar() {
       document.body.style.overflow = 'unset';
     };
   }, [isMobileOpen]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mediaQuery = window.matchMedia('(min-width: 1024px)');
-    const handleChange = () => setIsDesktop(mediaQuery.matches);
-    handleChange();
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const shouldCollapse = isDesktop && isCollapsed;
-    document.body.classList.toggle('sidebar-collapsed', shouldCollapse);
-    return () => {
-      document.body.classList.remove('sidebar-collapsed');
-    };
-  }, [isCollapsed, isDesktop]);
 
   const getUserName = () => {
     if (!auth.user) return 'User';
@@ -172,7 +152,7 @@ export function Sidebar() {
     return `${first}${last}`.toUpperCase() || 'U';
   };
 
-  const showLabels = isMobileOpen || !isDesktop || !isCollapsed;
+  const showLabels = true;
 
   return (
     <>
@@ -192,7 +172,7 @@ export function Sidebar() {
           flex flex-col shadow-xl backdrop-blur-sm bg-[var(--color-background-primary)]
           transition-transform duration-300 ease-in-out
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-          ${isCollapsed && isDesktop && !isMobileOpen ? 'lg:w-20' : 'lg:w-72'}
+          md:w-72 lg:w-72
         `}
       >
         {/* Header */}
@@ -224,19 +204,6 @@ export function Sidebar() {
               )}
             </Link>
             
-            {/* Desktop collapse button */}
-            <button
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              className="hidden lg:flex p-2 hover:bg-[var(--color-background-hover)] rounded-[var(--radius-button)] transition-colors"
-              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {isCollapsed ? (
-                <Menu className="h-4 w-4 text-[var(--color-text-secondary)]" />
-              ) : (
-                <X className="h-4 w-4 text-[var(--color-text-secondary)]" />
-              )}
-            </button>
-
             {/* Mobile close button */}
             <button
               onClick={() => setIsMobileOpen(false)}

@@ -20,6 +20,7 @@ import toast from 'react-hot-toast';
 
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
+import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
@@ -142,7 +143,7 @@ function AnalyticsPage() {
 
   if (authBlocked || loading || !analytics) {
     return (
-      <div className="space-y-6 p-6">
+      <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i} className="animate-pulse p-6">
@@ -155,34 +156,33 @@ function AnalyticsPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-secondary-900">Analytics Dashboard</h1>
-          <p className="text-secondary-600 mt-2">Track performance and engagement metrics</p>
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Analytics Dashboard"
+        subtitle="Track performance and engagement metrics."
+        actions={(
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-secondary-500" />
+              <select
+                value={timeRange}
+                onChange={(e) => handleTimeRangeChange(e.target.value)}
+                className="rounded-lg border border-secondary-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              >
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="quarter">This Quarter</option>
+                <option value="year">This Year</option>
+              </select>
+            </div>
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-secondary-500" />
-            <select
-              value={timeRange}
-              onChange={(e) => handleTimeRangeChange(e.target.value)}
-              className="rounded-lg border border-secondary-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            >
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-              <option value="quarter">This Quarter</option>
-              <option value="year">This Year</option>
-            </select>
+            <Button variant="outline" onClick={handleExport}>
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
           </div>
-
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-        </div>
-      </div>
+        )}
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

@@ -11,6 +11,7 @@ import { apiClient } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { withAuth } from '@/providers/withAuth';
 import { ConfirmationModal } from '@/ui/ConfirmationModal';
+import { PageHeader } from '@/layouts';
 
 
 interface ProfileFormData {
@@ -184,23 +185,23 @@ function SettingsPage() {
   return (
     <>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-secondary-900">Settings</h1>
-          <p className="text-secondary-600 mt-2">Manage your account and preferences</p>
-        </div>
+        <PageHeader
+          title="Settings"
+          subtitle="Manage your account and preferences."
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             {/* Profile Settings */}
             <Card>
-              <div className="p-6">
-                <div className="flex items-center mb-6">
-                  <div className="p-2 rounded-lg bg-primary-50 text-primary-600 mr-3">
+              <div className="p-6 space-y-6">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]">
                     <User className="h-5 w-5" />
                   </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-secondary-900">Profile Information</h2>
-                    <p className="text-secondary-600 text-sm">Update your personal details</p>
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Profile Information</h2>
+                    <p className="text-xs text-[var(--color-text-tertiary)]">Update your personal details</p>
                   </div>
                 </div>
                 
@@ -252,14 +253,14 @@ function SettingsPage() {
 
             {/* Security Settings */}
             <Card>
-              <div className="p-6">
-                <div className="flex items-center mb-6">
-                  <div className="p-2 rounded-lg bg-primary-50 text-primary-600 mr-3">
+              <div className="p-6 space-y-6">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]">
                     <Lock className="h-5 w-5" />
                   </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-secondary-900">Security</h2>
-                    <p className="text-secondary-600 text-sm">Change your password</p>
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Security</h2>
+                    <p className="text-xs text-[var(--color-text-tertiary)]">Change your password</p>
                   </div>
                 </div>
                 
@@ -310,33 +311,36 @@ function SettingsPage() {
           <div className="space-y-6">
             {/* Account Info */}
             <Card>
-              <div className="p-6">
-                <h2 className="text-xl font-semibold text-secondary-900 mb-6">Account Information</h2>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm font-medium text-secondary-600">Full Name</p>
-                    <p className="text-secondary-900 font-medium">
+              <div className="p-6 space-y-6">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Account Information</h2>
+                  <p className="text-xs text-[var(--color-text-tertiary)]">Your profile details at a glance.</p>
+                </div>
+                <div className="grid gap-4">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)]">Full Name</p>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)] break-words">
                       {auth.user ? `${auth.user.first_name} ${auth.user.last_name}` : 'N/A'}
                     </p>
                   </div>
                   
-                  <div>
-                    <p className="text-sm font-medium text-secondary-600">Role</p>
-                    <p className="text-secondary-900 font-medium capitalize">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)]">Role</p>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)] capitalize break-words">
                       {auth.user?.role?.replace('_', ' ') || 'N/A'}
                     </p>
                   </div>
                   
-                  <div>
-                    <p className="text-sm font-medium text-secondary-600">Email</p>
-                    <p className="text-secondary-900 font-medium">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)]">Email</p>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)] break-words">
                       {auth.user?.email || 'N/A'}
                     </p>
                   </div>
                   
-                  <div>
-                    <p className="text-sm font-medium text-secondary-600">Account Created</p>
-                    <p className="text-secondary-900 font-medium">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)]">Account Created</p>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)] break-words">
                       {auth.user?.created_at ? new Date(auth.user.created_at).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'long',
@@ -350,48 +354,48 @@ function SettingsPage() {
 
             {/* Preferences */}
             <Card>
-              <div className="p-6">
-                <div className="flex items-center mb-6">
-                  <div className="p-2 rounded-lg bg-primary-50 text-primary-600 mr-3">
+              <div className="p-6 space-y-6">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]">
                     <Bell className="h-5 w-5" />
                   </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-secondary-900">Preferences</h2>
-                    <p className="text-secondary-600 text-sm">Manage your notification settings</p>
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Preferences</h2>
+                    <p className="text-xs text-[var(--color-text-tertiary)]">Manage your notification settings</p>
                   </div>
                 </div>
                 
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-secondary-900">Email Notifications</p>
-                      <p className="text-xs text-secondary-500">Receive email updates</p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-[var(--color-text-primary)]">Email Notifications</p>
+                      <p className="text-xs text-[var(--color-text-tertiary)]">Receive email updates</p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
                       <input type="checkbox" className="sr-only peer" defaultChecked />
-                      <div className="w-11 h-6 bg-secondary-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                      <div className="w-11 h-6 bg-[var(--color-background-tertiary)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-background-primary)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent-primary)]"></div>
                     </label>
                   </div>
                   
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-secondary-900">Desktop Notifications</p>
-                      <p className="text-xs text-secondary-500">Receive browser notifications</p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-[var(--color-text-primary)]">Desktop Notifications</p>
+                      <p className="text-xs text-[var(--color-text-tertiary)]">Receive browser notifications</p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
                       <input type="checkbox" className="sr-only peer" />
-                      <div className="w-11 h-6 bg-secondary-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                      <div className="w-11 h-6 bg-[var(--color-background-tertiary)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-background-primary)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent-primary)]"></div>
                     </label>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-secondary-900">SMS Notifications</p>
-                      <p className="text-xs text-secondary-500">Receive text message alerts</p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-[var(--color-text-primary)]">SMS Notifications</p>
+                      <p className="text-xs text-[var(--color-text-tertiary)]">Receive text message alerts</p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
                       <input type="checkbox" className="sr-only peer" />
-                      <div className="w-11 h-6 bg-secondary-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                      <div className="w-11 h-6 bg-[var(--color-background-tertiary)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-background-primary)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent-primary)]"></div>
                     </label>
                   </div>
                 </div>
@@ -399,10 +403,13 @@ function SettingsPage() {
             </Card>
 
             {/* Danger Zone */}
-            <Card>
-              <div className="p-6">
-                <h2 className="text-xl font-semibold text-secondary-900 mb-6">Danger Zone</h2>
-                <div className="space-y-3">
+            <Card className="border border-red-200/40">
+              <div className="p-6 space-y-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Danger Zone</h2>
+                  <p className="text-xs text-[var(--color-text-tertiary)]">Sensitive actions that affect your account.</p>
+                </div>
+                <div className="grid gap-3">
                   <Button 
                     variant="outline" 
                     className="w-full text-amber-600 hover:text-amber-700 border-amber-200 hover:bg-amber-50"
@@ -431,8 +438,8 @@ function SettingsPage() {
                   </Button>
                 </div>
                 
-                <div className="mt-4 p-3 bg-secondary-50 rounded-lg">
-                  <p className="text-xs text-secondary-500">
+                <div className="rounded-[var(--radius-button)] border border-red-200/40 bg-red-50/60 p-3">
+                  <p className="text-xs text-red-700">
                     <strong>Note:</strong> Deleting your account will permanently remove all your data from our servers. This action cannot be undone.
                   </p>
                 </div>

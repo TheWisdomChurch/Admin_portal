@@ -13,6 +13,7 @@ import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { ImageUpload } from '@/components/ImageUpload';
+import { PageHeader } from '@/layouts';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
@@ -125,15 +126,15 @@ function CreateEventPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <Button variant="ghost" onClick={() => router.back()} className="mb-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Events
-          </Button>
-          <h1 className="text-3xl font-bold text-gray-900">Create New Event</h1>
-          <p className="text-gray-600 mt-2">Fill in the details below to create a new event</p>
-        </div>
+      <div className="space-y-4">
+        <Button variant="ghost" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Events
+        </Button>
+        <PageHeader
+          title="Create New Event"
+          subtitle="Fill in the details below to create a new event."
+        />
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)}>

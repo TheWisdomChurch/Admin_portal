@@ -153,6 +153,40 @@ body {
   animation: fade-in 0.6s ease-out both;
 }
 
+.auth-shell {
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--color-background-primary), var(--color-background-secondary));
+  background-image: var(--auth-hero-image, none);
+  background-size: cover;
+  background-position: center;
+}
+
+.auth-hero-text {
+  animation: fade-up 0.8s ease-out both;
+}
+
+.auth-glass {
+  background: color-mix(in srgb, var(--color-background-primary) 92%, transparent);
+  border: 1px solid var(--color-border-primary);
+  backdrop-filter: blur(14px);
+}
+
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  animation: marquee-scroll 18s linear infinite;
+  display: inline-flex;
+  gap: 2rem;
+  white-space: nowrap;
+}
+
 /* Theme utility classes */
 .bg-primary {
   background-color: var(--color-background-primary);

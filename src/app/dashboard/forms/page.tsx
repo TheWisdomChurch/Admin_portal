@@ -9,6 +9,7 @@ import { Plus, Link as LinkIcon } from 'lucide-react';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { DataTable } from '@/components/DateTable';
+import { PageHeader } from '@/layouts';
 
 import { apiClient } from '@/lib/api';
 import type { AdminForm } from '@/lib/types';
@@ -178,19 +179,16 @@ export default withAuth(function FormsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-secondary-900">Forms</h1>
-          <p className="text-secondary-600 mt-2">
-            Create and publish event registration forms, then attach the link to an event.
-          </p>
-        </div>
-
-        <Button onClick={() => router.push('/dashboard/forms/new')}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Form
-        </Button>
-      </div>
+      <PageHeader
+        title="Forms"
+        subtitle="Create and publish event registration forms, then attach the link to an event."
+        actions={(
+          <Button onClick={() => router.push('/dashboard/forms/new')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Form
+          </Button>
+        )}
+      />
 
       <Card className="p-0">
         <DataTable
