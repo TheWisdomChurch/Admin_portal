@@ -31,6 +31,7 @@ export default function DashboardPage() {
 
   const [recentEvents, setRecentEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [approvedTestimonials, setApprovedTestimonials] = useState<{ id: string; full_name?: string; testimony?: string }[]>([]);
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -38,9 +39,10 @@ export default function DashboardPage() {
 
       // Try to fetch real data, fall back to mock data if it fails
       try {
-        const [analytics, eventsData] = await Promise.all([
+        const [analytics, eventsData, testimonialsData] = await Promise.all([
           apiClient.getAnalytics(),
           apiClient.getEvents({ limit: 5, page: 1 }),
+          apiClient.getAllTestimonials({ approved: true }),
         ]);
 
         setStats(analytics);
@@ -52,6 +54,14 @@ export default function DashboardPage() {
           setRecentEvents(eventsData.data);
         } else {
           setRecentEvents([]);
+        }
+
+        if (Array.isArray(testimonialsData)) {
+          setApprovedTestimonials(testimonialsData.slice(0, 4));
+        } else if (testimonialsData && 'data' in testimonialsData) {
+          setApprovedTestimonials((testimonialsData as any).data?.slice?.(0, 4) || []);
+        } else {
+          setApprovedTestimonials([]);
         }
       } catch (error) {
         console.error('Failed to load real data, using mock data:', error);
@@ -205,6 +215,30 @@ export default function DashboardPage() {
         </Card>
 
         <div className="space-y-6">
+          <Card title="Approved Testimonials" className="fade-up">
+            {approvedTestimonials.length > 0 ? (
+              <div className="space-y-3">
+                {approvedTestimonials.map((t) => (
+                  <div key={t.id} className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3">
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{t.full_name || 'Anonymous'}</p>
+                    <p className="mt-1 line-clamp-2 text-xs text-[var(--color-text-tertiary)]">{t.testimony || 'No text provided'}</p>
+                    <div className="mt-3 flex justify-between">
+                      <Badge variant="success">Approved</Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => toast.success('Published to site (hook backend here)')}
+                      >
+                        Publish
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--color-text-tertiary)]">No approved testimonials yet.</p>
+            )}
+          </Card>
           {/* Category Distribution */}
           <Card title="Events by Category" className="fade-up animation-delay-500">
             <div className="space-y-4">

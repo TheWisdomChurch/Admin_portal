@@ -2,7 +2,7 @@
    CORE USER TYPES
 ========================= */
 
-export type UserRole = 'user' | 'admin' | 'super_admin' | 'editor';
+export type UserRole = 'admin' | 'super_admin';
 
 export interface User {
   id: string;
@@ -21,7 +21,7 @@ export interface User {
    AUTH TYPES
 ========================= */
 
-export type RegisterRole = 'user' | 'admin';
+export type RegisterRole = UserRole;
 
 export interface LoginCredentials {
   email: string;
@@ -48,29 +48,6 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
   statusCode?: number;
-}
-
-export interface AuthState {
-  isAuthenticated: boolean;
-  user: User | null;
-  isLoading: boolean;
-  error: string | null;
-}
-
-export interface AuthContextType {
-  user: User | null;
-  isLoading: boolean;
-  error: string | null;
-  isAuthenticated: boolean;
-  isInitialized: boolean;
-
-  login: (credentials: LoginCredentials) => Promise<User>;
-  register: (data: RegisterData) => Promise<User>;
-  logout: () => Promise<void>;
-  checkAuth: () => Promise<User | null>;
-
-  clearData: () => Promise<MessageResponse>;
-  updateProfile: (userData: Partial<User>) => Promise<User>;
 }
 
 /* =========================
@@ -364,13 +341,106 @@ export interface CreateFormRequest {
   slug?: string;
   eventId?: string;
   settings?: FormSettings;
-  fields: Array<Omit<FormField, 'id' | 'formId' | 'createdAt' | 'updatedAt'>>;
+  fields: Array<
+    Omit<FormField, 'id' | 'formId' | 'createdAt' | 'updatedAt'>
+  >;
 }
 
 export interface UpdateFormRequest extends Partial<CreateFormRequest> {}
 
 export interface SubmitFormRequest {
   values: Record<string, string | boolean | number>;
+}
+
+export interface FormSubmission {
+  id: string;
+  formId: string;
+  name?: string;
+  email?: string;
+  contactNumber?: string;
+  contactAddress?: string;
+  values: Record<string, string | boolean | number>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FormSubmissionCount {
+  formId: string;
+  formTitle: string;
+  count: number;
+}
+
+export interface FormSubmissionWithForm {
+  id: string;
+  formId: string;
+  formTitle: string;
+  name?: string;
+  email?: string;
+  contactNumber?: string;
+  contactAddress?: string;
+  values: Record<string, string | boolean | number>;
+  createdAt: string;
+}
+
+export interface FormStatsResponse {
+  totalSubmissions: number;
+  perForm: FormSubmissionCount[];
+  recent: FormSubmissionWithForm[];
+}
+
+/* =========================
+   WORKFORCE
+========================= */
+
+export type WorkforceStatus = 'pending' | 'new' | 'serving' | 'not_serving';
+
+export interface WorkforceMember {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  department: string;
+  status: WorkforceStatus;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateWorkforceRequest {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  department: string;
+  /**
+   * Optional for admin-created records; public apply defaults to pending.
+   */
+  status?: Extract<WorkforceStatus, 'pending' | 'new'>;
+  notes?: string;
+}
+
+export interface UpdateWorkforceRequest {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  department?: string;
+  status?: WorkforceStatus;
+  notes?: string;
+}
+
+export interface WorkforceBucket {
+  department: string;
+  status: WorkforceStatus;
+  count: number;
+}
+
+export interface WorkforceStatsResponse {
+  total: number;
+  byStatus: Record<string, number>;
+  byDepartment: Record<string, number>;
+  byDeptAndStatus: WorkforceBucket[];
 }
 
 /* =========================

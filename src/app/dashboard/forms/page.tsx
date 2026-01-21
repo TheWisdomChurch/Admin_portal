@@ -161,7 +161,7 @@ export default withAuth(function FormsPage() {
         header: 'Updated',
         cell: (f: AdminForm) => (
           <span className="text-sm text-secondary-600">
-            {f.updatedAt ? new Date(f.updatedAt).toLocaleDateString() : '-'}
+            {f.updatedAt ? new Date(f.updatedAt).toLocaleString() : '-'}
           </span>
         ),
       },
@@ -183,10 +183,15 @@ export default withAuth(function FormsPage() {
         title="Forms"
         subtitle="Create and publish event registration forms, then attach the link to an event."
         actions={(
-          <Button onClick={() => router.push('/dashboard/forms/new')}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Form
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={load}>
+              Refresh
+            </Button>
+            <Button onClick={() => router.push('/dashboard/forms/new')}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Form
+            </Button>
+          </div>
         )}
       />
 
