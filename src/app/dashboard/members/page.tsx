@@ -6,7 +6,7 @@ import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
 import { Input } from '@/ui/input';
-import { GridLayout, Section } from '@/layouts';
+import { GridLayout, PageHeader } from '@/layouts';
 
 const members = [
   {
@@ -56,7 +56,7 @@ export default function MembersPage() {
 
   return (
     <div className="space-y-6">
-      <Section
+      <PageHeader
         title="Members"
         subtitle="Manage member profiles, roles, and communication."
         actions={(

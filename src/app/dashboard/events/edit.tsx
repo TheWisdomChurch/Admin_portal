@@ -13,6 +13,7 @@ import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { ImageUpload } from '@/components/ImageUpload';
+import { PageHeader } from '@/layouts';
 
 import { apiClient } from '@/lib/api';
 import type { EventData } from '@/lib/types';
@@ -230,20 +231,21 @@ function EditEventPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <Button variant="ghost" onClick={() => router.back()} className="mb-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Events
-          </Button>
-          <h1 className="text-3xl font-bold text-gray-900">Edit Event</h1>
-          <p className="text-gray-600 mt-2">Update the details of this event</p>
-        </div>
-
-        <Button variant="danger" onClick={handleDelete} disabled={loading}>
-          <Trash2 className="h-4 w-4 mr-2" />
-          Delete Event
+      <div className="space-y-4">
+        <Button variant="ghost" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Events
         </Button>
+        <PageHeader
+          title="Edit Event"
+          subtitle="Update the details of this event."
+          actions={(
+            <Button variant="danger" onClick={handleDelete} disabled={loading}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Event
+            </Button>
+          )}
+        />
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)}>

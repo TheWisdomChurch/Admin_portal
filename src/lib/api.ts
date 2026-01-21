@@ -1,4 +1,3 @@
-// src/lib/api.ts
 import type {
   User,
   LoginCredentials,
@@ -6,18 +5,35 @@ import type {
   ApiResponse,
   MessageResponse,
   PaginatedResponse,
+  SimplePaginatedResponse,
   Testimonial,
+  CreateTestimonialData,
+  UpdateTestimonialData,
   EventData,
-  RegisterEventData,
+  EventPayload,
   DashboardAnalytics,
   ReelData,
+  CreateReelData,
 
-  // ✅ forms
+  // forms
   AdminForm,
   CreateFormRequest,
   UpdateFormRequest,
   PublicFormPayload,
   SubmitFormRequest,
+
+  // notifications/subscribers
+  Subscriber,
+  SubscribeRequest,
+  UnsubscribeRequest,
+  SendNotificationRequest,
+  SendNotificationResult,
+
+  // otp
+  SendOTPRequest,
+  VerifyOTPRequest,
+  SendOTPResponse,
+  VerifyOTPResponse,
 } from './types';
 
 const API_BASE_URL =
@@ -134,46 +150,6 @@ async function apiFetch<T>(
   }
 }
 
-/**
- * Multipart/FormData fetch helper
- * IMPORTANT: Do NOT set Content-Type for FormData; browser will.
- */
-async function apiFetchForm<T>(
-  endpoint: string,
-  formData: FormData,
-  options: RequestInit = {}
-): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
-
-  try {
-    const response = await fetch(url, {
-      ...options,
-      method: options.method ?? 'POST',
-      body: formData,
-      credentials: 'include',
-      headers: options.headers, // do not inject content-type
-    });
-
-    const json = await safeParseJson(response);
-    const payload =
-      json ??
-      ({ message: await response.text().catch(() => '') } as Record<string, any>);
-
-    if (!response.ok) {
-      throw createApiError(
-        payload?.error || payload?.message || 'Request failed',
-        response.status,
-        payload
-      );
-    }
-
-    return payload as T;
-  } catch (err: any) {
-    if (isApiError(err)) throw err;
-    throw createApiError(err?.message || 'Network error', 0, err);
-  }
-}
-
 /* ============================================================================
    Response Normalizers
 ============================================================================ */
@@ -235,6 +211,10 @@ export const apiClient = {
     return extractUser(res);
   },
 
+  async refreshToken(): Promise<MessageResponse> {
+    return apiFetch('/auth/refresh', { method: 'POST' });
+  },
+
   async logout(): Promise<void> {
     await apiFetch('/auth/logout', { method: 'POST' });
   },
@@ -252,10 +232,10 @@ export const apiClient = {
     return extractUser(res);
   },
 
-  async changePassword(currentPassword: string, newPassword: string): Promise<MessageResponse> {
+  async changePassword(currentPassword: string, newPassword: string, confirmPassword?: string): Promise<MessageResponse> {
     return apiFetch('/auth/change-password', {
       method: 'POST',
-      body: JSON.stringify({ currentPassword, newPassword }),
+      body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
     });
   },
 
@@ -275,9 +255,10 @@ export const apiClient = {
 
   /* ===================== TESTIMONIALS ===================== */
 
-  async getAllTestimonials(params?: { approved?: boolean }): Promise<ApiResponse<Testimonial[]> | Testimonial[]> {
+  async getAllTestimonials(params?: { approved?: boolean }): Promise<Testimonial[]> {
     const qs = params?.approved !== undefined ? `?approved=${params.approved}` : '';
-    return apiFetch(`/testimonials${qs}`);
+    const res = await apiFetch<ApiResponse<Testimonial[]>>(`/testimonials${qs}`);
+    return unwrapData<Testimonial[]>(res, 'Invalid testimonials payload');
   },
 
   getPaginatedTestimonials(params?: Record<string, string>): Promise<PaginatedResponse<Testimonial>> {
@@ -285,21 +266,25 @@ export const apiClient = {
     return apiFetch(`/testimonials/paginated${qs}`);
   },
 
-  createTestimonial(data: any) {
-    return apiFetch('/testimonials', { method: 'POST', body: JSON.stringify(data) });
+  async getTestimonialById(id: string): Promise<Testimonial> {
+    const res = await apiFetch<ApiResponse<Testimonial>>(`/testimonials/${encodeURIComponent(id)}`);
+    return unwrapData<Testimonial>(res, 'Invalid testimonial payload');
   },
 
-  /* ===================== ADMIN ===================== */
-
-  getDashboardStats() {
-    return apiFetch('/admin/dashboard');
+  async createTestimonial(data: CreateTestimonialData): Promise<Testimonial> {
+    const res = await apiFetch<ApiResponse<Testimonial>>('/testimonials', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return unwrapData<Testimonial>(res, 'Invalid testimonial payload');
   },
 
-  updateTestimonial(id: string, data: any) {
-    return apiFetch(`/admin/testimonials/${encodeURIComponent(id)}`, {
+  async updateTestimonial(id: string, data: UpdateTestimonialData): Promise<Testimonial> {
+    const res = await apiFetch<ApiResponse<Testimonial>>(`/admin/testimonials/${encodeURIComponent(id)}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+    return unwrapData<Testimonial>(res, 'Invalid testimonial payload');
   },
 
   deleteTestimonial(id: string) {
@@ -310,6 +295,13 @@ export const apiClient = {
     return apiFetch(`/admin/testimonials/${encodeURIComponent(id)}/approve`, { method: 'PATCH' });
   },
 
+  /* ===================== ADMIN ===================== */
+
+  async getDashboardStats(): Promise<Record<string, any>> {
+    const res = await apiFetch<ApiResponse<any>>('/admin/dashboard');
+    return unwrapData<Record<string, any>>(res, 'Invalid dashboard stats');
+  },
+
   getAllUsers(params?: Record<string, string>) {
     const qs = params ? `?${new URLSearchParams(params)}` : '';
     return apiFetch(`/admin/users${qs}`);
@@ -317,7 +309,6 @@ export const apiClient = {
 
   /* ===================== ANALYTICS ===================== */
 
-  // ✅ now accepts params so your page can pass { range: 'month' }
   async getAnalytics(params?: Record<string, any>): Promise<DashboardAnalytics> {
     const qs = toQueryString(params);
     const res = await apiFetch<ApiResponse<any>>(`/admin/analytics${qs}`, { method: 'GET' });
@@ -326,47 +317,26 @@ export const apiClient = {
 
   /* ===================== EVENTS ===================== */
 
-  async getEvents(params?: Record<string, any>): Promise<PaginatedResponse<EventData>> {
+  async getEvents(params?: Record<string, any>): Promise<SimplePaginatedResponse<EventData>> {
     const qs = toQueryString(params);
     return apiFetch(`/events${qs}`, { method: 'GET' });
   },
 
   async getEvent(id: string): Promise<EventData> {
-    const res = await apiFetch<ApiResponse<any>>(`/events/${encodeURIComponent(id)}`, { method: 'GET' });
+    const res = await apiFetch<{ data: EventData }>(`/events/${encodeURIComponent(id)}`, { method: 'GET' });
     return unwrapData<EventData>(res, 'Invalid event payload');
   },
 
-  async createEvent(data: RegisterEventData): Promise<EventData> {
-    const res = await apiFetch<ApiResponse<any>>('/events', {
+  async createEvent(data: EventPayload): Promise<EventData> {
+    const res = await apiFetch<{ data: EventData }>('/events', {
       method: 'POST',
       body: JSON.stringify(data),
     });
     return unwrapData<EventData>(res, 'Invalid event payload');
   },
 
-  async createEventMultipart(payload: RegisterEventData, image?: File, bannerImage?: File): Promise<EventData> {
-    const fd = new FormData();
-
-    Object.entries(payload).forEach(([k, v]) => {
-      if (v === undefined || v === null) return;
-      if (k === 'tags') fd.append('tags', JSON.stringify(v));
-      else fd.append(k, String(v));
-    });
-
-    if (image) fd.append('image', image);
-    if (bannerImage) fd.append('bannerImage', bannerImage);
-
-    const res = await apiFetchForm<ApiResponse<any>>('/events', fd, { method: 'POST' });
-    return unwrapData<EventData>(res, 'Invalid event payload');
-  },
-
-  async updateEvent(id: string, data: FormData | Partial<RegisterEventData>): Promise<EventData> {
-    if (data instanceof FormData) {
-      const res = await apiFetchForm<ApiResponse<any>>(`/events/${encodeURIComponent(id)}`, data, { method: 'PUT' });
-      return unwrapData<EventData>(res, 'Invalid event payload');
-    }
-
-    const res = await apiFetch<ApiResponse<any>>(`/events/${encodeURIComponent(id)}`, {
+  async updateEvent(id: string, data: EventPayload): Promise<EventData> {
+    const res = await apiFetch<{ data: EventData }>(`/events/${encodeURIComponent(id)}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -379,14 +349,16 @@ export const apiClient = {
 
   /* ===================== REELS ===================== */
 
-  async getReels(params?: Record<string, any>): Promise<PaginatedResponse<ReelData>> {
+  async getReels(params?: Record<string, any>): Promise<SimplePaginatedResponse<ReelData>> {
     const qs = toQueryString(params);
-    const res = await apiFetch<ApiResponse<any>>(`/reels${qs}`, { method: 'GET' });
-    return unwrapData<PaginatedResponse<ReelData>>(res, 'Invalid reels payload');
+    return apiFetch(`/reels${qs}`, { method: 'GET' });
   },
 
-  async createReel(formData: FormData): Promise<ReelData> {
-    const res = await apiFetchForm<ApiResponse<any>>('/reels', formData, { method: 'POST' });
+  async createReel(payload: CreateReelData): Promise<ReelData> {
+    const res = await apiFetch<{ data: ReelData }>('/reels', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
     return unwrapData<ReelData>(res, 'Invalid reel payload');
   },
 
@@ -396,19 +368,18 @@ export const apiClient = {
 
   /* ===================== FORMS (ADMIN) ===================== */
 
-  async getAdminForms(params?: Record<string, any>): Promise<PaginatedResponse<AdminForm>> {
+  async getAdminForms(params?: Record<string, any>): Promise<SimplePaginatedResponse<AdminForm>> {
     const qs = toQueryString(params);
-    const res = await apiFetch<ApiResponse<any>>(`/admin/forms${qs}`, { method: 'GET' });
-    return unwrapData<PaginatedResponse<AdminForm>>(res, 'Invalid forms payload');
+    return apiFetch(`/admin/forms${qs}`, { method: 'GET' });
   },
 
   async getAdminForm(id: string): Promise<AdminForm> {
-    const res = await apiFetch<ApiResponse<any>>(`/admin/forms/${encodeURIComponent(id)}`, { method: 'GET' });
+    const res = await apiFetch<{ data: AdminForm }>(`/admin/forms/${encodeURIComponent(id)}`, { method: 'GET' });
     return unwrapData<AdminForm>(res, 'Invalid form payload');
   },
 
   async createAdminForm(payload: CreateFormRequest): Promise<AdminForm> {
-    const res = await apiFetch<ApiResponse<any>>('/admin/forms', {
+    const res = await apiFetch<{ data: AdminForm }>('/admin/forms', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -416,7 +387,7 @@ export const apiClient = {
   },
 
   async updateAdminForm(id: string, payload: UpdateFormRequest): Promise<AdminForm> {
-    const res = await apiFetch<ApiResponse<any>>(`/admin/forms/${encodeURIComponent(id)}`, {
+    const res = await apiFetch<{ data: AdminForm }>(`/admin/forms/${encodeURIComponent(id)}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
     });
@@ -428,7 +399,7 @@ export const apiClient = {
   },
 
   async publishAdminForm(id: string): Promise<{ slug: string }> {
-    const res = await apiFetch<ApiResponse<any>>(`/admin/forms/${encodeURIComponent(id)}/publish`, {
+    const res = await apiFetch<{ data: { slug: string } }>(`/admin/forms/${encodeURIComponent(id)}/publish`, {
       method: 'POST',
     });
     return unwrapData<{ slug: string }>(res, 'Invalid publish payload');
@@ -437,7 +408,7 @@ export const apiClient = {
   /* ===================== FORMS (PUBLIC) ===================== */
 
   async getPublicForm(slug: string): Promise<PublicFormPayload> {
-    const res = await apiFetch<ApiResponse<any>>(`/forms/${encodeURIComponent(slug)}`, { method: 'GET' });
+    const res = await apiFetch<{ data: PublicFormPayload }>(`/forms/${encodeURIComponent(slug)}`, { method: 'GET' });
     return unwrapData<PublicFormPayload>(res, 'Invalid public form payload');
   },
 
@@ -446,6 +417,54 @@ export const apiClient = {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+  },
+
+  /* ===================== SUBSCRIBERS + NOTIFICATIONS ===================== */
+
+  async subscribe(payload: SubscribeRequest): Promise<Subscriber> {
+    const res = await apiFetch<ApiResponse<Subscriber>>('/subscribers', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<Subscriber>(res, 'Invalid subscriber payload');
+  },
+
+  async unsubscribe(payload: UnsubscribeRequest): Promise<MessageResponse> {
+    return apiFetch('/subscribers/unsubscribe', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async listSubscribers(params?: Record<string, any>): Promise<SimplePaginatedResponse<Subscriber>> {
+    const qs = toQueryString(params);
+    return apiFetch(`/admin/subscribers${qs}`, { method: 'GET' });
+  },
+
+  async sendNotification(payload: SendNotificationRequest): Promise<SendNotificationResult> {
+    const res = await apiFetch<ApiResponse<SendNotificationResult>>('/admin/notifications', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<SendNotificationResult>(res, 'Invalid notification payload');
+  },
+
+  /* ===================== OTP ===================== */
+
+  async sendOtp(payload: SendOTPRequest): Promise<SendOTPResponse> {
+    const res = await apiFetch<ApiResponse<SendOTPResponse>>('/otp/send', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<SendOTPResponse>(res, 'Invalid OTP send response');
+  },
+
+  async verifyOtp(payload: VerifyOTPRequest): Promise<VerifyOTPResponse> {
+    const res = await apiFetch<ApiResponse<VerifyOTPResponse>>('/otp/verify', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<VerifyOTPResponse>(res, 'Invalid OTP verify response');
   },
 };
 

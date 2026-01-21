@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
 import { ReelData } from '@/lib/types';
 import { withAuth } from '@/providers/withAuth';
+import { PageHeader } from '@/layouts';
 
 function ReelsPage() {
   const [reels, setReels] = useState<ReelData[]>([]);
@@ -122,16 +123,16 @@ function ReelsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-secondary-900">Video Reels</h1>
-          <p className="text-secondary-600 mt-2">Manage video highlights and reels</p>
-        </div>
-        <Button onClick={() => setShowUploadModal(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Upload Reel
-        </Button>
-      </div>
+      <PageHeader
+        title="Video Reels"
+        subtitle="Manage video highlights and reels."
+        actions={(
+          <Button onClick={() => setShowUploadModal(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Upload Reel
+          </Button>
+        )}
+      />
 
       <DataTable
         data={reels}

@@ -9,6 +9,8 @@ import { ArrowLeft, UserPlus, CheckCircle, Mail, Lock, User } from 'lucide-react
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import Image from 'next/image';
+import { Footer } from '@/components/Footer';
 
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
@@ -24,7 +26,7 @@ const registerSchema = z
     email: z.string().email('Invalid email address').max(100, 'Email cannot exceed 100 characters'),
     password: z.string().min(6, 'Password must be at least 6 characters').max(100, 'Password cannot exceed 100 characters'),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
-    role: z.enum(['user', 'admin']),
+    role: z.enum(['admin', 'super_admin']),
     rememberMe: z.boolean(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -44,7 +46,7 @@ function humanizeServerError(err: any): string {
       last_name: 'Last Name',
       email: 'Email',
       password: 'Password',
-      role: 'Role',
+    role: 'Role',
     };
 
     return Object.entries(payload.errors)
@@ -75,19 +77,19 @@ function SuccessModal({
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
+      <div className="relative w-full max-w-md rounded-[var(--radius-card)] bg-[var(--color-background-primary)] p-8 shadow-2xl">
         <div className="text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
-            <CheckCircle className="h-8 w-8 text-green-600" />
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-background-tertiary)]">
+            <CheckCircle className="h-8 w-8 text-[var(--color-accent-success)]" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">Registration successful</h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">Registration successful</h2>
+          <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">
             Your account has been created. Please sign in to continue.
           </p>
 
-          <div className="mt-5 rounded-xl bg-gray-50 p-4 text-left">
-            <p className="text-xs font-medium text-gray-700">Registered email</p>
-            <p className="mt-1 break-all text-base font-semibold text-blue-600">{email}</p>
+          <div className="mt-5 rounded-[var(--radius-button)] bg-[var(--color-background-tertiary)] p-4 text-left">
+            <p className="text-xs font-medium text-[var(--color-text-tertiary)]">Registered email</p>
+            <p className="mt-1 break-all text-base font-semibold text-[var(--color-accent-primary)]">{email}</p>
           </div>
 
           <div className="mt-6 space-y-3">
@@ -99,7 +101,7 @@ function SuccessModal({
             </Button>
           </div>
 
-          <p className="mt-5 text-xs text-gray-500">
+          <p className="mt-5 text-xs text-[var(--color-text-tertiary)]">
             If you saved a password in your browser previously, it may offer to autofill on the login page.
           </p>
         </div>
@@ -130,7 +132,7 @@ export default function RegisterPage() {
       email: '',
       password: '',
       confirmPassword: '',
-      role: 'user',
+    role: 'admin',
       rememberMe: false,
     },
     mode: 'onSubmit',
@@ -175,40 +177,61 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50 p-4">
-      <div className="mx-auto flex min-h-screen max-w-5xl items-center justify-center">
+    <div className="auth-shell">
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
+        <Link href="/" className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full border-2 border-white bg-black shadow-sm">
+            <Image
+              src="/OIP.webp"
+              alt="Wisdom Church logo"
+              width={40}
+              height={40}
+              className="rounded-full object-cover"
+            />
+          </div>
+          <div className="leading-tight">
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">The Wisdom Church</p>
+            <p className="text-sm font-semibold text-[var(--color-text-primary)]">Administration Portal</p>
+          </div>
+        </Link>
+        <Link href="/login">
+          <Button variant="outline">Back to Login</Button>
+        </Link>
+      </header>
+
+      <main className="mx-auto w-full max-w-6xl px-4 pb-12 pt-6 sm:px-6 lg:px-8">
         <div className="grid w-full grid-cols-1 gap-6 lg:grid-cols-2">
           {/* Left: marketing / info panel */}
           <div className="hidden lg:block">
-            <div className="h-full rounded-3xl bg-white/60 p-10 shadow-sm backdrop-blur">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100">
-                <UserPlus className="h-7 w-7 text-blue-600" />
+            <div className="auth-glass h-full rounded-3xl p-10 shadow-sm">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)]">
+                <UserPlus className="h-7 w-7 text-[var(--color-accent-primary)]" />
               </div>
-              <h1 className="mt-6 text-3xl font-bold text-gray-900">
+              <h1 className="mt-6 text-3xl font-semibold text-[var(--color-text-primary)]">
                 Create your Wisdom House account
               </h1>
-              <p className="mt-3 text-gray-600">
+              <p className="mt-3 text-[var(--color-text-secondary)]">
                 Register to submit testimonials and access church resources. Admin accounts can manage events and content.
               </p>
 
               <div className="mt-8 space-y-4">
-                <div className="rounded-2xl bg-white p-5 shadow-sm">
-                  <p className="text-sm font-semibold text-gray-900">Member access</p>
-                  <p className="mt-1 text-sm text-gray-600">
-                    Submit testimonials and view content.
+                <div className="rounded-2xl bg-[var(--color-background-primary)] p-5 shadow-sm">
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">Admin access</p>
+                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                    Manage testimonials, events, and site content.
                   </p>
                 </div>
-                <div className="rounded-2xl bg-white p-5 shadow-sm">
-                  <p className="text-sm font-semibold text-gray-900">Administrator access</p>
-                  <p className="mt-1 text-sm text-gray-600">
-                    Manage testimonials, events, and site content.
+                <div className="rounded-2xl bg-[var(--color-background-primary)] p-5 shadow-sm">
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">Super admin access</p>
+                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                    Approve submissions and review analytics.
                   </p>
                 </div>
               </div>
 
-              <div className="mt-10 text-sm text-gray-600">
+              <div className="mt-10 text-sm text-[var(--color-text-tertiary)]">
                 Already have an account?{' '}
-                <Link href="/login" className="font-semibold text-blue-700 hover:text-blue-800">
+                <Link href="/login" className="font-semibold text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)]">
                   Sign in
                 </Link>
               </div>
@@ -216,17 +239,17 @@ export default function RegisterPage() {
           </div>
 
           {/* Right: form */}
-          <Card className="w-full rounded-3xl p-8 shadow-lg">
+          <Card className="auth-glass w-full rounded-3xl p-8 shadow-lg">
             <div className="text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100">
-                <UserPlus className="h-8 w-8 text-blue-600" />
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)]">
+                <UserPlus className="h-8 w-8 text-[var(--color-accent-primary)]" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900">Create Account</h2>
-              <p className="mt-2 text-sm text-gray-600">Join Wisdom House Church</p>
+              <h2 className="text-2xl font-semibold text-[var(--color-text-primary)]">Create Account</h2>
+              <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">Join Wisdom House Church</p>
             </div>
 
             {serverError && (
-              <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4">
+              <div className="mt-6 rounded-[var(--radius-button)] border border-red-200 bg-red-50 p-4">
                 <p className="text-sm text-red-700 whitespace-pre-line">{serverError}</p>
               </div>
             )}
@@ -240,9 +263,9 @@ export default function RegisterPage() {
               {/* Name row */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">First name</label>
+                  <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">First name</label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input
                       type="text"
                       placeholder="John"
@@ -257,9 +280,9 @@ export default function RegisterPage() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Last name</label>
+                  <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Last name</label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input
                       type="text"
                       placeholder="Doe"
@@ -276,9 +299,9 @@ export default function RegisterPage() {
 
               {/* Email */}
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Email</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                   <Input
                     type="email"
                     placeholder="your.email@example.com"
@@ -297,9 +320,9 @@ export default function RegisterPage() {
               {/* Password row */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Password</label>
+                  <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Password</label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input
                       type="password"
                       placeholder="••••••••"
@@ -313,16 +336,16 @@ export default function RegisterPage() {
                     />
                   </div>
                   {passwordHint && !errors.password?.message && (
-                    <p className={`mt-1 text-xs ${passwordHint.ok ? 'text-green-700' : 'text-gray-500'}`}>
+                    <p className={`mt-1 text-xs ${passwordHint.ok ? 'text-green-700' : 'text-[var(--color-text-tertiary)]'}`}>
                       {passwordHint.text}
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Confirm password</label>
+                  <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Confirm password</label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input
                       type="password"
                       placeholder="••••••••"
@@ -340,23 +363,9 @@ export default function RegisterPage() {
 
               {/* Role */}
               <div className="pt-2">
-                <label className="mb-2 block text-sm font-medium text-gray-700">Account type</label>
+                <label className="mb-2 block text-sm font-medium text-[var(--color-text-secondary)]">Register as</label>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-gray-200 bg-white p-4 hover:bg-gray-50">
-                    <input
-                      type="radio"
-                      value="user"
-                      className="mt-1"
-                      {...register('role')}
-                      disabled={isSubmitting}
-                    />
-                    <span>
-                      <span className="block text-sm font-semibold text-gray-900">Church Member</span>
-                      <span className="block text-xs text-gray-500">Submit testimonials and view content</span>
-                    </span>
-                  </label>
-
-                  <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-gray-200 bg-white p-4 hover:bg-gray-50">
+                  <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 hover:bg-[var(--color-background-hover)]">
                     <input
                       type="radio"
                       value="admin"
@@ -365,8 +374,22 @@ export default function RegisterPage() {
                       disabled={isSubmitting}
                     />
                     <span>
-                      <span className="block text-sm font-semibold text-gray-900">Administrator</span>
-                      <span className="block text-xs text-gray-500">Manage testimonials and events</span>
+                      <span className="block text-sm font-semibold text-[var(--color-text-primary)]">Admin</span>
+                      <span className="block text-xs text-[var(--color-text-tertiary)]">Manage events, forms, and content</span>
+                    </span>
+                  </label>
+
+                  <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 hover:bg-[var(--color-background-hover)]">
+                    <input
+                      type="radio"
+                      value="super_admin"
+                      className="mt-1"
+                      {...register('role')}
+                      disabled={isSubmitting}
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-[var(--color-text-primary)]">Super Admin</span>
+                      <span className="block text-xs text-[var(--color-text-tertiary)]">Approve testimonials and view analytics</span>
                     </span>
                   </label>
                 </div>
@@ -402,23 +425,25 @@ export default function RegisterPage() {
               </Button>
 
               {/* Footer links */}
-              <div className="mt-3 flex items-center justify-between border-t border-gray-200 pt-5 text-sm">
+              <div className="mt-3 flex items-center justify-between border-t border-[var(--color-border-secondary)] pt-5 text-sm">
                 <Link
                   href="/login"
-                  className="inline-flex items-center text-gray-600 hover:text-gray-900"
+                  className="inline-flex items-center text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Already have an account?
                 </Link>
 
-                <Link href="/" className="text-gray-600 hover:text-gray-900">
+                <Link href="/" className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
                   Back to Home
                 </Link>
               </div>
             </form>
           </Card>
         </div>
-      </div>
+      </main>
+
+      <Footer />
 
       {successEmail && (
         <SuccessModal

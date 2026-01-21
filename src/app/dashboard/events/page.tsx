@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
 import { EventData } from '@/lib/types';
 import { withAuth } from '@/providers/withAuth';
+import { PageHeader } from '@/layouts';
 
 function EventsPage() {
   const router = useRouter();
@@ -184,16 +185,16 @@ function EventsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-secondary-900">Events Management</h1>
-          <p className="text-secondary-600 mt-2">Create, edit, and manage all church events</p>
-        </div>
-        <Button onClick={() => router.push('/dashboard/events/new')}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Event
-        </Button>
-      </div>
+      <PageHeader
+        title="Events Management"
+        subtitle="Create, edit, and manage all church events."
+        actions={(
+          <Button onClick={() => router.push('/dashboard/events/new')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Event
+          </Button>
+        )}
+      />
 
       {/* Filters */}
       <Card>

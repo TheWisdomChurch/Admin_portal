@@ -4,7 +4,7 @@ import { MessageSquareText, Star, UserPlus } from 'lucide-react';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
-import { GridLayout, Section } from '@/layouts';
+import { GridLayout, PageHeader } from '@/layouts';
 
 const testimonials = [
   {
@@ -36,12 +36,13 @@ const testimonials = [
 export default function TestimonialsPage() {
   return (
     <div className="space-y-6">
-      <Section
+      <PageHeader
         title="Testimonials"
         subtitle="Review feedback, publish highlights, and stay connected to members."
         actions={(
           <Button icon={<UserPlus className="h-4 w-4" />}>Invite Testimony</Button>
-        )} children={undefined}      />
+        )}
+      />
 
       <Card>
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
