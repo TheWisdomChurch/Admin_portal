@@ -27,61 +27,21 @@ import { Badge } from '@/ui/Badge';
 import { LogoutModal } from '@/ui/LogoutModal';
 import { textStyles } from '@/styles/text';
 
-const navItems = [
-  { 
-    href: '/dashboard', 
-    label: 'Dashboard', 
-    icon: LayoutDashboard,
-    description: 'Overview and metrics'
-  },
-  { 
-    href: '/dashboard/events', 
-    label: 'Events', 
-    icon: Calendar,
-    description: 'Manage church events'
-  },
-  { 
-    href: '/dashboard/members', 
-    label: 'Members', 
-    icon: Users,
-    description: 'Church members directory'
-  },
-  { 
-    href: '/dashboard/reels', 
-    label: 'Reels', 
-    icon: Video,
-    description: 'Video content management'
-  },
-  { 
-    href: '/dashboard/testimonials', 
-    label: 'Testimonials', 
-    icon: MessageSquare,
-    description: 'Member testimonials'
-  },
-  { 
-    href: '/dashboard/analytics', 
-    label: 'Analytics', 
-    icon: BarChart3,
-    description: 'Statistics and insights'
-  },
-  {
-    href: '/dashboard/forms', 
-    label: 'Forms', 
-    icon: ClipboardList,
-    description: 'Create Registration Links'
-  },
-  { 
-    href: '/dashboard/content', 
-    label: 'Content', 
-    icon: FileText,
-    description: 'Website content'
-  },
-  { 
-    href: '/dashboard/settings', 
-    label: 'Settings', 
-    icon: Settings,
-    description: 'System configuration'
-  },
+const adminNavItems = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview and metrics' },
+  { href: '/dashboard/events', label: 'Events', icon: Calendar, description: 'Manage church events' },
+  { href: '/dashboard/workforce', label: 'Workforce', icon: Users, description: 'New and serving workers' },
+  { href: '/dashboard/reels', label: 'Reels', icon: Video, description: 'Video content management' },
+  { href: '/dashboard/testimonials', label: 'Testimonials', icon: MessageSquare, description: 'Member testimonials' },
+  { href: '/dashboard/forms', label: 'Forms', icon: ClipboardList, description: 'Create registration links' },
+  { href: '/dashboard/content', label: 'Content', icon: FileText, description: 'Website content' },
+  { href: '/dashboard/settings', label: 'Settings', icon: Settings, description: 'System configuration' },
+];
+
+const superNavItems = [
+  { href: '/dashboard/super', label: 'Dashbord', icon: LayoutDashboard, description: 'Approvals & analytics' },
+  { href: '/dashboard/super/requests', label: 'Requests', icon: BellRing, description: 'Pending approvals' },
+  { href: '/dashboard/super/notifications', label: 'Notifications', icon: BarChart3, description: 'Alerts and updates' },
 ];
 
 export function Sidebar() {
@@ -153,6 +113,10 @@ export function Sidebar() {
   };
 
   const showLabels = true;
+
+  const navItems = auth.user?.role === 'super_admin'
+    ? superNavItems
+    : adminNavItems;
 
   return (
     <>

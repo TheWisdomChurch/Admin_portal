@@ -1,9 +1,8 @@
 // src/app/forms/[slug]/page.tsx
 'use client';
 
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import gsap from 'gsap';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
 import type { PublicFormPayload, FormField } from '@/lib/types';
@@ -101,6 +100,7 @@ export default function PublicFormPage() {
   const [payload, setPayload] = useState<PublicFormPayload | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [values, setValues] = useState<ValuesState>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const fields = payload?.form?.fields ?? [];
 
@@ -137,23 +137,6 @@ export default function PublicFormPage() {
     };
   }, [slug]);
 
-  // GSAP entrance
-  useLayoutEffect(() => {
-    if (!payload || loading) return;
-
-    const ctx = gsap.context(() => {
-      gsap.set([leftRef.current, rightRef.current], { opacity: 0, y: 18 });
-      gsap.set(listRef.current?.children ?? [], { opacity: 0, y: 10 });
-
-      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-      tl.to(leftRef.current, { opacity: 1, y: 0, duration: 0.7 }, 0);
-      tl.to(rightRef.current, { opacity: 1, y: 0, duration: 0.7 }, 0.05);
-      tl.to(listRef.current?.children ?? [], { opacity: 1, y: 0, duration: 0.45, stagger: 0.06 }, 0.25);
-    }, rootRef);
-
-    return () => ctx.revert();
-  }, [payload, loading]);
-
   const eventTitle = payload?.event?.title ?? payload?.form?.title ?? 'Event Registration';
   const eventSubtitle = payload?.event?.shortDescription ?? payload?.form?.description ?? 'Secure your spot by registering below.';
 
@@ -166,16 +149,23 @@ export default function PublicFormPage() {
   }, [payload]);
 
   const validateRequired = (): string | null => {
+    const nextErrors: Record<string, string> = {};
     for (const f of fields) {
       if (!f.required) continue;
       const v = values[f.key];
 
       if (f.type === 'checkbox') {
-        if (!v) return `Please confirm: ${f.label}`;
+        if (!v) {
+          nextErrors[f.key] = `Please confirm: ${f.label}`;
+        }
       } else {
-        if (typeof v !== 'string' || v.trim().length === 0) return `${f.label} is required`;
+        if (typeof v !== 'string' || v.trim().length === 0) {
+          nextErrors[f.key] = `${f.label} is required`;
+        }
       }
     }
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return 'Please fill the required fields.';
     return null;
   };
 
@@ -224,7 +214,7 @@ export default function PublicFormPage() {
   }
 
   return (
-    <div ref={rootRef} className="min-h-screen bg-gradient-to-b from-white via-secondary-50 to-white">
+    <div ref={rootRef} className="min-h-screen bg-gradient-to-b from-white via-secondary-50 to-white transition-opacity duration-500">
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         {/* Hero */}
         <div className="mb-8">
@@ -307,12 +297,22 @@ export default function PublicFormPage() {
                         field={field}
                         value={values[field.key]}
                         onChange={(next) =>
-                          setValues((prev) => ({
-                            ...prev,
-                            [field.key]: next,
-                          }))
+                          setValues((prev) => {
+                            setFieldErrors((errs) => {
+                              const copy = { ...errs };
+                              delete copy[field.key];
+                              return copy;
+                            });
+                            return {
+                              ...prev,
+                              [field.key]: next,
+                            };
+                          })
                         }
                       />
+                      {fieldErrors[field.key] && (
+                        <p className="text-xs text-red-600">{fieldErrors[field.key]}</p>
+                      )}
                     </div>
                   ))}
               </div>
