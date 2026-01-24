@@ -120,10 +120,10 @@ function RequestsPage() {
         subtitle="Track every super-admin request separately from approvals."
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setSearchTerm('')}>
+            <Button variant="ghost" size="sm" className="text-xs px-3" onClick={() => setSearchTerm('')}>
               Clear search
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setRequests(defaultRequests)}>
+            <Button variant="outline" size="sm" className="text-xs px-3" onClick={() => setRequests(defaultRequests)}>
               <RefreshCcw className="h-4 w-4 mr-2" />
               Reset queue
             </Button>
@@ -136,31 +136,32 @@ function RequestsPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
+              className="text-xs px-3"
               variant={categoryFilter === 'all' ? 'primary' : 'ghost'}
               icon={<Filter className="h-4 w-4" />}
               onClick={() => setCategoryFilter('all')}
             >
               All
             </Button>
-            <Button size="sm" variant={categoryFilter === 'event' ? 'primary' : 'ghost'} onClick={() => setCategoryFilter('event')}>
+            <Button size="sm" className="text-xs px-3" variant={categoryFilter === 'event' ? 'primary' : 'ghost'} onClick={() => setCategoryFilter('event')}>
               Events
             </Button>
-            <Button size="sm" variant={categoryFilter === 'report' ? 'primary' : 'ghost'} onClick={() => setCategoryFilter('report')}>
+            <Button size="sm" className="text-xs px-3" variant={categoryFilter === 'report' ? 'primary' : 'ghost'} onClick={() => setCategoryFilter('report')}>
               Reports
             </Button>
-            <Button size="sm" variant={categoryFilter === 'budget' ? 'primary' : 'ghost'} onClick={() => setCategoryFilter('budget')}>
+            <Button size="sm" className="text-xs px-3" variant={categoryFilter === 'budget' ? 'primary' : 'ghost'} onClick={() => setCategoryFilter('budget')}>
               Budget
             </Button>
-            <Button size="sm" variant={categoryFilter === 'access' ? 'primary' : 'ghost'} onClick={() => setCategoryFilter('access')}>
+            <Button size="sm" className="text-xs px-3" variant={categoryFilter === 'access' ? 'primary' : 'ghost'} onClick={() => setCategoryFilter('access')}>
               Access
             </Button>
-            <Button size="sm" variant={statusFilter === 'open' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('open')}>
+            <Button size="sm" className="text-xs px-3" variant={statusFilter === 'open' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('open')}>
               Open
             </Button>
-            <Button size="sm" variant={statusFilter === 'in_review' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('in_review')}>
-              In review
+            <Button size="sm" className="text-xs px-3" variant={statusFilter === 'in_review' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('in_review')}>
+              Review
             </Button>
-            <Button size="sm" variant={statusFilter === 'closed' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('closed')}>
+            <Button size="sm" className="text-xs px-3" variant={statusFilter === 'closed' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('closed')}>
               Closed
             </Button>
           </div>
@@ -178,7 +179,7 @@ function RequestsPage() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+              className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs md:text-sm"
             >
               <option value="recent">Newest</option>
               <option value="priority">Priority</option>
@@ -210,33 +211,36 @@ function RequestsPage() {
                     {req.status.replace('_', ' ')}
                   </Badge>
                 </div>
-                <p className="text-xs text-[var(--color-text-tertiary)] flex items-center gap-2">
+                <p className="text-[11px] md:text-xs text-[var(--color-text-tertiary)] flex items-center gap-2">
                   <Clock className="h-4 w-4" />
                   {new Date(req.submittedAt).toLocaleString()} • Owner: {req.owner}
                 </p>
-                <p className="text-sm text-[var(--color-text-secondary)]">{req.summary}</p>
+                <p className="text-sm md:text-base text-[var(--color-text-secondary)]">{req.summary}</p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 md:justify-end">
                 <Button
                   size="sm"
                   variant="secondary"
+                  className="text-xs px-3"
                   onClick={() => updateStatus(req.id, 'in_review')}
                   icon={<BarChart3 className="h-4 w-4" />}
                 >
-                  Move to review
+                  Review
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
+                  className="text-xs px-3"
                   onClick={() => updateStatus(req.id, 'closed')}
                   icon={<CheckCircle className="h-4 w-4" />}
                 >
-                  Close out
+                  Close
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
+                  className="text-xs px-3"
                   onClick={() => updateStatus(req.id, 'open')}
                   icon={<TicketX className="h-4 w-4" />}
                 >
@@ -254,14 +258,14 @@ function RequestsPage() {
 
       <Card title="Quick actions">
         <div className="flex flex-wrap gap-3">
-          <Button variant="primary" icon={<Send className="h-4 w-4" />}>
-            Create follow-up
+          <Button variant="primary" size="sm" className="text-xs px-3" icon={<Send className="h-4 w-4" />}>
+            Follow-up
           </Button>
-          <Button variant="secondary" icon={<BarChart3 className="h-4 w-4" />}>
-            View analytics
+          <Button variant="secondary" size="sm" className="text-xs px-3" icon={<BarChart3 className="h-4 w-4" />}>
+            Analytics
           </Button>
-          <Button variant="outline" icon={<RefreshCcw className="h-4 w-4" />} onClick={() => setRequests(defaultRequests)}>
-            Reload defaults
+          <Button variant="outline" size="sm" className="text-xs px-3" icon={<RefreshCcw className="h-4 w-4" />} onClick={() => setRequests(defaultRequests)}>
+            Reload
           </Button>
         </div>
       </Card>

@@ -52,7 +52,6 @@ export function Sidebar() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isSuperMode, setIsSuperMode] = useState<boolean>(true);
   const pathname = usePathname();
   const auth = useAuthContext();
 
@@ -115,11 +114,6 @@ export function Sidebar() {
     return () => document.body.classList.remove('sidebar-collapsed');
   }, [isCollapsed]);
 
-  // Only super admins can toggle the super mode.
-  useEffect(() => {
-    setIsSuperMode(auth.user?.role === 'super_admin');
-  }, [auth.user?.role]);
-
   const getUserName = () => {
     if (!auth.user) return 'User';
     return `${auth.user.first_name} ${auth.user.last_name}`.trim();
@@ -130,12 +124,6 @@ export function Sidebar() {
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
-  };
-
-  const toggleSuperMode = () => {
-    if (auth.user?.role !== 'super_admin') return;
-    setIsSuperMode(prev => !prev);
-    setIsMobileOpen(false);
   };
 
   const handleLogoutClick = () => {
@@ -165,9 +153,11 @@ export function Sidebar() {
 
   const showLabels = isMobileOpen || !isCollapsed;
 
-  const navItems = auth.user?.role === 'super_admin' && isSuperMode
+  const navItems = auth.user?.role === 'super_admin'
     ? superNavItems
     : adminNavItems;
+
+  const homeHref = auth.user?.role === 'super_admin' ? '/dashboard/super' : '/dashboard';
 
   return (
     <>
@@ -200,7 +190,7 @@ export function Sidebar() {
         <div className="p-5 border-b border-[var(--color-border-secondary)]">
           <div className="flex items-center justify-between">
             <Link 
-              href="/dashboard" 
+              href={homeHref} 
               className="flex items-center gap-3 min-w-0 group"
               onClick={() => setIsMobileOpen(false)}
             >
@@ -266,53 +256,6 @@ export function Sidebar() {
             </motion.div>
           )}
         </div>
-
-        {auth.user?.role === 'super_admin' && (
-          <div className="px-4 py-3 border-b border-[var(--color-border-secondary)]">
-            <div className={`flex items-center ${showLabels ? 'justify-between gap-3' : 'justify-center'}`}>
-              {showLabels && (
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-[var(--color-text-primary)]">Super admin mode</p>
-                  <p className="text-[10px] text-[var(--color-text-tertiary)] mt-1">
-                    Toggle the super tools navigation.
-                  </p>
-                </div>
-              )}
-              <button
-                onClick={toggleSuperMode}
-                className={`
-                  relative inline-flex items-center rounded-[var(--radius-button)] border w-full md:w-auto
-                  ${isSuperMode 
-                    ? 'border-amber-200 bg-amber-50 text-amber-700' 
-                    : 'border-[var(--color-border-secondary)] bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]'
-                  }
-                  ${showLabels ? 'px-3 py-2 justify-between gap-3' : 'h-11 w-11 justify-center'}
-                `}
-                aria-pressed={isSuperMode}
-                aria-label="Toggle super admin navigation"
-              >
-                <div className={`flex items-center gap-2 ${showLabels ? '' : 'justify-center'}`}>
-                  <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${isSuperMode ? 'bg-amber-100 text-amber-700' : 'bg-[var(--color-background-primary)] text-[var(--color-text-secondary)]'}`}>
-                    <Shield className="h-4 w-4" />
-                  </div>
-                  {showLabels && (
-                    <span className="text-sm font-semibold leading-none">
-                      {isSuperMode ? 'Super tools on' : 'Super tools off'}
-                    </span>
-                  )}
-                </div>
-                <div className={`flex h-6 w-11 items-center rounded-full ${isSuperMode ? 'bg-amber-400/80' : 'bg-[var(--color-background-secondary)]'} p-1 ${showLabels ? 'ml-auto' : ''}`}>
-                  <span
-                    className={`
-                      h-4 w-4 rounded-full bg-white shadow transition-transform duration-200
-                      ${isSuperMode ? 'translate-x-4' : 'translate-x-0'}
-                    `}
-                  />
-                </div>
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Navigation */}
         <nav className={`flex-1 space-y-1 overflow-y-auto ${isCollapsed ? 'p-3' : 'p-4'}`}>

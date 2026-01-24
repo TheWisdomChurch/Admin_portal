@@ -14,7 +14,7 @@ export interface User {
   is_active?: boolean;
   created_at?: string;
   updated_at?: string;
-  last_login?: string;
+  last_login_at?: string;
 }
 
 /* =========================
@@ -40,7 +40,6 @@ export interface RegisterData {
 
 /**
  * Generic API response wrapper (backend uses status/message/data).
- * Note: For login/register, "data" may be { user: User }.
  */
 export interface ApiResponse<T = unknown> {
   status?: string;
@@ -266,6 +265,8 @@ export interface SendNotificationResult {
 export interface SendOTPRequest {
   email: string;
   purpose?: string;
+  actionUrl?: string;
+  actionLabel?: string;
 }
 
 export interface VerifyOTPRequest {
@@ -276,6 +277,8 @@ export interface VerifyOTPRequest {
 
 export interface SendOTPResponse {
   expiresAt: string;
+  purpose?: string;
+  actionUrl?: string;
 }
 
 export interface VerifyOTPResponse {
@@ -315,25 +318,24 @@ export interface FormField {
   updatedAt?: string;
 }
 
+export interface FormDesignSettings {
+  heroTitle?: string;
+  heroSubtitle?: string;
+  coverImageUrl?: string;
+  primaryColor?: string; // hex #RRGGBB
+  backgroundColor?: string; // hex #RRGGBB
+  accentColor?: string; // hex #RRGGBB
+  layout?: 'split' | 'stacked' | 'inline';
+  ctaButtonLabel?: string;
+  privacyCopy?: string;
+  footerNote?: string;
+}
+
 export interface FormSettings {
   capacity?: number;
   closesAt?: string; // ISO
   successMessage?: string;
-  dateFormat?: 'yyyy-mm-dd' | 'mm/dd/yyyy' | 'dd/mm/yyyy' | 'dd/mm';
-  layoutMode?: 'split' | 'stack';
-  introTitle?: string;
-  introSubtitle?: string;
-  introBullets?: string[];
-  introBulletSubtexts?: string[];
-  footerText?: string;
-  footerBg?: string;
-  footerTextColor?: string;
-  accentColor?: string;
-  submitButtonText?: string;
-  submitButtonBg?: string;
-  submitButtonTextColor?: string;
-  submitButtonIcon?: 'check' | 'send' | 'calendar' | 'cursor' | 'none';
-  formHeaderNote?: string;
+  design?: FormDesignSettings;
 }
 
 export interface AdminForm {
@@ -360,9 +362,7 @@ export interface CreateFormRequest {
   slug?: string;
   eventId?: string;
   settings?: FormSettings;
-  fields: Array<
-    Omit<FormField, 'id' | 'formId' | 'createdAt' | 'updatedAt'>
-  >;
+  fields: Array<Omit<FormField, 'id' | 'formId' | 'createdAt' | 'updatedAt'>>;
 }
 
 export interface UpdateFormRequest extends Partial<CreateFormRequest> {}
@@ -407,37 +407,11 @@ export interface FormStatsResponse {
   recent: FormSubmissionWithForm[];
 }
 
-export interface FormDesignSettings {
-  heroTitle?: string;
-  heroSubtitle?: string;
-  coverImageUrl?: string;
-  primaryColor?: string;    // hex #RRGGBB
-  backgroundColor?: string; // hex #RRGGBB
-  accentColor?: string;     // hex #RRGGBB
-  layout?: 'split' | 'stacked' | 'inline';
-  ctaButtonLabel?: string;
-  privacyCopy?: string;
-  footerNote?: string;
-}
-
-export interface FormSettings {
-  capacity?: number;
-  closesAt?: string; // ISO
-  successMessage?: string;
-  design?: FormDesignSettings;
-}
-
-export interface CreateFormRequest { /* existing fields */ settings?: FormSettings; }
-export interface UpdateFormRequest extends Partial<CreateFormRequest> {}
-export interface AdminForm { /* existing fields */ settings?: FormSettings; }
-export interface PublicFormPayload { form: AdminForm; /* ... */ }
-
-
 /* =========================
    WORKFORCE
 ========================= */
 
-export type WorkforceStatus = 'pending' | 'new' | 'serving' | 'not_serving';
+export type WorkforceStatus = 'new' | 'serving' | 'not_serving';
 
 export interface WorkforceMember {
   id: string;
@@ -458,10 +432,7 @@ export interface CreateWorkforceRequest {
   email?: string;
   phone?: string;
   department: string;
-  /**
-   * Optional for admin-created records; public apply defaults to pending.
-   */
-  status?: Extract<WorkforceStatus, 'pending' | 'new'>;
+  status?: WorkforceStatus;
   notes?: string;
 }
 
