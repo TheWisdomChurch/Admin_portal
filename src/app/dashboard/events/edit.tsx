@@ -12,7 +12,6 @@ import toast from 'react-hot-toast';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { RichTextEditor } from '@/components/RichTextEditor';
-import { ImageUpload } from '@/components/ImageUpload';
 import { PageHeader } from '@/layouts';
 
 import { apiClient } from '@/lib/api';
@@ -49,13 +48,11 @@ function EditEventPage() {
     const raw = params?.id;
     return typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : '';
   }, [params]);
+  const isEdit = Boolean(eventId);
 
   const [loading, setLoading] = useState(false);
-  const [pageLoading, setPageLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(isEdit);
   const [event, setEvent] = useState<EventData | null>(null);
-
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [bannerFiles, setBannerFiles] = useState<File[]>([]);
 
   const {
     register,
@@ -138,43 +135,41 @@ function EditEventPage() {
   }, [authBlocked, eventId, reset, router]);
 
   const onSubmit: SubmitHandler<EventFormData> = async (data) => {
-    if (!eventId) return;
-
     try {
       setLoading(true);
 
-      const formData = new FormData();
-
-      // tags -> JSON array
       const tags = data.tags
         ? data.tags.split(',').map((t) => t.trim()).filter(Boolean)
         : [];
 
-      formData.append('title', data.title);
-      formData.append('shortDescription', data.shortDescription);
-      formData.append('description', data.description);
-      formData.append('date', data.date);
-      formData.append('time', data.time);
-      formData.append('location', data.location);
-      formData.append('category', data.category);
-      formData.append('status', data.status);
-      formData.append('isFeatured', data.isFeatured ? 'true' : 'false');
-      formData.append('tags', JSON.stringify(tags));
+      const payload = {
+        title: data.title,
+        shortDescription: data.shortDescription,
+        description: data.description,
+        date: data.date,
+        time: data.time,
+        location: data.location,
+        category: data.category,
+        status: data.status,
+        isFeatured: data.isFeatured,
+        tags,
+        registerLink: data.registerLink || undefined,
+        speaker: data.speaker || undefined,
+        contactPhone: data.contactPhone || undefined,
+      };
 
-      if (data.registerLink) formData.append('registerLink', data.registerLink);
-      if (data.speaker) formData.append('speaker', data.speaker);
-      if (data.contactPhone) formData.append('contactPhone', data.contactPhone);
+      if (eventId) {
+        await apiClient.updateEvent(eventId, payload);
+        toast.success('Event updated successfully!');
+      } else {
+        await apiClient.createEvent(payload);
+        toast.success('Event created successfully!');
+      }
 
-      if (imageFiles[0]) formData.append('image', imageFiles[0]);
-      if (bannerFiles[0]) formData.append('bannerImage', bannerFiles[0]);
-
-      await apiClient.updateEvent(eventId, formData);
-
-      toast.success('Event updated successfully!');
       router.push('/dashboard/events');
     } catch (err: any) {
       console.error(err);
-      toast.error(err?.message || 'Failed to update event');
+      toast.error(err?.message || 'Failed to save event');
     } finally {
       setLoading(false);
     }
@@ -205,20 +200,7 @@ function EditEventPage() {
     );
   }
 
-  if (!eventId) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <p className="mt-2 text-gray-600">Invalid event ID</p>
-          <Button className="mt-4" onClick={() => router.push('/dashboard/events')}>
-            Back to Events
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (pageLoading || !event) {
+  if (isEdit && (pageLoading || !event)) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
@@ -237,14 +219,16 @@ function EditEventPage() {
           Back to Events
         </Button>
         <PageHeader
-          title="Edit Event"
-          subtitle="Update the details of this event."
-          actions={(
-            <Button variant="danger" onClick={handleDelete} disabled={loading}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Event
-            </Button>
-          )}
+          title={isEdit ? 'Edit Event' : 'Create Event'}
+          subtitle={isEdit ? 'Update the details of this event.' : 'Create a new event and publish it.'}
+          actions={
+            isEdit ? (
+              <Button variant="danger" onClick={handleDelete} disabled={loading}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Event
+              </Button>
+            ) : null
+          }
         />
       </div>
 
@@ -464,7 +448,7 @@ function EditEventPage() {
               <div className="space-y-3">
                 <Button type="submit" className="w-full" loading={loading} disabled={loading}>
                   <Save className="h-4 w-4 mr-2" />
-                  Update Event
+                  {isEdit ? 'Update Event' : 'Create Event'}
                 </Button>
 
                 <Button type="button" variant="outline" className="w-full" onClick={() => router.back()} disabled={loading}>

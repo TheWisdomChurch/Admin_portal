@@ -36,9 +36,9 @@ export function Navbar() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      console.log('Searching for:', searchQuery);
-      // Implement search functionality
+    const trimmed = searchQuery.trim();
+    if (trimmed && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('dashboard-search', { detail: trimmed }));
     }
   };
 

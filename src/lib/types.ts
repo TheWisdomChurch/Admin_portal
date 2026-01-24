@@ -120,6 +120,10 @@ export interface EventPayload {
   shortDescription: string;
   date: string;
   time: string;
+  startDate?: string;
+  endDate?: string;
+  registrationClosesAt?: string;
+  sessions?: Array<{ title: string; time: string }>;
   location: string;
   category: EventCategory;
   status: EventStatus;
@@ -315,6 +319,21 @@ export interface FormSettings {
   capacity?: number;
   closesAt?: string; // ISO
   successMessage?: string;
+  dateFormat?: 'yyyy-mm-dd' | 'mm/dd/yyyy' | 'dd/mm/yyyy' | 'dd/mm';
+  layoutMode?: 'split' | 'stack';
+  introTitle?: string;
+  introSubtitle?: string;
+  introBullets?: string[];
+  introBulletSubtexts?: string[];
+  footerText?: string;
+  footerBg?: string;
+  footerTextColor?: string;
+  accentColor?: string;
+  submitButtonText?: string;
+  submitButtonBg?: string;
+  submitButtonTextColor?: string;
+  submitButtonIcon?: 'check' | 'send' | 'calendar' | 'cursor' | 'none';
+  formHeaderNote?: string;
 }
 
 export interface AdminForm {
@@ -387,6 +406,32 @@ export interface FormStatsResponse {
   perForm: FormSubmissionCount[];
   recent: FormSubmissionWithForm[];
 }
+
+export interface FormDesignSettings {
+  heroTitle?: string;
+  heroSubtitle?: string;
+  coverImageUrl?: string;
+  primaryColor?: string;    // hex #RRGGBB
+  backgroundColor?: string; // hex #RRGGBB
+  accentColor?: string;     // hex #RRGGBB
+  layout?: 'split' | 'stacked' | 'inline';
+  ctaButtonLabel?: string;
+  privacyCopy?: string;
+  footerNote?: string;
+}
+
+export interface FormSettings {
+  capacity?: number;
+  closesAt?: string; // ISO
+  successMessage?: string;
+  design?: FormDesignSettings;
+}
+
+export interface CreateFormRequest { /* existing fields */ settings?: FormSettings; }
+export interface UpdateFormRequest extends Partial<CreateFormRequest> {}
+export interface AdminForm { /* existing fields */ settings?: FormSettings; }
+export interface PublicFormPayload { form: AdminForm; /* ... */ }
+
 
 /* =========================
    WORKFORCE

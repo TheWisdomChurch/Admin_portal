@@ -18,7 +18,7 @@ import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
 
-import type { RegisterEventData } from '@/lib/types';
+import type { EventPayload } from '@/lib/types';
 
 // Schema
 const eventSchema = z.object({
@@ -27,6 +27,17 @@ const eventSchema = z.object({
   description: z.string().min(1, 'Description is required'),
   date: z.string().min(1, 'Date is required'),
   time: z.string().min(1, 'Time is required'),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  registrationClosesAt: z.string().optional(),
+  sessions: z
+    .array(
+      z.object({
+        title: z.string().min(1, 'Session title required'),
+        time: z.string().min(1, 'Session time required'),
+      })
+    )
+    .optional(),
   location: z.string().min(1, 'Location is required'),
   category: z.enum(['Outreach', 'Conference', 'Workshop', 'Prayer', 'Revival', 'Summit']),
   status: z.enum(['upcoming', 'happening', 'past']),
@@ -46,6 +57,7 @@ function CreateEventPage() {
   const [submitting, setSubmitting] = useState(false);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [bannerFiles, setBannerFiles] = useState<File[]>([]);
+  const [sessions, setSessions] = useState<{ title: string; time: string }[]>([{ title: 'Morning Session', time: '09:00 AM' }]);
 
   const {
     register,
@@ -66,6 +78,9 @@ function CreateEventPage() {
       description: '',
       date: '',
       time: '',
+      startDate: '',
+      endDate: '',
+      registrationClosesAt: '',
       location: '',
       category: 'Outreach',
       status: 'upcoming',
@@ -94,12 +109,16 @@ function CreateEventPage() {
     try {
       setSubmitting(true);
 
-      const payload: RegisterEventData = {
+      const payload: EventPayload = {
         title: data.title,
         shortDescription: data.shortDescription,
         description: data.description,
         date: data.date,
         time: data.time,
+        startDate: data.startDate || undefined,
+        endDate: data.endDate || undefined,
+        registrationClosesAt: data.registrationClosesAt || undefined,
+        sessions: sessions.filter((s) => s.title && s.time),
         location: data.location,
         category: data.category,
         status: data.status,
@@ -212,6 +231,34 @@ function CreateEventPage() {
                   {errors.time && <p className="mt-1 text-sm text-red-500">{errors.time.message}</p>}
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start date (range)</label>
+                  <input
+                    type="date"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    {...register('startDate')}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">End date (range)</label>
+                  <input
+                    type="date"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    {...register('endDate')}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Registration closes</label>
+                  <input
+                    type="date"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    {...register('registrationClosesAt')}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Link disconnects after this date.</p>
+                </div>
+
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Location *</label>
                   <input
@@ -231,6 +278,55 @@ function CreateEventPage() {
 
             <Card title="Additional Information">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sessions (timeline)</label>
+                  <div className="space-y-3">
+                    {sessions.map((session, idx) => (
+                      <div key={idx} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <input
+                          type="text"
+                          value={session.title}
+                          onChange={(e) =>
+                            setSessions((prev) =>
+                              prev.map((s, i) => (i === idx ? { ...s, title: e.target.value } : s))
+                            )
+                          }
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Morning session"
+                        />
+                        <input
+                          type="text"
+                          value={session.time}
+                          onChange={(e) =>
+                            setSessions((prev) =>
+                              prev.map((s, i) => (i === idx ? { ...s, time: e.target.value } : s))
+                            )
+                          }
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="09:00 AM - 11:00 AM"
+                        />
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setSessions((prev) => [...prev, { title: 'New session', time: '12:00 PM' }])}
+                      >
+                        Add session
+                      </Button>
+                      {sessions.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => setSessions((prev) => prev.slice(0, -1))}
+                        >
+                          Remove last
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Speaker</label>
                   <input

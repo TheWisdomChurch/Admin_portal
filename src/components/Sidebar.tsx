@@ -19,7 +19,8 @@ import {
   MessageSquare,
   Shield,
   BellRing,
-  FileText
+  FileText,
+  LineChart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/providers/AuthProviders';
@@ -30,7 +31,7 @@ import { textStyles } from '@/styles/text';
 const adminNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview and metrics' },
   { href: '/dashboard/events', label: 'Events', icon: Calendar, description: 'Manage church events' },
-  { href: '/dashboard/workforce', label: 'Workforce', icon: Users, description: 'New and serving workers' },
+  { href: '/dashboard/administration', label: 'Administration', icon: Shield, description: 'Workforce, leadership, members' },
   { href: '/dashboard/reels', label: 'Reels', icon: Video, description: 'Video content management' },
   { href: '/dashboard/testimonials', label: 'Testimonials', icon: MessageSquare, description: 'Member testimonials' },
   { href: '/dashboard/forms', label: 'Forms', icon: ClipboardList, description: 'Create registration links' },
@@ -41,6 +42,8 @@ const adminNavItems = [
 const superNavItems = [
   { href: '/dashboard/super', label: 'Dashbord', icon: LayoutDashboard, description: 'Approvals & analytics' },
   { href: '/dashboard/super/requests', label: 'Requests', icon: BellRing, description: 'Pending approvals' },
+  { href: '/dashboard/super/analytics', label: 'Analytics', icon: LineChart, description: 'Charts & trends' },
+  { href: '/dashboard/super/reports', label: 'Reports', icon: FileText, description: 'Monthly exports' },
   { href: '/dashboard/super/notifications', label: 'Notifications', icon: BarChart3, description: 'Alerts and updates' },
 ];
 
@@ -48,6 +51,8 @@ export function Sidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isSuperMode, setIsSuperMode] = useState<boolean>(true);
   const pathname = usePathname();
   const auth = useAuthContext();
 
@@ -75,6 +80,46 @@ export function Sidebar() {
     };
   }, [isMobileOpen]);
 
+  // Collapse sidebar on tablets by default, expand on large screens.
+  useEffect(() => {
+    const updateCollapseState = () => {
+      if (typeof window === 'undefined') return;
+      const width = window.innerWidth;
+      // mobile uses drawer, so keep labels when open
+      if (width < 768) {
+        setIsCollapsed(false);
+        return;
+      }
+      // tablet: icon-only
+      if (width >= 768 && width < 1024) {
+        setIsCollapsed(true);
+        return;
+      }
+      // desktop: full
+      setIsCollapsed(false);
+    };
+
+    updateCollapseState();
+    window.addEventListener('resize', updateCollapseState);
+    return () => window.removeEventListener('resize', updateCollapseState);
+  }, []);
+
+  // Keep CSS variable for content offset in sync with collapse state.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (isCollapsed) {
+      document.body.classList.add('sidebar-collapsed');
+    } else {
+      document.body.classList.remove('sidebar-collapsed');
+    }
+    return () => document.body.classList.remove('sidebar-collapsed');
+  }, [isCollapsed]);
+
+  // Only super admins can toggle the super mode.
+  useEffect(() => {
+    setIsSuperMode(auth.user?.role === 'super_admin');
+  }, [auth.user?.role]);
+
   const getUserName = () => {
     if (!auth.user) return 'User';
     return `${auth.user.first_name} ${auth.user.last_name}`.trim();
@@ -85,6 +130,12 @@ export function Sidebar() {
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
+  };
+
+  const toggleSuperMode = () => {
+    if (auth.user?.role !== 'super_admin') return;
+    setIsSuperMode(prev => !prev);
+    setIsMobileOpen(false);
   };
 
   const handleLogoutClick = () => {
@@ -112,9 +163,9 @@ export function Sidebar() {
     return `${first}${last}`.toUpperCase() || 'U';
   };
 
-  const showLabels = true;
+  const showLabels = isMobileOpen || !isCollapsed;
 
-  const navItems = auth.user?.role === 'super_admin'
+  const navItems = auth.user?.role === 'super_admin' && isSuperMode
     ? superNavItems
     : adminNavItems;
 
@@ -132,12 +183,18 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={`
-          fixed left-0 top-0 z-50 h-screen w-72 border-r border-[var(--color-border-primary)]
+          fixed left-0 top-0 z-50 h-screen border-r border-[var(--color-border-primary)]
           flex flex-col shadow-xl backdrop-blur-sm bg-[var(--color-background-primary)]
           transition-transform duration-300 ease-in-out
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-          md:w-72 lg:w-72
         `}
+        style={{
+          width: isMobileOpen
+            ? 'var(--sidebar-width-expanded)'
+            : isCollapsed
+              ? 'var(--sidebar-width-collapsed)'
+              : 'var(--sidebar-width-expanded)',
+        }}
       >
         {/* Header */}
         <div className="p-5 border-b border-[var(--color-border-secondary)]">
@@ -210,8 +267,55 @@ export function Sidebar() {
           )}
         </div>
 
+        {auth.user?.role === 'super_admin' && (
+          <div className="px-4 py-3 border-b border-[var(--color-border-secondary)]">
+            <div className={`flex items-center ${showLabels ? 'justify-between gap-3' : 'justify-center'}`}>
+              {showLabels && (
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-[var(--color-text-primary)]">Super admin mode</p>
+                  <p className="text-[10px] text-[var(--color-text-tertiary)] mt-1">
+                    Toggle the super tools navigation.
+                  </p>
+                </div>
+              )}
+              <button
+                onClick={toggleSuperMode}
+                className={`
+                  relative inline-flex items-center rounded-[var(--radius-button)] border w-full md:w-auto
+                  ${isSuperMode 
+                    ? 'border-amber-200 bg-amber-50 text-amber-700' 
+                    : 'border-[var(--color-border-secondary)] bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]'
+                  }
+                  ${showLabels ? 'px-3 py-2 justify-between gap-3' : 'h-11 w-11 justify-center'}
+                `}
+                aria-pressed={isSuperMode}
+                aria-label="Toggle super admin navigation"
+              >
+                <div className={`flex items-center gap-2 ${showLabels ? '' : 'justify-center'}`}>
+                  <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${isSuperMode ? 'bg-amber-100 text-amber-700' : 'bg-[var(--color-background-primary)] text-[var(--color-text-secondary)]'}`}>
+                    <Shield className="h-4 w-4" />
+                  </div>
+                  {showLabels && (
+                    <span className="text-sm font-semibold leading-none">
+                      {isSuperMode ? 'Super tools on' : 'Super tools off'}
+                    </span>
+                  )}
+                </div>
+                <div className={`flex h-6 w-11 items-center rounded-full ${isSuperMode ? 'bg-amber-400/80' : 'bg-[var(--color-background-secondary)]'} p-1 ${showLabels ? 'ml-auto' : ''}`}>
+                  <span
+                    className={`
+                      h-4 w-4 rounded-full bg-white shadow transition-transform duration-200
+                      ${isSuperMode ? 'translate-x-4' : 'translate-x-0'}
+                    `}
+                  />
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        <nav className={`flex-1 space-y-1 overflow-y-auto ${isCollapsed ? 'p-3' : 'p-4'}`}>
           <AnimatePresence>
             {navItems.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -231,6 +335,7 @@ export function Sidebar() {
                     className={`
                       flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all
                       duration-200 ease-out group relative
+                      ${showLabels ? '' : 'justify-center'}
                       ${isActive 
                         ? 'bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)] shadow-sm' 
                         : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)] hover:shadow-sm'
@@ -264,9 +369,11 @@ export function Sidebar() {
                     {!showLabels && isActive && (
                       <div className="absolute right-0 top-1/2 h-6 w-1.5 -translate-y-1/2 bg-[var(--color-accent-primary)] rounded-l-lg" />
                     )}
-                    <span className="pointer-events-none absolute left-full top-1/2 ml-3 -translate-y-1/2 whitespace-nowrap rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1 text-xs text-[var(--color-text-secondary)] opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
-                      {item.label}
-                    </span>
+                    {!showLabels && (
+                      <span className="pointer-events-none absolute left-full top-1/2 ml-3 -translate-y-1/2 whitespace-nowrap rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1 text-xs text-[var(--color-text-secondary)] opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
+                        {item.label}
+                      </span>
+                    )}
                   </Link>
                 </motion.div>
               );

@@ -1,246 +1,154 @@
-// src/app/dashboard/events/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, Filter } from 'lucide-react';
-import { Button } from '@/ui/Button';
-import { Input } from '@/ui/input';
+import { ChevronDown, ChevronUp, MapPin, Calendar, Clock, Link as LinkIcon, Sparkles } from 'lucide-react';
 import { Card } from '@/ui/Card';
-import { DataTable } from '@/components/DateTable';
-import toast from 'react-hot-toast';
+import { Badge } from '@/ui/Badge';
+import { Button } from '@/ui/Button';
 import { apiClient } from '@/lib/api';
 import { EventData } from '@/lib/types';
-import { withAuth } from '@/providers/withAuth';
-import { PageHeader } from '@/layouts';
+import toast from 'react-hot-toast';
 
-function EventsPage() {
+function statusLabel(event: EventData) {
+  const now = new Date();
+  const start = event.startDate ? new Date(event.startDate) : new Date(event.date);
+  const end = event.endDate ? new Date(event.endDate) : start;
+  if (now < start) return 'upcoming';
+  if (now > end) return 'past';
+  return 'happening';
+}
+
+export default function EventsPage() {
   const router = useRouter();
   const [events, setEvents] = useState<EventData[]>([]);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-  const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   useEffect(() => {
-    loadEvents();
-  }, [page, limit, search, categoryFilter]);
-
-  const loadEvents = async () => {
-    try {
-      setLoading(true);
-      
-      // For development, use mock data
-      const mockResponse = {
-        data: [
-          {
-            id: 1,
-            title: 'Sunday Service',
-            shortDescription: 'Weekly worship service',
-            description: 'Weekly Sunday worship service with prayers and sermons',
-            date: '2024-01-28',
-            time: '10:00 AM',
-            location: 'Main Sanctuary',
-            category: 'Prayer' as const,
-            status: 'upcoming' as const,
-            attendees: 150,
-            isFeatured: true,
-            tags: ['worship', 'prayer'],
-            image: '',
-            createdAt: '2024-01-01',
-            updatedAt: '2024-01-01',
-          },
-          {
-            id: 2,
-            title: 'Youth Conference',
-            shortDescription: 'Annual youth gathering',
-            description: 'Annual youth conference with guest speakers',
-            date: '2024-02-15',
-            time: '9:00 AM - 5:00 PM',
-            location: 'Church Auditorium',
-            category: 'Conference' as const,
-            status: 'upcoming' as const,
-            attendees: 200,
-            isFeatured: true,
-            tags: ['youth', 'conference'],
-            image: '',
-            createdAt: '2024-01-05',
-            updatedAt: '2024-01-05',
-          }
-        ],
-        total: 2,
-        page: 1,
-        limit: 10,
-        totalPages: 1,
-      };
-      
-   
-      setTotal(mockResponse.total);
-      
-      // Uncomment this when backend is ready:
-      // const params: any = { page, limit, search: search || undefined };
-      // if (categoryFilter !== 'all') params.category = categoryFilter;
-      // const response = await apiClient.getEvents(params);
-      // setEvents(response.data);
-      // setTotal(response.total);
-      
-    } catch (error) {
-      toast.error('Failed to load events');
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDelete = async (event: EventData) => {
-    if (!confirm(`Are you sure you want to delete "${event.title}"?`)) {
-      return;
-    }
-
-    try {
-      // Mock delete for now
-      toast.success('Event deleted successfully (Mock)');
-      loadEvents(); // Refresh the list
-      
-      // Uncomment when backend is ready:
-      // await apiClient.deleteEvent(event.id);
-      // toast.success('Event deleted successfully');
-      // loadEvents();
-    } catch (error) {
-      toast.error('Failed to delete event');
-      console.error(error);
-    }
-  };
-
-  const handleEdit = (event: EventData) => {
-    router.push(`/dashboard/events/${event.id}/edit`);
-  };
-
-  const columns = [
-    {
-      key: 'title' as keyof EventData,
-      header: 'Title',
-      cell: (event: EventData) => (
-        <div>
-          <div className="font-medium text-secondary-900">{event.title}</div>
-          <div className="text-sm text-secondary-500">{event.shortDescription}</div>
-        </div>
-      ),
-    },
-    {
-      key: 'category' as keyof EventData,
-      header: 'Category',
-      cell: (event: EventData) => (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
-          {event.category}
-        </span>
-      ),
-    },
-    {
-      key: 'date' as keyof EventData,
-      header: 'Date & Time',
-      cell: (event: EventData) => (
-        <div className="text-sm">
-          <div>{new Date(event.date).toLocaleDateString()}</div>
-          <div className="text-secondary-500">{event.time}</div>
-        </div>
-      ),
-    },
-    {
-      key: 'status' as keyof EventData,
-      header: 'Status',
-      cell: (event: EventData) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          event.status === 'upcoming' ? 'bg-green-100 text-green-800' :
-          event.status === 'happening' ? 'bg-yellow-100 text-yellow-800' :
-          'bg-gray-100 text-gray-800'
-        }`}>
-          {event.status}
-        </span>
-      ),
-    },
-    {
-      key: 'attendees' as keyof EventData,
-      header: 'Attendees',
-      cell: (event: EventData) => (
-        <div className="text-center">
-          <div className="font-medium">{event.attendees}</div>
-          <div className="text-xs text-secondary-500">registered</div>
-        </div>
-      ),
-    },
-  ];
-
-  const categories = [
-    'all',
-    'Outreach',
-    'Conference',
-    'Workshop',
-    'Prayer',
-    'Revival',
-    'Summit',
-  ];
+    (async () => {
+      try {
+        setLoading(true);
+        const res = await apiClient.getEvents({ page: 1, limit: 20 }).catch(() => null);
+        if (res && Array.isArray((res as any).data)) {
+          setEvents((res as any).data);
+        } else if (Array.isArray(res)) {
+          setEvents(res);
+        } else {
+          setEvents([]);
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error('Failed to load events');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Events Management"
-        subtitle="Create, edit, and manage all church events."
-        actions={(
-          <Button onClick={() => router.push('/dashboard/events/new')}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Event
-          </Button>
-        )}
-      />
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Events</h1>
+        <Button variant="primary" size="sm" onClick={() => router.push('/dashboard/events/edit')}>
+          Create Event
+        </Button>
+      </div>
 
-      {/* Filters */}
       <Card>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-500" />
-            <Input
-              placeholder="Search events..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-            />
+        {loading && <p className="text-sm text-[var(--color-text-tertiary)]">Loading events...</p>}
+        {!loading && events.length === 0 && (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-[var(--color-text-tertiary)]">No events yet.</p>
+            <Button variant="primary" size="sm" onClick={() => router.push('/dashboard/events/edit')}>
+              Create your first event
+            </Button>
           </div>
-          
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-secondary-500" />
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm"
-            >
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category === 'all' ? 'All Categories' : category}
-                </option>
-              ))}
-            </select>
-          </div>
+        )}
+        <div className="space-y-3">
+          {events.map((event) => {
+            const isOpen = expanded[event.id];
+            const badge = statusLabel(event);
+            return (
+              <div
+                key={event.id}
+                className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]"
+              >
+                <button
+                  className="w-full px-4 py-3 flex items-center justify-between text-left"
+                  onClick={() => setExpanded((prev) => ({ ...prev, [event.id]: !prev[event.id] }))}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-[var(--color-background-tertiary)] flex items-center justify-center text-[var(--color-text-secondary)]">
+                      <Sparkles className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-[var(--color-text-primary)] truncate">{event.title}</p>
+                      <p className="text-xs text-[var(--color-text-tertiary)] truncate">{event.shortDescription}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant={badge === 'happening' ? 'success' : badge === 'upcoming' ? 'primary' : 'secondary'}>
+                      {badge === 'happening' ? 'Happening now' : badge === 'upcoming' ? 'Upcoming' : 'Past'}
+                    </Badge>
+                    {isOpen ? (
+                      <ChevronUp className="h-4 w-4 text-[var(--color-text-secondary)]" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-[var(--color-text-secondary)]" />
+                    )}
+                  </div>
+                </button>
+                {isOpen && (
+                  <div className="px-4 pb-4 space-y-3 text-sm text-[var(--color-text-secondary)]">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="inline-flex items-center gap-2 rounded-full bg-[var(--color-background-secondary)] px-3 py-1 text-xs">
+                        <Calendar className="h-4 w-4" />
+                        {event.startDate || event.date} {event.endDate ? `→ ${event.endDate}` : ''}
+                      </span>
+                      <span className="inline-flex items-center gap-2 rounded-full bg-[var(--color-background-secondary)] px-3 py-1 text-xs">
+                        <Clock className="h-4 w-4" />
+                        {event.time}
+                      </span>
+                      <span className="inline-flex items-center gap-2 rounded-full bg-[var(--color-background-secondary)] px-3 py-1 text-xs">
+                        <MapPin className="h-4 w-4" />
+                        {event.location}
+                      </span>
+                    </div>
+                    <p className="leading-relaxed">{event.description}</p>
+                    {event.sessions && event.sessions.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-[var(--color-text-tertiary)]">Sessions</p>
+                        <ul className="space-y-1">
+                          {event.sessions.map((s, i) => (
+                            <li key={i} className="flex items-center gap-2 text-xs">
+                              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent-primary)]" />
+                              <span className="font-medium text-[var(--color-text-primary)]">{s.title}</span>
+                              <span className="text-[var(--color-text-tertiary)]">• {s.time}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {event.registerLink && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <LinkIcon className="h-4 w-4 text-[var(--color-text-secondary)]" />
+                        <a
+                          className="text-[var(--color-accent-primary)] underline"
+                          href={event.registerLink}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Registration link
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </Card>
-
-      {/* Events Table */}
-      <DataTable
-        data={events}
-        columns={columns}
-        total={total}
-        page={page}
-        limit={limit}
-        onPageChange={setPage}
-        onLimitChange={setLimit}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        isLoading={loading}
-      />
     </div>
   );
 }
-
-export default withAuth(EventsPage, { requiredRole: 'admin' });

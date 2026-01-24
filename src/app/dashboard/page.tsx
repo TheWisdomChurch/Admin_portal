@@ -38,16 +38,28 @@ export default function DashboardPage() {
       setLoading(true);
 
       // Try to fetch real data, fall back to mock data if it fails
-      try {
-        const [analytics, eventsData, testimonialsData] = await Promise.all([
-          apiClient.getAnalytics(),
-          apiClient.getEvents({ limit: 5, page: 1 }),
-          apiClient.getAllTestimonials({ approved: true }),
-        ]);
+      const [analyticsResult, eventsResult, testimonialsResult] = await Promise.allSettled([
+        apiClient.getAnalytics(),
+        apiClient.getEvents({ limit: 5, page: 1 }),
+        apiClient.getAllTestimonials({ approved: true }),
+      ]);
 
-        setStats(analytics);
-        
-        // Handle different response formats
+      if (analyticsResult.status === 'fulfilled') {
+        setStats(analyticsResult.value);
+      } else {
+        console.warn('Analytics unavailable, using placeholder data:', analyticsResult.reason);
+        setStats({
+          totalEvents: 0,
+          upcomingEvents: 0,
+          totalAttendees: 0,
+          eventsByCategory: {},
+          monthlyStats: [],
+        });
+        toast.error('Live analytics unavailable, showing placeholder data');
+      }
+
+      if (eventsResult.status === 'fulfilled') {
+        const eventsData = eventsResult.value;
         if (Array.isArray(eventsData)) {
           setRecentEvents(eventsData);
         } else if (eventsData && 'data' in eventsData) {
@@ -55,7 +67,13 @@ export default function DashboardPage() {
         } else {
           setRecentEvents([]);
         }
+      } else {
+        console.warn('Events unavailable:', eventsResult.reason);
+        setRecentEvents([]);
+      }
 
+      if (testimonialsResult.status === 'fulfilled') {
+        const testimonialsData = testimonialsResult.value;
         if (Array.isArray(testimonialsData)) {
           setApprovedTestimonials(testimonialsData.slice(0, 4));
         } else if (testimonialsData && 'data' in testimonialsData) {
@@ -63,12 +81,9 @@ export default function DashboardPage() {
         } else {
           setApprovedTestimonials([]);
         }
-      } catch (error) {
-        console.error('Failed to load real data, using mock data:', error);
-        
-  
-        
-        
+      } else {
+        console.warn('Testimonials unavailable:', testimonialsResult.reason);
+        setApprovedTestimonials([]);
       }
     } catch (error) {
       console.error('Dashboard error:', error);
