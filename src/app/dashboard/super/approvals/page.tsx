@@ -53,10 +53,10 @@ function ApprovalsPage() {
         subtitle="Deep dive into every testimonial and workforce approval."
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setSearchTerm('')}>
+            <Button variant="ghost" size="sm" className="text-xs px-3" onClick={() => setSearchTerm('')}>
               Clear search
             </Button>
-            <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
+            <Button variant="outline" size="sm" className="text-xs px-3" onClick={refresh} disabled={loading}>
               <RefreshCcw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
@@ -135,7 +135,7 @@ function ApprovalsPage() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+              className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs md:text-sm"
             >
               <option value="recent">Newest</option>
               <option value="oldest">Oldest</option>
@@ -145,7 +145,7 @@ function ApprovalsPage() {
         </div>
 
         <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <table className="min-w-full text-sm md:text-base">
             <thead>
               <tr className="text-left text-[var(--color-text-tertiary)] border-b border-[var(--color-border-secondary)]">
                 <th className="py-3 pr-4">Name</th>

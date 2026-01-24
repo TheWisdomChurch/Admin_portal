@@ -31,8 +31,8 @@ function SuperAnalyticsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Analytics</h1>
-        <p className="text-sm text-[var(--color-text-tertiary)]">
+        <h1 className="text-xl md:text-2xl font-semibold text-[var(--color-text-primary)]">Analytics</h1>
+        <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">
           Church-wide metrics for events, attendees, and categories.
         </p>
       </div>
@@ -41,8 +41,8 @@ function SuperAnalyticsPage() {
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Total events</p>
-              <p className="text-xl font-semibold text-[var(--color-text-primary)]">
+              <p className="text-[10px] md:text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Total events</p>
+              <p className="text-lg md:text-xl font-semibold text-[var(--color-text-primary)]">
                 {data?.totalEvents ?? '—'}
               </p>
             </div>
@@ -54,8 +54,8 @@ function SuperAnalyticsPage() {
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Upcoming</p>
-              <p className="text-xl font-semibold text-[var(--color-text-primary)]">
+              <p className="text-[10px] md:text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Upcoming</p>
+              <p className="text-lg md:text-xl font-semibold text-[var(--color-text-primary)]">
                 {data?.upcomingEvents ?? '—'}
               </p>
             </div>
@@ -67,8 +67,8 @@ function SuperAnalyticsPage() {
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Total attendees</p>
-              <p className="text-xl font-semibold text-[var(--color-text-primary)]">
+              <p className="text-[10px] md:text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Total attendees</p>
+              <p className="text-lg md:text-xl font-semibold text-[var(--color-text-primary)]">
                 {data?.totalAttendees ?? '—'}
               </p>
             </div>
@@ -80,12 +80,12 @@ function SuperAnalyticsPage() {
       </div>
 
       <Card title="Categories breakdown">
-        {loading && <p className="text-sm text-[var(--color-text-tertiary)]">Loading...</p>}
+        {loading && <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">Loading...</p>}
         {!loading && data?.eventsByCategory ? (
           <div className="space-y-2">
             {Object.entries(data.eventsByCategory).map(([category, count]) => (
               <details key={category} className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)]">
-                <summary className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm text-[var(--color-text-primary)]">
+                <summary className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm md:text-base text-[var(--color-text-primary)]">
                   <span>{category}</span>
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary">{count}</Badge>
@@ -93,7 +93,7 @@ function SuperAnalyticsPage() {
                     <ChevronUp className="h-4 w-4 text-[var(--color-text-tertiary)] hidden group-open:inline" />
                   </div>
                 </summary>
-                <div className="px-3 pb-3 text-xs text-[var(--color-text-tertiary)]">
+                <div className="px-3 pb-3 text-[11px] md:text-xs text-[var(--color-text-tertiary)]">
                   Category performance over time coming soon.
                 </div>
               </details>
@@ -103,21 +103,21 @@ function SuperAnalyticsPage() {
       </Card>
 
       <Card title="Monthly stats">
-        {loading && <p className="text-sm text-[var(--color-text-tertiary)]">Loading...</p>}
+        {loading && <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">Loading...</p>}
         {!loading && data?.monthlyStats ? (
           <div className="space-y-2">
             {data.monthlyStats.map((row) => (
               <details key={row.month} className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)]">
-                <summary className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm text-[var(--color-text-primary)]">
+                <summary className="flex cursor-pointer items-center justify-between px-3 py-2 text-sm md:text-base text-[var(--color-text-primary)]">
                   <span>{row.month}</span>
-                  <div className="flex items-center gap-3 text-xs text-[var(--color-text-secondary)]">
+                  <div className="flex items-center gap-3 text-[11px] md:text-xs text-[var(--color-text-secondary)]">
                     <span>Events: {row.events}</span>
                     <span>Attendees: {row.attendees}</span>
                     <ChevronDown className="h-4 w-4 text-[var(--color-text-tertiary)] group-open:hidden" />
                     <ChevronUp className="h-4 w-4 text-[var(--color-text-tertiary)] hidden group-open:inline" />
                   </div>
                 </summary>
-                <div className="px-3 pb-3 text-xs text-[var(--color-text-tertiary)]">
+                <div className="px-3 pb-3 text-[11px] md:text-xs text-[var(--color-text-tertiary)]">
                   Detailed charts for this month will appear here when connected to reporting.
                 </div>
               </details>

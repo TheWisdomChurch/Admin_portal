@@ -54,10 +54,10 @@ function SuperDashboard() {
         subtitle="Approve, prioritize, and analyze everything from one focused view."
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setSearchTerm('')}>
+            <Button variant="ghost" size="sm" className="text-xs px-3" onClick={() => setSearchTerm('')}>
               Clear search
             </Button>
-            <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
+            <Button variant="outline" size="sm" className="text-xs px-3" onClick={refresh} disabled={loading}>
               <RefreshCcw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
@@ -69,9 +69,9 @@ function SuperDashboard() {
         <Card className="p-5 bg-gradient-to-br from-amber-50 via-white to-sky-50 border-amber-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-amber-500">Approvals</p>
-              <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">{stats.total}</p>
-              <p className="text-sm text-[var(--color-text-tertiary)]">items awaiting decision</p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-amber-500">Approvals</p>
+              <p className="mt-2 text-2xl md:text-3xl font-semibold text-[var(--color-text-primary)]">{stats.total}</p>
+              <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">items awaiting decision</p>
             </div>
             <div className="h-12 w-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
               <ShieldCheck className="h-5 w-5" />
@@ -82,9 +82,9 @@ function SuperDashboard() {
         <Card className="p-5 bg-gradient-to-br from-blue-50 via-white to-indigo-50 border-blue-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-blue-500">Testimonials</p>
-              <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">{stats.testimonials}</p>
-              <p className="text-sm text-[var(--color-text-tertiary)]">stories pending approval</p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-blue-500">Testimonials</p>
+              <p className="mt-2 text-2xl md:text-3xl font-semibold text-[var(--color-text-primary)]">{stats.testimonials}</p>
+              <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">stories pending approval</p>
             </div>
             <div className="h-12 w-12 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">
               <Sparkles className="h-5 w-5" />
@@ -95,9 +95,9 @@ function SuperDashboard() {
         <Card className="p-5 bg-gradient-to-br from-emerald-50 via-white to-green-50 border-emerald-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-emerald-500">Workforce</p>
-              <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">{stats.workforce}</p>
-              <p className="text-sm text-[var(--color-text-tertiary)]">new joiners to review</p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-500">Workforce</p>
+              <p className="mt-2 text-2xl md:text-3xl font-semibold text-[var(--color-text-primary)]">{stats.workforce}</p>
+              <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">new joiners to review</p>
             </div>
             <div className="h-12 w-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
               <Users className="h-5 w-5" />
@@ -108,11 +108,11 @@ function SuperDashboard() {
         <Card className="p-5 bg-gradient-to-br from-slate-50 via-white to-amber-50 border-slate-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Owner</p>
-              <p className="mt-2 text-xl font-semibold text-[var(--color-text-primary)]">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Owner</p>
+              <p className="mt-2 text-lg md:text-xl font-semibold text-[var(--color-text-primary)]">
                 {auth.user?.first_name} {auth.user?.last_name}
               </p>
-              <p className="text-sm text-[var(--color-text-tertiary)]">Super admin oversight</p>
+              <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">Super admin oversight</p>
             </div>
             <div className="h-12 w-12 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center">
               <BarChart3 className="h-5 w-5" />
@@ -128,13 +128,13 @@ function SuperDashboard() {
             <div className="hidden md:block text-sm text-[var(--color-text-tertiary)]">
               {filteredItems.length} showing
             </div>
-            <label className="text-xs text-[var(--color-text-tertiary)] hidden sm:block">
+            <label className="text-[11px] md:text-xs text-[var(--color-text-tertiary)] hidden sm:block">
               Sort
             </label>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+              className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs md:text-sm"
             >
               <option value="recent">Newest first</option>
               <option value="oldest">Oldest first</option>
@@ -182,17 +182,17 @@ function SuperDashboard() {
 
         <div className="mt-4 space-y-3">
           {loading ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">Loading queue...</p>
+            <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">Loading queue...</p>
           ) : filteredItems.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">No approvals match this filter.</p>
+            <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">No approvals match this filter.</p>
           ) : (
             filteredItems.slice(0, 6).map((item) => (
               <div
                 key={item.id}
                 className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 hover:-translate-y-0.5 hover:shadow-sm transition"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                  <div className="flex items-start gap-3 min-w-0">
                     <div
                       className={`h-11 w-11 rounded-[var(--radius-button)] flex items-center justify-center ${
                         item.type === 'testimonial'
@@ -206,9 +206,9 @@ function SuperDashboard() {
                         <Users className="h-5 w-5" />
                       )}
                     </div>
-                    <div>
+                    <div className="min-w-0 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold text-[var(--color-text-primary)]">{item.name}</p>
+                        <p className="text-sm md:text-base font-semibold text-[var(--color-text-primary)]">{item.name}</p>
                         <Badge variant="outline" size="sm">
                           {item.type === 'testimonial' ? 'Testimonial' : 'Workforce'}
                         </Badge>
@@ -221,16 +221,16 @@ function SuperDashboard() {
                           {item.status}
                         </Badge>
                       </div>
-                      <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
+                      <p className="text-[11px] md:text-xs text-[var(--color-text-tertiary)] mt-1">
                         {new Date(item.submittedAt).toLocaleString()}
                       </p>
-                      <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{item.summary}</p>
+                      <p className="mt-2 text-sm md:text-base text-[var(--color-text-secondary)]">{item.summary}</p>
                       {item.department && (
-                        <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">Department: {item.department}</p>
+                        <p className="mt-1 text-[11px] md:text-xs text-[var(--color-text-tertiary)]">Department: {item.department}</p>
                       )}
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-2">
+                  <div className="flex flex-wrap items-center gap-2 md:flex-col md:items-end">
                     {item.email && (
                       <Badge variant="secondary" size="sm" className="text-[11px]">
                         {item.email}
@@ -262,25 +262,25 @@ function SuperDashboard() {
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <Card title="Workforce spotlight">
           {workforceSpotlight.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">No workforce submissions match the filters.</p>
+            <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">No workforce submissions match the filters.</p>
           ) : (
             <div className="space-y-3">
               {workforceSpotlight.map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 flex items-start justify-between gap-3"
+                  className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
                 >
-                  <div>
+                  <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">{item.name}</p>
+                      <p className="text-sm md:text-base font-semibold text-[var(--color-text-primary)]">{item.name}</p>
                       <Badge variant="success" size="sm">High priority</Badge>
                     </div>
-                    <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
+                    <p className="text-[11px] md:text-xs text-[var(--color-text-tertiary)] mt-1">
                       {new Date(item.submittedAt).toLocaleDateString()} • {item.department || 'General'}
                     </p>
-                    <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{item.summary}</p>
+                    <p className="mt-2 text-sm md:text-base text-[var(--color-text-secondary)]">{item.summary}</p>
                   </div>
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap items-center gap-2 md:flex-col md:items-end">
                     <Button
                       size="sm"
                       variant="outline"

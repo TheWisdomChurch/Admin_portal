@@ -16,7 +16,7 @@ export function PageHeader({ title, subtitle, actions, className }: PageHeaderPr
         <h1 className={`${textStyles.pageTitle} leading-tight`}>{title}</h1>
         {subtitle && <p className={`${textStyles.subtitle} mt-1`}>{subtitle}</p>}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2 justify-start sm:justify-end">{actions}</div>}
     </div>
   );
 }
