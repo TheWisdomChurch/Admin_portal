@@ -1,229 +1,340 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { CheckCircle, AlertTriangle, Users, BarChart3, MessageSquare } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { BarChart3, CheckCircle, Clock, Filter, RefreshCcw, Search, ShieldCheck, Sparkles, Users } from 'lucide-react';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
-import { apiClient } from '@/lib/api';
+import { Input } from '@/ui/input';
+import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
-import { Testimonial, WorkforceStatsResponse, WorkforceMember } from '@/lib/types';
-import toast from 'react-hot-toast';
+import { useSuperQueues, ApprovalItem } from '@/hooks/useSuperQueues';
+import { useDashboardSearch } from '@/hooks/useDashboardSearch';
+import { useAuthContext } from '@/providers/AuthProviders';
 
 function SuperDashboard() {
-  const [pending, setPending] = useState<Testimonial[]>([]);
-  const [pendingWorkforce, setPendingWorkforce] = useState<WorkforceMember[]>([]);
-  const [workforceStats, setWorkforceStats] = useState<WorkforceStatsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [approving, setApproving] = useState<string | null>(null);
+  const auth = useAuthContext();
+  const { items, loading, refresh, approveItem, stats } = useSuperQueues();
+  const { searchTerm, setSearchTerm } = useDashboardSearch('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'testimonial' | 'workforce'>('all');
+  const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'name'>('recent');
+  const [approvingId, setApprovingId] = useState<string | null>(null);
 
-  const loadPending = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [testimonialsRes, statsRes, workforceRes] = await Promise.all([
-        apiClient.getAllTestimonials({ approved: false }),
-        apiClient.getWorkforceStats().catch(() => null),
-        apiClient.listWorkforce({ status: 'new', limit: 5 }).catch(() => null),
-      ]);
+  const filteredItems = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
 
-      const pendingTestimonials = Array.isArray(testimonialsRes)
-        ? testimonialsRes
-        : (testimonialsRes as any)?.data || [];
-      setPending(pendingTestimonials);
+    return items
+      .filter((item) => (typeFilter === 'all' ? true : item.type === typeFilter))
+      .filter((item) => {
+        if (!normalizedSearch) return true;
+        const haystack = `${item.name} ${item.summary} ${item.department ?? ''} ${item.email ?? ''}`.toLowerCase();
+        return haystack.includes(normalizedSearch);
+      })
+      .sort((a, b) => {
+        if (sortBy === 'name') return a.name.localeCompare(b.name);
+        if (sortBy === 'oldest') {
+          return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
+        }
+        return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+      });
+  }, [items, searchTerm, typeFilter, sortBy]);
 
-      if (statsRes) setWorkforceStats(statsRes);
-      if (workforceRes && Array.isArray((workforceRes as any)?.data)) {
-        setPendingWorkforce((workforceRes as any).data as WorkforceMember[]);
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to load pending testimonials');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const workforceSpotlight = filteredItems.filter((item) => item.type === 'workforce').slice(0, 3);
 
-  useEffect(() => {
-    loadPending();
-  }, [loadPending]);
-
-  const handleApprove = async (id: string) => {
-    try {
-      setApproving(id);
-      await apiClient.approveTestimonial(id);
-      toast.success('Testimonial approved');
-      await loadPending();
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to approve');
-    } finally {
-      setApproving(null);
-    }
+  const handleApprove = async (item: ApprovalItem) => {
+    setApprovingId(item.id);
+    await approveItem(item);
+    setApprovingId(null);
   };
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+      <PageHeader
+        title="Super Admin Control"
+        subtitle="Approve, prioritize, and analyze everything from one focused view."
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setSearchTerm('')}>
+              Clear search
+            </Button>
+            <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
+              <RefreshCcw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+        }
+      />
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="p-5 bg-gradient-to-br from-amber-50 via-white to-sky-50 border-amber-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Registered Workforce</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">
-                {workforceStats?.total ?? '—'}
-              </p>
+              <p className="text-xs uppercase tracking-[0.2em] text-amber-500">Approvals</p>
+              <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">{stats.total}</p>
+              <p className="text-sm text-[var(--color-text-tertiary)]">items awaiting decision</p>
             </div>
-            <div className="h-10 w-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
+            <div className="h-12 w-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-5 bg-gradient-to-br from-blue-50 via-white to-indigo-50 border-blue-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-blue-500">Testimonials</p>
+              <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">{stats.testimonials}</p>
+              <p className="text-sm text-[var(--color-text-tertiary)]">stories pending approval</p>
+            </div>
+            <div className="h-12 w-12 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">
+              <Sparkles className="h-5 w-5" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-5 bg-gradient-to-br from-emerald-50 via-white to-green-50 border-emerald-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-emerald-500">Workforce</p>
+              <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">{stats.workforce}</p>
+              <p className="text-sm text-[var(--color-text-tertiary)]">new joiners to review</p>
+            </div>
+            <div className="h-12 w-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
               <Users className="h-5 w-5" />
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-            <div className="rounded-lg bg-[var(--color-background-tertiary)] p-2">
-              <p className="text-[var(--color-text-tertiary)]">New</p>
-              <p className="font-semibold text-[var(--color-text-primary)]">
-                {workforceStats?.byStatus?.new ?? 0}
-              </p>
-            </div>
-            <div className="rounded-lg bg-[var(--color-background-tertiary)] p-2">
-              <p className="text-[var(--color-text-tertiary)]">Serving</p>
-              <p className="font-semibold text-[var(--color-text-primary)]">
-                {workforceStats?.byStatus?.serving ?? 0}
-              </p>
-            </div>
-            <div className="rounded-lg bg-[var(--color-background-tertiary)] p-2">
-              <p className="text-[var(--color-text-tertiary)]">Not Serving</p>
-              <p className="font-semibold text-[var(--color-text-primary)]">
-                {workforceStats?.byStatus?.not_serving ?? 0}
-              </p>
-            </div>
-          </div>
         </Card>
 
-        <Card>
+        <Card className="p-5 bg-gradient-to-br from-slate-50 via-white to-amber-50 border-slate-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending Testimonials</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">
-                {pending.length}
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Owner</p>
+              <p className="mt-2 text-xl font-semibold text-[var(--color-text-primary)]">
+                {auth.user?.first_name} {auth.user?.last_name}
               </p>
+              <p className="text-sm text-[var(--color-text-tertiary)]">Super admin oversight</p>
             </div>
-            <div className="h-10 w-10 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center">
-              <MessageSquare className="h-5 w-5" />
-            </div>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending Workforce</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">
-                {pendingWorkforce.length}
-              </p>
-            </div>
-            <div className="h-10 w-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
+            <div className="h-12 w-12 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center">
               <BarChart3 className="h-5 w-5" />
             </div>
           </div>
         </Card>
       </div>
 
-      <Card title="Pending Testimonials">
-        {loading ? (
-          <p className="text-sm text-[var(--color-text-tertiary)]">Loading...</p>
-        ) : pending.length === 0 ? (
-          <p className="text-sm text-[var(--color-text-tertiary)]">No testimonials waiting for approval.</p>
-        ) : (
-          <div className="space-y-3">
-            {pending.map((t) => (
-              <div key={t.id} className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                      {t.full_name || `${t.first_name} ${t.last_name}` || 'Anonymous'}
-                    </p>
-                    <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{new Date(t.created_at).toLocaleString()}</p>
-                  </div>
-                  <Badge variant="warning" size="sm" className="flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    Pending
-                  </Badge>
-                </div>
-                <p className="mt-3 text-sm text-[var(--color-text-secondary)]">{t.testimony}</p>
-                <div className="mt-4 flex justify-end">
-                  <Button
-                    size="sm"
-                    onClick={() => handleApprove(t.id)}
-                    loading={approving === t.id}
-                    disabled={approving !== null}
-                    icon={<CheckCircle className="h-4 w-4" />}
-                  >
-                    Approve
-                  </Button>
-                </div>
-              </div>
-            ))}
+      <Card
+        title="Approval queue"
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="hidden md:block text-sm text-[var(--color-text-tertiary)]">
+              {filteredItems.length} showing
+            </div>
+            <label className="text-xs text-[var(--color-text-tertiary)] hidden sm:block">
+              Sort
+            </label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+            >
+              <option value="recent">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="name">Name A-Z</option>
+            </select>
           </div>
-        )}
-      </Card>
+        }
+      >
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant={typeFilter === 'all' ? 'primary' : 'ghost'}
+              icon={<Filter className="h-4 w-4" />}
+              onClick={() => setTypeFilter('all')}
+            >
+              All
+            </Button>
+            <Button
+              size="sm"
+              variant={typeFilter === 'testimonial' ? 'primary' : 'ghost'}
+              onClick={() => setTypeFilter('testimonial')}
+            >
+              Testimonials
+            </Button>
+            <Button
+              size="sm"
+              variant={typeFilter === 'workforce' ? 'primary' : 'ghost'}
+              onClick={() => setTypeFilter('workforce')}
+            >
+              Workforce
+            </Button>
+          </div>
 
-      <Card title="Pending Workforce Approvals">
-        {pendingWorkforce.length === 0 ? (
-          <p className="text-sm text-[var(--color-text-tertiary)]">No workforce requests waiting.</p>
-        ) : (
-          <div className="space-y-3">
-            {pendingWorkforce.map((person) => (
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search approvals, names, departments..."
+              className="pl-10"
+            />
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {loading ? (
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading queue...</p>
+          ) : filteredItems.length === 0 ? (
+            <p className="text-sm text-[var(--color-text-tertiary)]">No approvals match this filter.</p>
+          ) : (
+            filteredItems.slice(0, 6).map((item) => (
               <div
-                key={person.id}
-                className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4"
+                key={item.id}
+                className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 hover:-translate-y-0.5 hover:shadow-sm transition"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                      {person.firstName} {person.lastName}
-                    </p>
-                    <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
-                      {person.department} • {person.email || person.phone || 'No contact'}
-                    </p>
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`h-11 w-11 rounded-[var(--radius-button)] flex items-center justify-center ${
+                        item.type === 'testimonial'
+                          ? 'bg-blue-50 text-blue-700'
+                          : 'bg-emerald-50 text-emerald-700'
+                      }`}
+                    >
+                      {item.type === 'testimonial' ? (
+                        <Sparkles className="h-5 w-5" />
+                      ) : (
+                        <Users className="h-5 w-5" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-[var(--color-text-primary)]">{item.name}</p>
+                        <Badge variant="outline" size="sm">
+                          {item.type === 'testimonial' ? 'Testimonial' : 'Workforce'}
+                        </Badge>
+                        <Badge
+                          variant={item.status === 'pending' ? 'warning' : 'info'}
+                          size="sm"
+                          className="flex items-center gap-1"
+                        >
+                          <Clock className="h-3 w-3" />
+                          {item.status}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
+                        {new Date(item.submittedAt).toLocaleString()}
+                      </p>
+                      <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{item.summary}</p>
+                      {item.department && (
+                        <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">Department: {item.department}</p>
+                      )}
+                    </div>
                   </div>
-                  <Badge variant="warning" size="sm" className="flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    New
-                  </Badge>
-                </div>
-                <div className="mt-4 flex justify-end">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="mr-2"
-                    onClick={() => toast('Please contact before approval')}
-                  >
-                    Review
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        setApproving(person.id);
-                        await apiClient.updateWorkforce(person.id, { status: 'serving' });
-                        toast.success('Workforce request approved');
-                        await loadPending();
-                      } catch (err: any) {
-                        toast.error(err?.message || 'Failed to approve workforce');
-                      } finally {
-                        setApproving(null);
-                      }
-                    }}
-                    loading={approving === person.id}
-                    disabled={approving !== null}
-                    icon={<CheckCircle className="h-4 w-4" />}
-                  >
-                    Approve & Activate
-                  </Button>
+                  <div className="flex flex-col items-end gap-2">
+                    {item.email && (
+                      <Badge variant="secondary" size="sm" className="text-[11px]">
+                        {item.email}
+                      </Badge>
+                    )}
+                    <Button
+                      size="sm"
+                      onClick={() => handleApprove(item)}
+                      loading={approvingId === item.id}
+                      icon={<CheckCircle className="h-4 w-4" />}
+                    >
+                      Approve
+                    </Button>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            ))
+          )}
+        </div>
+
+        <div className="mt-4 text-right">
+          <Button variant="ghost" size="sm" onClick={refresh}>
+            <RefreshCcw className="h-4 w-4 mr-2" />
+            Reload queue
+          </Button>
+        </div>
       </Card>
+
+      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+        <Card title="Workforce spotlight">
+          {workforceSpotlight.length === 0 ? (
+            <p className="text-sm text-[var(--color-text-tertiary)]">No workforce submissions match the filters.</p>
+          ) : (
+            <div className="space-y-3">
+              {workforceSpotlight.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 flex items-start justify-between gap-3"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">{item.name}</p>
+                      <Badge variant="success" size="sm">High priority</Badge>
+                    </div>
+                    <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
+                      {new Date(item.submittedAt).toLocaleDateString()} • {item.department || 'General'}
+                    </p>
+                    <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{item.summary}</p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setSearchTerm(item.department || item.name)}
+                    >
+                      Filter similar
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => handleApprove(item)}
+                      loading={approvingId === item.id}
+                      icon={<CheckCircle className="h-4 w-4" />}
+                    >
+                      Approve
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card title="Activity pulse">
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] p-3">
+              <div className="h-10 w-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">Super tools</p>
+                <p className="text-xs text-[var(--color-text-tertiary)]">New super-admin routes added for analytics, reports, and approvals.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] p-3">
+              <div className="h-10 w-10 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center">
+                <BarChart3 className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">Responsive sidebar</p>
+                <p className="text-xs text-[var(--color-text-tertiary)]">Tablet-friendly icon rail with a super admin toggle and new settings entry.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] p-3">
+              <div className="h-10 w-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <Users className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">Search-ready</p>
+                <p className="text-xs text-[var(--color-text-tertiary)]">Navbar and page searches now filter the queues instantly.</p>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -78,17 +78,13 @@ body {
 
 :root {
   --sidebar-width: 0rem;
+  --sidebar-width-expanded: 16rem;
+  --sidebar-width-collapsed: 4.25rem;
 }
 
 @media (min-width: 768px) {
   :root {
-    --sidebar-width: 18rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  :root {
-    --sidebar-width: 18rem;
+    --sidebar-width: var(--sidebar-width-expanded);
   }
 }
 
@@ -97,9 +93,13 @@ body {
   transition: margin-left 0.3s ease;
 }
 
-@media (min-width: 1024px) {
+body.sidebar-collapsed {
+  --sidebar-width: var(--sidebar-width-collapsed);
+}
+
+@media (max-width: 767px) {
   body.sidebar-collapsed {
-    --sidebar-width: 5rem;
+    --sidebar-width: 0rem;
   }
 }
 
