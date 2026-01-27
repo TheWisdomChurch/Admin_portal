@@ -60,12 +60,23 @@ function ReelsPage() {
 
     try {
       setUploading(true);
-      const formData = new FormData();
-      formData.append('video', files[0]);
-      formData.append('title', 'New Reel');
-      formData.append('duration', '0:00');
 
-      await apiClient.createReel(formData);
+      // You may need to upload the video file to get a URL first.
+      // Here is a placeholder for uploading the file and getting the videoUrl and thumbnail.
+      // Replace this with your actual upload logic.
+      const videoFile = files[0];
+      // Example: const { videoUrl, thumbnail } = await uploadVideoAndGetUrls(videoFile);
+      const videoUrl = ''; // TODO: Replace with actual uploaded video URL
+      const thumbnail = ''; // TODO: Replace with actual thumbnail URL
+
+      const payload = {
+        title: 'New Reel',
+        videoUrl,
+        thumbnail,
+        duration: '0:00',
+      };
+
+      await apiClient.createReel(payload);
       toast.success('Reel uploaded successfully');
       setShowUploadModal(false);
       loadReels();

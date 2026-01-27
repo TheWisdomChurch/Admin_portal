@@ -6,18 +6,30 @@ import { useAuthContext } from '@/providers/AuthProviders';
 import type { User } from '@/lib/types';
 
 type WithAuthOptions = {
-  requiredRole?: string; // e.g. 'admin'
+  requiredRole?: 'admin' | 'super_admin';
 };
 
-function hasRequiredRole(user: User, requiredRole?: string) {
+function roleOf(user: User): 'admin' | 'super_admin' | null {
+  const raw = (user as any)?.role;
+  if (!raw || typeof raw !== 'string') return null;
+  const normalized = raw.toLowerCase().replace(/\s+/g, '_');
+  if (normalized === 'admin') return 'admin';
+  if (normalized === 'super_admin') return 'super_admin';
+  return null;
+}
+
+function dashboardFor(user: User) {
+  return roleOf(user) === 'super_admin' ? '/dashboard/super' : '/dashboard';
+}
+
+function hasRequiredRole(user: User, requiredRole?: 'admin' | 'super_admin') {
   if (!requiredRole) return true;
-  // allow super_admin to pass everything if you use it
-  if ((user as any).role === 'super_admin') return true;
-  return (user as any).role === requiredRole;
+  const r = roleOf(user);
+  if (r === 'super_admin') return true;
+  return r === requiredRole;
 }
 
 function safeRedirect(pathname: string) {
-  // Keep redirect internal and not auth routes
   if (!pathname?.startsWith('/')) return '/dashboard';
   if (pathname.startsWith('/login') || pathname.startsWith('/register')) return '/dashboard';
   return pathname;
@@ -32,36 +44,31 @@ export function withAuth<P extends object>(
   return function WithAuthComponent(props: P) {
     const router = useRouter();
     const pathname = usePathname();
+    const { user, isInitialized } = useAuthContext();
 
-    const { user, isInitialized, isLoading } = useAuthContext();
-
-    // IMPORTANT: do not redirect until init is completed
     useEffect(() => {
-      if (!isInitialized || isLoading) return;
+      if (!isInitialized) return;
 
-      // not logged in -> go login
       if (!user) {
         const redirectTo = encodeURIComponent(safeRedirect(pathname));
         router.replace(`/login?redirect=${redirectTo}`);
         return;
       }
 
-      // logged in but role missing -> go dashboard (or a 403 page if you have one)
       if (requiredRole && !hasRequiredRole(user, requiredRole)) {
-        router.replace('/dashboard');
+        router.replace(dashboardFor(user));
       }
-    }, [user, isInitialized, isLoading, router, pathname, requiredRole]);
+    }, [user, isInitialized, router, pathname, requiredRole]);
 
-    // While auth is initializing, show a stable loading state
-    if (!isInitialized || isLoading) {
+    // Only block on first boot; after that, render immediately
+    if (!isInitialized) {
       return (
-        <div className="flex min-h-[300px] w-full items-center justify-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent" />
+        <div className="flex min-h-[200px] w-full items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent" />
         </div>
       );
     }
 
-    // After init: if user is missing or role invalid, render nothing (redirect is in progress)
     if (!user) return null;
     if (requiredRole && !hasRequiredRole(user, requiredRole)) return null;
 

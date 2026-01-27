@@ -38,6 +38,30 @@ export interface RegisterData {
   rememberMe?: boolean;
 }
 
+export interface LoginChallenge {
+  otp_required: true;
+  purpose: string;
+  expires_at?: string;
+  action_url?: string;
+  email: string;
+}
+
+export type LoginResult =
+  | { user: User; otp_required?: false }
+  | LoginChallenge;
+
+export interface PasswordResetRequestPayload {
+  email: string;
+}
+
+export interface PasswordResetConfirmPayload {
+  email: string;
+  code: string;
+  purpose: string;
+  newPassword: string;
+  confirmPassword?: string;
+}
+
 /**
  * Generic API response wrapper (backend uses status/message/data).
  */
@@ -91,24 +115,42 @@ export type EventCategory =
 
 export type EventStatus = 'upcoming' | 'happening' | 'past';
 
+export interface EventSession {
+  title: string;
+  time: string;
+}
+
 export interface EventData {
   id: string;
   title: string;
   description: string;
   shortDescription: string;
+
+  // Backward compatible: some events may only have `date`
   date: string;
   time: string;
+
+  // Optional range (your UI expects these)
+  startDate?: string;
+  endDate?: string;
+
+  registrationClosesAt?: string;
+  sessions?: EventSession[];
+
   location: string;
   image?: string;
   bannerImage?: string;
+
   attendees: number;
   category: EventCategory;
   status: EventStatus;
   isFeatured: boolean;
   tags: string[];
+
   registerLink?: string;
   speaker?: string;
   contactPhone?: string;
+
   createdAt: string;
   updatedAt: string;
 }
@@ -322,9 +364,9 @@ export interface FormDesignSettings {
   heroTitle?: string;
   heroSubtitle?: string;
   coverImageUrl?: string;
-  primaryColor?: string; // hex #RRGGBB
-  backgroundColor?: string; // hex #RRGGBB
-  accentColor?: string; // hex #RRGGBB
+  primaryColor?: string;
+  backgroundColor?: string;
+  accentColor?: string;
   layout?: 'split' | 'stacked' | 'inline';
   ctaButtonLabel?: string;
   privacyCopy?: string;
@@ -333,8 +375,25 @@ export interface FormDesignSettings {
 
 export interface FormSettings {
   capacity?: number;
-  closesAt?: string; // ISO
+  closesAt?: string;
   successMessage?: string;
+
+  // UI extras you added:
+  introTitle?: string;
+  introSubtitle?: string;
+  introBullets?: string[];
+  introBulletSubtexts?: string[];
+  layoutMode?: 'split' | 'stack';
+  dateFormat?: 'yyyy-mm-dd' | 'mm/dd/yyyy' | 'dd/mm/yyyy' | 'dd/mm';
+  footerText?: string;
+  footerBg?: string;
+  footerTextColor?: string;
+  submitButtonText?: string;
+  submitButtonBg?: string;
+  submitButtonTextColor?: string;
+  submitButtonIcon?: 'check' | 'send' | 'calendar' | 'cursor' | 'none';
+  formHeaderNote?: string;
+
   design?: FormDesignSettings;
 }
 
@@ -411,7 +470,10 @@ export interface FormStatsResponse {
    WORKFORCE
 ========================= */
 
-export type WorkforceStatus = 'new' | 'serving' | 'not_serving';
+/**
+ * IMPORTANT: your backend flow implies "pending" exists (public apply defaults to pending)
+ */
+export type WorkforceStatus = 'pending' | 'new' | 'serving' | 'not_serving';
 
 export interface WorkforceMember {
   id: string;
@@ -432,7 +494,12 @@ export interface CreateWorkforceRequest {
   email?: string;
   phone?: string;
   department: string;
-  status?: WorkforceStatus;
+
+  /**
+   * Optional for admin-created records; public apply defaults to pending.
+   */
+  status?: Extract<WorkforceStatus, 'pending' | 'new'>;
+
   notes?: string;
 }
 
@@ -475,12 +542,18 @@ export interface ChangePasswordData {
   currentPassword: string;
   newPassword: string;
   confirmPassword?: string;
+  email?: string;
+  otpCode?: string;
 }
 
+/**
+ * FIXED: backend returns timestamp as Unix number (seconds) on /health
+ */
 export interface HealthCheckResponse {
   status: string;
-  timestamp: string;
   service: string;
   version: string;
+  timestamp: number; // unix seconds
   uptime: string;
+  database?: string;
 }
