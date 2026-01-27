@@ -144,18 +144,9 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <Button
-              onClick={() => (window.location.href = '/dashboard/events')}
-              variant="primary"
-              className="shadow-sm"
-            >
-              View All Events
-            </Button>
-            <Button variant="outline" onClick={auth.logout}>
-              Logout
-            </Button>
-          </div>
+          <Button variant="outline" onClick={auth.logout}>
+            Logout
+          </Button>
         </div>
       </Card>
 

@@ -13,6 +13,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const auth = useAuthContext();
   const { colors } = useTheme(); // Get theme colors
+  const normalizedRole = (auth.user?.role || '').toLowerCase().replace(/\s+/g, '_');
+  const isAllowed = normalizedRole === 'admin' || normalizedRole === 'super_admin';
 
   useEffect(() => {
     if (!auth.isInitialized || auth.isLoading) return;
@@ -22,14 +24,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (!['admin', 'super_admin'].includes(auth.user?.role ?? '')) {
+    if (!isAllowed) {
       router.replace('/');
     }
-  }, [auth, router]);
+  }, [auth, router, isAllowed]);
 
   if (!auth.isInitialized || auth.isLoading) return null;
   if (!auth.isAuthenticated) return null;
-  if (!['admin', 'super_admin'].includes(auth.user?.role ?? '')) return null;
+  if (!isAllowed) return null;
 
   return (
     <div 

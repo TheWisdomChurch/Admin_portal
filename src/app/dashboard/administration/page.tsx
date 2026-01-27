@@ -52,19 +52,19 @@ type LeaderRow = {
 };
 
 const defaultWorkforce: WorkforceRow[] = [
-  { id: 'wf-1', name: 'Grace Daniels', department: 'Media Team', status: 'serving', email: 'grace@wisdomchurch.org', phone: '+234 801 222 3333', dob: '04/12', address: 'Lagos' },
-  { id: 'wf-2', name: 'Samuel Okoro', department: 'Ushers', status: 'new', email: 'samuel@wisdomchurch.org', phone: '+234 809 555 1212', dob: '08/22', address: 'Abuja' },
-  { id: 'wf-3', name: 'Naomi Boateng', department: 'Choir', status: 'not_serving', email: 'naomi@wisdomchurch.org', phone: '+233 55 991 2299', dob: '01/08', address: 'Accra' },
+  { id: 'wf-1', name: 'Ruth Aligbeh', department: 'Media Team', status: 'serving', email: 'ruth@wisdomchurch.org', phone: '+234 801 222 3333', dob: '04/12', address: 'Lagos' },
+  { id: 'wf-2', name: 'Cherish Aigbeh', department: 'Media Team', status: 'new', email: 'cherish@wisdomchurch.org', phone: '+234 809 555 1212', dob: '08/22', address: 'Abuja' },
+  { id: 'wf-3', name: 'Favour ', department: 'Media', status: 'not_serving', email: 'naomi@wisdomchurch.org', phone: '+233 55 991 2299', dob: '01/08', address: 'Accra' },
 ];
 
 const defaultMembers: MemberRow[] = [
-  { id: 'm-1', firstName: 'Ethan', lastName: 'Brooks', email: 'ethan@wisdomchurch.org', phone: '+234 801 777 8822', address: 'Nairobi, KE' },
+  { id: 'm-1', firstName: 'Paul', lastName: 'Samuel', email: 'ethan@wisdomchurch.org', phone: '+234 801 777 8822', address: 'Nairobi, KE' },
   { id: 'm-2', firstName: 'Chisom', lastName: 'Adebayo', email: 'chisom@wisdomchurch.org', phone: '+234 809 111 2277', address: 'Lagos, NG' },
 ];
 
 const defaultLeaders: LeaderRow[] = [
-  { id: 'l-1', name: 'Ps. David Ajayi', title: 'Resident Pastor', dob: '03/28', anniversary: '10/12', email: 'david@wisdomchurch.org' },
-  { id: 'l-2', name: 'Ps. Sarah Obeng', title: 'Associate Pastor', dob: '07/04', anniversary: '12/20', email: 'sarah@wisdomchurch.org' },
+  { id: 'l-1', name: 'Bishop Gabriel Ayilara', title: 'Senior Pastor', dob: '03/28', anniversary: '10/12', email: 'david@wisdomchurch.org' },
+  { id: 'l-2', name: 'Rev. Victor Jimba', title: 'Associate Pastor', dob: '07/04', anniversary: '12/20', email: 'sarah@wisdomchurch.org' },
 ];
 
 function AccordionRow({

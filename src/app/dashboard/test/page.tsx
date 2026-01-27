@@ -1,4 +1,3 @@
-// src/app/(dashboard)/dashboard/forms/new/page.tsx
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -26,7 +25,7 @@ type FieldDraft = {
   options?: { label: string; value: string }[];
 };
 
-export default withAuth(function NewFormPage() {
+export default withAuth(function TestPage() {
   const router = useRouter();
   const auth = useAuthContext();
 
@@ -305,7 +304,7 @@ export default withAuth(function NewFormPage() {
                   <select
                     value={field.type}
                     onChange={(e) => updateField(index, { type: e.target.value as FormFieldType })}
-                  className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                    className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
                   >
                     <option value="text">Text</option>
                     <option value="textarea">Textarea</option>

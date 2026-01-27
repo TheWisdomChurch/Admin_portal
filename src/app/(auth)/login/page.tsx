@@ -16,6 +16,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Footer } from '@/components/Footer';
+import { OtpModal } from '@/ui/OtpModal';
+import { apiClient } from '@/lib/api';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -47,6 +49,12 @@ export default function LoginPage() {
   const [forgotConfirm, setForgotConfirm] = useState('');
   const [forgotStep, setForgotStep] = useState<'email' | 'otp' | 'reset'>('email');
   const [forgotLoading, setForgotLoading] = useState(false);
+  const [otpOpen, setOtpOpen] = useState(false);
+  const [otpStep, setOtpStep] = useState<'email' | 'otp'>('email');
+  const [otpEmail, setOtpEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [pendingLogin, setPendingLogin] = useState<LoginFormData | null>(null);
 
   const redirectPath = useMemo(
     () => safeRedirect(searchParams.get('redirect')),
@@ -69,16 +77,57 @@ export default function LoginPage() {
   });
 
   const onSubmit: SubmitHandler<LoginFormData> = async (data) => {
-    try {
-      setServerError('');
-      await login(data);
+    setServerError('');
+    setPendingLogin(data);
+    setOtpEmail(data.email);
+    setOtpStep('email');
+    setOtpOpen(true);
+  };
 
-      toast.success('Login successful!');
+  const requestOtp = async () => {
+    if (!otpEmail.trim()) {
+      toast.error('Please enter your email address');
+      return;
+    }
+
+    try {
+      setOtpLoading(true);
+      await apiClient.sendOtp({ email: otpEmail.trim(), purpose: 'login' });
+      toast.success('Verification code sent to your email');
+      setOtpStep('otp');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to send code');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const verifyOtpAndLogin = async () => {
+    if (!otpCode.trim() || otpCode.trim().length < 4) {
+      toast.error('Enter the code we sent to your email');
+      return;
+    }
+
+    if (!pendingLogin) {
+      toast.error('Please restart the login process');
+      setOtpOpen(false);
+      return;
+    }
+
+    try {
+      setOtpLoading(true);
+      await apiClient.verifyOtp({ email: otpEmail.trim(), code: otpCode.trim(), purpose: 'login' });
+      await login(pendingLogin);
+      toast.success('Login verified');
+      setOtpOpen(false);
+      setOtpCode('');
       router.replace(redirectPath);
     } catch (err: any) {
-      const errorMessage = err?.message || 'Login failed. Please try again.';
-      setServerError(errorMessage);
-      toast.error(errorMessage);
+      const message = err?.message || 'Verification failed';
+      toast.error(message);
+      setServerError(message);
+    } finally {
+      setOtpLoading(false);
     }
   };
 
@@ -372,6 +421,27 @@ export default function LoginPage() {
           </Card>
         </div>
       )}
+
+      <OtpModal
+        open={otpOpen}
+        step={otpStep}
+        email={otpEmail}
+        code={otpCode}
+        onEmailChange={setOtpEmail}
+        onCodeChange={setOtpCode}
+        onRequestOtp={requestOtp}
+        onVerifyOtp={verifyOtpAndLogin}
+        onClose={() => {
+          setOtpOpen(false);
+          setOtpCode('');
+          setOtpStep('email');
+        }}
+        loading={otpLoading || isLoading}
+        title="Two-factor login"
+        subtitle={otpStep === 'email' ? 'Confirm your email to receive a one-time code.' : `Enter the code we sent to ${otpEmail}.`}
+        confirmText="Verify & sign in"
+        requestText="Send login code"
+      />
     </div>
   );
 }

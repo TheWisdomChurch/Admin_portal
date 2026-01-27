@@ -9,7 +9,26 @@ import { Footer } from '@/components/Footer';
 
 export default async function HomePage() {
   const token = (await cookies()).get('auth_token')?.value;
+  const roleCookie = (await cookies()).get('auth_role')?.value;
 
+  let role: 'admin' | 'super_admin' | null = null;
+  if (roleCookie === 'admin' || roleCookie === 'super_admin') {
+    role = roleCookie;
+  } else if (token) {
+    try {
+      const [, payload] = token.split('.');
+      if (payload) {
+        const decoded = Buffer.from(payload, 'base64url').toString('utf8');
+        const data = JSON.parse(decoded);
+        const rawRole = data?.role ?? data?.user?.role ?? data?.claims?.role;
+        if (rawRole === 'admin' || rawRole === 'super_admin') role = rawRole;
+      }
+    } catch {
+      role = null;
+    }
+  }
+
+  if (token && role === 'super_admin') redirect('/dashboard/super');
   if (token) redirect('/dashboard');
 
   return (

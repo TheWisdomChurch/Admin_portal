@@ -11,15 +11,39 @@ import React, {
 } from 'react';
 
 import { apiClient, getAuthUser, setAuthUser, clearAuthStorage } from '@/lib/api';
-import type {
-  User,
-  LoginCredentials,
-  RegisterData,
-  AuthContextType,
-  MessageResponse,
-} from '@/lib/types';
+import type { User, LoginCredentials, RegisterData, MessageResponse } from '@/lib/types';
+
+export type AuthContextType = {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;       // ✅ required
+  isInitialized: boolean;   // ✅ required
+  error: string | null;
+
+  login: (credentials: LoginCredentials) => Promise<User>;
+  register: (data: RegisterData) => Promise<User>;
+  logout: () => Promise<void>;
+  checkAuth: () => Promise<User | null>;
+  clearData: () => Promise<MessageResponse>;
+  updateProfile: (userData: Partial<User>) => Promise<User>;
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function getStatus(e: any): number | undefined {
+  return e?.status ?? e?.response?.status ?? e?.cause?.status;
+}
+
+function unwrapUser(payload: any): User {
+  if (!payload) throw new Error('Empty response');
+
+  if (payload?.id && payload?.email) return payload as User;
+  if (payload?.user?.id && payload?.user?.email) return payload.user as User;
+  if (payload?.data?.id && payload?.data?.email) return payload.data as User;
+  if (payload?.data?.user?.id && payload?.data?.user?.email) return payload.data.user as User;
+
+  throw new Error('Unexpected auth payload shape');
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -36,20 +60,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
 
-    // Optional UI cache only
     const cached = getAuthUser();
     if (cached) setUser(cached);
 
     try {
-      // Cookie session is source of truth
-      const verified = await apiClient.getCurrentUser();
+      const verifiedRaw = await apiClient.getCurrentUser();
+      const verified = unwrapUser(verifiedRaw);
+
       setUser(verified);
 
       const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
       setAuthUser(verified, remembered);
-    } catch {
-      clearAuthStorage();
-      setUser(null);
+    } catch (e: any) {
+      const status = getStatus(e);
+      if (status === 401 || status === 403) {
+        clearAuthStorage();
+        setUser(null);
+      } else {
+        setError('Session check failed. Please refresh.');
+      }
     } finally {
       setIsInitialized(true);
       setIsLoading(false);
@@ -65,31 +94,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const userData = await apiClient.login(credentials);
-      setUser(userData);
-      setAuthUser(userData, !!credentials.rememberMe);
-      return userData;
-    } catch (e: any) {
-      const msg = e?.message || 'Login failed';
-      setError(msg);
-      throw e;
+      const loginRaw = await apiClient.login(credentials);
+
+      if ((loginRaw as any)?.otp_required) {
+        throw new Error('OTP required. Please verify to continue.');
+      }
+
+      const u = unwrapUser(loginRaw);
+      setUser(u);
+      setAuthUser(u, !!credentials.rememberMe);
+      return u;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // IMPORTANT: registration does NOT authenticate
   const register = useCallback(async (data: RegisterData): Promise<User> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const createdUser = await apiClient.register(data);
-      return createdUser;
-    } catch (e: any) {
-      const msg = e?.message || 'Registration failed';
-      setError(msg);
-      throw e;
+      const createdRaw = await apiClient.register(data);
+      return unwrapUser(createdRaw);
     } finally {
       setIsLoading(false);
     }
@@ -105,26 +131,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearAuthStorage();
       setUser(null);
       setIsLoading(false);
-      // middleware will handle protection; hard-nav is fine
       window.location.href = '/login';
     }
   }, []);
 
   const checkAuth = useCallback(async (): Promise<User | null> => {
     try {
-      const me = await apiClient.getCurrentUser();
+      const meRaw = await apiClient.getCurrentUser();
+      const me = unwrapUser(meRaw);
+
       setUser(me);
 
       const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
       setAuthUser(me, remembered);
 
       return me;
-    } catch {
-      clearAuthStorage();
-      setUser(null);
-      return null;
+    } catch (e: any) {
+      const status = getStatus(e);
+      if (status === 401 || status === 403) {
+        clearAuthStorage();
+        setUser(null);
+        return null;
+      }
+      return user;
     }
-  }, []);
+  }, [user]);
 
   const clearData = useCallback(async (): Promise<MessageResponse> => {
     const res = await apiClient.clearUserData();
@@ -133,7 +164,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [checkAuth]);
 
   const updateProfile = useCallback(async (userData: Partial<User>): Promise<User> => {
-    const updated = await apiClient.updateProfile(userData);
+    const updatedRaw = await apiClient.updateProfile(userData);
+    const updated = unwrapUser(updatedRaw);
+
     setUser(updated);
 
     const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
@@ -163,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useAuthContext() {
+export function useAuthContext(): AuthContextType {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuthContext must be used inside AuthProvider');
   return ctx;

@@ -20,7 +20,8 @@ import {
   Shield,
   BellRing,
   FileText,
-  LineChart
+  LineChart,
+  Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/providers/AuthProviders';
@@ -30,11 +31,12 @@ import { textStyles } from '@/styles/text';
 
 const adminNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview and metrics' },
-  { href: '/dashboard/events', label: 'Events', icon: Calendar, description: 'Manage church events' },
   { href: '/dashboard/administration', label: 'Administration', icon: Shield, description: 'Workforce, leadership, members' },
   { href: '/dashboard/reels', label: 'Reels', icon: Video, description: 'Video content management' },
   { href: '/dashboard/testimonials', label: 'Testimonials', icon: MessageSquare, description: 'Member testimonials' },
   { href: '/dashboard/forms', label: 'Forms', icon: ClipboardList, description: 'Create registration links' },
+  { href: '/dashboard/test', label: 'Test', icon: Sparkles, description: 'Playground page' },
+  { href: '/dashboard/event', label: 'Event', icon: Calendar, description: 'Single event page' },
   { href: '/dashboard/content', label: 'Content', icon: FileText, description: 'Website content' },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings, description: 'System configuration' },
 ];

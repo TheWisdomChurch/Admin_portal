@@ -1,526 +1,67 @@
-/* =========================
-   CORE USER TYPES
-========================= */
-
-export type UserRole = 'admin' | 'super_admin';
-
-export interface User {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  role: UserRole;
-  permissions?: string[];
-  is_active?: boolean;
-  created_at?: string;
-  updated_at?: string;
-  last_login_at?: string;
-}
-
-/* =========================
-   AUTH TYPES
-========================= */
-
-export type RegisterRole = UserRole;
-
-export interface LoginCredentials {
-  email: string;
-  password: string;
-  rememberMe?: boolean;
-}
-
-export interface RegisterData {
-  first_name: string;
-  last_name: string;
-  email: string;
-  password: string;
-  role: RegisterRole;
-  rememberMe?: boolean;
-}
-
-export interface LoginChallenge {
-  otp_required: true;
-  purpose: string;
-  expires_at?: string;
-  action_url?: string;
-  email: string;
-}
-
-export type LoginResult =
-  | { user: User; otp_required?: false }
-  | LoginChallenge;
-
-export interface PasswordResetRequestPayload {
-  email: string;
-}
-
-export interface PasswordResetConfirmPayload {
-  email: string;
-  code: string;
-  purpose: string;
-  newPassword: string;
-  confirmPassword?: string;
-}
-
-/**
- * Generic API response wrapper (backend uses status/message/data).
- * Note: For login/register, "data" may be { user: User } or an OTP challenge.
- */
-export interface ApiResponse<T = unknown> {
-  status?: string;
-  message: string;
-  data?: T;
-  error?: string;
-  statusCode?: number;
-}
-
-/* =========================
-   PAGINATION
-========================= */
-
-export interface PaginationMeta {
-  page: number;
-  limit: number;
-  total_items: number;
-  total_pages: number;
-  has_next: boolean;
-  has_prev: boolean;
-}
-
-export interface PaginatedResponse<T> {
-  status?: string;
-  message?: string;
-  data: T[];
-  meta: PaginationMeta;
-}
-
-export interface SimplePaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-
-/* =========================
-   EVENTS
-========================= */
-
-export type EventCategory =
-  | 'Outreach'
-  | 'Conference'
-  | 'Workshop'
-  | 'Prayer'
-  | 'Revival'
-  | 'Summit';
-
-export type EventStatus = 'upcoming' | 'happening' | 'past';
-
-export interface EventData {
-  id: string;
-  title: string;
-  description: string;
-  shortDescription: string;
-  date: string;
-  time: string;
-  location: string;
-  image?: string;
-  bannerImage?: string;
-  attendees: number;
-  category: EventCategory;
-  status: EventStatus;
-  isFeatured: boolean;
-  tags: string[];
-  registerLink?: string;
-  speaker?: string;
-  contactPhone?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface EventPayload {
-  title: string;
-  description: string;
-  shortDescription: string;
-  date: string;
-  time: string;
-  startDate?: string;
-  endDate?: string;
-  registrationClosesAt?: string;
-  sessions?: Array<{ title: string; time: string }>;
-  location: string;
-  category: EventCategory;
-  status: EventStatus;
-  isFeatured: boolean;
-  tags: string[];
-  registerLink?: string;
-  speaker?: string;
-  contactPhone?: string;
-  image?: string;
-  bannerImage?: string;
-  attendees?: number;
-}
-
-/* =========================
-   REELS
-========================= */
-
-export interface ReelData {
-  id: string;
-  title: string;
-  thumbnail: string;
-  videoUrl: string;
-  eventId?: string;
-  duration: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateReelData {
-  title: string;
-  thumbnail: string;
-  videoUrl: string;
-  duration: string;
-  eventId?: string;
-}
-
-/* =========================
-   TESTIMONIALS
-========================= */
-
-export interface Testimonial {
-  id: string;
-  firstName: string;
-  lastName: string;
-  fullName: string;
-  imageUrl?: string;
-  testimony: string;
-  isAnonymous: boolean;
-  isApproved: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateTestimonialData {
-  firstName: string;
-  lastName: string;
-  imageUrl?: string;
-  testimony: string;
-  isAnonymous: boolean;
-}
-
-export interface UpdateTestimonialData {
-  firstName?: string;
-  lastName?: string;
-  imageUrl?: string;
-  testimony?: string;
-  isAnonymous?: boolean;
-  isApproved?: boolean;
-}
-
-/* =========================
-   DASHBOARD ANALYTICS
-========================= */
-
-export interface DashboardAnalytics {
-  totalEvents: number;
-  upcomingEvents: number;
-  totalAttendees: number;
-  eventsByCategory: Record<string, number>;
-  monthlyStats: Array<{ month: string; events: number; attendees: number }>;
-}
-
-/* =========================
-   SUBSCRIBERS + NOTIFICATIONS
-========================= */
-
-export type SubscriberStatus = 'active' | 'unsubscribed';
-
-export interface Subscriber {
-  id: string;
-  email: string;
-  name?: string;
-  source?: string;
-  status: SubscriberStatus;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface SubscribeRequest {
-  email: string;
-  name?: string;
-  source?: string;
-}
-
-export interface UnsubscribeRequest {
-  email: string;
-}
-
-export type NotificationType = 'update' | 'event';
-
-export interface Notification {
-  id: string;
-  type: NotificationType;
-  subject: string;
-  title: string;
-  message: string;
-  eventId?: string;
-  createdAt: string;
-}
-
-export interface SendNotificationRequest {
-  type: NotificationType;
-  subject: string;
-  title: string;
-  message: string;
-  eventId?: string;
-}
-
-export interface SendNotificationResult {
-  notification?: Notification;
-  total: number;
-  sent: number;
-  failed: number;
-}
-
-/* =========================
-   OTP
-========================= */
-
-export interface SendOTPRequest {
-  email: string;
-  purpose?: string;
-  actionUrl?: string;
-  actionLabel?: string;
-}
-
-export interface VerifyOTPRequest {
-  email: string;
-  code: string;
-  purpose?: string;
-}
-
-export interface SendOTPResponse {
-  expiresAt: string;
-  purpose?: string;
-  actionUrl?: string;
-}
-
-export interface VerifyOTPResponse {
-  verified: boolean;
-}
-
-/* =========================
-   FORMS
-========================= */
-
-export type FormFieldType =
-  | 'text'
-  | 'email'
-  | 'tel'
-  | 'textarea'
-  | 'select'
-  | 'checkbox'
-  | 'radio'
-  | 'number'
-  | 'date';
-
-export interface FormFieldOption {
-  label: string;
-  value: string;
-}
-
-export interface FormField {
-  id: string;
-  formId?: string;
-  key: string;
-  label: string;
-  type: FormFieldType;
-  required: boolean;
-  options?: FormFieldOption[];
-  order: number;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface FormDesignSettings {
-  heroTitle?: string;
-  heroSubtitle?: string;
-  coverImageUrl?: string;
-  primaryColor?: string; // hex #RRGGBB
-  backgroundColor?: string; // hex #RRGGBB
-  accentColor?: string; // hex #RRGGBB
-  layout?: 'split' | 'stacked' | 'inline';
-  ctaButtonLabel?: string;
-  privacyCopy?: string;
-  footerNote?: string;
-}
-
-export interface FormSettings {
-  capacity?: number;
-  closesAt?: string; // ISO
-  successMessage?: string;
-  design?: FormDesignSettings;
-}
-
-export interface AdminForm {
-  id: string;
-  title: string;
-  description?: string;
-  eventId?: string;
-  slug?: string;
-  isPublished: boolean;
-  settings?: FormSettings;
-  fields: FormField[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface PublicFormPayload {
-  form: AdminForm;
-  event?: EventData;
-}
-
-export interface CreateFormRequest {
-  title: string;
-  description?: string;
-  slug?: string;
-  eventId?: string;
-  settings?: FormSettings;
-  fields: Array<Omit<FormField, 'id' | 'formId' | 'createdAt' | 'updatedAt'>>;
-}
-
-export interface UpdateFormRequest extends Partial<CreateFormRequest> {}
-
-export interface SubmitFormRequest {
-  values: Record<string, string | boolean | number>;
-}
-
-export interface FormSubmission {
-  id: string;
-  formId: string;
-  name?: string;
-  email?: string;
-  contactNumber?: string;
-  contactAddress?: string;
-  values: Record<string, string | boolean | number>;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface FormSubmissionCount {
-  formId: string;
-  formTitle: string;
-  count: number;
-}
-
-export interface FormSubmissionWithForm {
-  id: string;
-  formId: string;
-  formTitle: string;
-  name?: string;
-  email?: string;
-  contactNumber?: string;
-  contactAddress?: string;
-  values: Record<string, string | boolean | number>;
-  createdAt: string;
-}
-
-export interface FormStatsResponse {
-  totalSubmissions: number;
-  perForm: FormSubmissionCount[];
-  recent: FormSubmissionWithForm[];
-}
-
-/* =========================
-   WORKFORCE
-========================= */
-
-export type WorkforceStatus = 'pending' | 'new' | 'serving' | 'not_serving';
-
-export interface WorkforceMember {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email?: string;
-  phone?: string;
-  department: string;
-  status: WorkforceStatus;
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateWorkforceRequest {
-  firstName: string;
-  lastName: string;
-  email?: string;
-  phone?: string;
-  department: string;
-  /**
-   * Optional for admin-created records; public apply defaults to pending.
-   */
-  status?: Extract<WorkforceStatus, 'pending' | 'new'>;
-  notes?: string;
-}
-
-export interface UpdateWorkforceRequest {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phone?: string;
-  department?: string;
-  status?: WorkforceStatus;
-  notes?: string;
-}
-
-export interface WorkforceBucket {
-  department: string;
-  status: WorkforceStatus;
-  count: number;
-}
-
-export interface WorkforceStatsResponse {
-  total: number;
-  byStatus: Record<string, number>;
-  byDepartment: Record<string, number>;
-  byDeptAndStatus: WorkforceBucket[];
-}
-
-/* =========================
-   MISC
-========================= */
-
-export interface MessageResponse {
-  status?: string;
-  message: string;
-  data?: unknown;
-  success?: boolean;
-  statusCode?: number;
-}
-
-export interface ChangePasswordData {
-  currentPassword: string;
-  newPassword: string;
-  confirmPassword?: string;
-}
-
-export interface HealthCheckResponse {
-  status: string;
-  timestamp: string;
-  service: string;
-  version: string;
-  uptime: string;
-}
+import type {
+  User,
+  LoginCredentials,
+  RegisterData,
+  ApiResponse,
+  MessageResponse,
+  PaginatedResponse,
+  SimplePaginatedResponse,
+  Testimonial,
+  CreateTestimonialData,
+  UpdateTestimonialData,
+  EventData,
+  EventPayload,
+  DashboardAnalytics,
+  ReelData,
+  CreateReelData,
+  AdminForm,
+  CreateFormRequest,
+  UpdateFormRequest,
+  PublicFormPayload,
+  SubmitFormRequest,
+  FormSubmission,
+  FormStatsResponse,
+  Subscriber,
+  SubscribeRequest,
+  UnsubscribeRequest,
+  SendNotificationRequest,
+  SendNotificationResult,
+  SendOTPRequest,
+  VerifyOTPRequest,
+  SendOTPResponse,
+  VerifyOTPResponse,
+  WorkforceMember,
+  CreateWorkforceRequest,
+  UpdateWorkforceRequest,
+  WorkforceStatsResponse,
+  PasswordResetRequestPayload,
+  PasswordResetConfirmPayload,
+  LoginResult,
+  LoginChallenge,
+  ChangePasswordData,
+  HealthCheckResponse,
+} from './types';
 
 /* ============================================================================
-
-   API CLIENT
+   API CLIENT CONFIG
 ============================================================================ */
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080/api/v1';
+function normalizeOrigin(raw?: string | null): string {
+  const fallback = 'http://localhost:8080';
+  if (!raw) return fallback;
+  let base = raw.trim().replace(/\/+$/, '');
+  if (base.endsWith('/api/v1')) {
+    base = base.slice(0, -'/api/v1'.length);
+  }
+  return base || fallback;
+}
 
+const API_ORIGIN = normalizeOrigin(process.env.NEXT_PUBLIC_API_URL);
+const API_V1_BASE_URL = `${API_ORIGIN}/api/v1`;
+const UPLOAD_ORIGIN = normalizeOrigin(
+  process.env.NEXT_PUBLIC_UPLOAD_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL
+);
+const UPLOAD_V1_BASE_URL = `${UPLOAD_ORIGIN}/api/v1`;
 const AUTH_USER_KEY = 'wisdomhouse_auth_user';
 
 /* ============================================================================
@@ -553,12 +94,10 @@ function isApiError(err: unknown): err is ApiError {
 
 export function getAuthUser(): User | null {
   if (typeof window === 'undefined') return null;
-
   try {
     const stored =
       localStorage.getItem(AUTH_USER_KEY) ??
       sessionStorage.getItem(AUTH_USER_KEY);
-
     return stored ? (JSON.parse(stored) as User) : null;
   } catch {
     clearAuthStorage();
@@ -586,7 +125,6 @@ export function clearAuthStorage(): void {
 async function safeParseJson(response: Response): Promise<any | null> {
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) return null;
-
   try {
     return await response.json();
   } catch {
@@ -598,12 +136,93 @@ async function apiFetch<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = `${API_V1_BASE_URL}${endpoint}`;
+  const isFormData =
+    typeof FormData !== 'undefined' && options.body instanceof FormData;
 
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers || {}),
   };
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
+
+    const json = await safeParseJson(response);
+    const payload =
+      json ??
+      ({ message: await response.text().catch(() => '') } as Record<string, any>);
+
+    if (!response.ok) {
+      throw createApiError(
+        payload?.error || payload?.message || 'Request failed',
+        response.status,
+        payload
+      );
+    }
+
+    return payload as T;
+  } catch (err: any) {
+    if (isApiError(err)) throw err;
+    throw createApiError(err?.message || 'Network error', 0, err);
+  }
+}
+
+/**
+ * Upload fetch: same as apiFetch but allows a different origin for CDN/upload proxies.
+ */
+async function uploadFetch<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const url = `${UPLOAD_V1_BASE_URL}${endpoint}`;
+
+  const isFormData =
+    typeof FormData !== 'undefined' && options.body instanceof FormData;
+
+  const headers: HeadersInit = {
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(options.headers || {}),
+  };
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
+
+    const json = await safeParseJson(response);
+    const payload =
+      json ??
+      ({ message: await response.text().catch(() => '') } as Record<string, any>);
+
+    if (!response.ok) {
+      throw createApiError(
+        payload?.error || payload?.message || 'Request failed',
+        response.status,
+        payload
+      );
+    }
+
+    return payload as T;
+  } catch (err: any) {
+    if (isApiError(err)) throw err;
+    throw createApiError(err?.message || 'Network error', 0, err);
+  }
+}
+
+/** Root fetch (NOT /api/v1). Needed for /health. */
+async function rootFetch<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const url = `${API_ORIGIN}${endpoint}`;
+  const headers: HeadersInit = { ...(options.headers || {}) };
 
   try {
     const response = await fetch(url, {
@@ -669,7 +288,7 @@ function extractLoginResult(res: any): LoginResult {
 }
 
 /* ============================================================================
-   Small helpers
+   Helpers
 ============================================================================ */
 
 function toQueryString(params?: Record<string, any>): string {
@@ -747,9 +366,7 @@ export const apiClient = {
   },
 
   async getCurrentUser(): Promise<User> {
-    const res = await apiFetch<ApiResponse<any>>('/auth/me', {
-      method: 'GET',
-    });
+    const res = await apiFetch<ApiResponse<any>>('/auth/me', { method: 'GET' });
     return extractUser(res);
   },
 
@@ -762,13 +379,19 @@ export const apiClient = {
   },
 
   async changePassword(
-    currentPassword: string,
-    newPassword: string,
-    confirmPassword?: string
+    payload:
+      | {
+          currentPassword: string;
+          newPassword: string;
+          confirmPassword?: string;
+          email?: string;
+          otpCode?: string;
+        }
+      | ChangePasswordData
   ): Promise<MessageResponse> {
     return apiFetch('/auth/change-password', {
       method: 'POST',
-      body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+      body: JSON.stringify(payload),
     });
   },
 
@@ -782,20 +405,17 @@ export const apiClient = {
 
   /* ===================== HEALTH ===================== */
 
-  healthCheck() {
-    return apiFetch('/health');
+  healthCheck(): Promise<HealthCheckResponse> {
+    // backend is GET /health (root), not /api/v1/health
+    return rootFetch('/health', { method: 'GET' });
   },
 
   /* ===================== TESTIMONIALS ===================== */
 
-  async getAllTestimonials(params?: {
-    approved?: boolean;
-  }): Promise<Testimonial[]> {
+  async getAllTestimonials(params?: { approved?: boolean }): Promise<Testimonial[]> {
     const qs =
       params?.approved !== undefined ? `?approved=${params.approved}` : '';
-    const res = await apiFetch<ApiResponse<Testimonial[]>>(
-      `/testimonials${qs}`
-    );
+    const res = await apiFetch<ApiResponse<Testimonial[]>>(`/testimonials${qs}`);
     return unwrapData<Testimonial[]>(res, 'Invalid testimonials payload');
   },
 
@@ -863,10 +483,9 @@ export const apiClient = {
 
   async getAnalytics(params?: Record<string, any>): Promise<DashboardAnalytics> {
     const qs = toQueryString(params);
-    const res = await apiFetch<ApiResponse<any>>(
-      `/admin/analytics${qs}`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<ApiResponse<any>>(`/admin/analytics${qs}`, {
+      method: 'GET',
+    });
     return unwrapData<DashboardAnalytics>(res, 'Invalid analytics payload');
   },
 
@@ -908,6 +527,32 @@ export const apiClient = {
 
   async deleteEvent(id: string): Promise<MessageResponse> {
     return apiFetch(`/events/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+
+  /**
+   * Bunny upload endpoints (admin-only):
+   * POST /api/v1/events/:id/image
+   * POST /api/v1/events/:id/banner
+   * FormData key must match handler: c.FormFile("file")
+   */
+  async uploadEventImage(id: string, file: File): Promise<EventData> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await uploadFetch<{ data: EventData }>(
+      `/events/${encodeURIComponent(id)}/image`,
+      { method: 'POST', body: form }
+    );
+    return unwrapData<EventData>(res, 'Invalid upload image payload');
+  },
+
+  async uploadEventBanner(id: string, file: File): Promise<EventData> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await uploadFetch<{ data: EventData }>(
+      `/events/${encodeURIComponent(id)}/banner`,
+      { method: 'POST', body: form }
+    );
+    return unwrapData<EventData>(res, 'Invalid upload banner payload');
   },
 
   /* ===================== REELS ===================== */
@@ -962,10 +607,7 @@ export const apiClient = {
   ): Promise<AdminForm> {
     const res = await apiFetch<{ data: AdminForm }>(
       `/admin/forms/${encodeURIComponent(id)}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      }
+      { method: 'PUT', body: JSON.stringify(payload) }
     );
     return unwrapData<AdminForm>(res, 'Invalid form payload');
   },
@@ -1084,9 +726,7 @@ export const apiClient = {
     return apiFetch(`/admin/workforce${qs}`, { method: 'GET' });
   },
 
-  async createWorkforce(
-    payload: CreateWorkforceRequest
-  ): Promise<WorkforceMember> {
+  async createWorkforce(payload: CreateWorkforceRequest): Promise<WorkforceMember> {
     const res = await apiFetch<ApiResponse<WorkforceMember>>('/admin/workforce', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -1100,10 +740,7 @@ export const apiClient = {
   ): Promise<WorkforceMember> {
     const res = await apiFetch<ApiResponse<WorkforceMember>>(
       `/admin/workforce/${encodeURIComponent(id)}`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify(payload),
-      }
+      { method: 'PATCH', body: JSON.stringify(payload) }
     );
     return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
   },
@@ -1116,9 +753,7 @@ export const apiClient = {
     return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
   },
 
-  async applyToWorkforce(
-    payload: CreateWorkforceRequest
-  ): Promise<WorkforceMember> {
+  async applyToWorkforce(payload: CreateWorkforceRequest): Promise<WorkforceMember> {
     const res = await apiFetch<ApiResponse<WorkforceMember>>('/workforce/apply', {
       method: 'POST',
       body: JSON.stringify(payload),
