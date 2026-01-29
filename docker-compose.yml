@@ -16,8 +16,18 @@ services:
       - /app/node_modules
       - /app/.next
     command: npm run dev
+    
     profiles:
       - dev
+        migrate:
+    image: migrate/migrate:v4.16.2
+    container_name: admin_migrate
+    volumes:
+      - ./migrations:/migrations:ro
+    entrypoint: ["migrate"]
+    profiles:
+      - dev
+
 
   nextjs-app-prod:
     build:

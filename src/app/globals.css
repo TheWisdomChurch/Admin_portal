@@ -1,13 +1,110 @@
 /* src/app/globals.css */
 @import 'tailwindcss';
 
+:root {
+  /* Light theme CSS variables - will be dynamically set by ThemeProvider */
+  --color-background-primary: #ffffff;
+  --color-background-secondary: #f8fafc;
+  --color-background-tertiary: #f1f5f9;
+  --color-background-hover: #f5f5f5;
+  --color-background-active: #e5e5e5;
+  
+  --color-text-primary: #09090b;
+  --color-text-secondary: #27272a;
+  --color-text-tertiary: #52525b;
+  --color-text-inverse: #ffffff;
+  --color-text-disabled: #a1a1aa;
+  --color-text-onprimary: #09090b;
+  
+  --color-border-primary: #e4e4e7;
+  --color-border-secondary: #d4d4d8;
+  --color-border-focus: #eab308;
+  --color-border-error: #ef4444;
+  --color-border-success: #22c55e;
+  
+  --color-accent-primary: #eab308;
+  --color-accent-primaryhover: #ca8a04;
+  --color-accent-primaryactive: #a16207;
+  --color-accent-success: #22c55e;
+  --color-accent-warning: #f59e0b;
+  --color-accent-danger: #ef4444;
+  --color-accent-muted: #737373;
+
+  --radius-card: 18px;
+  --radius-button: 14px;
+  --radius-pill: 999px;
+}
+
+.dark {
+  /* Dark theme CSS variables - will be dynamically set by ThemeProvider */
+  --color-background-primary: #0f172a;
+  --color-background-secondary: #18181b;
+  --color-background-tertiary: #27272a;
+  --color-background-hover: #18181b;
+  --color-background-active: #27272a;
+  
+  --color-text-primary: #fafafa;
+  --color-text-secondary: #f4f4f5;
+  --color-text-tertiary: #a1a1aa;
+  --color-text-inverse: #000000;
+  --color-text-disabled: #52525b;
+  --color-text-onprimary: #09090b;
+  
+  --color-border-primary: #3f3f46;
+  --color-border-secondary: #52525b;
+  --color-border-focus: #fde047;
+  --color-border-error: #f87171;
+  --color-border-success: #4ade80;
+  
+  --color-accent-primary: #fde047;
+  --color-accent-primaryhover: #facc15;
+  --color-accent-primaryactive: #eab308;
+  --color-accent-success: #4ade80;
+  --color-accent-warning: #fbbf24;
+  --color-accent-danger: #f87171;
+  --color-accent-muted: #737373;
+}
+
 body {
   margin: 0;
   padding: 0;
-  background-color: white;
-  color: #111827;
+  background-color: var(--color-background-primary);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+:root {
+  --sidebar-width: 0rem;
+  --sidebar-width-expanded: 16rem;
+  --sidebar-width-collapsed: 4.25rem;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --sidebar-width: var(--sidebar-width-expanded);
+  }
+}
+
+.dashboard-shell {
+  margin-left: var(--sidebar-width);
+  transition: margin-left 0.3s ease;
+}
+
+body.sidebar-collapsed {
+  --sidebar-width: var(--sidebar-width-collapsed);
+}
+
+@media (max-width: 767px) {
+  body.sidebar-collapsed {
+    --sidebar-width: 0rem;
+  }
+}
+
+.font-display {
+  font-family: var(--font-display);
 }
 
 /* Basic utility classes */
@@ -26,4 +123,159 @@ body {
 
 .animation-delay-1000 {
   animation-delay: 1000ms;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-up {
+  animation: fade-up 0.6s ease-out both;
+}
+
+.fade-in {
+  animation: fade-in 0.6s ease-out both;
+}
+
+.auth-shell {
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--color-background-primary), var(--color-background-secondary));
+  background-image: var(--auth-hero-image, none);
+  background-size: cover;
+  background-position: center;
+}
+
+.auth-hero-text {
+  animation: fade-up 0.8s ease-out both;
+}
+
+.auth-glass {
+  background: color-mix(in srgb, var(--color-background-primary) 92%, transparent);
+  border: 1px solid var(--color-border-primary);
+  backdrop-filter: blur(14px);
+}
+
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  animation: marquee-scroll 18s linear infinite;
+  display: inline-flex;
+  gap: 2rem;
+  white-space: nowrap;
+}
+
+/* Theme utility classes */
+.bg-primary {
+  background-color: var(--color-background-primary);
+}
+
+.bg-secondary {
+  background-color: var(--color-background-secondary);
+}
+
+.bg-tertiary {
+  background-color: var(--color-background-tertiary);
+}
+
+.bg-hover {
+  background-color: var(--color-background-hover);
+}
+
+.bg-active {
+  background-color: var(--color-background-active);
+}
+
+.text-primary {
+  color: var(--color-text-primary);
+}
+
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.text-tertiary {
+  color: var(--color-text-tertiary);
+}
+
+.text-inverse {
+  color: var(--color-text-inverse);
+}
+
+.text-disabled {
+  color: var(--color-text-disabled);
+}
+
+.text-on-primary {
+  color: var(--color-text-onprimary);
+}
+
+.border-primary {
+  border-color: var(--color-border-primary);
+}
+
+.border-secondary {
+  border-color: var(--color-border-secondary);
+}
+
+.border-focus {
+  border-color: var(--color-border-focus);
+}
+
+.border-error {
+  border-color: var(--color-border-error);
+}
+
+.border-success {
+  border-color: var(--color-border-success);
+}
+
+.bg-accent-primary {
+  background-color: var(--color-accent-primary);
+}
+
+.bg-accent-primary-hover {
+  background-color: var(--color-accent-primaryhover);
+}
+
+.bg-accent-primary-active {
+  background-color: var(--color-accent-primaryactive);
+}
+
+.text-accent-primary {
+  color: var(--color-accent-primary);
+}
+
+.bg-success {
+  background-color: var(--color-accent-success);
+}
+
+.bg-warning {
+  background-color: var(--color-accent-warning);
+}
+
+.bg-danger {
+  background-color: var(--color-accent-danger);
 }

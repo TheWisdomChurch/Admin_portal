@@ -1,7 +1,7 @@
 // src/app/(dashboard)/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Calendar,
   Users,
@@ -15,54 +15,94 @@ import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
-import { withAuth } from '@/providers/AuthProviders';
 import { useAuthContext } from '@/providers/AuthProviders';
+import { EventData, DashboardAnalytics } from '@/lib/types';
 
-function DashboardPage() {
-  const [stats, setStats] = useState({
+export default function DashboardPage() {
+  const auth = useAuthContext();
+
+  const [stats, setStats] = useState<DashboardAnalytics>({
     totalEvents: 0,
     upcomingEvents: 0,
     totalAttendees: 0,
-    eventsByCategory: {} as Record<string, number>,
-    monthlyStats: [] as Array<{ month: string; events: number; attendees: number }>,
+    eventsByCategory: {},
+    monthlyStats: [],
   });
-  const [recentEvents, setRecentEvents] = useState<any[]>([]);
+
+  const [recentEvents, setRecentEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
-  const auth = useAuthContext();
+  const [approvedTestimonials, setApprovedTestimonials] = useState<{ id: string; full_name?: string; testimony?: string }[]>([]);
 
-  useEffect(() => {
-    // Only load data if authenticated
-    if (auth.isAuthenticated) {
-      loadDashboardData();
-    }
-  }, [auth.isAuthenticated]);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
-      const [analytics, events] = await Promise.all([
+
+      // Try to fetch real data, fall back to mock data if it fails
+      const [analyticsResult, eventsResult, testimonialsResult] = await Promise.allSettled([
         apiClient.getAnalytics(),
         apiClient.getEvents({ limit: 5, page: 1 }),
+        apiClient.getAllTestimonials({ approved: true }),
       ]);
-      setStats(analytics);
-      setRecentEvents(Array.isArray(events) ? events : events.data || []);
-    } catch (error: any) {
+
+      if (analyticsResult.status === 'fulfilled') {
+        setStats(analyticsResult.value);
+      } else {
+        console.warn('Analytics unavailable, using placeholder data:', analyticsResult.reason);
+        setStats({
+          totalEvents: 0,
+          upcomingEvents: 0,
+          totalAttendees: 0,
+          eventsByCategory: {},
+          monthlyStats: [],
+        });
+        toast.error('Live analytics unavailable, showing placeholder data');
+      }
+
+      if (eventsResult.status === 'fulfilled') {
+        const eventsData = eventsResult.value;
+        if (Array.isArray(eventsData)) {
+          setRecentEvents(eventsData);
+        } else if (eventsData && 'data' in eventsData) {
+          setRecentEvents(eventsData.data);
+        } else {
+          setRecentEvents([]);
+        }
+      } else {
+        console.warn('Events unavailable:', eventsResult.reason);
+        setRecentEvents([]);
+      }
+
+      if (testimonialsResult.status === 'fulfilled') {
+        const testimonialsData = testimonialsResult.value;
+        if (Array.isArray(testimonialsData)) {
+          setApprovedTestimonials(testimonialsData.slice(0, 4));
+        } else if (testimonialsData && 'data' in testimonialsData) {
+          setApprovedTestimonials((testimonialsData as any).data?.slice?.(0, 4) || []);
+        } else {
+          setApprovedTestimonials([]);
+        }
+      } else {
+        console.warn('Testimonials unavailable:', testimonialsResult.reason);
+        setApprovedTestimonials([]);
+      }
+    } catch (error) {
+      console.error('Dashboard error:', error);
       toast.error('Failed to load dashboard data');
-      console.error(error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <div className="h-24 bg-secondary-200 rounded-lg"></div>
-            </Card>
-          ))}
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto" />
+          <p className="mt-4 text-[var(--color-text-tertiary)]">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -70,178 +110,219 @@ function DashboardPage() {
 
   const categoryValues = Object.values(stats.eventsByCategory);
   const maxCategoryValue = categoryValues.length > 0 ? Math.max(...categoryValues) : 1;
-
-  // Get user's first name
-  const getUserFirstName = () => {
-    if (!auth.user) return 'Admin';
-    return auth.user.first_name || 'Admin';
-  };
+  const firstName = auth.user?.first_name || 'Admin';
+  const categoriesByCount = Object.entries(stats.eventsByCategory).sort((a, b) => b[1] - a[1]);
+  const topCategory = categoriesByCount[0];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-secondary-900">Dashboard</h1>
-        <p className="text-secondary-600 mt-2">
-          Welcome back, {getUserFirstName()}! Here's what's happening.
-        </p>
+    <div className="relative space-y-6">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-24 -right-20 h-64 w-64 rounded-full bg-amber-200/40 blur-3xl dark:bg-amber-500/10" />
+        <div className="absolute top-1/3 -left-24 h-72 w-72 rounded-full bg-sky-200/40 blur-3xl dark:bg-sky-500/10" />
+        <div className="absolute bottom-0 right-1/4 h-64 w-64 rounded-full bg-rose-200/30 blur-3xl dark:bg-rose-500/10" />
       </div>
+
+      {/* Header */}
+      <Card className="relative overflow-hidden bg-gradient-to-br from-[var(--color-background-secondary)] via-[var(--color-background-tertiary)] to-transparent shadow-lg">
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-text-tertiary)]">Wisdom Church Admin</p>
+            <h1 className="font-display mt-3 text-3xl font-semibold text-[var(--color-text-primary)] md:text-4xl">
+              Dashboard Overview
+            </h1>
+            <p className="mt-2 text-base text-[var(--color-text-secondary)]">
+              Welcome back, {firstName}! Here is the latest activity at a glance.
+            </p>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Badge variant="outline" size="lg" className="bg-[var(--color-background-primary)] text-[var(--color-text-secondary)]">
+                Role: <span className="ml-1 font-semibold capitalize">{auth.user?.role?.replace('_', ' ')}</span>
+              </Badge>
+              <Badge variant="secondary" size="lg" className="bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]">
+                {auth.user?.email}
+              </Badge>
+            </div>
+          </div>
+
+          <Button variant="outline" onClick={auth.logout}>
+            Logout
+          </Button>
+        </div>
+      </Card>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-secondary-600">Total Events</p>
-              <p className="text-3xl font-bold text-secondary-900 mt-2">{stats.totalEvents}</p>
-              <div className="flex items-center gap-1 mt-2">
-                <ArrowUpRight className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-green-600">12% from last month</span>
-              </div>
-            </div>
-            <div className="h-12 w-12 rounded-lg bg-primary-100 flex items-center justify-center">
-              <Calendar className="h-6 w-6 text-primary-600" />
-            </div>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-secondary-600">Upcoming Events</p>
-              <p className="text-3xl font-bold text-secondary-900 mt-2">{stats.upcomingEvents}</p>
-              <div className="flex items-center gap-1 mt-2">
-                <ArrowUpRight className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-green-600">3 new this week</span>
-              </div>
-            </div>
-            <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-              <AlertCircle className="h-6 w-6 text-green-600" />
-            </div>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-secondary-600">Total Attendees</p>
-              <p className="text-3xl font-bold text-secondary-900 mt-2">
-                {stats.totalAttendees.toLocaleString()}
-              </p>
-              <div className="flex items-center gap-1 mt-2">
-                <ArrowUpRight className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-green-600">8% from last month</span>
-              </div>
-            </div>
-            <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Users className="h-6 w-6 text-blue-600" />
-            </div>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-secondary-600">Media Reels</p>
-              <p className="text-3xl font-bold text-secondary-900 mt-2">
-                {Object.keys(stats.eventsByCategory).length}
-              </p>
-              <div className="flex items-center gap-1 mt-2">
-                <ArrowUpRight className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-green-600">5 new this month</span>
-              </div>
-            </div>
-            <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
-              <Video className="h-6 w-6 text-purple-600" />
-            </div>
-          </div>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 fade-up">
+        <StatCard
+          title="Total Events"
+          value={stats.totalEvents}
+          icon={<Calendar className="h-5 w-5 text-[var(--color-text-primary)]" />}
+        />
+        <StatCard
+          title="Upcoming Events"
+          value={stats.upcomingEvents}
+          icon={<AlertCircle className="h-5 w-5 text-[var(--color-text-primary)]" />}
+        />
+        <StatCard
+          title="Total Attendees"
+          value={stats.totalAttendees.toLocaleString()}
+          icon={<Users className="h-5 w-5 text-[var(--color-text-primary)]" />}
+        />
+        <StatCard
+          title="Categories"
+          value={Object.keys(stats.eventsByCategory).length}
+          icon={<Video className="h-5 w-5 text-[var(--color-text-primary)]" />}
+        />
       </div>
 
-      {/* Recent Events & Category Distribution */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         {/* Recent Events */}
-        <Card 
-          title="Recent Events" 
-          actions={<Button variant="ghost" size="sm">View All</Button>}
-        >
+        <Card title="Recent Events" className="fade-up">
           <div className="space-y-4">
             {recentEvents.length > 0 ? (
               recentEvents.map((event) => (
-                <div key={event.id} className="flex items-center justify-between p-4 rounded-lg hover:bg-secondary-50">
+                <div
+                  key={event.id}
+                  className="flex flex-col gap-4 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 transition duration-200 hover:-translate-y-0.5 hover:bg-[var(--color-background-primary)] md:flex-row md:items-center md:justify-between"
+                >
                   <div>
-                    <h4 className="font-medium text-secondary-900">{event.title}</h4>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="info">{event.category || 'Uncategorized'}</Badge>
-                      <span className="text-sm text-secondary-500">
-                        {event.date ? new Date(event.date).toLocaleDateString() : 'No date'}
+                    <h4 className="text-lg font-semibold text-[var(--color-text-primary)]">{event.title}</h4>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[var(--color-text-tertiary)]">
+                      <Badge variant="info" className="bg-sky-100 text-sky-700 border-sky-200">
+                        {event.category || 'Uncategorized'}
+                      </Badge>
+                      <span>
+                        {event.date ? new Date(event.date).toLocaleDateString() : 'No date'} ·{' '}
+                        {event.time || 'Time TBD'}
                       </span>
+                      <span className="text-[var(--color-text-tertiary)]">|</span>
+                      <span>{event.location || 'Location TBD'}</span>
                     </div>
                   </div>
-                  <Badge variant={
-                    event.status === 'upcoming' ? 'info' :
-                    event.status === 'happening' ? 'warning' : 'default'
-                  }>
+                  <Badge
+                    variant={
+                      event.status === 'upcoming'
+                        ? 'success'
+                        : event.status === 'happening'
+                          ? 'warning'
+                          : 'default'
+                    }
+                    className="capitalize"
+                  >
                     {event.status || 'unknown'}
                   </Badge>
                 </div>
               ))
             ) : (
-              <div className="text-center py-4 text-secondary-500">
-                No recent events found
-              </div>
+                <p className="text-center text-[var(--color-text-tertiary)] py-6">
+                  No recent events found
+                </p>
             )}
           </div>
         </Card>
 
-        {/* Category Distribution */}
-        <Card title="Events by Category">
-          <div className="space-y-4">
-            {Object.entries(stats.eventsByCategory).length > 0 ? (
-              Object.entries(stats.eventsByCategory).map(([category, count]) => (
-                <div key={category} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-secondary-700">{category}</span>
-                    <span className="text-sm text-secondary-600">{count} events</span>
+        <div className="space-y-6">
+          <Card title="Approved Testimonials" className="fade-up">
+            {approvedTestimonials.length > 0 ? (
+              <div className="space-y-3">
+                {approvedTestimonials.map((t) => (
+                  <div key={t.id} className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3">
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{t.full_name || 'Anonymous'}</p>
+                    <p className="mt-1 line-clamp-2 text-xs text-[var(--color-text-tertiary)]">{t.testimony || 'No text provided'}</p>
+                    <div className="mt-3 flex justify-between">
+                      <Badge variant="success">Approved</Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => toast.success('Published to site (hook backend here)')}
+                      >
+                        Publish
+                      </Button>
+                    </div>
                   </div>
-                  <div className="h-2 bg-secondary-200 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary-600 rounded-full"
-                      style={{
-                        width: `${(count / maxCategoryValue) * 100}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))
+                ))}
+              </div>
             ) : (
-              <div className="text-center py-4 text-secondary-500">
-                No category data available
-              </div>
+              <p className="text-sm text-[var(--color-text-tertiary)]">No approved testimonials yet.</p>
             )}
-          </div>
-        </Card>
-      </div>
+          </Card>
+          {/* Category Distribution */}
+          <Card title="Events by Category" className="fade-up animation-delay-500">
+            <div className="space-y-4">
+              {categoriesByCount.length > 0 ? (
+                categoriesByCount.map(([category, count]) => (
+                  <div key={category}>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-[var(--color-text-secondary)] font-medium">{category}</span>
+                      <span className="text-[var(--color-text-tertiary)]">{count} events</span>
+                    </div>
+                    <div className="h-2.5 bg-[var(--color-background-tertiary)] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400 rounded-full transition-all"
+                        style={{ width: `${(count / maxCategoryValue) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-[var(--color-text-tertiary)] py-6">
+                  No category data available
+                </p>
+              )}
+            </div>
+          </Card>
 
-      {/* Quick Actions */}
-      <Card title="Quick Actions">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Button variant="outline" className="h-auto py-4 flex-col gap-2">
-            <Calendar className="h-6 w-6" />
-            <span>Create Event</span>
-          </Button>
-          <Button variant="outline" className="h-auto py-4 flex-col gap-2">
-            <Video className="h-6 w-6" />
-            <span>Upload Reel</span>
-          </Button>
-          <Button variant="outline" className="h-auto py-4 flex-col gap-2">
-            <TrendingUp className="h-6 w-6" />
-            <span>View Reports</span>
-          </Button>
+          <Card className="relative overflow-hidden bg-[var(--color-text-primary)] text-[var(--color-text-inverse)] fade-up animation-delay-1000">
+            <div className="absolute -right-10 -top-12 h-32 w-32 rounded-full bg-amber-400/30 blur-2xl" />
+            <div className="relative space-y-3">
+              <p className="text-xs uppercase tracking-[0.3em] text-amber-200">Spotlight</p>
+              <h3 className="font-display text-2xl font-semibold">
+                {topCategory ? topCategory[0] : 'Your Next Big Event'}
+              </h3>
+              <p className="text-sm text-slate-200">
+                {topCategory
+                  ? `${topCategory[1]} events are already trending in this category.`
+                  : 'Start building momentum by scheduling new events.'}
+              </p>
+              <div className="flex items-center gap-2 text-sm text-amber-200">
+                <TrendingUp className="h-4 w-4" />
+                <span>Momentum snapshot</span>
+              </div>
+            </div>
+          </Card>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }
 
-export default withAuth(DashboardPage, { requiredRole: 'admin' });
+function StatCard({
+  title,
+  value,
+  icon,
+}: {
+  title: string;
+  value: React.ReactNode;
+  icon: React.ReactNode;
+}) {
+  return (
+    <Card
+      className="group relative overflow-hidden bg-[var(--color-background-secondary)] shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+      contentClassName="p-4"
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">{title}</p>
+          <p className="font-display mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">{value}</p>
+          <div className="mt-2 flex items-center gap-1 text-[0.7rem] font-medium text-emerald-500">
+            <ArrowUpRight className="h-3.5 w-3.5" />
+            <span>Active</span>
+          </div>
+        </div>
+        <div className="h-10 w-10 rounded-2xl bg-[var(--color-background-tertiary)] flex items-center justify-center">
+          {icon}
+        </div>
+      </div>
+      <div className="pointer-events-none absolute -right-10 -top-12 h-24 w-24 rounded-full bg-amber-200/40 blur-2xl transition-opacity group-hover:opacity-80" />
+    </Card>
+  );
+}

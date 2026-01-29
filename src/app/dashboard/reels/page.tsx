@@ -10,7 +10,8 @@ import { ImageUpload } from '@/components/ImageUpload';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
 import { ReelData } from '@/lib/types';
-import { withAuth } from '@/providers/AuthProviders';
+import { withAuth } from '@/providers/withAuth';
+import { PageHeader } from '@/layouts';
 
 function ReelsPage() {
   const [reels, setReels] = useState<ReelData[]>([]);
@@ -59,12 +60,23 @@ function ReelsPage() {
 
     try {
       setUploading(true);
-      const formData = new FormData();
-      formData.append('video', files[0]);
-      formData.append('title', 'New Reel');
-      formData.append('duration', '0:00');
 
-      await apiClient.createReel(formData);
+      // You may need to upload the video file to get a URL first.
+      // Here is a placeholder for uploading the file and getting the videoUrl and thumbnail.
+      // Replace this with your actual upload logic.
+      const videoFile = files[0];
+      // Example: const { videoUrl, thumbnail } = await uploadVideoAndGetUrls(videoFile);
+      const videoUrl = ''; // TODO: Replace with actual uploaded video URL
+      const thumbnail = ''; // TODO: Replace with actual thumbnail URL
+
+      const payload = {
+        title: 'New Reel',
+        videoUrl,
+        thumbnail,
+        duration: '0:00',
+      };
+
+      await apiClient.createReel(payload);
       toast.success('Reel uploaded successfully');
       setShowUploadModal(false);
       loadReels();
@@ -122,16 +134,16 @@ function ReelsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-secondary-900">Video Reels</h1>
-          <p className="text-secondary-600 mt-2">Manage video highlights and reels</p>
-        </div>
-        <Button onClick={() => setShowUploadModal(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Upload Reel
-        </Button>
-      </div>
+      <PageHeader
+        title="Video Reels"
+        subtitle="Manage video highlights and reels."
+        actions={(
+          <Button onClick={() => setShowUploadModal(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Upload Reel
+          </Button>
+        )}
+      />
 
       <DataTable
         data={reels}

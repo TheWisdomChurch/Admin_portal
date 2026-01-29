@@ -12,16 +12,16 @@ import {
   Underline as UnderlineIcon,
   List,
   ListOrdered,
-  Link as LinkIcon,
+  Link as LinkIcon, 
   Heading1,
   Heading2,
   Heading3,
   Pilcrow,
   RemoveFormatting,
 } from 'lucide-react';
-import { Button } from '@/ui/Button';
 import { cn } from '@/lib/utils';
 import { useEffect } from 'react';
+import { Button } from '@/ui/Button';
 
 interface RichTextEditorProps {
   value: string;
@@ -39,6 +39,7 @@ export function RichTextEditor({
   className,
 }: RichTextEditorProps) {
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: {
@@ -77,11 +78,13 @@ export function RichTextEditor({
     },
   });
 
-useEffect(() => {
-  if (editor && value !== editor.getHTML()) {
-    editor.commands.setContent(value, { emitUpdate: false });
-  }
-}, [editor, value]);
+  useEffect(() => {
+    if (editor && value !== editor.getHTML()) {
+      editor.commands.setContent(value, {
+        emitUpdate: false,
+      });
+    }
+  }, [editor, value]);
 
   if (!editor) {
     return null;
