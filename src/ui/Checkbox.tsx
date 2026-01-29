@@ -12,7 +12,7 @@ interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'typ
 export function Checkbox({ label, disabled, className, ...props }: CheckboxProps) {
   return (
     <label className={cn(
-      'flex items-center gap-2 text-sm text-secondary-700',
+      'flex items-center gap-2 text-sm text-[var(--color-text-secondary)]',
       disabled && 'opacity-50 cursor-not-allowed',
       className
     )}>
@@ -20,7 +20,7 @@ export function Checkbox({ label, disabled, className, ...props }: CheckboxProps
         type="checkbox"
         disabled={disabled}
         className={cn(
-          'h-4 w-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500',
+          'h-4 w-4 rounded border-[var(--color-border-primary)] text-[var(--color-accent-primary)] focus:ring-[var(--color-border-focus)]',
           'disabled:cursor-not-allowed disabled:opacity-50'
         )}
         {...props}

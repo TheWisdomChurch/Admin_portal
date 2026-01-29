@@ -1,378 +1,773 @@
-// src/lib/api.ts
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
-import {
+import type {
+  User,
   LoginCredentials,
   RegisterData,
-  LoginResponseData,
-  User,
+  ApiResponse,
+  MessageResponse,
   PaginatedResponse,
-  ApiError,
-  EventData,
-  ReelData,
+  SimplePaginatedResponse,
   Testimonial,
   CreateTestimonialData,
-  DashboardStats,
-  ApiResponse,
-  RegisterEventData,
+  UpdateTestimonialData,
+  EventData,
+  EventPayload,
+  DashboardAnalytics,
+  ReelData,
+  CreateReelData,
+  AdminForm,
+  CreateFormRequest,
+  UpdateFormRequest,
+  PublicFormPayload,
+  SubmitFormRequest,
+  FormSubmission,
+  FormStatsResponse,
+  Subscriber,
+  SubscribeRequest,
+  UnsubscribeRequest,
+  SendNotificationRequest,
+  SendNotificationResult,
+  SendOTPRequest,
+  VerifyOTPRequest,
+  SendOTPResponse,
+  VerifyOTPResponse,
+  WorkforceMember,
+  CreateWorkforceRequest,
+  UpdateWorkforceRequest,
+  WorkforceStatsResponse,
+  PasswordResetRequestPayload,
+  PasswordResetConfirmPayload,
+  LoginResult,
+  LoginChallenge,
   ChangePasswordData,
-  MessageResponse,
-  UploadResponse,
   HealthCheckResponse,
 } from './types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+/* ============================================================================
+   API CLIENT CONFIG
+============================================================================ */
 
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest',
-  },
-  timeout: 15000,
-  withCredentials: true, // Enable credentials for cookie-based auth
-});
-
-api.interceptors.request.use(
-  (config) => {
-    if (typeof window === 'undefined') {
-      return config;
-    }
-
-    // No Authorization header - token is in HttpOnly cookie
-
-    // Optional cache-buster for GET requests
-    if (config.method?.toLowerCase() === 'get' && config.params?._cacheBust !== false) {
-      config.params = {
-        ...config.params,
-        _t: Date.now(),
-      };
-    }
-
-    return config;
-  },
-  (error) => {
-    console.error('❌ [API Request Error]', error);
-    return Promise.reject(createApiError(error, 'Request failed'));
+function normalizeOrigin(raw?: string | null): string {
+  const fallback = 'http://localhost:8080';
+  if (!raw) return fallback;
+  let base = raw.trim().replace(/\/+$/, '');
+  if (base.endsWith('/api/v1')) {
+    base = base.slice(0, -'/api/v1'.length);
   }
+  return base || fallback;
+}
+
+const API_ORIGIN = normalizeOrigin(process.env.NEXT_PUBLIC_API_URL);
+const API_V1_BASE_URL = `${API_ORIGIN}/api/v1`;
+const UPLOAD_ORIGIN = normalizeOrigin(
+  process.env.NEXT_PUBLIC_UPLOAD_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL
 );
-
-const hasMessage = (obj: any): obj is { message: string } => {
-  return obj && typeof obj === 'object' && 'message' in obj;
-};
-
-api.interceptors.response.use(
-  (response: AxiosResponse) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`✅ [${response.status}] ${response.config.url}`);
-    }
-
-    const data = response.data;
-    if (data && typeof data === 'object' && 'data' in data) {
-      response.data = (data as any).data;
-    }
-
-    return response;
-  },
-  (error: AxiosError) => {
-    const config = error.config;
-    const response = error.response;
-
-    console.error('❌ [API Error]', {
-      url: config?.url,
-      method: config?.method,
-      status: response?.status,
-      data: response?.data,
-    });
-
-    if (response?.status === 401) {
-      console.log('🔓 [API] Session invalid or expired');
-      clearAuthStorage();
-      const errorMessage = hasMessage(response.data)
-        ? response.data.message
-        : 'Session expired. Please login again.';
-      return Promise.reject(createApiError(error, errorMessage, 401));
-    }
-
-    if (response?.status === 403) {
-      const errorMessage = hasMessage(response.data)
-        ? response.data.message
-        : 'You do not have permission to perform this action.';
-      return Promise.reject(createApiError(error, errorMessage, 403));
-    }
-
-    if (!response) {
-      return Promise.reject(createApiError(error, 'Network error. Please check your connection.'));
-    }
-
-    if (response?.status === 400) {
-      const errorMessage = hasMessage(response.data)
-        ? response.data.message
-        : 'Invalid request. Please check your input.';
-      return Promise.reject(createApiError(error, errorMessage, 400));
-    }
-
-    if (response?.status >= 500) {
-      const errorMessage = hasMessage(response.data)
-        ? response.data.message
-        : 'Server error. Please try again later.';
-      return Promise.reject(createApiError(error, errorMessage, response.status));
-    }
-
-    let errorMessage = error.message || 'An error occurred';
-    if (response?.data) {
-      if (hasMessage(response.data)) {
-        errorMessage = response.data.message;
-      } else if (typeof response.data === 'string') {
-        errorMessage = response.data;
-      } else if (typeof response.data === 'object' && 'error' in response.data && typeof response.data.error === 'string') {
-        errorMessage = response.data.error;
-      }
-    }
-
-    return Promise.reject(createApiError(error, errorMessage, response?.status));
-  }
-);
-
-const createApiError = (error: any, message: string, statusCode?: number): ApiError => {
-  const apiError: ApiError = new Error(message) as ApiError;
-  apiError.statusCode = statusCode || error.response?.status;
-  apiError.originalError = error;
-  apiError.response = error.response;
-  return apiError;
-};
-
-const handleApiError = (error: any, defaultMessage: string): never => {
-  console.error('🔥 [API Error Handler]', {
-    message: error.message,
-    defaultMessage,
-    statusCode: error.statusCode,
-  });
-
-  throw error.message ? error : new Error(defaultMessage);
-};
-
+const UPLOAD_V1_BASE_URL = `${UPLOAD_ORIGIN}/api/v1`;
 const AUTH_USER_KEY = 'wisdomhouse_auth_user';
 
-export const setAuthUser = (user: User, rememberMe = false): void => {
-  if (typeof window === 'undefined') return;
+/* ============================================================================
+   Error Utilities
+============================================================================ */
 
-  try {
-    const userString = JSON.stringify(user);
-    if (rememberMe) {
-      localStorage.setItem(AUTH_USER_KEY, userString);
-    } else {
-      sessionStorage.setItem(AUTH_USER_KEY, userString);
-    }
-  } catch (error) {
-    console.warn('⚠️ Failed to set auth user:', error);
-  }
-};
+export interface ApiError extends Error {
+  statusCode?: number;
+  details?: unknown;
+}
 
-export const getAuthUser = (): User | null => {
+export function createApiError(
+  message: string,
+  statusCode?: number,
+  details?: unknown
+): ApiError {
+  const error = new Error(message) as ApiError;
+  error.statusCode = statusCode;
+  error.details = details;
+  return error;
+}
+
+function isApiError(err: unknown): err is ApiError {
+  return typeof err === 'object' && err !== null && 'statusCode' in err;
+}
+
+/* ============================================================================
+   Auth Storage (stores user profile only; cookie holds session)
+============================================================================ */
+
+export function getAuthUser(): User | null {
   if (typeof window === 'undefined') return null;
-
   try {
-    const userString = localStorage.getItem(AUTH_USER_KEY) || sessionStorage.getItem(AUTH_USER_KEY);
-    return userString ? JSON.parse(userString) : null;
-  } catch (error) {
-    console.warn('⚠️ Failed to get auth user:', error);
+    const stored =
+      localStorage.getItem(AUTH_USER_KEY) ??
+      sessionStorage.getItem(AUTH_USER_KEY);
+    return stored ? (JSON.parse(stored) as User) : null;
+  } catch {
+    clearAuthStorage();
     return null;
   }
-};
+}
 
-export const clearAuthStorage = (): void => {
+export function setAuthUser(user: User, rememberMe = false): void {
   if (typeof window === 'undefined') return;
+  const storage = rememberMe ? localStorage : sessionStorage;
+  storage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+}
+
+export function clearAuthStorage(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(AUTH_USER_KEY);
+  sessionStorage.removeItem(AUTH_USER_KEY);
+  sessionStorage.removeItem('redirect_after_login');
+}
+
+/* ============================================================================
+   Fetch Wrappers (cookie-based auth)
+============================================================================ */
+
+async function safeParseJson(response: Response): Promise<any | null> {
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) return null;
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+async function apiFetch<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const url = `${API_V1_BASE_URL}${endpoint}`;
+  const isFormData =
+    typeof FormData !== 'undefined' && options.body instanceof FormData;
+
+  const headers: HeadersInit = {
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(options.headers || {}),
+  };
 
   try {
-    localStorage.removeItem(AUTH_USER_KEY);
-    sessionStorage.removeItem(AUTH_USER_KEY);
-  } catch (error) {
-    console.warn('⚠️ Failed to clear auth storage:', error);
-  }
-};
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
 
-const hasKey = <K extends string>(obj: any, key: K): obj is Record<K, any> => {
-  return obj && typeof obj === 'object' && key in obj;
-};
+    const json = await safeParseJson(response);
+    const payload =
+      json ??
+      ({ message: await response.text().catch(() => '') } as Record<string, any>);
 
-const extractData = <T>(response: AxiosResponse): T => {
-  const data = response.data;
-
-  if (data && typeof data === 'object') {
-    if (hasKey(data, 'data') && data.data !== undefined) {
-      return data.data as T;
+    if (!response.ok) {
+      throw createApiError(
+        payload?.error || payload?.message || 'Request failed',
+        response.status,
+        payload
+      );
     }
 
-    const possibleKeys = ['user', 'event', 'reel', 'testimonial', 'stats', 'message'];
-    for (const key of possibleKeys) {
-      if (hasKey(data, key)) {
-        return data[key] as T;
-      }
-    }
+    return payload as T;
+  } catch (err: any) {
+    if (isApiError(err)) throw err;
+    throw createApiError(err?.message || 'Network error', 0, err);
   }
+}
 
-  return data as T;
-};
+/**
+ * Upload fetch: same as apiFetch but allows a different origin for CDN/upload proxies.
+ */
+async function uploadFetch<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const url = `${UPLOAD_V1_BASE_URL}${endpoint}`;
+
+  const isFormData =
+    typeof FormData !== 'undefined' && options.body instanceof FormData;
+
+  const headers: HeadersInit = {
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(options.headers || {}),
+  };
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
+
+    const json = await safeParseJson(response);
+    const payload =
+      json ??
+      ({ message: await response.text().catch(() => '') } as Record<string, any>);
+
+    if (!response.ok) {
+      throw createApiError(
+        payload?.error || payload?.message || 'Request failed',
+        response.status,
+        payload
+      );
+    }
+
+    return payload as T;
+  } catch (err: any) {
+    if (isApiError(err)) throw err;
+    throw createApiError(err?.message || 'Network error', 0, err);
+  }
+}
+
+/** Root fetch (NOT /api/v1). Needed for /health. */
+async function rootFetch<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const url = `${API_ORIGIN}${endpoint}`;
+  const headers: HeadersInit = { ...(options.headers || {}) };
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
+
+    const json = await safeParseJson(response);
+    const payload =
+      json ??
+      ({ message: await response.text().catch(() => '') } as Record<string, any>);
+
+    if (!response.ok) {
+      throw createApiError(
+        payload?.error || payload?.message || 'Request failed',
+        response.status,
+        payload
+      );
+    }
+
+    return payload as T;
+  } catch (err: any) {
+    if (isApiError(err)) throw err;
+    throw createApiError(err?.message || 'Network error', 0, err);
+  }
+}
+
+/* ============================================================================
+   Response Normalizers
+============================================================================ */
+
+function extractUser(response: any): User {
+  const data = response?.data ?? response;
+  if (data?.user?.id && data.user?.email) return data.user as User;
+  if (data?.id && data?.email) return data as User;
+  throw createApiError('Invalid user payload', 400, response);
+}
+
+function unwrapData<T>(res: any, errorMessage: string): T {
+  if (res && typeof res === 'object' && 'data' in res) {
+    const data = (res as ApiResponse<any>).data;
+    if (data === undefined || data === null)
+      throw createApiError(errorMessage, 400, res);
+    return data as T;
+  }
+  return res as T;
+}
+
+function extractLoginResult(res: any): LoginResult {
+  const data = res?.data ?? res;
+  if (data?.user) return { user: data.user as User };
+  if (data?.otp_required) {
+    return {
+      otp_required: true,
+      purpose: data.purpose,
+      expires_at: data.expires_at,
+      action_url: data.action_url,
+      email: data.email,
+    } as LoginChallenge;
+  }
+  throw createApiError('Invalid login payload', 400, res);
+}
+
+/* ============================================================================
+   Helpers
+============================================================================ */
+
+function toQueryString(params?: Record<string, any>): string {
+  if (!params) return '';
+  const cleaned: Record<string, string> = {};
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null || v === '') continue;
+    cleaned[k] = String(v);
+  }
+  const qs = new URLSearchParams(cleaned).toString();
+  return qs ? `?${qs}` : '';
+}
+
+/* ============================================================================
+   API CLIENT
+============================================================================ */
 
 export const apiClient = {
-  async login(credentials: LoginCredentials & { rememberMe?: boolean }): Promise<LoginResponseData> {
-    try {
-      console.log('🔐 [Login] Attempting login');
+  /* ===================== AUTH ===================== */
 
-      const response = await api.post('/auth/login', {
-        email: credentials.email.trim(),
-        password: credentials.password,
-        rememberMe: credentials.rememberMe || false,
-      });
-
-      console.log('✅ [Login] Response received');
-
-      const data = extractData<LoginResponseData>(response);
-
-      if (data.user) {
-        setAuthUser(data.user, credentials.rememberMe || false);
-      }
-
-      return data;
-    } catch (error) {
-      return handleApiError(error, 'Login failed. Please check your credentials.');
-    }
+  async login(credentials: LoginCredentials): Promise<LoginResult> {
+    const res = await apiFetch<ApiResponse<any>>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+    return extractLoginResult(res);
   },
 
-  async register(userData: RegisterData & { rememberMe?: boolean }): Promise<LoginResponseData> {
-    try {
-      console.log('📝 [Register] Attempting registration');
+  async verifyLoginOtp(payload: {
+    email: string;
+    code: string;
+    purpose: string;
+    rememberMe?: boolean;
+  }): Promise<User> {
+    const res = await apiFetch<ApiResponse<any>>('/auth/login/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return extractUser(res);
+  },
 
-      const response = await api.post('/auth/register', {
-        firstName: userData.first_name.trim(),
-        lastName: userData.last_name.trim(),
-        email: userData.email.trim().toLowerCase(),
-        password: userData.password,
-        role: userData.role || 'user',
-        rememberMe: userData.rememberMe || false,
-      });
+  async register(data: RegisterData): Promise<User> {
+    const res = await apiFetch<ApiResponse<any>>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return extractUser(res);
+  },
 
-      const data = extractData<LoginResponseData>(response);
+  async requestPasswordReset(
+    payload: PasswordResetRequestPayload
+  ): Promise<SendOTPResponse> {
+    const res = await apiFetch<ApiResponse<SendOTPResponse>>(
+      '/auth/password-reset/request',
+      { method: 'POST', body: JSON.stringify(payload) }
+    );
+    return unwrapData<SendOTPResponse>(res, 'Invalid password reset response');
+  },
 
-      if (data.user) {
-        setAuthUser(data.user, userData.rememberMe || false);
-      }
+  async confirmPasswordReset(
+    payload: PasswordResetConfirmPayload
+  ): Promise<MessageResponse> {
+    return apiFetch('/auth/password-reset/confirm', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
 
-      return data;
-    } catch (error) {
-      return handleApiError(error, 'Registration failed. Please try again.');
-    }
+  async refreshToken(): Promise<MessageResponse> {
+    return apiFetch('/auth/refresh', { method: 'POST' });
   },
 
   async logout(): Promise<void> {
-    try {
-      await api.post('/auth/logout');
-    } catch (error) {
-      console.warn('⚠️ [Logout] Backend logout failed:', error);
-    } finally {
-      clearAuthStorage();
-    }
+    await apiFetch('/auth/logout', { method: 'POST' });
   },
 
   async getCurrentUser(): Promise<User> {
-    try {
-      console.log('👤 [getCurrentUser] Fetching current user');
-
-      const response = await api.get('/auth/me');
-      console.log('✅ [getCurrentUser] Response received');
-
-      const userData = extractData<User>(response);
-
-      const currentUser = getAuthUser();
-      const rememberMe = !!localStorage.getItem(AUTH_USER_KEY);
-      if (currentUser) {
-        const mergedUser = { ...currentUser, ...userData };
-        setAuthUser(mergedUser, rememberMe);
-      } else {
-        setAuthUser(userData, rememberMe);
-      }
-
-      return userData;
-    } catch (error) {
-      if ((error as ApiError).statusCode === 401) {
-        clearAuthStorage();
-      }
-      return handleApiError(error, 'Failed to fetch user profile.');
-    }
+    const res = await apiFetch<ApiResponse<any>>('/auth/me', { method: 'GET' });
+    return extractUser(res);
   },
 
   async updateProfile(userData: Partial<User>): Promise<User> {
-    try {
-      console.log('✏️ [updateProfile] Updating profile');
-
-      const response = await api.put('/auth/update-profile', userData);
-      const updatedUser = extractData<User>(response);
-
-      const rememberMe = !!localStorage.getItem(AUTH_USER_KEY);
-      setAuthUser(updatedUser, rememberMe);
-
-      return updatedUser;
-    } catch (error) {
-      return handleApiError(error, 'Failed to update profile.');
-    }
+    const res = await apiFetch<ApiResponse<any>>('/auth/update-profile', {
+      method: 'PUT',
+      body: JSON.stringify(userData),
+    });
+    return extractUser(res);
   },
 
-  async changePassword(passwordData: ChangePasswordData): Promise<MessageResponse> {
-    try {
-      console.log('🔑 [changePassword] Changing password');
-
-      const response = await api.post('/auth/change-password', passwordData);
-      const result = extractData<MessageResponse>(response);
-
-      return result;
-    } catch (error) {
-      return handleApiError(error, 'Failed to change password.');
-    }
-  },
-
-  async deleteAccount(): Promise<MessageResponse> {
-    try {
-      console.log('🗑️ [deleteAccount] Deleting account');
-
-      const response = await api.delete('/auth/delete-account');
-      const result = extractData<MessageResponse>(response);
-
-      clearAuthStorage();
-
-      return result;
-    } catch (error) {
-      return handleApiError(error, 'Failed to delete account.');
-    }
+  async changePassword(
+    payload:
+      | {
+          currentPassword: string;
+          newPassword: string;
+          confirmPassword?: string;
+          email?: string;
+          otpCode?: string;
+        }
+      | ChangePasswordData
+  ): Promise<MessageResponse> {
+    return apiFetch('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
   },
 
   async clearUserData(): Promise<MessageResponse> {
-    try {
-      console.log('🧹 [clearUserData] Clearing user data');
-
-      const response = await api.post('/auth/clear-data');
-      const result = extractData<MessageResponse>(response);
-
-      return result;
-    } catch (error) {
-      return handleApiError(error, 'Failed to clear user data.');
-    }
+    return apiFetch('/auth/clear-data', { method: 'POST' });
   },
 
-  // Placeholder for other methods (events, testimonials, etc.) - implement as needed
-  // e.g., async getEvents(): Promise<PaginatedResponse<EventData>> { ... }
-
-  getAuthUser,
-  setAuthUser,
-  clearAuthStorage,
-
-  async healthCheck(): Promise<HealthCheckResponse> {
-    try {
-      const { data } = await api.get('/health');
-      return data;
-    } catch (error) {
-      return handleApiError(error, 'Health check failed');
-    }
+  async deleteAccount(): Promise<MessageResponse> {
+    return apiFetch('/auth/delete-account', { method: 'DELETE' });
   },
 
-  api, // Expose for custom requests
+  /* ===================== HEALTH ===================== */
+
+  healthCheck(): Promise<HealthCheckResponse> {
+    // backend is GET /health (root), not /api/v1/health
+    return rootFetch('/health', { method: 'GET' });
+  },
+
+  /* ===================== TESTIMONIALS ===================== */
+
+  async getAllTestimonials(params?: { approved?: boolean }): Promise<Testimonial[]> {
+    const qs =
+      params?.approved !== undefined ? `?approved=${params.approved}` : '';
+    const res = await apiFetch<ApiResponse<Testimonial[]>>(`/testimonials${qs}`);
+    return unwrapData<Testimonial[]>(res, 'Invalid testimonials payload');
+  },
+
+  getPaginatedTestimonials(
+    params?: Record<string, string>
+  ): Promise<PaginatedResponse<Testimonial>> {
+    const qs = params ? `?${new URLSearchParams(params)}` : '';
+    return apiFetch(`/testimonials/paginated${qs}`);
+  },
+
+  async getTestimonialById(id: string): Promise<Testimonial> {
+    const res = await apiFetch<ApiResponse<Testimonial>>(
+      `/testimonials/${encodeURIComponent(id)}`
+    );
+    return unwrapData<Testimonial>(res, 'Invalid testimonial payload');
+  },
+
+  async createTestimonial(data: CreateTestimonialData): Promise<Testimonial> {
+    const res = await apiFetch<ApiResponse<Testimonial>>('/testimonials', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return unwrapData<Testimonial>(res, 'Invalid testimonial payload');
+  },
+
+  async updateTestimonial(
+    id: string,
+    data: UpdateTestimonialData
+  ): Promise<Testimonial> {
+    const res = await apiFetch<ApiResponse<Testimonial>>(
+      `/admin/testimonials/${encodeURIComponent(id)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }
+    );
+    return unwrapData<Testimonial>(res, 'Invalid testimonial payload');
+  },
+
+  deleteTestimonial(id: string) {
+    return apiFetch(`/admin/testimonials/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  approveTestimonial(id: string) {
+    return apiFetch(`/admin/testimonials/${encodeURIComponent(id)}/approve`, {
+      method: 'PATCH',
+    });
+  },
+
+  /* ===================== ADMIN ===================== */
+
+  async getDashboardStats(): Promise<Record<string, any>> {
+    const res = await apiFetch<ApiResponse<any>>('/admin/dashboard');
+    return unwrapData<Record<string, any>>(res, 'Invalid dashboard stats');
+  },
+
+  getAllUsers(params?: Record<string, string>) {
+    const qs = params ? `?${new URLSearchParams(params)}` : '';
+    return apiFetch(`/admin/users${qs}`);
+  },
+
+  /* ===================== ANALYTICS ===================== */
+
+  async getAnalytics(params?: Record<string, any>): Promise<DashboardAnalytics> {
+    const qs = toQueryString(params);
+    const res = await apiFetch<ApiResponse<any>>(`/admin/analytics${qs}`, {
+      method: 'GET',
+    });
+    return unwrapData<DashboardAnalytics>(res, 'Invalid analytics payload');
+  },
+
+  /* ===================== EVENTS ===================== */
+
+  async getEvents(
+    params?: Record<string, any>
+  ): Promise<SimplePaginatedResponse<EventData>> {
+    const qs = toQueryString(params);
+    return apiFetch(`/events${qs}`, { method: 'GET' });
+  },
+
+  async getEvent(id: string): Promise<EventData> {
+    const res = await apiFetch<{ data: EventData }>(
+      `/events/${encodeURIComponent(id)}`,
+      { method: 'GET' }
+    );
+    return unwrapData<EventData>(res, 'Invalid event payload');
+  },
+
+  async createEvent(data: EventPayload): Promise<EventData> {
+    const res = await apiFetch<{ data: EventData }>('/events', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return unwrapData<EventData>(res, 'Invalid event payload');
+  },
+
+  async updateEvent(id: string, data: EventPayload): Promise<EventData> {
+    const res = await apiFetch<{ data: EventData }>(
+      `/events/${encodeURIComponent(id)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }
+    );
+    return unwrapData<EventData>(res, 'Invalid event payload');
+  },
+
+  async deleteEvent(id: string): Promise<MessageResponse> {
+    return apiFetch(`/events/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+
+  /**
+   * Bunny upload endpoints (admin-only):
+   * POST /api/v1/events/:id/image
+   * POST /api/v1/events/:id/banner
+   * FormData key must match handler: c.FormFile("file")
+   */
+  async uploadEventImage(id: string, file: File): Promise<EventData> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await uploadFetch<{ data: EventData }>(
+      `/events/${encodeURIComponent(id)}/image`,
+      { method: 'POST', body: form }
+    );
+    return unwrapData<EventData>(res, 'Invalid upload image payload');
+  },
+
+  async uploadEventBanner(id: string, file: File): Promise<EventData> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await uploadFetch<{ data: EventData }>(
+      `/events/${encodeURIComponent(id)}/banner`,
+      { method: 'POST', body: form }
+    );
+    return unwrapData<EventData>(res, 'Invalid upload banner payload');
+  },
+
+  /* ===================== REELS ===================== */
+
+  async getReels(
+    params?: Record<string, any>
+  ): Promise<SimplePaginatedResponse<ReelData>> {
+    const qs = toQueryString(params);
+    return apiFetch(`/reels${qs}`, { method: 'GET' });
+  },
+
+  async createReel(payload: CreateReelData): Promise<ReelData> {
+    const res = await apiFetch<{ data: ReelData }>('/reels', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<ReelData>(res, 'Invalid reel payload');
+  },
+
+  async deleteReel(id: string): Promise<MessageResponse> {
+    return apiFetch(`/reels/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+
+  /* ===================== FORMS (ADMIN) ===================== */
+
+  async getAdminForms(
+    params?: Record<string, any>
+  ): Promise<SimplePaginatedResponse<AdminForm>> {
+    const qs = toQueryString(params);
+    return apiFetch(`/admin/forms${qs}`, { method: 'GET' });
+  },
+
+  async getAdminForm(id: string): Promise<AdminForm> {
+    const res = await apiFetch<{ data: AdminForm }>(
+      `/admin/forms/${encodeURIComponent(id)}`,
+      { method: 'GET' }
+    );
+    return unwrapData<AdminForm>(res, 'Invalid form payload');
+  },
+
+  async createAdminForm(payload: CreateFormRequest): Promise<AdminForm> {
+    const res = await apiFetch<{ data: AdminForm }>('/admin/forms', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<AdminForm>(res, 'Invalid form payload');
+  },
+
+  async updateAdminForm(
+    id: string,
+    payload: UpdateFormRequest
+  ): Promise<AdminForm> {
+    const res = await apiFetch<{ data: AdminForm }>(
+      `/admin/forms/${encodeURIComponent(id)}`,
+      { method: 'PUT', body: JSON.stringify(payload) }
+    );
+    return unwrapData<AdminForm>(res, 'Invalid form payload');
+  },
+
+  async deleteAdminForm(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/forms/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async publishAdminForm(id: string): Promise<{ slug: string }> {
+    const res = await apiFetch<{ data: { slug: string } }>(
+      `/admin/forms/${encodeURIComponent(id)}/publish`,
+      { method: 'POST' }
+    );
+    return unwrapData<{ slug: string }>(res, 'Invalid publish payload');
+  },
+
+  async getFormSubmissions(
+    id: string,
+    params?: Record<string, any>
+  ): Promise<SimplePaginatedResponse<FormSubmission>> {
+    const qs = toQueryString(params);
+    return apiFetch(`/admin/forms/${encodeURIComponent(id)}/submissions${qs}`, {
+      method: 'GET',
+    });
+  },
+
+  async getFormStats(params?: Record<string, any>): Promise<FormStatsResponse> {
+    const qs = toQueryString(params);
+    const res = await apiFetch<ApiResponse<FormStatsResponse>>(
+      `/admin/forms/stats${qs}`,
+      { method: 'GET' }
+    );
+    return unwrapData<FormStatsResponse>(res, 'Invalid form stats payload');
+  },
+
+  /* ===================== FORMS (PUBLIC) ===================== */
+
+  async getPublicForm(slug: string): Promise<PublicFormPayload> {
+    const res = await apiFetch<{ data: PublicFormPayload }>(
+      `/forms/${encodeURIComponent(slug)}`,
+      { method: 'GET' }
+    );
+    return unwrapData<PublicFormPayload>(res, 'Invalid public form payload');
+  },
+
+  async submitPublicForm(
+    slug: string,
+    payload: SubmitFormRequest
+  ): Promise<MessageResponse> {
+    return apiFetch(`/forms/${encodeURIComponent(slug)}/submissions`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /* ===================== SUBSCRIBERS + NOTIFICATIONS ===================== */
+
+  async subscribe(payload: SubscribeRequest): Promise<Subscriber> {
+    const res = await apiFetch<ApiResponse<Subscriber>>('/subscribers', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<Subscriber>(res, 'Invalid subscriber payload');
+  },
+
+  async unsubscribe(payload: UnsubscribeRequest): Promise<MessageResponse> {
+    return apiFetch('/subscribers/unsubscribe', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async listSubscribers(
+    params?: Record<string, any>
+  ): Promise<SimplePaginatedResponse<Subscriber>> {
+    const qs = toQueryString(params);
+    return apiFetch(`/admin/subscribers${qs}`, { method: 'GET' });
+  },
+
+  async sendNotification(
+    payload: SendNotificationRequest
+  ): Promise<SendNotificationResult> {
+    const res = await apiFetch<ApiResponse<SendNotificationResult>>(
+      '/admin/notifications',
+      { method: 'POST', body: JSON.stringify(payload) }
+    );
+    return unwrapData<SendNotificationResult>(res, 'Invalid notification payload');
+  },
+
+  /* ===================== OTP ===================== */
+
+  async sendOtp(payload: SendOTPRequest): Promise<SendOTPResponse> {
+    const res = await apiFetch<ApiResponse<SendOTPResponse>>('/otp/send', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<SendOTPResponse>(res, 'Invalid OTP send response');
+  },
+
+  async verifyOtp(payload: VerifyOTPRequest): Promise<VerifyOTPResponse> {
+    const res = await apiFetch<ApiResponse<VerifyOTPResponse>>('/otp/verify', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<VerifyOTPResponse>(res, 'Invalid OTP verify response');
+  },
+
+  /* ===================== WORKFORCE ===================== */
+
+  async listWorkforce(
+    params?: Record<string, any>
+  ): Promise<SimplePaginatedResponse<WorkforceMember>> {
+    const qs = toQueryString(params);
+    return apiFetch(`/admin/workforce${qs}`, { method: 'GET' });
+  },
+
+  async createWorkforce(payload: CreateWorkforceRequest): Promise<WorkforceMember> {
+    const res = await apiFetch<ApiResponse<WorkforceMember>>('/admin/workforce', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
+  },
+
+  async updateWorkforce(
+    id: string,
+    payload: UpdateWorkforceRequest
+  ): Promise<WorkforceMember> {
+    const res = await apiFetch<ApiResponse<WorkforceMember>>(
+      `/admin/workforce/${encodeURIComponent(id)}`,
+      { method: 'PATCH', body: JSON.stringify(payload) }
+    );
+    return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
+  },
+
+  async approveWorkforce(id: string): Promise<WorkforceMember> {
+    const res = await apiFetch<ApiResponse<WorkforceMember>>(
+      `/admin/workforce/${encodeURIComponent(id)}/approve`,
+      { method: 'PATCH' }
+    );
+    return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
+  },
+
+  async applyToWorkforce(payload: CreateWorkforceRequest): Promise<WorkforceMember> {
+    const res = await apiFetch<ApiResponse<WorkforceMember>>('/workforce/apply', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
+  },
+
+  async getWorkforceStats(): Promise<WorkforceStatsResponse> {
+    const res = await apiFetch<ApiResponse<WorkforceStatsResponse>>(
+      '/admin/workforce/stats',
+      { method: 'GET' }
+    );
+    return unwrapData<WorkforceStatsResponse>(res, 'Invalid workforce stats payload');
+  },
 };
+
+export default apiClient;

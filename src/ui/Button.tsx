@@ -12,21 +12,21 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', loading, icon, children, disabled, ...props }, ref) => {
-    const baseStyles = 'inline-flex items-center justify-center rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+    const baseStyles = 'inline-flex items-center justify-center rounded-[var(--radius-button)] font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
     
     // Use basic Tailwind colors that work without custom config
     const variants = {
-      primary: 'bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500',
-      secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200 focus-visible:ring-gray-500',
-      danger: 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500',
-      ghost: 'hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-gray-500',
-      outline: 'border border-gray-300 bg-transparent hover:bg-gray-100 focus-visible:ring-gray-500',
+      primary: 'bg-[var(--color-accent-primary)] text-[var(--color-text-onprimary)] hover:bg-[var(--color-accent-primaryhover)] focus-visible:ring-[var(--color-accent-primary)] shadow-sm hover:-translate-y-0.5',
+      secondary: 'bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)] hover:bg-[var(--color-background-hover)] focus-visible:ring-[var(--color-border-focus)]',
+      danger: 'bg-[var(--color-accent-danger)] text-white hover:opacity-90 focus-visible:ring-[var(--color-accent-danger)]',
+      ghost: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)] focus-visible:ring-[var(--color-border-focus)]',
+      outline: 'border border-[var(--color-border-primary)] bg-transparent text-[var(--color-text-primary)] hover:bg-[var(--color-background-hover)] focus-visible:ring-[var(--color-border-focus)]',
     };
 
     const sizes = {
       sm: 'h-9 px-3 text-sm',
-      md: 'h-11 px-4',
-      lg: 'h-12 px-6 text-lg',
+      md: 'h-10 px-4 text-sm',
+      lg: 'h-12 px-6 text-base',
     };
 
     return (

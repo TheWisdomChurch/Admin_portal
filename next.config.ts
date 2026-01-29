@@ -1,33 +1,18 @@
-// next.config.ts
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  images: {
-    domains: ['localhost', 'your-backend-domain.com'],
-    remotePatterns: [
-      {
-        protocol: 'http',
-        hostname: 'localhost',
-        port: '8080',
-        pathname: '/uploads/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'your-backend-domain.com',
-        pathname: '/uploads/**',
-      },
-    ],
-  },
-  async headers() {
+  reactStrictMode: true,
+  turbopack: {},
+  // IMPORTANT: no rewrites to /proxy/auth
+  async rewrites() {
     return [
       {
-        source: '/api/:path*',
-        headers: [
-          { key: 'Access-Control-Allow-Credentials', value: 'true' },
-          { key: 'Access-Control-Allow-Origin', value: '*' },
-          { key: 'Access-Control-Allow-Methods', value: 'GET,DELETE,PATCH,POST,PUT' },
-          { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization' },
-        ],
+        source: '/admin/:path*',
+        destination: '/dashboard/:path*',
+      },
+      {
+        source: '/super/:path*',
+        destination: '/dashboard/super/:path*',
       },
     ];
   },

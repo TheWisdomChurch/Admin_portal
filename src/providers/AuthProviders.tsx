@@ -1,305 +1,203 @@
 'use client';
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+  useRef,
+} from 'react';
+
 import { apiClient, getAuthUser, setAuthUser, clearAuthStorage } from '@/lib/api';
-import { User, LoginCredentials, AuthContextType } from '@/lib/types';
+import type { User, LoginCredentials, RegisterData, MessageResponse } from '@/lib/types';
+
+export type AuthContextType = {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;       // ✅ required
+  isInitialized: boolean;   // ✅ required
+  error: string | null;
+
+  login: (credentials: LoginCredentials) => Promise<User>;
+  register: (data: RegisterData) => Promise<User>;
+  logout: () => Promise<void>;
+  checkAuth: () => Promise<User | null>;
+  clearData: () => Promise<MessageResponse>;
+  updateProfile: (userData: Partial<User>) => Promise<User>;
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Combined routes configuration for clarity
-const PUBLIC_ROUTES = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/about', '/contact'];
-const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password']; // Routes that authenticated users should not access
+function getStatus(e: any): number | undefined {
+  return e?.status ?? e?.response?.status ?? e?.cause?.status;
+}
 
-const AUTH_USER_KEY = 'wisdomhouse_auth_user'; // Define here to fix the error
+function unwrapUser(payload: any): User {
+  if (!payload) throw new Error('Empty response');
+
+  if (payload?.id && payload?.email) return payload as User;
+  if (payload?.user?.id && payload?.user?.email) return payload.user as User;
+  if (payload?.data?.id && payload?.data?.email) return payload.data as User;
+  if (payload?.data?.user?.id && payload?.data?.user?.email) return payload.data.user as User;
+
+  throw new Error('Unexpected auth payload shape');
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const router = useRouter();
-  const pathname = usePathname();
 
-  // Initialize auth on mount
-  useEffect(() => {
-    initializeAuth();
-  }, []);
+  const initRef = useRef(false);
 
-  const initializeAuth = async () => {
+  const initializeAuth = useCallback(async () => {
+    if (initRef.current) return;
+    initRef.current = true;
+
+    setIsLoading(true);
+    setError(null);
+
+    const cached = getAuthUser();
+    if (cached) setUser(cached);
+
     try {
-      setIsLoading(true);
-      setError(null);
+      const verifiedRaw = await apiClient.getCurrentUser();
+      const verified = unwrapUser(verifiedRaw);
 
-      const storedUser = getAuthUser();
+      setUser(verified);
 
-      console.log('🔐 [AuthProvider] initializeAuth - Stored user exists:', !!storedUser);
-
-      // Always verify with backend
-      const verifiedUser = await checkAuth();
-      if (verifiedUser) {
-        setUser(verifiedUser);
-      } else {
-        setUser(null);
+      const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
+      setAuthUser(verified, remembered);
+    } catch (e: any) {
+      const status = getStatus(e);
+      if (status === 401 || status === 403) {
         clearAuthStorage();
+        setUser(null);
+      } else {
+        setError('Session check failed. Please refresh.');
       }
-
-    } catch (err) {
-      console.error('❌ [AuthProvider] Initialization error:', err);
-      setUser(null);
-      setError(err instanceof Error ? err.message : 'Authentication initialization failed');
-      clearAuthStorage();
     } finally {
       setIsInitialized(true);
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const checkAuth = useCallback(async (): Promise<User | null> => {
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
+
+  const login = useCallback(async (credentials: LoginCredentials): Promise<User> => {
+    setIsLoading(true);
+    setError(null);
+
     try {
-      setIsLoading(true);
-      setError(null);
+      const loginRaw = await apiClient.login(credentials);
 
-      console.log('🔐 [AuthProvider] checkAuth - Fetching current user...');
-      const userData = await apiClient.getCurrentUser();
-      console.log('✅ [AuthProvider] checkAuth - User data received');
-
-      setUser(userData);
-      return userData;
-    } catch (err: any) {
-      console.error('❌ [AuthProvider] checkAuth failed:', err);
-
-      if (err.statusCode === 401) {
-        console.log('🔓 [AuthProvider] Session invalid, clearing storage');
-        clearAuthStorage();
+      if ((loginRaw as any)?.otp_required) {
+        throw new Error('OTP required. Please verify to continue.');
       }
 
-      setUser(null);
-      setError(err.message || 'Authentication check failed');
-      return null;
+      const u = unwrapUser(loginRaw);
+      setUser(u);
+      setAuthUser(u, !!credentials.rememberMe);
+      return u;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Route protection effect
-  useEffect(() => {
-    if (!isInitialized || isLoading) return;
+  const register = useCallback(async (data: RegisterData): Promise<User> => {
+    setIsLoading(true);
+    setError(null);
 
-    const currentPath = pathname || '';
-    const isPublic = PUBLIC_ROUTES.some(route => currentPath.startsWith(route));
-    const isAuthRoute = AUTH_ROUTES.some(route => currentPath.startsWith(route));
-
-    console.log('🛡️ [AuthProvider] Route protection check:', {
-      currentPath,
-      isPublic,
-      isAuthRoute,
-      isAuthenticated: !!user,
-      isLoading,
-    });
-
-    // Redirect authenticated users from auth routes
-    if (user && isAuthRoute) {
-      console.log('🛡️ [AuthProvider] Authenticated user accessing auth page, redirecting to home');
-      router.replace('/');
-      return;
-    }
-
-    // Redirect unauthenticated users from protected routes
-    if (!user && !isPublic) {
-      console.log('🛡️ [AuthProvider] Unauthenticated user accessing protected route, redirecting to login');
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('redirect_after_login', currentPath);
-      }
-      router.replace('/login');
-      return;
-    }
-
-    // Admin route protection
-    if (user && user.role !== 'admin' && currentPath.startsWith('/admin')) {
-      console.log('🛡️ [AuthProvider] Non-admin user accessing admin route, redirecting to home');
-      router.replace('/');
-      return;
-    }
-  }, [user, isLoading, isInitialized, pathname, router]);
-
-  const login = async (credentials: LoginCredentials & { rememberMe?: boolean }) => {
     try {
-      setIsLoading(true);
-      setError(null);
-
-      console.log('🔐 [AuthProvider] Logging in...');
-      const response = await apiClient.login(credentials);
-
-      console.log('✅ [AuthProvider] Login successful');
-
-      if (!response.user) {
-        throw new Error('Invalid response: User data missing');
-      }
-
-      setUser(response.user);
-      setAuthUser(response.user, credentials.rememberMe || false);
-
-      const redirectPath = typeof window !== 'undefined'
-        ? sessionStorage.getItem('redirect_after_login')
-        : null;
-
-      if (typeof window !== 'undefined') {
-        sessionStorage.removeItem('redirect_after_login');
-      }
-
-      // Sanitize redirectPath to prevent open-redirect (ensure internal path)
-      const safeRedirect = redirectPath && redirectPath.startsWith('/') && !redirectPath.includes('://') ? redirectPath : '/';
-      router.push(safeRedirect);
-
-      return response.user;
-    } catch (err: any) {
-      console.error('❌ [AuthProvider] Login failed:', err);
-      setError(err.message || 'Login failed');
-      throw err;
+      const createdRaw = await apiClient.register(data);
+      return unwrapUser(createdRaw);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async (): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+
     try {
-      setIsLoading(true);
-      setError(null);
-
       await apiClient.logout();
-    } catch (err) {
-      console.warn('⚠️ [AuthProvider] Logout API call failed:', err);
     } finally {
-      setUser(null);
       clearAuthStorage();
-      console.log('✅ [AuthProvider] Logged out');
-      router.push('/login');
+      setUser(null);
       setIsLoading(false);
+      window.location.href = '/login';
     }
-  };
+  }, []);
 
-  const clearData = async () => {
+  const checkAuth = useCallback(async (): Promise<User | null> => {
     try {
-      setIsLoading(true);
-      setError(null);
+      const meRaw = await apiClient.getCurrentUser();
+      const me = unwrapUser(meRaw);
 
-      console.log('🧹 [AuthProvider] Clearing user data...');
-      const result = await apiClient.clearUserData();
-      console.log('✅ [AuthProvider] Data cleared:', result);
+      setUser(me);
 
-      await checkAuth();
+      const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
+      setAuthUser(me, remembered);
 
-      return result;
-    } catch (err: any) {
-      console.error('❌ [AuthProvider] Clear data failed:', err);
-      setError(err.message || 'Failed to clear data');
-      throw err;
-    } finally {
-      setIsLoading(false);
+      return me;
+    } catch (e: any) {
+      const status = getStatus(e);
+      if (status === 401 || status === 403) {
+        clearAuthStorage();
+        setUser(null);
+        return null;
+      }
+      return user;
     }
-  };
+  }, [user]);
 
-  const updateProfile = async (userData: Partial<User>) => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  const clearData = useCallback(async (): Promise<MessageResponse> => {
+    const res = await apiClient.clearUserData();
+    await checkAuth();
+    return res;
+  }, [checkAuth]);
 
-      console.log('✏️ [AuthProvider] Updating profile...');
-      const updatedUser = await apiClient.updateProfile(userData);
-      console.log('✅ [AuthProvider] Profile updated');
+  const updateProfile = useCallback(async (userData: Partial<User>): Promise<User> => {
+    const updatedRaw = await apiClient.updateProfile(userData);
+    const updated = unwrapUser(updatedRaw);
 
-      setUser(updatedUser);
-      // Update stored user if exists
-      const rememberMe = !!localStorage.getItem(AUTH_USER_KEY);
-      setAuthUser(updatedUser, rememberMe);
-      return updatedUser;
-    } catch (err: any) {
-      console.error('❌ [AuthProvider] Update profile failed:', err);
-      setError(err.message || 'Failed to update profile');
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    setUser(updated);
 
-  const value = {
-    user,
-    isLoading,
-    error,
-    isAuthenticated: !!user,
-    isInitialized,
-    login,
-    logout,
-    checkAuth,
-    clearData,
-    updateProfile,
-  };
+    const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
+    setAuthUser(updated, remembered);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+    return updated;
+  }, []);
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        isLoading,
+        isInitialized,
+        error,
+        login,
+        register,
+        logout,
+        checkAuth,
+        clearData,
+        updateProfile,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
-export const useAuthContext = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuthContext must be used within AuthProvider');
-  }
-  return context;
-};
-
-// Enhanced withAuth HOC with actual permission check placeholder implemented
-export function withAuth<P extends object>(
-  Component: React.ComponentType<P>,
-  options?: { requiredRole?: string; requiredPermissions?: string[] }
-) {
-  return function WithAuthWrapper(props: P) {
-    const auth = useAuthContext();
-    const router = useRouter();
-    const pathname = usePathname();
-
-    useEffect(() => {
-      if (!auth.isInitialized || auth.isLoading) return;
-
-      if (!auth.isAuthenticated) {
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('redirect_after_login', pathname);
-        }
-        router.replace('/login');
-        return;
-      }
-
-      if (options?.requiredRole && auth.user?.role !== options.requiredRole) {
-        router.replace('/unauthorized');
-        return;
-      }
-
-      // Implement actual permission check (assuming user has 'permissions' array)
-      if (options?.requiredPermissions && auth.user?.permissions) {
-        const hasPermission = options.requiredPermissions.every(perm =>
-          auth.user?.permissions?.includes(perm) ?? false
-        );
-        if (!hasPermission) {
-          router.replace('/unauthorized');
-          return;
-        }
-      }
-    }, [auth, router, pathname]);
-
-    if (auth.isLoading || !auth.isInitialized) {
-      return (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-        </div>
-      );
-    }
-
-    if (!auth.isAuthenticated) {
-      return null;
-    }
-
-    if (options?.requiredRole && auth.user?.role !== options.requiredRole) {
-      return null;
-    }
-
-    return <Component {...props} />;
-  };
+export function useAuthContext(): AuthContextType {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuthContext must be used inside AuthProvider');
+  return ctx;
 }

@@ -1,7 +1,7 @@
 // src/app/(dashboard)/settings/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { Save, Bell, Lock, User, Globe, Trash2 } from 'lucide-react';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/input';
@@ -9,8 +9,10 @@ import { Card } from '@/ui/Card';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { apiClient } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { withAuth } from '@/providers/AuthProviders';
+import { withAuth } from '@/providers/withAuth';
 import { ConfirmationModal } from '@/ui/ConfirmationModal';
+import { PageHeader } from '@/layouts';
+import { OtpModal } from '@/ui/OtpModal';
 
 
 interface ProfileFormData {
@@ -31,6 +33,12 @@ function SettingsPage() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [clearDataLoading, setClearDataLoading] = useState(false);
   const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
+  const [otpOpen, setOtpOpen] = useState(false);
+  const [otpStep, setOtpStep] = useState<'email' | 'otp'>('email');
+  const [otpEmail, setOtpEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'profile' | 'password' | null>(null);
   
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showClearDataModal, setShowClearDataModal] = useState(false);
@@ -53,29 +61,31 @@ function SettingsPage() {
         username: auth.user.first_name || '',
         email: auth.user.email || '',
       });
+      setOtpEmail(auth.user.email || '');
     }
   }, [auth.user]);
 
-  const handleProfileSubmit = async (e: React.FormEvent) => {
+  const handleProfileSubmit = (e: FormEvent) => {
     e.preventDefault();
+    setPendingAction('profile');
+    setOtpStep('email');
+    setOtpCode('');
+    setOtpOpen(true);
+    setOtpEmail(profileFormData.email || auth.user?.email || '');
+  };
+
+  const performProfileUpdate = async () => {
     setProfileLoading(true);
-    
     try {
-      // Prepare profile update data
       const updateData = {
         first_name: profileFormData.username,
         email: profileFormData.email,
       };
 
-      // Call API to update profile
       const updatedUser = await apiClient.updateProfile(updateData);
-      
-      // Update auth context with new user data
       auth.checkAuth();
-      
+
       toast.success('Profile updated successfully');
-      
-      // Update form data with new values
       setProfileFormData({
         username: updatedUser.first_name || '',
         email: updatedUser.email || '',
@@ -87,9 +97,8 @@ function SettingsPage() {
     }
   };
 
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
     // Validate passwords
     if (passwordFormData.newPassword !== passwordFormData.confirmPassword) {
       toast.error('New passwords do not match');
@@ -100,16 +109,22 @@ function SettingsPage() {
       toast.error('Password must be at least 6 characters');
       return;
     }
-    
+    setPendingAction('password');
+    setOtpStep('email');
+    setOtpCode('');
+    setOtpOpen(true);
+    setOtpEmail(auth.user?.email || profileFormData.email || '');
+  };
+
+  const performPasswordChange = async () => {
     setPasswordLoading(true);
-    
     try {
-      // Call API to change password
-      await apiClient.changePassword(passwordFormData);
-      
+      await apiClient.changePassword(
+        passwordFormData.currentPassword,
+        passwordFormData.newPassword
+      );
+
       toast.success('Password changed successfully');
-      
-      // Clear password fields
       setPasswordFormData({
         currentPassword: '',
         newPassword: '',
@@ -119,6 +134,66 @@ function SettingsPage() {
       toast.error(error.message || 'Failed to change password');
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  const requestOtp = async () => {
+    const targetEmail = otpEmail.trim() || auth.user?.email || '';
+    if (!pendingAction) {
+      toast.error('Select an action to verify');
+      return;
+    }
+    if (!targetEmail) {
+      toast.error('Email address is required for verification');
+      return;
+    }
+
+    try {
+      setOtpLoading(true);
+      await apiClient.sendOtp({
+        email: targetEmail,
+        purpose: pendingAction === 'password' ? 'password_change' : 'profile_update',
+      });
+      toast.success('Verification code sent');
+      setOtpStep('otp');
+      setOtpEmail(targetEmail);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send code');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const verifyOtpAndRun = async () => {
+    if (!pendingAction) {
+      toast.error('No pending action to verify');
+      return;
+    }
+    if (!otpCode.trim()) {
+      toast.error('Enter the code we sent to your email');
+      return;
+    }
+    const purpose = pendingAction === 'password' ? 'password_change' : 'profile_update';
+    const targetEmail = otpEmail.trim() || auth.user?.email || '';
+
+    try {
+      setOtpLoading(true);
+      await apiClient.verifyOtp({ email: targetEmail, code: otpCode.trim(), purpose });
+
+      if (pendingAction === 'profile') {
+        await performProfileUpdate();
+      } else if (pendingAction === 'password') {
+        await performPasswordChange();
+      }
+
+      setOtpOpen(false);
+      setOtpCode('');
+      setOtpStep('email');
+      setPendingAction(null);
+    } catch (error: any) {
+      toast.error(error.message || 'Verification failed');
+    } finally {
+      setOtpLoading(false);
     }
   };
 
@@ -181,23 +256,23 @@ function SettingsPage() {
   return (
     <>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-secondary-900">Settings</h1>
-          <p className="text-secondary-600 mt-2">Manage your account and preferences</p>
-        </div>
+        <PageHeader
+          title="Settings"
+          subtitle="Manage your account and preferences."
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             {/* Profile Settings */}
             <Card>
-              <div className="p-6">
-                <div className="flex items-center mb-6">
-                  <div className="p-2 rounded-lg bg-primary-50 text-primary-600 mr-3">
+              <div className="p-6 space-y-6">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]">
                     <User className="h-5 w-5" />
                   </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-secondary-900">Profile Information</h2>
-                    <p className="text-secondary-600 text-sm">Update your personal details</p>
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Profile Information</h2>
+                    <p className="text-xs text-[var(--color-text-tertiary)]">Update your personal details</p>
                   </div>
                 </div>
                 
@@ -249,14 +324,14 @@ function SettingsPage() {
 
             {/* Security Settings */}
             <Card>
-              <div className="p-6">
-                <div className="flex items-center mb-6">
-                  <div className="p-2 rounded-lg bg-primary-50 text-primary-600 mr-3">
+              <div className="p-6 space-y-6">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]">
                     <Lock className="h-5 w-5" />
                   </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-secondary-900">Security</h2>
-                    <p className="text-secondary-600 text-sm">Change your password</p>
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Security</h2>
+                    <p className="text-xs text-[var(--color-text-tertiary)]">Change your password</p>
                   </div>
                 </div>
                 
@@ -307,33 +382,36 @@ function SettingsPage() {
           <div className="space-y-6">
             {/* Account Info */}
             <Card>
-              <div className="p-6">
-                <h2 className="text-xl font-semibold text-secondary-900 mb-6">Account Information</h2>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm font-medium text-secondary-600">Full Name</p>
-                    <p className="text-secondary-900 font-medium">
+              <div className="p-6 space-y-6">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Account Information</h2>
+                  <p className="text-xs text-[var(--color-text-tertiary)]">Your profile details at a glance.</p>
+                </div>
+                <div className="grid gap-4">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)]">Full Name</p>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)] break-words">
                       {auth.user ? `${auth.user.first_name} ${auth.user.last_name}` : 'N/A'}
                     </p>
                   </div>
                   
-                  <div>
-                    <p className="text-sm font-medium text-secondary-600">Role</p>
-                    <p className="text-secondary-900 font-medium capitalize">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)]">Role</p>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)] capitalize break-words">
                       {auth.user?.role?.replace('_', ' ') || 'N/A'}
                     </p>
                   </div>
                   
-                  <div>
-                    <p className="text-sm font-medium text-secondary-600">Email</p>
-                    <p className="text-secondary-900 font-medium">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)]">Email</p>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)] break-words">
                       {auth.user?.email || 'N/A'}
                     </p>
                   </div>
                   
-                  <div>
-                    <p className="text-sm font-medium text-secondary-600">Account Created</p>
-                    <p className="text-secondary-900 font-medium">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)]">Account Created</p>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)] break-words">
                       {auth.user?.created_at ? new Date(auth.user.created_at).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'long',
@@ -347,48 +425,48 @@ function SettingsPage() {
 
             {/* Preferences */}
             <Card>
-              <div className="p-6">
-                <div className="flex items-center mb-6">
-                  <div className="p-2 rounded-lg bg-primary-50 text-primary-600 mr-3">
+              <div className="p-6 space-y-6">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]">
                     <Bell className="h-5 w-5" />
                   </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-secondary-900">Preferences</h2>
-                    <p className="text-secondary-600 text-sm">Manage your notification settings</p>
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Preferences</h2>
+                    <p className="text-xs text-[var(--color-text-tertiary)]">Manage your notification settings</p>
                   </div>
                 </div>
                 
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-secondary-900">Email Notifications</p>
-                      <p className="text-xs text-secondary-500">Receive email updates</p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-[var(--color-text-primary)]">Email Notifications</p>
+                      <p className="text-xs text-[var(--color-text-tertiary)]">Receive email updates</p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
                       <input type="checkbox" className="sr-only peer" defaultChecked />
-                      <div className="w-11 h-6 bg-secondary-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                      <div className="w-11 h-6 bg-[var(--color-background-tertiary)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-background-primary)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent-primary)]"></div>
                     </label>
                   </div>
                   
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-secondary-900">Desktop Notifications</p>
-                      <p className="text-xs text-secondary-500">Receive browser notifications</p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-[var(--color-text-primary)]">Desktop Notifications</p>
+                      <p className="text-xs text-[var(--color-text-tertiary)]">Receive browser notifications</p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
                       <input type="checkbox" className="sr-only peer" />
-                      <div className="w-11 h-6 bg-secondary-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                      <div className="w-11 h-6 bg-[var(--color-background-tertiary)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-background-primary)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent-primary)]"></div>
                     </label>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-secondary-900">SMS Notifications</p>
-                      <p className="text-xs text-secondary-500">Receive text message alerts</p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-[var(--color-text-primary)]">SMS Notifications</p>
+                      <p className="text-xs text-[var(--color-text-tertiary)]">Receive text message alerts</p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
                       <input type="checkbox" className="sr-only peer" />
-                      <div className="w-11 h-6 bg-secondary-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                      <div className="w-11 h-6 bg-[var(--color-background-tertiary)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-background-primary)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent-primary)]"></div>
                     </label>
                   </div>
                 </div>
@@ -396,10 +474,13 @@ function SettingsPage() {
             </Card>
 
             {/* Danger Zone */}
-            <Card>
-              <div className="p-6">
-                <h2 className="text-xl font-semibold text-secondary-900 mb-6">Danger Zone</h2>
-                <div className="space-y-3">
+            <Card className="border border-red-200/40">
+              <div className="p-6 space-y-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Danger Zone</h2>
+                  <p className="text-xs text-[var(--color-text-tertiary)]">Sensitive actions that affect your account.</p>
+                </div>
+                <div className="grid gap-3">
                   <Button 
                     variant="outline" 
                     className="w-full text-amber-600 hover:text-amber-700 border-amber-200 hover:bg-amber-50"
@@ -428,8 +509,8 @@ function SettingsPage() {
                   </Button>
                 </div>
                 
-                <div className="mt-4 p-3 bg-secondary-50 rounded-lg">
-                  <p className="text-xs text-secondary-500">
+                <div className="rounded-[var(--radius-button)] border border-red-200/40 bg-red-50/60 p-3">
+                  <p className="text-xs text-red-700">
                     <strong>Note:</strong> Deleting your account will permanently remove all your data from our servers. This action cannot be undone.
                   </p>
                 </div>
@@ -438,6 +519,32 @@ function SettingsPage() {
           </div>
         </div>
       </div>
+
+      <OtpModal
+        open={otpOpen}
+        step={otpStep}
+        email={otpEmail}
+        code={otpCode}
+        onEmailChange={setOtpEmail}
+        onCodeChange={setOtpCode}
+        onRequestOtp={requestOtp}
+        onVerifyOtp={verifyOtpAndRun}
+        onClose={() => {
+          setOtpOpen(false);
+          setOtpStep('email');
+          setOtpCode('');
+          setPendingAction(null);
+        }}
+        loading={otpLoading || profileLoading || passwordLoading}
+        title="Verify with email code"
+        subtitle={
+          otpStep === 'email'
+            ? 'Enter your email to receive a one-time code for this action.'
+            : `Enter the code sent to ${otpEmail}.`
+        }
+        confirmText="Verify & continue"
+        requestText="Send code"
+      />
 
       {/* Delete Account Confirmation Modal */}
       <ConfirmationModal

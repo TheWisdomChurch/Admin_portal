@@ -1,0 +1,21 @@
+{
+  email {$ACME_EMAIL}
+}
+
+www.admin-portalwisdomchurch.org {
+  redir https://admin-portalwisdomchurch.org{uri} permanent
+}
+
+admin-portalwisdomchurch.org {
+  encode zstd gzip
+
+  reverse_proxy admin:3000
+
+  header {
+    Strict-Transport-Security "max-age=31536000"
+    X-Frame-Options "DENY"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  }
+}

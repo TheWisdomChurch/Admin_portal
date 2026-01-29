@@ -1,19 +1,28 @@
-// src/lib/types.ts
-// ========== CORE USER TYPES ==========
+/* =========================
+   CORE USER TYPES
+========================= */
+
+export type UserRole = 'admin' | 'super_admin';
+
 export interface User {
-  id: string; // Consistent string ID for all entities if possible
+  id: string;
   first_name: string;
   last_name: string;
   email: string;
-  role: 'user' | 'admin' | 'super_admin' | 'editor';
-  permissions?: string[]; // Added for permission checks
+  role: UserRole;
+  permissions?: string[];
   is_active?: boolean;
   created_at?: string;
   updated_at?: string;
-  last_login?: string;
+  last_login_at?: string;
 }
 
-// ========== AUTHENTICATION TYPES ==========
+/* =========================
+   AUTH TYPES
+========================= */
+
+export type RegisterRole = UserRole;
+
 export interface LoginCredentials {
   email: string;
   password: string;
@@ -25,50 +34,66 @@ export interface RegisterData {
   last_name: string;
   email: string;
   password: string;
-  role?: User['role'];
+  role: RegisterRole;
+  rememberMe?: boolean;
 }
 
-export interface LoginResponseData {
-  token: string;
-  user: User;
-  message?: string;
+export interface LoginChallenge {
+  otp_required: true;
+  purpose: string;
+  expires_at?: string;
+  action_url?: string;
+  email: string;
 }
 
-export interface ApiResponse<T = any> {
-  success?: boolean;
+export type LoginResult =
+  | { user: User; otp_required?: false }
+  | LoginChallenge;
+
+export interface PasswordResetRequestPayload {
+  email: string;
+}
+
+export interface PasswordResetConfirmPayload {
+  email: string;
+  code: string;
+  purpose: string;
+  newPassword: string;
+  confirmPassword?: string;
+}
+
+/**
+ * Generic API response wrapper (backend uses status/message/data).
+ */
+export interface ApiResponse<T = unknown> {
   status?: string;
-  message?: string;
+  message: string;
   data?: T;
   error?: string;
   statusCode?: number;
 }
 
-export type AuthResponse = ApiResponse<LoginResponseData>;
-export type GetCurrentUserResponse = ApiResponse<User>;
+/* =========================
+   PAGINATION
+========================= */
 
-export interface AuthState {
-  isAuthenticated: boolean;
-  user: User | null;
-  isLoading: boolean;
-  error: string | null;
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total_items: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
 }
 
-// ========== AUTH CONTEXT TYPE ==========
-export interface AuthContextType {
-  user: User | null;
-  isLoading: boolean;
-  error: string | null;
-  isAuthenticated: boolean;
-  isInitialized: boolean;
-  login: (credentials: LoginCredentials & { rememberMe?: boolean }) => Promise<User>;
-  logout: () => Promise<void>;
-  checkAuth: () => Promise<User | null>;
-  clearData?: () => Promise<MessageResponse>;
-  updateProfile?: (userData: Partial<User>) => Promise<User>;
-}
-
-// ========== PAGINATION TYPES ==========
 export interface PaginatedResponse<T> {
+  status?: string;
+  message?: string;
+  data: T[];
+  meta: PaginationMeta;
+}
+
+export interface SimplePaginatedResponse<T> {
   data: T[];
   total: number;
   page: number;
@@ -76,151 +101,144 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
-// ========== EVENT TYPES ==========
+/* =========================
+   EVENTS
+========================= */
+
+export type EventCategory =
+  | 'Outreach'
+  | 'Conference'
+  | 'Workshop'
+  | 'Prayer'
+  | 'Revival'
+  | 'Summit';
+
+export type EventStatus = 'upcoming' | 'happening' | 'past';
+
+export interface EventSession {
+  title: string;
+  time: string;
+}
+
 export interface EventData {
-  id: string; // Changed to string for consistency
+  id: string;
   title: string;
   description: string;
   shortDescription: string;
+
+  // Backward compatible: some events may only have `date`
   date: string;
   time: string;
+
+  // Optional range (your UI expects these)
+  startDate?: string;
+  endDate?: string;
+
+  registrationClosesAt?: string;
+  sessions?: EventSession[];
+
   location: string;
-  image: string;
+  image?: string;
   bannerImage?: string;
+
   attendees: number;
-  category: 'Outreach' | 'Conference' | 'Workshop' | 'Prayer' | 'Revival' | 'Summit';
-  status: 'upcoming' | 'happening' | 'past';
+  category: EventCategory;
+  status: EventStatus;
   isFeatured: boolean;
   tags: string[];
+
   registerLink?: string;
   speaker?: string;
   contactPhone?: string;
+
   createdAt: string;
   updatedAt: string;
 }
 
-export interface RegisterEventData {
+export interface EventPayload {
   title: string;
   description: string;
   shortDescription: string;
   date: string;
   time: string;
+  startDate?: string;
+  endDate?: string;
+  registrationClosesAt?: string;
+  sessions?: Array<{ title: string; time: string }>;
   location: string;
-  category: EventData['category'];
-  status: EventData['status'];
+  category: EventCategory;
+  status: EventStatus;
   isFeatured: boolean;
   tags: string[];
   registerLink?: string;
   speaker?: string;
   contactPhone?: string;
+  image?: string;
+  bannerImage?: string;
+  attendees?: number;
 }
 
-// ========== REEL TYPES ==========
+/* =========================
+   REELS
+========================= */
+
 export interface ReelData {
-  id: string; // Changed to string
+  id: string;
   title: string;
   thumbnail: string;
   videoUrl: string;
   eventId?: string;
   duration: string;
   createdAt: string;
+  updatedAt: string;
 }
 
-// ========== TESTIMONIAL TYPES ==========
+export interface CreateReelData {
+  title: string;
+  thumbnail: string;
+  videoUrl: string;
+  duration: string;
+  eventId?: string;
+}
+
+/* =========================
+   TESTIMONIALS
+========================= */
+
 export interface Testimonial {
   id: string;
-  first_name: string;
-  last_name: string;
-  full_name: string;
-  image_url?: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  imageUrl?: string;
   testimony: string;
-  is_anonymous: boolean;
-  is_approved: boolean;
-  created_at: string;
-  updated_at: string;
+  isAnonymous: boolean;
+  isApproved: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateTestimonialData {
-  first_name: string;
-  last_name: string;
-  image_url?: string;
+  firstName: string;
+  lastName: string;
+  imageUrl?: string;
   testimony: string;
-  is_anonymous: boolean;
+  isAnonymous: boolean;
 }
 
 export interface UpdateTestimonialData {
-  first_name?: string;
-  last_name?: string;
-  image_url?: string;
+  firstName?: string;
+  lastName?: string;
+  imageUrl?: string;
   testimony?: string;
-  is_anonymous?: boolean;
-  is_approved?: boolean;
+  isAnonymous?: boolean;
+  isApproved?: boolean;
 }
 
-// ========== DASHBOARD STATS TYPES ==========
-export interface DashboardStats {
-  totalTestimonials: number;
-  totalEvents: number;
-  totalUsers: number;
-  pendingTestimonials: number;
-  recentTestimonials: Testimonial[];
-  recentEvents: EventData[];
-}
+/* =========================
+   DASHBOARD ANALYTICS
+========================= */
 
-// ========== ERROR TYPES ==========
-export interface ApiError extends Error {
-  message: string;
-  statusCode?: number;
-  originalError?: any;
-  response?: any;
-  details?: unknown; // Changed from any
-}
-
-// ========== FILE UPLOAD TYPES ==========
-export interface UploadResponse {
-  url: string;
-  filename?: string;
-  size?: number;
-  mimetype?: string;
-}
-
-export interface UploadFileOptions {
-  type: 'image' | 'video' | 'document';
-}
-
-// ========== HEALTH CHECK TYPES ==========
-export interface HealthCheckResponse {
-  status: string;
-  timestamp: string;
-  service: string;
-  version: string;
-  uptime: string;
-}
-
-// ========== CONFIG TYPES ==========
-export interface AppConfig {
-  app: {
-    name: string;
-    version: string;
-    environment: string;
-  };
-  api: {
-    base_path: string;
-    version: string;
-  };
-  features: {
-    testimonials: boolean;
-    authentication: boolean;
-    admin_panel: boolean;
-  };
-}
-
-// ========== COMPATIBILITY TYPES ==========
-export type Admin = User & {
-  // Admin-specific properties if any
-};
-
-// ========== DASHBOARD ANALYTICS TYPES ==========
 export interface DashboardAnalytics {
   totalEvents: number;
   upcomingEvents: number;
@@ -229,107 +247,313 @@ export interface DashboardAnalytics {
   monthlyStats: Array<{ month: string; events: number; attendees: number }>;
 }
 
-// ========== API CLIENT OPTIONS ==========
-export interface ApiClientOptions {
-  baseURL?: string;
-  timeout?: number;
-  headers?: Record<string, string>;
+/* =========================
+   SUBSCRIBERS + NOTIFICATIONS
+========================= */
+
+export type SubscriberStatus = 'active' | 'unsubscribed';
+
+export interface Subscriber {
+  id: string;
+  email: string;
+  name?: string;
+  source?: string;
+  status: SubscriberStatus;
+  createdAt: string;
+  updatedAt: string;
 }
 
-// ========== FORM FIELD TYPES ==========
-export interface FormField {
-  name: string;
-  label: string;
-  type: 'text' | 'email' | 'password' | 'number' | 'date' | 'textarea' | 'select' | 'checkbox';
-  required?: boolean;
-  placeholder?: string;
-  defaultValue?: any;
-  options?: Array<{ label: string; value: string }>;
-  validation?: {
-    pattern?: RegExp;
-    minLength?: number;
-    maxLength?: number;
-    min?: number;
-    max?: number;
-    message?: string;
-  };
+export interface SubscribeRequest {
+  email: string;
+  name?: string;
+  source?: string;
 }
 
-// ========== NOTIFICATION TYPES ==========
+export interface UnsubscribeRequest {
+  email: string;
+}
+
+export type NotificationType = 'update' | 'event';
+
 export interface Notification {
   id: string;
+  type: NotificationType;
+  subject: string;
   title: string;
   message: string;
-  type: 'success' | 'error' | 'info' | 'warning';
-  read: boolean;
+  eventId?: string;
   createdAt: string;
 }
 
-// ========== SETTINGS TYPES ==========
-export interface AppSettings {
-  siteName: string;
-  siteDescription: string;
-  contactEmail: string;
-  contactPhone: string;
-  socialMedia: {
-    facebook?: string;
-    twitter?: string;
-    instagram?: string;
-    youtube?: string;
-  };
-  maintenanceMode: boolean;
+export interface SendNotificationRequest {
+  type: NotificationType;
+  subject: string;
+  title: string;
+  message: string;
+  eventId?: string;
 }
 
-// ========== ROLE PERMISSIONS ==========
-export interface RolePermissions {
-  canViewDashboard: boolean;
-  canManageEvents: boolean;
-  canManageUsers: boolean;
-  canManageTestimonials: boolean;
-  canManageSettings: boolean;
-  canManageReels?: boolean;
-  canUploadFiles?: boolean;
+export interface SendNotificationResult {
+  notification?: Notification;
+  total: number;
+  sent: number;
+  failed: number;
 }
 
-export type RolePermissionMap = Record<User['role'], RolePermissions>;
+/* =========================
+   OTP
+========================= */
 
-// ========== PASSWORD CHANGE TYPES ==========
-export interface ChangePasswordData {
-  currentPassword: string;
-  newPassword: string;
-  confirmPassword?: string;
+export interface SendOTPRequest {
+  email: string;
+  purpose?: string;
+  actionUrl?: string;
+  actionLabel?: string;
 }
 
-// ========== UPDATE PROFILE TYPES ==========
-export interface UpdateProfileData {
-  first_name?: string;
-  last_name?: string;
+export interface VerifyOTPRequest {
+  email: string;
+  code: string;
+  purpose?: string;
+}
+
+export interface SendOTPResponse {
+  expiresAt: string;
+  purpose?: string;
+  actionUrl?: string;
+}
+
+export interface VerifyOTPResponse {
+  verified: boolean;
+}
+
+/* =========================
+   FORMS
+========================= */
+
+export type FormFieldType =
+  | 'text'
+  | 'email'
+  | 'tel'
+  | 'textarea'
+  | 'select'
+  | 'checkbox'
+  | 'radio'
+  | 'number'
+  | 'date';
+
+export interface FormFieldOption {
+  label: string;
+  value: string;
+}
+
+export interface FormField {
+  id: string;
+  formId?: string;
+  key: string;
+  label: string;
+  type: FormFieldType;
+  required: boolean;
+  options?: FormFieldOption[];
+  order: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FormDesignSettings {
+  heroTitle?: string;
+  heroSubtitle?: string;
+  coverImageUrl?: string;
+  primaryColor?: string;
+  backgroundColor?: string;
+  accentColor?: string;
+  layout?: 'split' | 'stacked' | 'inline';
+  ctaButtonLabel?: string;
+  privacyCopy?: string;
+  footerNote?: string;
+}
+
+export interface FormSettings {
+  capacity?: number;
+  closesAt?: string;
+  successMessage?: string;
+
+  // UI extras you added:
+  introTitle?: string;
+  introSubtitle?: string;
+  introBullets?: string[];
+  introBulletSubtexts?: string[];
+  layoutMode?: 'split' | 'stack';
+  dateFormat?: 'yyyy-mm-dd' | 'mm/dd/yyyy' | 'dd/mm/yyyy' | 'dd/mm';
+  footerText?: string;
+  footerBg?: string;
+  footerTextColor?: string;
+  submitButtonText?: string;
+  submitButtonBg?: string;
+  submitButtonTextColor?: string;
+  submitButtonIcon?: 'check' | 'send' | 'calendar' | 'cursor' | 'none';
+  formHeaderNote?: string;
+
+  design?: FormDesignSettings;
+}
+
+export interface AdminForm {
+  id: string;
+  title: string;
+  description?: string;
+  eventId?: string;
+  slug?: string;
+  isPublished: boolean;
+  settings?: FormSettings;
+  fields: FormField[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PublicFormPayload {
+  form: AdminForm;
+  event?: EventData;
+}
+
+export interface CreateFormRequest {
+  title: string;
+  description?: string;
+  slug?: string;
+  eventId?: string;
+  settings?: FormSettings;
+  fields: Array<Omit<FormField, 'id' | 'formId' | 'createdAt' | 'updatedAt'>>;
+}
+
+export interface UpdateFormRequest extends Partial<CreateFormRequest> {}
+
+export interface SubmitFormRequest {
+  values: Record<string, string | boolean | number>;
+}
+
+export interface FormSubmission {
+  id: string;
+  formId: string;
+  name?: string;
   email?: string;
+  contactNumber?: string;
+  contactAddress?: string;
+  values: Record<string, string | boolean | number>;
+  createdAt: string;
+  updatedAt: string;
 }
 
-// ========== CLEAR DATA RESPONSE ==========
-export interface ClearDataResponse {
-  message: string;
-  success?: boolean;
+export interface FormSubmissionCount {
+  formId: string;
+  formTitle: string;
+  count: number;
 }
 
-// ========== DELETE ACCOUNT RESPONSE ==========
-export interface DeleteAccountResponse {
-  message: string;
-  success?: boolean;
+export interface FormSubmissionWithForm {
+  id: string;
+  formId: string;
+  formTitle: string;
+  name?: string;
+  email?: string;
+  contactNumber?: string;
+  contactAddress?: string;
+  values: Record<string, string | boolean | number>;
+  createdAt: string;
 }
 
-// ========== MESSAGE RESPONSE TYPE ==========
+export interface FormStatsResponse {
+  totalSubmissions: number;
+  perForm: FormSubmissionCount[];
+  recent: FormSubmissionWithForm[];
+}
+
+/* =========================
+   WORKFORCE
+========================= */
+
+/**
+ * IMPORTANT: your backend flow implies "pending" exists (public apply defaults to pending)
+ */
+export type WorkforceStatus = 'pending' | 'new' | 'serving' | 'not_serving';
+
+export interface WorkforceMember {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  department: string;
+  status: WorkforceStatus;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateWorkforceRequest {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  department: string;
+
+  /**
+   * Optional for admin-created records; public apply defaults to pending.
+   */
+  status?: Extract<WorkforceStatus, 'pending' | 'new'>;
+
+  notes?: string;
+}
+
+export interface UpdateWorkforceRequest {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  department?: string;
+  status?: WorkforceStatus;
+  notes?: string;
+}
+
+export interface WorkforceBucket {
+  department: string;
+  status: WorkforceStatus;
+  count: number;
+}
+
+export interface WorkforceStatsResponse {
+  total: number;
+  byStatus: Record<string, number>;
+  byDepartment: Record<string, number>;
+  byDeptAndStatus: WorkforceBucket[];
+}
+
+/* =========================
+   MISC
+========================= */
+
 export interface MessageResponse {
+  status?: string;
   message: string;
+  data?: unknown;
   success?: boolean;
   statusCode?: number;
 }
 
-// ========== API ERROR RESPONSE ==========
-export interface ApiErrorResponse {
-  error: string;
-  message: string;
-  statusCode: number;
-  details?: unknown;
+export interface ChangePasswordData {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword?: string;
+  email?: string;
+  otpCode?: string;
+}
+
+/**
+ * FIXED: backend returns timestamp as Unix number (seconds) on /health
+ */
+export interface HealthCheckResponse {
+  status: string;
+  service: string;
+  version: string;
+  timestamp: number; // unix seconds
+  uptime: string;
+  database?: string;
 }
