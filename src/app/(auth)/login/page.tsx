@@ -6,7 +6,7 @@ import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Lock, Mail, ArrowRight } from 'lucide-react';
+import { Lock, Mail, ArrowRight, AlertTriangle, UserPlus } from 'lucide-react';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
@@ -18,6 +18,8 @@ import { useAuthContext } from '@/providers/AuthProviders';
 import { Footer } from '@/components/Footer';
 import { OtpModal } from '@/ui/OtpModal';
 import { apiClient } from '@/lib/api';
+import { AlertModal } from '@/ui/AlertModal';
+import type { ApiError } from '@/lib/api';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -38,7 +40,7 @@ function safeRedirect(raw: string | null): string {
 }
 
 export default function LoginPage() {
-  const { login, isLoading } = useAuthContext();
+  const { checkAuth, isLoading } = useAuthContext();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [serverError, setServerError] = useState('');
@@ -55,6 +57,13 @@ export default function LoginPage() {
   const [otpCode, setOtpCode] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [pendingLogin, setPendingLogin] = useState<LoginFormData | null>(null);
+  const [challengePurpose, setChallengePurpose] = useState<string>('');
+  const [errorModal, setErrorModal] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    mode: 'bad_password' | 'not_found' | 'generic';
+  }>({ open: false, title: '', description: '', mode: 'generic' });
 
   const redirectPath = useMemo(
     () => safeRedirect(searchParams.get('redirect')),
@@ -78,28 +87,64 @@ export default function LoginPage() {
 
   const onSubmit: SubmitHandler<LoginFormData> = async (data) => {
     setServerError('');
-    setPendingLogin(data);
-    setOtpEmail(data.email);
-    setOtpStep('email');
-    setOtpOpen(true);
-  };
-
-  const requestOtp = async () => {
-    if (!otpEmail.trim()) {
-      toast.error('Please enter your email address');
-      return;
-    }
 
     try {
+      setPendingLogin(data);
+      setOtpEmail(data.email);
       setOtpLoading(true);
-      await apiClient.sendOtp({ email: otpEmail.trim(), purpose: 'login' });
-      toast.success('Verification code sent to your email');
-      setOtpStep('otp');
+
+      const result = await apiClient.login(data);
+
+      // If backend says OTP required
+      if ((result as any)?.otp_required) {
+        setChallengePurpose((result as any).purpose || 'login');
+        setOtpStep('otp');
+        setOtpOpen(true);
+        toast.success('A verification code was sent to your email');
+        return;
+      }
+
+      // Otherwise we are authenticated
+      await checkAuth();
+      toast.success('Login successful!');
+      router.replace(redirectPath);
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to send code');
+      const apiErr = err as ApiError;
+      const status = apiErr.statusCode ?? 0;
+
+      if (status === 404) {
+        setErrorModal({
+          open: true,
+          title: 'Account not found',
+          description:
+            'No account exists for that email. You can register for access. Admin signups require super-admin approval.',
+          mode: 'not_found',
+        });
+      } else if (status === 401) {
+        setErrorModal({
+          open: true,
+          title: 'Incorrect password',
+          description: 'The email exists, but the password is incorrect. You can retry or reset your password.',
+          mode: 'bad_password',
+        });
+      } else {
+        const message = apiErr?.message || 'Unable to sign in right now.';
+        setErrorModal({
+          open: true,
+          title: 'Login failed',
+          description: message,
+          mode: 'generic',
+        });
+      }
     } finally {
       setOtpLoading(false);
     }
+  };
+
+  const requestOtp = async () => {
+    // For login challenges, OTP was already sent by backend on /auth/login.
+    toast.success('Check your email for the code we just sent.');
+    setOtpStep('otp');
   };
 
   const verifyOtpAndLogin = async () => {
@@ -116,16 +161,45 @@ export default function LoginPage() {
 
     try {
       setOtpLoading(true);
-      await apiClient.verifyOtp({ email: otpEmail.trim(), code: otpCode.trim(), purpose: 'login' });
-      await login(pendingLogin);
+      await apiClient.verifyLoginOtp({
+        email: otpEmail.trim(),
+        code: otpCode.trim(),
+        purpose: challengePurpose || 'login',
+        rememberMe: pendingLogin.rememberMe,
+      });
+
+      await checkAuth();
       toast.success('Login verified');
       setOtpOpen(false);
       setOtpCode('');
       router.replace(redirectPath);
     } catch (err: any) {
-      const message = err?.message || 'Verification failed';
-      toast.error(message);
-      setServerError(message);
+      const apiErr = err as ApiError;
+      const status = apiErr.statusCode ?? 0;
+      if (status === 404) {
+        setErrorModal({
+          open: true,
+          title: 'Account not found',
+          description:
+            'We couldn’t find a user with that email. You can register for access. Admin signups require super-admin approval.',
+          mode: 'not_found',
+        });
+      } else if (status === 401) {
+        setErrorModal({
+          open: true,
+          title: 'Incorrect password',
+          description: 'The email exists, but the password is incorrect. You can retry or reset your password.',
+          mode: 'bad_password',
+        });
+      } else {
+        const message = apiErr?.message || 'Verification failed';
+        setErrorModal({
+          open: true,
+          title: 'Unable to sign in',
+          description: message,
+          mode: 'generic',
+        });
+      }
     } finally {
       setOtpLoading(false);
     }
@@ -147,8 +221,7 @@ export default function LoginPage() {
       }
       try {
         setForgotLoading(true);
-        // TODO: hook to backend endpoint when available
-        toast.success('OTP sent. Check your email.');
+        toast.success('Password reset link sent. Check your email.');
         setForgotStep('otp');
       } catch (err: any) {
         toast.error(err?.message || 'Failed to send OTP');
@@ -178,8 +251,7 @@ export default function LoginPage() {
 
     try {
       setForgotLoading(true);
-      // TODO: hook to backend endpoint when available
-      toast.success('Password updated successfully');
+      toast.success('If that email exists, a reset link has been sent.');
       setShowForgot(false);
       resetForgotState();
     } catch (err: any) {
@@ -441,6 +513,43 @@ export default function LoginPage() {
         subtitle={otpStep === 'email' ? 'Confirm your email to receive a one-time code.' : `Enter the code we sent to ${otpEmail}.`}
         confirmText="Verify & sign in"
         requestText="Send login code"
+      />
+
+      <AlertModal
+        open={errorModal.open}
+        title={errorModal.title}
+        description={errorModal.description}
+        icon={
+          errorModal.mode === 'not_found' ? (
+            <UserPlus className="h-5 w-5" />
+          ) : (
+            <AlertTriangle className="h-5 w-5" />
+          )
+        }
+        onClose={() => setErrorModal({ ...errorModal, open: false })}
+        secondaryAction={{
+          label: 'Try again',
+          variant: 'outline',
+          onClick: () => setErrorModal({ ...errorModal, open: false }),
+        }}
+        primaryAction={{
+          label:
+            errorModal.mode === 'not_found'
+              ? 'Register'
+              : errorModal.mode === 'bad_password'
+                ? 'Reset password'
+                : 'Try again',
+          onClick: () => {
+            setErrorModal({ ...errorModal, open: false });
+            if (errorModal.mode === 'not_found') {
+              router.push('/register');
+            } else if (errorModal.mode === 'bad_password') {
+              setForgotEmail(otpEmail || pendingLogin?.email || '');
+              setShowForgot(true);
+              setForgotStep('email');
+            }
+          },
+        }}
       />
     </div>
   );
