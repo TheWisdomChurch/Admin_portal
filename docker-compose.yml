@@ -54,3 +54,5 @@ services:
       - ./ssl:/etc/nginx/ssl:ro
     depends_on:
       - nextjs-app-prod
+    profiles:
+      - prod
