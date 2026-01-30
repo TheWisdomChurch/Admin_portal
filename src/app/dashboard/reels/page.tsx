@@ -1,8 +1,9 @@
 // src/app/(dashboard)/reels/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Plus, Trash2, Play, Eye } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Play } from 'lucide-react';
+import Image from 'next/image';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { DataTable } from '@/components/DateTable';
@@ -22,11 +23,7 @@ function ReelsPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  useEffect(() => {
-    loadReels();
-  }, [page, limit]);
-
-  const loadReels = async () => {
+  const loadReels = useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiClient.getReels({ page, limit });
@@ -38,7 +35,11 @@ function ReelsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit]);
+
+  useEffect(() => {
+    loadReels();
+  }, [loadReels]);
 
   const handleDelete = async (reel: ReelData) => {
     if (!confirm(`Are you sure you want to delete "${reel.title}"?`)) {
@@ -64,7 +65,6 @@ function ReelsPage() {
       // You may need to upload the video file to get a URL first.
       // Here is a placeholder for uploading the file and getting the videoUrl and thumbnail.
       // Replace this with your actual upload logic.
-      const videoFile = files[0];
       // Example: const { videoUrl, thumbnail } = await uploadVideoAndGetUrls(videoFile);
       const videoUrl = ''; // TODO: Replace with actual uploaded video URL
       const thumbnail = ''; // TODO: Replace with actual thumbnail URL
@@ -94,10 +94,13 @@ function ReelsPage() {
       header: 'Thumbnail',
       cell: (reel: ReelData) => (
         <div className="relative w-20 h-20 rounded-lg overflow-hidden">
-          <img
+          <Image
             src={reel.thumbnail}
             alt={reel.title}
+            width={80}
+            height={80}
             className="w-full h-full object-cover"
+            unoptimized
           />
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <Play className="h-6 w-6 text-white" />

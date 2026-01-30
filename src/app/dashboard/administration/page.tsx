@@ -13,7 +13,6 @@ import {
   ChevronUp,
   Award,
   Calendar,
-  Briefcase,
   Heart,
 } from 'lucide-react';
 import { Card } from '@/ui/Card';
@@ -99,7 +98,7 @@ function AccordionRow({
 
 export default function AdministrationPage() {
   const [activeTab, setActiveTab] = useState<'workforce' | 'members' | 'leadership'>('workforce');
-  const [workforce, setWorkforce] = useState<WorkforceRow[]>(defaultWorkforce);
+  const workforce = defaultWorkforce;
   const [members, setMembers] = useState<MemberRow[]>(defaultMembers);
   const [leaders, setLeaders] = useState<LeaderRow[]>(defaultLeaders);
   const [memberModalOpen, setMemberModalOpen] = useState(false);

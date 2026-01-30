@@ -424,7 +424,7 @@ export interface CreateFormRequest {
   fields: Array<Omit<FormField, 'id' | 'formId' | 'createdAt' | 'updatedAt'>>;
 }
 
-export interface UpdateFormRequest extends Partial<CreateFormRequest> {}
+export type UpdateFormRequest = Partial<CreateFormRequest>;
 
 export interface SubmitFormRequest {
   values: Record<string, string | boolean | number>;

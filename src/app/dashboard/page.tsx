@@ -76,8 +76,9 @@ export default function DashboardPage() {
         const testimonialsData = testimonialsResult.value;
         if (Array.isArray(testimonialsData)) {
           setApprovedTestimonials(testimonialsData.slice(0, 4));
-        } else if (testimonialsData && 'data' in testimonialsData) {
-          setApprovedTestimonials((testimonialsData as any).data?.slice?.(0, 4) || []);
+        } else if (testimonialsData && typeof testimonialsData === 'object' && 'data' in testimonialsData) {
+          const data = (testimonialsData as { data?: unknown }).data;
+          setApprovedTestimonials(Array.isArray(data) ? data.slice(0, 4) : []);
         } else {
           setApprovedTestimonials([]);
         }

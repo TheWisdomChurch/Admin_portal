@@ -30,17 +30,31 @@ export type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function getStatus(e: any): number | undefined {
-  return e?.status ?? e?.response?.status ?? e?.cause?.status;
+function getStatus(e: unknown): number | undefined {
+  if (!e || typeof e !== 'object') return undefined;
+  const candidate = e as {
+    status?: unknown;
+    response?: { status?: unknown };
+    cause?: { status?: unknown };
+  };
+  const status = candidate.status ?? candidate.response?.status ?? candidate.cause?.status;
+  return typeof status === 'number' ? status : undefined;
 }
 
-function unwrapUser(payload: any): User {
+function unwrapUser(payload: unknown): User {
   if (!payload) throw new Error('Empty response');
 
-  if (payload?.id && payload?.email) return payload as User;
-  if (payload?.user?.id && payload?.user?.email) return payload.user as User;
-  if (payload?.data?.id && payload?.data?.email) return payload.data as User;
-  if (payload?.data?.user?.id && payload?.data?.user?.email) return payload.data.user as User;
+  const data = payload as {
+    id?: unknown;
+    email?: unknown;
+    user?: { id?: unknown; email?: unknown };
+    data?: { id?: unknown; email?: unknown; user?: { id?: unknown; email?: unknown } };
+  };
+
+  if (data.id && data.email) return payload as User;
+  if (data.user?.id && data.user?.email) return data.user as User;
+  if (data.data?.id && data.data?.email) return data.data as User;
+  if (data.data?.user?.id && data.data?.user?.email) return data.data.user as User;
 
   throw new Error('Unexpected auth payload shape');
 }
@@ -71,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
       setAuthUser(verified, remembered);
-    } catch (e: any) {
+    } catch (e) {
       const status = getStatus(e);
       if (status === 401 || status === 403) {
         clearAuthStorage();
@@ -96,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const loginRaw = await apiClient.login(credentials);
 
-      if ((loginRaw as any)?.otp_required) {
+      if ('otp_required' in loginRaw && loginRaw.otp_required) {
         throw new Error('OTP required. Please verify to continue.');
       }
 
@@ -146,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthUser(me, remembered);
 
       return me;
-    } catch (e: any) {
+    } catch (e) {
       const status = getStatus(e);
       if (status === 401 || status === 403) {
         clearAuthStorage();

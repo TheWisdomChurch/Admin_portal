@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Image from 'next/image';
 import { Card } from '@/ui/Card';
 import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
@@ -356,10 +357,13 @@ function EventPage() {
               {preview.startDate} {preview.endDate ? `→ ${preview.endDate}` : ''} • {preview.time} • {preview.location}
             </p>
             {preview.bannerImage ? (
-              <img
+              <Image
                 src={preview.bannerImage}
                 alt="Banner"
+                width={1200}
+                height={400}
                 className="w-full max-h-64 rounded-[var(--radius-card)] object-cover border border-[var(--color-border-secondary)]"
+                unoptimized
               />
             ) : null}
             <p className="text-sm text-[var(--color-text-secondary)]">{preview.description}</p>

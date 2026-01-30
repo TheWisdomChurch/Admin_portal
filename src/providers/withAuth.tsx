@@ -10,7 +10,7 @@ type WithAuthOptions = {
 };
 
 function roleOf(user: User): 'admin' | 'super_admin' | null {
-  const raw = (user as any)?.role;
+  const raw = (user as { role?: unknown })?.role;
   if (!raw || typeof raw !== 'string') return null;
   const normalized = raw.toLowerCase().replace(/\s+/g, '_');
   if (normalized === 'admin') return 'admin';
@@ -58,7 +58,7 @@ export function withAuth<P extends object>(
       if (requiredRole && !hasRequiredRole(user, requiredRole)) {
         router.replace(dashboardFor(user));
       }
-    }, [user, isInitialized, router, pathname, requiredRole]);
+    }, [user, isInitialized, router, pathname]);
 
     // Only block on first boot; after that, render immediately
     if (!isInitialized) {

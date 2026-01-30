@@ -1,7 +1,7 @@
 // src/app/dashboard/forms/page.tsx
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Plus, Link as LinkIcon, Save, Copy, Trash2 } from 'lucide-react';
@@ -13,7 +13,7 @@ import { PageHeader } from '@/layouts';
 import { Input } from '@/ui/input';
 
 import { apiClient } from '@/lib/api';
-import type { AdminForm, CreateFormRequest, FormFieldType } from '@/lib/types';
+import type { AdminForm, CreateFormRequest, FormFieldType, FormSettings } from '@/lib/types';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
@@ -25,6 +25,15 @@ type FieldDraft = {
   required: boolean;
   order: number;
   options?: { label: string; value: string }[];
+};
+
+const dateFormats = ['yyyy-mm-dd', 'mm/dd/yyyy', 'dd/mm/yyyy', 'dd/mm'] as const;
+type DateFormat = (typeof dateFormats)[number];
+
+type Column<T> = {
+  key: keyof T;
+  header: string;
+  cell?: (item: T) => ReactNode;
 };
 
 function isOptionField(t: FormFieldType) {
@@ -90,16 +99,16 @@ export default withAuth(function FormsPage() {
   const [introBullets, setIntroBullets] = useState('Smooth check-in\nEngaging sessions\nFriendly community');
   const [introBulletSubs, setIntroBulletSubs] = useState('Arrive early for badges\nShort, powerful sessions\nMeet friendly stewards');
   const [layoutMode, setLayoutMode] = useState<'split' | 'stack'>('split');
-  const [dateFormat, setDateFormat] = useState<'yyyy-mm-dd' | 'mm/dd/yyyy' | 'dd/mm/yyyy' | 'dd/mm'>('yyyy-mm-dd');
+  const [dateFormat, setDateFormat] = useState<DateFormat>('yyyy-mm-dd');
 
-  const [footerText, setFooterText] = useState('Powered by Wisdom House Registration');
-  const [footerBg, setFooterBg] = useState('#f5c400');
-  const [footerTextColor, setFooterTextColor] = useState('#111827');
+  const footerText = 'Powered by Wisdom House Registration';
+  const footerBg = '#f5c400';
+  const footerTextColor = '#111827';
 
-  const [submitButtonText, setSubmitButtonText] = useState('Submit Registration');
-  const [submitButtonBg, setSubmitButtonBg] = useState('#f59e0b');
-  const [submitButtonTextColor, setSubmitButtonTextColor] = useState('#111827');
-  const [submitButtonIcon, setSubmitButtonIcon] = useState<'check' | 'send' | 'calendar' | 'cursor' | 'none'>('check');
+  const submitButtonText = 'Submit Registration';
+  const submitButtonBg = '#f59e0b';
+  const submitButtonTextColor = '#111827';
+  const submitButtonIcon: FormSettings['submitButtonIcon'] = 'check';
 
   const [formHeaderNote, setFormHeaderNote] = useState('Please ensure details are accurate before submitting.');
 
@@ -109,8 +118,8 @@ export default withAuth(function FormsPage() {
   ]);
 
   const authBlocked = useMemo(
-    () => !auth.isInitialized || (auth as any).isLoading, // if your type misses isLoading, keep runtime safe
-    [auth.isInitialized, (auth as any).isLoading]
+    () => !auth.isInitialized || auth.isLoading,
+    [auth.isInitialized, auth.isLoading]
   );
 
   const load = useCallback(async () => {
@@ -119,9 +128,10 @@ export default withAuth(function FormsPage() {
       const res = await apiClient.getAdminForms({ page, limit });
       setForms(Array.isArray(res.data) ? res.data : []);
       setTotal(typeof res.total === 'number' ? res.total : 0);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err?.message || 'Failed to load forms');
+      const message = err instanceof Error ? err.message : 'Failed to load forms';
+      toast.error(message);
       setForms([]);
       setTotal(0);
     } finally {
@@ -212,13 +222,14 @@ export default withAuth(function FormsPage() {
       await navigator.clipboard.writeText(url);
       toast.success('Link copied to clipboard');
       load();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err?.message || 'Failed to publish form');
+      const message = err instanceof Error ? err.message : 'Failed to publish form';
+      toast.error(message);
     }
   };
 
-  const handleCopyLink = async (form: AdminForm) => {
+  const handleCopyLink = useCallback(async (form: AdminForm) => {
     if (!form.slug) {
       toast.error('This form is not published yet');
       return;
@@ -231,7 +242,7 @@ export default withAuth(function FormsPage() {
     } catch {
       toast.error('Failed to copy link');
     }
-  };
+  }, []);
 
   const handleDelete = async (form: AdminForm) => {
     if (!confirm(`Delete "${form.title}"? This cannot be undone.`)) return;
@@ -240,9 +251,10 @@ export default withAuth(function FormsPage() {
       await apiClient.deleteAdminForm(form.id);
       toast.success('Form deleted');
       load();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err?.message || 'Failed to delete form');
+      const message = err instanceof Error ? err.message : 'Failed to delete form';
+      toast.error(message);
     }
   };
 
@@ -319,7 +331,7 @@ export default withAuth(function FormsPage() {
         submitButtonIcon,
      
         formHeaderNote,
-      } as any,
+      },
     };
 
     try {
@@ -338,9 +350,10 @@ export default withAuth(function FormsPage() {
       toast.success('Form created and link ready');
       setShowBuilder(false);
       load();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err?.message || 'Failed to create form');
+      const message = err instanceof Error ? err.message : 'Failed to create form';
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -350,7 +363,7 @@ export default withAuth(function FormsPage() {
     router.push(`/dashboard/forms/${form.id}/edit`);
   };
 
-  const columns = useMemo(
+  const columns = useMemo<Column<AdminForm>[]>(
     () => [
       {
         key: 'title' as keyof AdminForm,
@@ -408,7 +421,7 @@ export default withAuth(function FormsPage() {
         ),
       },
     ],
-    [load]
+    [handleCopyLink]
   );
 
   if (authBlocked) {
@@ -524,17 +537,20 @@ export default withAuth(function FormsPage() {
                   <div className="flex flex-wrap gap-2 sm:flex-nowrap">
                     <select
                       value={layoutMode}
-                      onChange={(e) => setLayoutMode(e.target.value as any)}
-                      className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                    >
+                  onChange={(e) => setLayoutMode(e.target.value === 'split' ? 'split' : 'stack')}
+                  className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                >
                       <option value="split">Two column layout</option>
                       <option value="stack">Single column layout</option>
                     </select>
                     <select
                       value={dateFormat}
-                      onChange={(e) => setDateFormat(e.target.value as any)}
-                      className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                    >
+                  onChange={(e) => {
+                    const next = e.target.value as DateFormat;
+                    if (dateFormats.includes(next)) setDateFormat(next);
+                  }}
+                  className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                >
                       <option value="yyyy-mm-dd">YYYY-MM-DD</option>
                       <option value="mm/dd/yyyy">MM/DD/YYYY</option>
                       <option value="dd/mm/yyyy">DD/MM/YYYY</option>
@@ -687,7 +703,7 @@ export default withAuth(function FormsPage() {
       <Card className="p-0">
         <DataTable
           data={forms ?? []}
-          columns={columns as any}
+          columns={columns}
           total={total}
           page={page}
           limit={limit}
