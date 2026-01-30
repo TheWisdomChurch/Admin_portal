@@ -2,7 +2,6 @@
 
 # ===== BASE STAGE =====
 FROM node:22-alpine AS base
-# Install libc6-compat for some Node.js native modules[citation:8]
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
