@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
+import { useForm, Controller, useWatch, type SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft, UserPlus, CheckCircle, Mail, Lock, User } from 'lucide-react';
@@ -11,7 +11,6 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 import { Footer } from '@/components/Footer';
-
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
@@ -152,7 +151,7 @@ export default function RegisterPage() {
     mode: 'onSubmit',
   });
 
-  const password = watch('password');
+  const password = useWatch({ control, name: 'password' });
   const passwordHint = !password
     ? null
     : password.length < 6
