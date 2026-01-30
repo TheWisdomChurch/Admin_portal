@@ -134,7 +134,7 @@ export default function RegisterPage() {
     register,
     control,
     handleSubmit,
-    watch,
+    // watch,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormData>({
