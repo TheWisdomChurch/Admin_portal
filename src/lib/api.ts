@@ -88,6 +88,28 @@ function isApiError(err: unknown): err is ApiError {
   return typeof err === 'object' && err !== null && 'statusCode' in err;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getMessageFromPayload(payload: unknown): string | undefined {
+  if (!isRecord(payload)) return undefined;
+  const error = payload.error;
+  if (typeof error === 'string' && error.trim()) return error;
+  const message = payload.message;
+  if (typeof message === 'string' && message.trim()) return message;
+  return undefined;
+}
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (isRecord(err)) {
+    const message = getMessageFromPayload(err);
+    if (message) return message;
+  }
+  return 'Network error';
+}
+
 /* ============================================================================
    Auth Storage (stores user profile only; cookie holds session)
 ============================================================================ */
@@ -122,7 +144,7 @@ export function clearAuthStorage(): void {
    Fetch Wrappers (cookie-based auth)
 ============================================================================ */
 
-async function safeParseJson(response: Response): Promise<any | null> {
+async function safeParseJson(response: Response): Promise<unknown | null> {
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) return null;
   try {
@@ -153,22 +175,20 @@ async function apiFetch<T>(
     });
 
     const json = await safeParseJson(response);
-    const payload =
-      json ??
-      ({ message: await response.text().catch(() => '') } as Record<string, any>);
+    const payload: unknown = json ?? { message: await response.text().catch(() => '') };
 
     if (!response.ok) {
       throw createApiError(
-        payload?.error || payload?.message || 'Request failed',
+        getMessageFromPayload(payload) || 'Request failed',
         response.status,
         payload
       );
     }
 
     return payload as T;
-  } catch (err: any) {
+  } catch (err) {
     if (isApiError(err)) throw err;
-    throw createApiError(err?.message || 'Network error', 0, err);
+    throw createApiError(getErrorMessage(err), 0, err);
   }
 }
 
@@ -197,22 +217,20 @@ async function uploadFetch<T>(
     });
 
     const json = await safeParseJson(response);
-    const payload =
-      json ??
-      ({ message: await response.text().catch(() => '') } as Record<string, any>);
+    const payload: unknown = json ?? { message: await response.text().catch(() => '') };
 
     if (!response.ok) {
       throw createApiError(
-        payload?.error || payload?.message || 'Request failed',
+        getMessageFromPayload(payload) || 'Request failed',
         response.status,
         payload
       );
     }
 
     return payload as T;
-  } catch (err: any) {
+  } catch (err) {
     if (isApiError(err)) throw err;
-    throw createApiError(err?.message || 'Network error', 0, err);
+    throw createApiError(getErrorMessage(err), 0, err);
   }
 }
 
@@ -232,22 +250,20 @@ async function rootFetch<T>(
     });
 
     const json = await safeParseJson(response);
-    const payload =
-      json ??
-      ({ message: await response.text().catch(() => '') } as Record<string, any>);
+    const payload: unknown = json ?? { message: await response.text().catch(() => '') };
 
     if (!response.ok) {
       throw createApiError(
-        payload?.error || payload?.message || 'Request failed',
+        getMessageFromPayload(payload) || 'Request failed',
         response.status,
         payload
       );
     }
 
     return payload as T;
-  } catch (err: any) {
+  } catch (err) {
     if (isApiError(err)) throw err;
-    throw createApiError(err?.message || 'Network error', 0, err);
+    throw createApiError(getErrorMessage(err), 0, err);
   }
 }
 
@@ -255,33 +271,42 @@ async function rootFetch<T>(
    Response Normalizers
 ============================================================================ */
 
-function extractUser(response: any): User {
-  const data = response?.data ?? response;
-  if (data?.user?.id && data.user?.email) return data.user as User;
-  if (data?.id && data?.email) return data as User;
+function isUserLike(value: unknown): value is User {
+  return isRecord(value) && typeof value.id === 'string' && typeof value.email === 'string';
+}
+
+function extractUser(response: unknown): User {
+  const data = isRecord(response) && 'data' in response ? (response as { data?: unknown }).data : response;
+  if (isRecord(data) && isUserLike((data as { user?: unknown }).user)) {
+    return (data as { user: User }).user;
+  }
+  if (isUserLike(data)) return data;
   throw createApiError('Invalid user payload', 400, response);
 }
 
-function unwrapData<T>(res: any, errorMessage: string): T {
-  if (res && typeof res === 'object' && 'data' in res) {
-    const data = (res as ApiResponse<any>).data;
-    if (data === undefined || data === null)
+function unwrapData<T>(res: unknown, errorMessage: string): T {
+  if (isRecord(res) && 'data' in res) {
+    const data = (res as ApiResponse<unknown>).data;
+    if (data === undefined || data === null) {
       throw createApiError(errorMessage, 400, res);
+    }
     return data as T;
   }
   return res as T;
 }
 
-function extractLoginResult(res: any): LoginResult {
-  const data = res?.data ?? res;
-  if (data?.user) return { user: data.user as User };
-  if (data?.otp_required) {
+function extractLoginResult(res: unknown): LoginResult {
+  const data = isRecord(res) && 'data' in res ? (res as { data?: unknown }).data : res;
+  if (isRecord(data) && isUserLike(data.user)) {
+    return { user: data.user };
+  }
+  if (isRecord(data) && data.otp_required === true) {
     return {
       otp_required: true,
-      purpose: data.purpose,
-      expires_at: data.expires_at,
-      action_url: data.action_url,
-      email: data.email,
+      purpose: typeof data.purpose === 'string' ? data.purpose : 'login',
+      expires_at: typeof data.expires_at === 'string' ? data.expires_at : undefined,
+      action_url: typeof data.action_url === 'string' ? data.action_url : undefined,
+      email: typeof data.email === 'string' ? data.email : '',
     } as LoginChallenge;
   }
   throw createApiError('Invalid login payload', 400, res);
@@ -291,7 +316,7 @@ function extractLoginResult(res: any): LoginResult {
    Helpers
 ============================================================================ */
 
-function toQueryString(params?: Record<string, any>): string {
+function toQueryString(params?: Record<string, unknown>): string {
   if (!params) return '';
   const cleaned: Record<string, string> = {};
   for (const [k, v] of Object.entries(params)) {
@@ -310,7 +335,7 @@ export const apiClient = {
   /* ===================== AUTH ===================== */
 
   async login(credentials: LoginCredentials): Promise<LoginResult> {
-    const res = await apiFetch<ApiResponse<any>>('/auth/login', {
+    const res = await apiFetch<ApiResponse<unknown>>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
@@ -323,7 +348,7 @@ export const apiClient = {
     purpose: string;
     rememberMe?: boolean;
   }): Promise<User> {
-    const res = await apiFetch<ApiResponse<any>>('/auth/login/verify-otp', {
+    const res = await apiFetch<ApiResponse<unknown>>('/auth/login/verify-otp', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -331,7 +356,7 @@ export const apiClient = {
   },
 
   async register(data: RegisterData): Promise<User> {
-    const res = await apiFetch<ApiResponse<any>>('/auth/register', {
+    const res = await apiFetch<ApiResponse<unknown>>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -366,12 +391,12 @@ export const apiClient = {
   },
 
   async getCurrentUser(): Promise<User> {
-    const res = await apiFetch<ApiResponse<any>>('/auth/me', { method: 'GET' });
+    const res = await apiFetch<ApiResponse<unknown>>('/auth/me', { method: 'GET' });
     return extractUser(res);
   },
 
   async updateProfile(userData: Partial<User>): Promise<User> {
-    const res = await apiFetch<ApiResponse<any>>('/auth/update-profile', {
+    const res = await apiFetch<ApiResponse<unknown>>('/auth/update-profile', {
       method: 'PUT',
       body: JSON.stringify(userData),
     });
@@ -467,9 +492,9 @@ currentPassword: string, newPassword: string, payload: {
 
   /* ===================== ADMIN ===================== */
 
-  async getDashboardStats(): Promise<Record<string, any>> {
-    const res = await apiFetch<ApiResponse<any>>('/admin/dashboard');
-    return unwrapData<Record<string, any>>(res, 'Invalid dashboard stats');
+  async getDashboardStats(): Promise<Record<string, unknown>> {
+    const res = await apiFetch<ApiResponse<unknown>>('/admin/dashboard');
+    return unwrapData<Record<string, unknown>>(res, 'Invalid dashboard stats');
   },
 
   getAllUsers(params?: Record<string, string>) {
@@ -479,9 +504,9 @@ currentPassword: string, newPassword: string, payload: {
 
   /* ===================== ANALYTICS ===================== */
 
-  async getAnalytics(params?: Record<string, any>): Promise<DashboardAnalytics> {
+  async getAnalytics(params?: Record<string, unknown>): Promise<DashboardAnalytics> {
     const qs = toQueryString(params);
-    const res = await apiFetch<ApiResponse<any>>(`/admin/analytics${qs}`, {
+    const res = await apiFetch<ApiResponse<DashboardAnalytics>>(`/admin/analytics${qs}`, {
       method: 'GET',
     });
     return unwrapData<DashboardAnalytics>(res, 'Invalid analytics payload');
@@ -490,7 +515,7 @@ currentPassword: string, newPassword: string, payload: {
   /* ===================== EVENTS ===================== */
 
   async getEvents(
-    params?: Record<string, any>
+    params?: Record<string, unknown>
   ): Promise<SimplePaginatedResponse<EventData>> {
     const qs = toQueryString(params);
     return apiFetch(`/events${qs}`, { method: 'GET' });
@@ -556,7 +581,7 @@ currentPassword: string, newPassword: string, payload: {
   /* ===================== REELS ===================== */
 
   async getReels(
-    params?: Record<string, any>
+    params?: Record<string, unknown>
   ): Promise<SimplePaginatedResponse<ReelData>> {
     const qs = toQueryString(params);
     return apiFetch(`/reels${qs}`, { method: 'GET' });
@@ -577,7 +602,7 @@ currentPassword: string, newPassword: string, payload: {
   /* ===================== FORMS (ADMIN) ===================== */
 
   async getAdminForms(
-    params?: Record<string, any>
+    params?: Record<string, unknown>
   ): Promise<SimplePaginatedResponse<AdminForm>> {
     const qs = toQueryString(params);
     return apiFetch(`/admin/forms${qs}`, { method: 'GET' });
@@ -626,7 +651,7 @@ currentPassword: string, newPassword: string, payload: {
 
   async getFormSubmissions(
     id: string,
-    params?: Record<string, any>
+    params?: Record<string, unknown>
   ): Promise<SimplePaginatedResponse<FormSubmission>> {
     const qs = toQueryString(params);
     return apiFetch(`/admin/forms/${encodeURIComponent(id)}/submissions${qs}`, {
@@ -634,7 +659,7 @@ currentPassword: string, newPassword: string, payload: {
     });
   },
 
-  async getFormStats(params?: Record<string, any>): Promise<FormStatsResponse> {
+  async getFormStats(params?: Record<string, unknown>): Promise<FormStatsResponse> {
     const qs = toQueryString(params);
     const res = await apiFetch<ApiResponse<FormStatsResponse>>(
       `/admin/forms/stats${qs}`,
@@ -681,7 +706,7 @@ currentPassword: string, newPassword: string, payload: {
   },
 
   async listSubscribers(
-    params?: Record<string, any>
+    params?: Record<string, unknown>
   ): Promise<SimplePaginatedResponse<Subscriber>> {
     const qs = toQueryString(params);
     return apiFetch(`/admin/subscribers${qs}`, { method: 'GET' });
@@ -718,7 +743,7 @@ currentPassword: string, newPassword: string, payload: {
   /* ===================== WORKFORCE ===================== */
 
   async listWorkforce(
-    params?: Record<string, any>
+    params?: Record<string, unknown>
   ): Promise<SimplePaginatedResponse<WorkforceMember>> {
     const qs = toQueryString(params);
     return apiFetch(`/admin/workforce${qs}`, { method: 'GET' });

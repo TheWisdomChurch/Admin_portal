@@ -124,9 +124,10 @@ export default function PublicFormPage() {
           init[f.key] = f.type === 'checkbox' ? false : '';
         });
         setValues(init);
-      } catch (err: any) {
+      } catch (err) {
         console.error(err);
-        toast.error(err?.message || 'Failed to load registration form');
+        const message = err instanceof Error ? err.message : 'Failed to load registration form';
+        toast.error(message);
       } finally {
         if (alive) setLoading(false);
       }
@@ -186,9 +187,10 @@ export default function PublicFormPage() {
       const cleared: ValuesState = {};
       fields.forEach((f) => (cleared[f.key] = f.type === 'checkbox' ? false : ''));
       setValues(cleared);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err?.message || 'Failed to submit registration');
+      const message = err instanceof Error ? err.message : 'Failed to submit registration';
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }

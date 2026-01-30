@@ -15,7 +15,6 @@ import {
   LogOut,
   Menu,
   X,
-  Users,
   MessageSquare,
   Shield,
   BellRing,

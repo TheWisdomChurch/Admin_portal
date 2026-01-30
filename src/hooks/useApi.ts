@@ -1,6 +1,7 @@
 // src/hooks/useApi.ts
 import { useState, useCallback } from 'react';
 import { apiClient } from '@/lib/api';
+import type { CreateTestimonialData, UpdateTestimonialData } from '@/lib/types';
 
 export function useApi() {
   const [loading, setLoading] = useState(false);
@@ -18,8 +19,8 @@ export function useApi() {
         const data = await fn();
         options.onSuccess?.(data);
         return data;
-      } catch (err: any) {
-        const errorMessage = err?.message || 'An error occurred';
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'An error occurred';
         setError(errorMessage);
         options.onError?.(errorMessage);
         throw err;
@@ -37,13 +38,13 @@ export function useApi() {
   );
 
   const createTestimonial = useCallback(
-    (data: any) => request(() => apiClient.createTestimonial(data)),
+    (data: CreateTestimonialData) => request(() => apiClient.createTestimonial(data)),
     [request]
   );
 
   // Admin-only
   const updateTestimonial = useCallback(
-    (id: string, data: any) => request(() => apiClient.updateTestimonial(id, data)),
+    (id: string, data: UpdateTestimonialData) => request(() => apiClient.updateTestimonial(id, data)),
     [request]
   );
 

@@ -89,8 +89,9 @@ function SettingsPage() {
         username: updatedUser.first_name || '',
         email: updatedUser.email || '',
       });
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update profile');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update profile';
+      toast.error(message);
     } finally {
       setProfileLoading(false);
     }
@@ -134,8 +135,9 @@ function SettingsPage() {
         newPassword: '',
         confirmPassword: '',
       });
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to change password');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to change password';
+      toast.error(message);
     } finally {
       setPasswordLoading(false);
     }
@@ -161,8 +163,9 @@ function SettingsPage() {
       toast.success('Verification code sent');
       setOtpStep('otp');
       setOtpEmail(targetEmail);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to send code');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to send code';
+      toast.error(message);
     } finally {
       setOtpLoading(false);
     }
@@ -194,8 +197,9 @@ function SettingsPage() {
       setOtpCode('');
       setOtpStep('email');
       setPendingAction(null);
-    } catch (error: any) {
-      toast.error(error.message || 'Verification failed');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Verification failed';
+      toast.error(message);
     } finally {
       setOtpLoading(false);
     }
@@ -223,8 +227,9 @@ function SettingsPage() {
       
       // Refresh auth context to get updated user data
       auth.checkAuth();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to clear data');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to clear data';
+      toast.error(message);
     } finally {
       setClearDataLoading(false);
       setShowClearDataModal(false);
@@ -241,8 +246,9 @@ function SettingsPage() {
       setTimeout(() => {
         auth.logout();
       }, 1000);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to delete account');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete account';
+      toast.error(message);
     } finally {
       setDeleteAccountLoading(false);
       setShowDeleteModal(false);

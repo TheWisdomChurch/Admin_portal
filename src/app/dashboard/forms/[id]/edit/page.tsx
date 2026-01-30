@@ -35,8 +35,9 @@ function EditFormPage() {
         const res = await apiClient.getAdminForm(formId);
         setForm(res);
         setFields(res.fields || []);
-      } catch (err: any) {
-        toast.error(err?.message || 'Failed to load form');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to load form';
+        toast.error(message);
         router.back();
       } finally {
         setLoading(false);
@@ -85,8 +86,9 @@ function EditFormPage() {
       setFields(updated.fields || []);
       toast.success('Form updated');
       router.push('/dashboard/forms');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to save form');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save form';
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -100,8 +102,9 @@ function EditFormPage() {
       const slug = res?.slug || form.slug;
       setForm((prev) => (prev ? { ...prev, slug } : prev));
       toast.success('Form published');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to publish form');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to publish form';
+      toast.error(message);
     } finally {
       setPublishing(false);
     }

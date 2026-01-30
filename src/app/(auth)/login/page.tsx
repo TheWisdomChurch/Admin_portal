@@ -96,8 +96,8 @@ export default function LoginPage() {
       const result = await apiClient.login(data);
 
       // If backend says OTP required
-      if ((result as any)?.otp_required) {
-        setChallengePurpose((result as any).purpose || 'login');
+      if ('otp_required' in result && result.otp_required) {
+        setChallengePurpose(result.purpose || 'login');
         setOtpStep('otp');
         setOtpOpen(true);
         toast.success('A verification code was sent to your email');
@@ -108,7 +108,7 @@ export default function LoginPage() {
       await checkAuth();
       toast.success('Login successful!');
       router.replace(redirectPath);
-    } catch (err: any) {
+    } catch (err) {
       const apiErr = err as ApiError;
       const status = apiErr.statusCode ?? 0;
 
@@ -173,7 +173,7 @@ export default function LoginPage() {
       setOtpOpen(false);
       setOtpCode('');
       router.replace(redirectPath);
-    } catch (err: any) {
+    } catch (err) {
       const apiErr = err as ApiError;
       const status = apiErr.statusCode ?? 0;
       if (status === 404) {
@@ -223,8 +223,9 @@ export default function LoginPage() {
         setForgotLoading(true);
         toast.success('Password reset link sent. Check your email.');
         setForgotStep('otp');
-      } catch (err: any) {
-        toast.error(err?.message || 'Failed to send OTP');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to send OTP';
+        toast.error(message);
       } finally {
         setForgotLoading(false);
       }
@@ -254,8 +255,9 @@ export default function LoginPage() {
       toast.success('If that email exists, a reset link has been sent.');
       setShowForgot(false);
       resetForgotState();
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to update password');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update password';
+      toast.error(message);
     } finally {
       setForgotLoading(false);
     }

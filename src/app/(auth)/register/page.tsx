@@ -1,7 +1,7 @@
 // src/app/(auth)/register/page.tsx
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -36,20 +36,29 @@ const registerSchema = z
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
-function humanizeServerError(err: any): string {
+function humanizeServerError(err: unknown): string {
   // Your backend shape can vary; keep it defensive
-  const payload = err?.details || err?.response?.data || err;
+  const payload =
+    typeof err === 'object' && err !== null
+      ? (err as { details?: unknown; response?: { data?: unknown } })
+      : undefined;
+  const data = payload?.details ?? payload?.response?.data ?? err;
 
-  if (payload?.errors && typeof payload.errors === 'object') {
+  if (
+    typeof data === 'object' &&
+    data !== null &&
+    'errors' in data &&
+    typeof (data as { errors?: unknown }).errors === 'object'
+  ) {
     const fieldMap: Record<string, string> = {
       first_name: 'First Name',
       last_name: 'Last Name',
       email: 'Email',
       password: 'Password',
-    role: 'Role',
+      role: 'Role',
     };
 
-    return Object.entries(payload.errors)
+    return Object.entries((data as { errors: Record<string, unknown> }).errors)
       .map(([field, messages]) => {
         const name = fieldMap[field] || field;
         const text = Array.isArray(messages) ? messages.join(', ') : String(messages);
@@ -58,7 +67,12 @@ function humanizeServerError(err: any): string {
       .join('\n');
   }
 
-  return payload?.message || err?.message || 'Registration failed. Please try again.';
+  if (typeof data === 'object' && data !== null && 'message' in data) {
+    const message = (data as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+  }
+  if (err instanceof Error) return err.message;
+  return 'Registration failed. Please try again.';
 }
 
 function SuccessModal({
@@ -139,12 +153,13 @@ export default function RegisterPage() {
   });
 
   const password = watch('password');
-  const passwordHint = useMemo(() => {
-    if (!password) return null;
-    if (password.length < 6) return { ok: false, text: 'Use at least 6 characters' };
-    if (password.length < 10) return { ok: true, text: 'Good — consider adding more length' };
-    return { ok: true, text: 'Strong length' };
-  }, [password]);
+  const passwordHint = !password
+    ? null
+    : password.length < 6
+      ? { ok: false, text: 'Use at least 6 characters' }
+      : password.length < 10
+        ? { ok: true, text: 'Good — consider adding more length' }
+        : { ok: true, text: 'Strong length' };
 
   const onSubmit: SubmitHandler<RegisterFormData> = async (formData) => {
     try {
@@ -169,7 +184,7 @@ export default function RegisterPage() {
       setTimeout(() => {
         router.replace('/login');
       }, 1200);
-    } catch (err: any) {
+    } catch (err) {
       const msg = humanizeServerError(err);
       setServerError(msg);
       toast.error(msg.split('\n')[0] || 'Registration failed');

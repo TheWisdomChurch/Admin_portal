@@ -53,7 +53,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     existingVars.forEach(varName => root.style.removeProperty(varName));
     
     // Function to flatten nested objects into CSS variables
-    const flattenObject = (obj: any, prefix = ''): Record<string, string> => {
+    const flattenObject = (obj: Record<string, unknown>, prefix = ''): Record<string, string> => {
       const result: Record<string, string> = {};
       
       for (const [key, value] of Object.entries(obj)) {
@@ -109,16 +109,6 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
       return () => mediaQuery.removeEventListener('change', handler);
     }
   }, [theme]);
-
-  // Load saved theme on mount (client-side only)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    const savedTheme = localStorage.getItem('theme') as ThemeMode;
-    if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
-      setTheme(savedTheme);
-    }
-  }, []);
 
   const toggleTheme = () => {
     setTheme(current => current === 'light' ? 'dark' : 'light');
