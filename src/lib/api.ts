@@ -379,16 +379,14 @@ export const apiClient = {
   },
 
   async changePassword(
-    payload:
-      | {
-          currentPassword: string;
-          newPassword: string;
-          confirmPassword?: string;
-          email?: string;
-          otpCode?: string;
-        }
-      | ChangePasswordData
-  ): Promise<MessageResponse> {
+currentPassword: string, newPassword: string, payload: {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword?: string;
+  email?: string;
+  otpCode?: string;
+} |
+  ChangePasswordData  ): Promise<MessageResponse> {
     return apiFetch('/auth/change-password', {
       method: 'POST',
       body: JSON.stringify(payload),
