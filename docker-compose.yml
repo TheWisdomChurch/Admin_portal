@@ -37,7 +37,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NODE_ENV: production
+      NODE_ENV: "production"
       PORT: "3000"
     profiles:
       - prod
@@ -54,5 +54,3 @@ services:
       - ./ssl:/etc/nginx/ssl:ro
     depends_on:
       - nextjs-app-prod
-    profiles:
-      - prod
