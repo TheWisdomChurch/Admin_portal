@@ -8,6 +8,9 @@ import { Button } from '@/ui/Button';
 import { Input } from '@/ui/input';
 import toast from 'react-hot-toast';
 
+type PublicationStatus = 'published' | 'needs_approval';
+type TimingStatus = 'upcoming' | 'happening' | 'past';
+
 type DraftEvent = {
   title: string;
   description: string;
@@ -17,17 +20,17 @@ type DraftEvent = {
   time: string;
   registrationLink: string;
   sessions: Array<{ id: string; title: string; date: string; time: string }>;
-  status: 'published' | 'needs_approval';
+  publicationStatus: PublicationStatus;
   bannerImage?: string;
 };
 
 type EventWithStatus = DraftEvent & {
   id: string;
-  status: 'upcoming' | 'happening' | 'past';
+  timingStatus: TimingStatus;
   createdAt: string;
 };
 
-function statusFromDates(ev: DraftEvent): 'upcoming' | 'happening' | 'past' {
+function statusFromDates(ev: DraftEvent): TimingStatus {
   const now = new Date();
   const start = ev.startDate ? new Date(ev.startDate) : now;
   const end = ev.endDate ? new Date(ev.endDate) : start;
@@ -51,7 +54,7 @@ function EventPage() {
       { id: 'sess-morning', title: 'Morning session', date: '', time: '' },
       { id: 'sess-evening', title: 'Evening session', date: '', time: '' },
     ],
-    status: 'needs_approval',
+    publicationStatus: 'needs_approval',
     bannerImage: '',
   });
   const [events, setEvents] = useState<EventWithStatus[]>([]);
@@ -60,7 +63,7 @@ function EventPage() {
   const grouped = useMemo(() => {
     return events.reduce(
       (acc, ev) => {
-        acc[ev.status].push(ev);
+        acc[ev.timingStatus].push(ev);
         return acc;
       },
       { upcoming: [] as EventWithStatus[], happening: [] as EventWithStatus[], past: [] as EventWithStatus[] }
@@ -79,7 +82,7 @@ function EventPage() {
       sessions: [
         { id: `sess-${Date.now()}`, title: 'Session 1', date: '', time: '' },
       ],
-      status: 'needs_approval',
+      publicationStatus: 'needs_approval',
       bannerImage: '',
     });
 
@@ -116,9 +119,9 @@ function EventPage() {
       toast.error('Location is required');
       return;
     }
-    const status = statusFromDates(draft);
+    const timingStatus = statusFromDates(draft);
     setEvents((prev) => [
-      { ...draft, id: `evt-${Date.now()}`, status, createdAt: new Date().toISOString() },
+      { ...draft, id: `evt-${Date.now()}`, timingStatus, createdAt: new Date().toISOString() },
       ...prev,
     ]);
     toast.success('Event created');
@@ -131,11 +134,11 @@ function EventPage() {
       toast.error('Add a title before previewing');
       return;
     }
-    const status = statusFromDates(draft);
+    const timingStatus = statusFromDates(draft);
     setPreview({
       ...draft,
       id: 'preview',
-      status,
+      timingStatus,
       createdAt: new Date().toISOString(),
     });
     toast.success('Preview generated');
@@ -248,11 +251,11 @@ function EventPage() {
               Status
               <select
                 className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-border-focus)]"
-                value={draft.status}
+                value={draft.publicationStatus}
                 onChange={(e) =>
                   setDraft((d) => ({
                     ...d,
-                    status: e.target.value as DraftEvent['status'],
+                    publicationStatus: e.target.value as DraftEvent['publicationStatus'],
                   }))
                 }
               >
@@ -387,7 +390,7 @@ function EventPage() {
               </a>
             )}
             <div className="text-xs text-[var(--color-text-tertiary)]">
-              Status: {preview.status === 'published' ? 'Published' : 'Needs approval'} • Created{' '}
+              Status: {preview.publicationStatus === 'published' ? 'Published' : 'Needs approval'} • Created{' '}
               {new Date(preview.createdAt).toLocaleString()}
             </div>
           </div>
