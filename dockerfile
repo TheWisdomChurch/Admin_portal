@@ -1,31 +1,40 @@
 # syntax=docker/dockerfile:1
 
+# ===== BASE STAGE =====
 FROM node:20-alpine AS base
 SHELL ["/bin/sh", "-lc"]
 WORKDIR /app
 
-# ✅ add tools commonly required by npm lifecycle scripts
+# Tools needed by npm but NOT git hooks
 RUN apk add --no-cache libc6-compat git bash
 
+# ===== DEPENDENCIES STAGE =====
 FROM base AS deps
 WORKDIR /app
+
+# 🚫 Disable husky / git hooks / prepare scripts
+ENV HUSKY=0
+ENV CI=true
+
 COPY package.json package-lock.json ./
 
-# sanity
-RUN node -v && npm -v && git --version && bash --version
-
-# Install deps (will now succeed if scripts needed git/bash)
+# ✅ This WILL now succeed
 RUN npm ci
 
+# ===== BUILDER STAGE =====
 FROM base AS builder
 WORKDIR /app
+
+ENV HUSKY=0
+ENV CI=true
+ENV NEXT_TELEMETRY_DISABLED=1
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV CI=true
 RUN npm run build
 
+# ===== PRODUCTION STAGE =====
 FROM node:20-alpine AS production
 SHELL ["/bin/sh", "-lc"]
 WORKDIR /app
