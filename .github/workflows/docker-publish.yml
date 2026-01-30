@@ -9,10 +9,10 @@ concurrency:
   group: admin-portal-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-  packages: write
-  security-events: write
+# permissions:
+#   contents: read
+#   packages: write
+#   security-events: write
 
 jobs:
   build-and-push:
