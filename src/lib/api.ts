@@ -286,14 +286,18 @@ function extractUser(response: unknown): User {
 
 function unwrapData<T>(res: unknown, errorMessage: string): T {
   if (isRecord(res) && 'data' in res) {
-    const data = (res as ApiResponse<unknown>).data;
+    const data = (res as Record<string, unknown>)['data'];
+
     if (data === undefined || data === null) {
       throw createApiError(errorMessage, 400, res);
     }
+
     return data as T;
   }
-  return res as T;
+
+  throw createApiError(errorMessage, 400, res);
 }
+
 
 function extractLoginResult(res: unknown): LoginResult {
   const data = isRecord(res) && 'data' in res ? (res as { data?: unknown }).data : res;
