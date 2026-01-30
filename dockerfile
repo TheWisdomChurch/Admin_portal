@@ -25,7 +25,12 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+
+# ✅ force detailed logs
+ENV CI=true
+RUN node -v && npm -v
+RUN npm run build --loglevel verbose
+
 
 # ===== PRODUCTION RUNNER STAGE =====
 FROM node:22-alpine AS production
