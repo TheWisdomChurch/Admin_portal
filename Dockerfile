@@ -5,30 +5,33 @@ FROM node:20-alpine AS base
 SHELL ["/bin/sh", "-lc"]
 WORKDIR /app
 
-# Tools commonly needed by npm deps
-RUN apk add --no-cache libc6-compat git bash
+# Needed by some deps
+RUN apk add --no-cache libc6-compat
 
 # ===== DEPS =====
 FROM base AS deps
 WORKDIR /app
-ENV HUSKY=0
+
 ENV CI=true
+ENV HUSKY=0
 
 COPY package.json package-lock.json ./
 
-# If your lockfile is flaky in CI, use npm install instead of npm ci
-RUN npm install --no-audit --no-fund
+# ✅ Key fix: prevent prepare/postinstall scripts (husky/git hooks/etc.)
+RUN npm ci --ignore-scripts --no-audit --no-fund
 
 # ===== BUILDER =====
 FROM base AS builder
 WORKDIR /app
-ENV HUSKY=0
+
 ENV CI=true
+ENV HUSKY=0
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Build
 RUN npm run build
 
 # ===== PRODUCTION =====
@@ -44,7 +47,6 @@ EXPOSE 3000
 RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs
 
-# Next standalone output (requires next.config.ts: output: 'standalone')
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/.next/standalone ./
