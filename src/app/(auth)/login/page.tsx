@@ -1,7 +1,7 @@
 // src/app/(auth)/login/page.tsx
 'use client';
 
-import { useMemo, useState } from 'react';
+import React, { Suspense, useMemo, useState } from 'react';
 import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,9 +24,6 @@ import type { ApiError } from '@/lib/api';
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-
-  // IMPORTANT: keep it REQUIRED to satisfy RHF resolver typing
-  // default behavior is handled by useForm defaultValues
   rememberMe: z.boolean(),
 });
 
@@ -39,10 +36,11 @@ function safeRedirect(raw: string | null): string {
   return raw;
 }
 
-export default function LoginPage() {
+function LoginInner() {
   const { checkAuth, isLoading } = useAuthContext();
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const [serverError, setServerError] = useState('');
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -51,6 +49,7 @@ export default function LoginPage() {
   const [forgotConfirm, setForgotConfirm] = useState('');
   const [forgotStep, setForgotStep] = useState<'email' | 'otp' | 'reset'>('email');
   const [forgotLoading, setForgotLoading] = useState(false);
+
   const [otpOpen, setOtpOpen] = useState(false);
   const [otpStep, setOtpStep] = useState<'email' | 'otp'>('email');
   const [otpEmail, setOtpEmail] = useState('');
@@ -58,6 +57,7 @@ export default function LoginPage() {
   const [otpLoading, setOtpLoading] = useState(false);
   const [pendingLogin, setPendingLogin] = useState<LoginFormData | null>(null);
   const [challengePurpose, setChallengePurpose] = useState<string>('');
+
   const [errorModal, setErrorModal] = useState<{
     open: boolean;
     title: string;
@@ -65,10 +65,7 @@ export default function LoginPage() {
     mode: 'bad_password' | 'not_found' | 'generic';
   }>({ open: false, title: '', description: '', mode: 'generic' });
 
-  const redirectPath = useMemo(
-    () => safeRedirect(searchParams.get('redirect')),
-    [searchParams]
-  );
+  const redirectPath = useMemo(() => safeRedirect(searchParams.get('redirect')), [searchParams]);
 
   const {
     register,
@@ -104,7 +101,7 @@ export default function LoginPage() {
         return;
       }
 
-      // Otherwise we are authenticated
+      // Otherwise authenticated
       await checkAuth();
       toast.success('Login successful!');
       router.replace(redirectPath);
@@ -142,7 +139,6 @@ export default function LoginPage() {
   };
 
   const requestOtp = async () => {
-    // For login challenges, OTP was already sent by backend on /auth/login.
     toast.success('Check your email for the code we just sent.');
     setOtpStep('otp');
   };
@@ -176,6 +172,7 @@ export default function LoginPage() {
     } catch (err) {
       const apiErr = err as ApiError;
       const status = apiErr.statusCode ?? 0;
+
       if (status === 404) {
         setErrorModal({
           open: true,
@@ -312,104 +309,91 @@ export default function LoginPage() {
             </div>
           )}
 
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="space-y-5"
-          noValidate
-          autoComplete="off"
-        >
-          <div>
-            <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
-              Email Address
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-text-tertiary)]" />
-              <Input
-                type="email"
-                placeholder="you@example.com"
-                className="pl-10"
-                {...register('email')}
-                error={errors.email?.message}
-                disabled={isLoading}
-                autoFocus
-                autoComplete="off"
-                inputMode="email"
-                autoCapitalize="none"
-                spellCheck={false}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
-              Password
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-text-tertiary)]" />
-              <Input
-                type="password"
-                placeholder="••••••••"
-                className="pl-10"
-                {...register('password')}
-                error={errors.password?.message}
-                disabled={isLoading}
-                autoComplete="new-password"
-                autoCapitalize="none"
-                spellCheck={false}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <Controller
-              name="rememberMe"
-              control={control}
-              render={({ field }) => (
-                <Checkbox
-                  label="Remember me"
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate autoComplete="off">
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-text-tertiary)]" />
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  className="pl-10"
+                  {...register('email')}
+                  error={errors.email?.message}
                   disabled={isLoading}
-                  checked={!!field.value}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    field.onChange(e.target.checked)
-                  }
+                  autoFocus
+                  autoComplete="off"
+                  inputMode="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
                 />
-              )}
-            />
+              </div>
+            </div>
 
-            <Link
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowForgot(true);
-              }}
-              className="text-sm text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)]"
-            >
-              Forgot password?
-            </Link>
-          </div>
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-text-tertiary)]" />
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  className="pl-10"
+                  {...register('password')}
+                  error={errors.password?.message}
+                  disabled={isLoading}
+                  autoComplete="new-password"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                />
+              </div>
+            </div>
 
-          <Button
-            type="submit"
-            variant="primary"
-            className="w-full"
-            disabled={isLoading}
-            loading={isLoading}
-          >
-            {isLoading ? 'Signing in...' : 'Sign In'}
-            {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
-          </Button>
-        </form>
+            <div className="flex items-center justify-between">
+              <Controller
+                name="rememberMe"
+                control={control}
+                render={({ field }) => (
+                  <Checkbox
+                    label="Remember me"
+                    disabled={isLoading}
+                    checked={!!field.value}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => field.onChange(e.target.checked)}
+                  />
+                )}
+              />
+
+              <Link
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowForgot(true);
+                }}
+                className="text-sm text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)]"
+              >
+                Forgot password?
+              </Link>
+            </div>
+
+            <Button type="submit" variant="primary" className="w-full" disabled={isLoading} loading={isLoading}>
+              {isLoading ? 'Signing in...' : 'Sign In'}
+              {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
+            </Button>
+          </form>
 
           <div className="mt-8 pt-6 border-t border-[var(--color-border-secondary)]">
             <p className="text-center text-sm text-[var(--color-text-tertiary)]">
-            Don&apos;t have an account?{' '}
-            <Link
-              href="/register"
-              className="text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)] font-medium"
-            >
-              Create one
-            </Link>
-          </p>
+              Don&apos;t have an account?{' '}
+              <Link
+                href="/register"
+                className="text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)] font-medium"
+              >
+                Create one
+              </Link>
+            </p>
           </div>
         </Card>
       </main>
@@ -522,11 +506,7 @@ export default function LoginPage() {
         title={errorModal.title}
         description={errorModal.description}
         icon={
-          errorModal.mode === 'not_found' ? (
-            <UserPlus className="h-5 w-5" />
-          ) : (
-            <AlertTriangle className="h-5 w-5" />
-          )
+          errorModal.mode === 'not_found' ? <UserPlus className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />
         }
         onClose={() => setErrorModal({ ...errorModal, open: false })}
         secondaryAction={{
@@ -535,12 +515,7 @@ export default function LoginPage() {
           onClick: () => setErrorModal({ ...errorModal, open: false }),
         }}
         primaryAction={{
-          label:
-            errorModal.mode === 'not_found'
-              ? 'Register'
-              : errorModal.mode === 'bad_password'
-                ? 'Reset password'
-                : 'Try again',
+          label: errorModal.mode === 'not_found' ? 'Register' : errorModal.mode === 'bad_password' ? 'Reset password' : 'Try again',
           onClick: () => {
             setErrorModal({ ...errorModal, open: false });
             if (errorModal.mode === 'not_found') {
@@ -554,5 +529,14 @@ export default function LoginPage() {
         }}
       />
     </div>
+  );
+}
+
+export default function LoginPage() {
+  // ✅ Required by Next when using useSearchParams()
+  return (
+    <Suspense fallback={null}>
+      <LoginInner />
+    </Suspense>
   );
 }
