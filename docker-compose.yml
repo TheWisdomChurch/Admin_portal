@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   nextjs-app:
     build:
@@ -16,10 +18,10 @@ services:
       - /app/node_modules
       - /app/.next
     command: npm run dev
-    
     profiles:
       - dev
-        migrate:
+
+  migrate:
     image: migrate/migrate:v4.16.2
     container_name: admin_migrate
     volumes:
@@ -28,17 +30,15 @@ services:
     profiles:
       - dev
 
-
   nextjs-app-prod:
-    build:
-      context: .
-      target: production
+    image: ghcr.io/thewisdomchurch/wisdom-admin:main
     container_name: wisdomchurch-admin-prod
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       NODE_ENV: production
+      PORT: "3000"
     profiles:
       - prod
 
@@ -53,7 +53,6 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
     depends_on:
-      nextjs-app-prod:
-        condition: service_started
+      - nextjs-app-prod
     profiles:
       - prod
