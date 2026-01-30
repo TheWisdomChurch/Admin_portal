@@ -1,38 +1,31 @@
 # syntax=docker/dockerfile:1
 
-# ===== BASE STAGE =====
 FROM node:20-alpine AS base
 SHELL ["/bin/sh", "-lc"]
-RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# ===== DEPENDENCIES STAGE =====
+# ✅ add tools commonly required by npm lifecycle scripts
+RUN apk add --no-cache libc6-compat git bash
+
 FROM base AS deps
-SHELL ["/bin/sh", "-lc"]
 WORKDIR /app
-
-# Copy only manifests for better caching
 COPY package.json package-lock.json ./
 
-# ✅ sanity check: prove node/npm exist in this stage
-RUN which node && node -v && which npm && npm -v
+# sanity
+RUN node -v && npm -v && git --version && bash --version
 
-# Install dependencies
+# Install deps (will now succeed if scripts needed git/bash)
 RUN npm ci
 
-# ===== BUILDER STAGE =====
 FROM base AS builder
-SHELL ["/bin/sh", "-lc"]
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV CI=true
-
 RUN npm run build
 
-# ===== PRODUCTION RUNNER STAGE =====
 FROM node:20-alpine AS production
 SHELL ["/bin/sh", "-lc"]
 WORKDIR /app
