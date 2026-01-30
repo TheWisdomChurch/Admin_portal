@@ -35,8 +35,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Build
-RUN npm run build --loglevel verbose
 RUN node -v && npm -v
+RUN npm run build --loglevel verbose
+
 
 
 # ===== PRODUCTION =====
