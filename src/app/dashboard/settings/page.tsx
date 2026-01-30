@@ -1,8 +1,8 @@
 // src/app/(dashboard)/settings/page.tsx
 'use client';
 
-import { useState, useEffect, type FormEvent } from 'react';
-import { Save, Bell, Lock, User, Globe, Trash2 } from 'lucide-react';
+import { useState, useEffect, type ChangeEvent, type FormEvent } from 'react';
+import { Save, Bell, Lock, User, Trash2 } from 'lucide-react';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/input';
 import { Card } from '@/ui/Card';
@@ -28,7 +28,6 @@ interface PasswordFormData {
 
 function SettingsPage() {
   const auth = useAuthContext();
-  const [loading, setLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [clearDataLoading, setClearDataLoading] = useState(false);
@@ -121,7 +120,12 @@ function SettingsPage() {
     try {
       await apiClient.changePassword(
         passwordFormData.currentPassword,
-        passwordFormData.newPassword
+        passwordFormData.newPassword,
+        {
+          currentPassword: passwordFormData.currentPassword,
+          newPassword: passwordFormData.newPassword,
+          confirmPassword: passwordFormData.confirmPassword,
+        }
       );
 
       toast.success('Password changed successfully');
@@ -197,14 +201,14 @@ function SettingsPage() {
     }
   };
 
-  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfileChange = (e: ChangeEvent<HTMLInputElement>) => {
     setProfileFormData({
       ...profileFormData,
       [e.target.name]: e.target.value,
     });
   };
 
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>) => {
     setPasswordFormData({
       ...passwordFormData,
       [e.target.name]: e.target.value,
