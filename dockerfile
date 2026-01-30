@@ -15,7 +15,7 @@ COPY package.json package-lock.json ./
 RUN node -v && npm -v && git --version && bash --version
 
 # Install deps (will now succeed if scripts needed git/bash)
-RUN npm ci
+RUN npm c
 
 FROM base AS builder
 WORKDIR /app
