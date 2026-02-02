@@ -54,7 +54,13 @@ jobs:
           target: production
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+          # ✅ Pass envs at build time (so `next build` / prerender won't crash)
+          # If secrets are not set, Dockerfile defaults below will be used.
           build-args: |
+            NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
             NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+            APP_ADMIN_PORTAL_URL=${{ secrets.APP_ADMIN_PORTAL_URL }}
+
           cache-from: type=gha
           cache-to: type=gha,mode=max
