@@ -8,6 +8,7 @@ import { apiClient } from '@/lib/api';
 import type { PublicFormPayload, FormField } from '@/lib/types';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
+import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 
 type ValuesState = Record<string, string | boolean>;
 
@@ -124,6 +125,7 @@ export default function PublicFormPage() {
           init[f.key] = f.type === 'checkbox' ? false : '';
         });
         setValues(init);
+        setFieldErrors({});
       } catch (err) {
         console.error(err);
         const message = err instanceof Error ? err.message : 'Failed to load registration form';
@@ -149,39 +151,13 @@ export default function PublicFormPage() {
     return ['Smooth check-in', 'Engaging sessions', 'Friendly community', 'Practical takeaways'];
   }, [payload]);
 
-  const validateRequired = (): string | null => {
-    const nextErrors: Record<string, string> = {};
-    for (const f of fields) {
-      if (!f.required) continue;
-      const v = values[f.key];
-
-      if (f.type === 'checkbox') {
-        if (!v) {
-          nextErrors[f.key] = `Please confirm: ${f.label}`;
-        }
-      } else {
-        if (typeof v !== 'string' || v.trim().length === 0) {
-          nextErrors[f.key] = `${f.label} is required`;
-        }
-      }
-    }
-    setFieldErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return 'Please fill the required fields.';
-    return null;
-  };
-
   const submit = async () => {
     if (!slug || !payload) return;
-
-    const errMsg = validateRequired();
-    if (errMsg) {
-      toast.error(errMsg);
-      return;
-    }
 
     try {
       setSubmitting(true);
       await apiClient.submitPublicForm(slug, { values });
+      setFieldErrors({});
       toast.success(payload.form.settings?.successMessage || 'Registration submitted successfully!');
       // Optionally clear:
       const cleared: ValuesState = {};
@@ -189,7 +165,13 @@ export default function PublicFormPage() {
       setValues(cleared);
     } catch (err) {
       console.error(err);
-      const message = err instanceof Error ? err.message : 'Failed to submit registration';
+      const fieldErrors = extractServerFieldErrors(err);
+      if (Object.keys(fieldErrors).length > 0) {
+        setFieldErrors(fieldErrors);
+        toast.error(getFirstServerFieldError(fieldErrors) || 'Please review the highlighted fields.');
+        return;
+      }
+      const message = getServerErrorMessage(err, 'Failed to submit registration');
       toast.error(message);
     } finally {
       setSubmitting(false);

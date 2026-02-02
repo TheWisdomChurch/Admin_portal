@@ -3,8 +3,6 @@
 
 import { useState } from 'react';
 import { useForm, Controller, useWatch, type SubmitHandler } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft, UserPlus, CheckCircle, Mail, Lock, User } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -16,62 +14,37 @@ import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
 import { Checkbox } from '@/ui/Checkbox';
 import { useAuthContext } from '@/providers/AuthProviders';
+import { PasswordStrengthMeter } from '@/ui/PasswordStrengthMeter';
+import { extractServerFieldErrors, getServerErrorMessage } from '@/lib/serverValidation';
 
-// Keep rememberMe REQUIRED to avoid resolver typing mismatch
-const registerSchema = z
-  .object({
-    first_name: z.string().min(1, 'First name is required').max(50, 'First name cannot exceed 50 characters'),
-    last_name: z.string().min(1, 'Last name is required').max(50, 'Last name cannot exceed 50 characters'),
-    email: z.string().email('Invalid email address').max(100, 'Email cannot exceed 100 characters'),
-    password: z.string().min(6, 'Password must be at least 6 characters').max(100, 'Password cannot exceed 100 characters'),
-    confirmPassword: z.string().min(1, 'Please confirm your password'),
-    role: z.enum(['admin', 'super_admin']),
-    rememberMe: z.boolean(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ['confirmPassword'],
-  });
-
-type RegisterFormData = z.infer<typeof registerSchema>;
+type RegisterFormData = {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  role: 'admin' | 'super_admin';
+  rememberMe: boolean;
+};
 
 function humanizeServerError(err: unknown): string {
-  // Your backend shape can vary; keep it defensive
-  const payload =
-    typeof err === 'object' && err !== null
-      ? (err as { details?: unknown; response?: { data?: unknown } })
-      : undefined;
-  const data = payload?.details ?? payload?.response?.data ?? err;
-
-  if (
-    typeof data === 'object' &&
-    data !== null &&
-    'errors' in data &&
-    typeof (data as { errors?: unknown }).errors === 'object'
-  ) {
+  const fieldErrors = extractServerFieldErrors(err);
+  if (Object.keys(fieldErrors).length > 0) {
     const fieldMap: Record<string, string> = {
       first_name: 'First Name',
       last_name: 'Last Name',
       email: 'Email',
       password: 'Password',
+      confirmPassword: 'Confirm Password',
       role: 'Role',
     };
 
-    return Object.entries((data as { errors: Record<string, unknown> }).errors)
-      .map(([field, messages]) => {
-        const name = fieldMap[field] || field;
-        const text = Array.isArray(messages) ? messages.join(', ') : String(messages);
-        return `${name}: ${text}`;
-      })
+    return Object.entries(fieldErrors)
+      .map(([field, message]) => `${fieldMap[field] || field}: ${message}`)
       .join('\n');
   }
 
-  if (typeof data === 'object' && data !== null && 'message' in data) {
-    const message = (data as { message?: unknown }).message;
-    if (typeof message === 'string') return message;
-  }
-  if (err instanceof Error) return err.message;
-  return 'Registration failed. Please try again.';
+  return getServerErrorMessage(err, 'Registration failed. Please try again.');
 }
 
 function SuccessModal({
@@ -136,32 +109,27 @@ export default function RegisterPage() {
     handleSubmit,
     // watch,
     reset,
+    clearErrors,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
     defaultValues: {
       first_name: '',
       last_name: '',
       email: '',
       password: '',
       confirmPassword: '',
-    role: 'admin',
+      role: 'admin',
       rememberMe: false,
     },
     mode: 'onSubmit',
   });
 
   const password = useWatch({ control, name: 'password' });
-  const passwordHint = !password
-    ? null
-    : password.length < 6
-      ? { ok: false, text: 'Use at least 6 characters' }
-      : password.length < 10
-        ? { ok: true, text: 'Good — consider adding more length' }
-        : { ok: true, text: 'Strong length' };
 
   const onSubmit: SubmitHandler<RegisterFormData> = async (formData) => {
     try {
+      clearErrors();
       setServerError('');
 
       const payload = {
@@ -184,6 +152,28 @@ export default function RegisterPage() {
         router.replace('/login');
       }, 1200);
     } catch (err) {
+      const fieldErrors = extractServerFieldErrors(err);
+      const fieldMap: Record<string, keyof RegisterFormData> = {
+        confirm_password: 'confirmPassword',
+        confirmPassword: 'confirmPassword',
+      };
+      const allowedFields: Array<keyof RegisterFormData> = [
+        'first_name',
+        'last_name',
+        'email',
+        'password',
+        'confirmPassword',
+        'role',
+        'rememberMe',
+      ];
+
+      Object.entries(fieldErrors).forEach(([field, message]) => {
+        const target = fieldMap[field] ?? (field as keyof RegisterFormData);
+        if (allowedFields.includes(target)) {
+          setError(target, { type: 'server', message });
+        }
+      });
+
       const msg = humanizeServerError(err);
       setServerError(msg);
       toast.error(msg.split('\n')[0] || 'Registration failed');
@@ -284,7 +274,12 @@ export default function RegisterPage() {
                       type="text"
                       placeholder="John"
                       className="pl-10"
-                      {...register('first_name')}
+                      {...register('first_name', {
+                        onChange: () => {
+                          setServerError('');
+                          clearErrors('first_name');
+                        },
+                      })}
                       error={errors.first_name?.message}
                       disabled={isSubmitting}
                       autoComplete="off"
@@ -301,7 +296,12 @@ export default function RegisterPage() {
                       type="text"
                       placeholder="Doe"
                       className="pl-10"
-                      {...register('last_name')}
+                      {...register('last_name', {
+                        onChange: () => {
+                          setServerError('');
+                          clearErrors('last_name');
+                        },
+                      })}
                       error={errors.last_name?.message}
                       disabled={isSubmitting}
                       autoComplete="off"
@@ -320,7 +320,12 @@ export default function RegisterPage() {
                     type="email"
                     placeholder="your.email@example.com"
                     className="pl-10"
-                    {...register('email')}
+                    {...register('email', {
+                      onChange: () => {
+                        setServerError('');
+                        clearErrors('email');
+                      },
+                    })}
                     error={errors.email?.message}
                     disabled={isSubmitting}
                     autoComplete="off"
@@ -341,7 +346,12 @@ export default function RegisterPage() {
                       type="password"
                       placeholder="••••••••"
                       className="pl-10"
-                      {...register('password')}
+                      {...register('password', {
+                        onChange: () => {
+                          setServerError('');
+                          clearErrors('password');
+                        },
+                      })}
                       error={errors.password?.message}
                       disabled={isSubmitting}
                       autoComplete="new-password"
@@ -349,11 +359,7 @@ export default function RegisterPage() {
                       spellCheck={false}
                     />
                   </div>
-                  {passwordHint && !errors.password?.message && (
-                    <p className={`mt-1 text-xs ${passwordHint.ok ? 'text-green-700' : 'text-[var(--color-text-tertiary)]'}`}>
-                      {passwordHint.text}
-                    </p>
-                  )}
+                  <PasswordStrengthMeter password={password || ''} />
                 </div>
 
                 <div>
@@ -364,7 +370,12 @@ export default function RegisterPage() {
                       type="password"
                       placeholder="••••••••"
                       className="pl-10"
-                      {...register('confirmPassword')}
+                      {...register('confirmPassword', {
+                        onChange: () => {
+                          setServerError('');
+                          clearErrors('confirmPassword');
+                        },
+                      })}
                       error={errors.confirmPassword?.message}
                       disabled={isSubmitting}
                       autoComplete="new-password"
@@ -384,7 +395,12 @@ export default function RegisterPage() {
                       type="radio"
                       value="admin"
                       className="mt-1"
-                      {...register('role')}
+                      {...register('role', {
+                        onChange: () => {
+                          setServerError('');
+                          clearErrors('role');
+                        },
+                      })}
                       disabled={isSubmitting}
                     />
                     <span>
@@ -398,7 +414,12 @@ export default function RegisterPage() {
                       type="radio"
                       value="super_admin"
                       className="mt-1"
-                      {...register('role')}
+                      {...register('role', {
+                        onChange: () => {
+                          setServerError('');
+                          clearErrors('role');
+                        },
+                      })}
                       disabled={isSubmitting}
                     />
                     <span>
@@ -407,6 +428,9 @@ export default function RegisterPage() {
                     </span>
                   </label>
                 </div>
+                {errors.role?.message && (
+                  <p className="mt-2 text-xs text-red-600">{errors.role.message}</p>
+                )}
               </div>
 
               {/* Remember me */}
@@ -419,9 +443,11 @@ export default function RegisterPage() {
                       label="Remember me on this device"
                       disabled={isSubmitting}
                       checked={!!field.value}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        field.onChange(e.target.checked)
-                      }
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                        setServerError('');
+                        clearErrors('rememberMe');
+                        field.onChange(e.target.checked);
+                      }}
                     />
                   )}
                 />

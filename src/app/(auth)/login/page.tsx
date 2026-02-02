@@ -3,8 +3,6 @@
 
 import React, { Suspense, useMemo, useState } from 'react';
 import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Lock, Mail, ArrowRight, AlertTriangle, UserPlus } from 'lucide-react';
 import { Button } from '@/ui/Button';
@@ -20,14 +18,13 @@ import { OtpModal } from '@/ui/OtpModal';
 import { apiClient } from '@/lib/api';
 import { AlertModal } from '@/ui/AlertModal';
 import type { ApiError } from '@/lib/api';
+import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 
-const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  rememberMe: z.boolean(),
-});
-
-type LoginFormData = z.infer<typeof loginSchema>;
+type LoginFormData = {
+  email: string;
+  password: string;
+  rememberMe: boolean;
+};
 
 function safeRedirect(raw: string | null): string {
   if (!raw) return '/dashboard';
@@ -71,9 +68,10 @@ function LoginInner() {
     register,
     control,
     handleSubmit,
+    clearErrors,
+    setError,
     formState: { errors },
   } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
     defaultValues: {
       email: '',
       password: '',
@@ -83,6 +81,7 @@ function LoginInner() {
   });
 
   const onSubmit: SubmitHandler<LoginFormData> = async (data) => {
+    clearErrors();
     setServerError('');
 
     try {
@@ -108,6 +107,23 @@ function LoginInner() {
     } catch (err) {
       const apiErr = err as ApiError;
       const status = apiErr.statusCode ?? 0;
+
+      if (status === 400 || status === 422) {
+        const fieldErrors = extractServerFieldErrors(apiErr);
+        let applied = false;
+
+        (Object.entries(fieldErrors) as Array<[keyof LoginFormData, string]>).forEach(([field, message]) => {
+          if (field in data) {
+            applied = true;
+            setError(field, { type: 'server', message });
+          }
+        });
+
+        if (!applied) {
+          setServerError(getServerErrorMessage(apiErr, 'Unable to sign in right now.'));
+        }
+        return;
+      }
 
       if (status === 404) {
         setErrorModal({
@@ -144,11 +160,6 @@ function LoginInner() {
   };
 
   const verifyOtpAndLogin = async () => {
-    if (!otpCode.trim() || otpCode.trim().length < 4) {
-      toast.error('Enter the code we sent to your email');
-      return;
-    }
-
     if (!pendingLogin) {
       toast.error('Please restart the login process');
       setOtpOpen(false);
@@ -172,6 +183,14 @@ function LoginInner() {
     } catch (err) {
       const apiErr = err as ApiError;
       const status = apiErr.statusCode ?? 0;
+
+      if (status === 400 || status === 422) {
+        const fieldErrors = extractServerFieldErrors(apiErr);
+        if (Object.keys(fieldErrors).length > 0) {
+          toast.error(getFirstServerFieldError(fieldErrors) || 'Please check the code and try again.');
+          return;
+        }
+      }
 
       if (status === 404) {
         setErrorModal({
@@ -211,49 +230,44 @@ function LoginInner() {
   };
 
   const handleForgotPassword = async () => {
-    if (forgotStep === 'email') {
-      if (!forgotEmail.trim()) {
-        toast.error('Please enter your email address');
-        return;
-      }
-      try {
-        setForgotLoading(true);
-        toast.success('Password reset link sent. Check your email.');
-        setForgotStep('otp');
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to send OTP';
-        toast.error(message);
-      } finally {
-        setForgotLoading(false);
-      }
-      return;
-    }
-
-    if (forgotStep === 'otp') {
-      if (!forgotOtp.trim()) {
-        toast.error('Please enter the OTP code');
-        return;
-      }
-      setForgotStep('reset');
-      return;
-    }
-
-    if (!forgotPassword.trim() || !forgotConfirm.trim()) {
-      toast.error('Please enter and confirm your new password');
-      return;
-    }
-    if (forgotPassword !== forgotConfirm) {
-      toast.error('Passwords do not match');
-      return;
-    }
-
     try {
       setForgotLoading(true);
-      toast.success('If that email exists, a reset link has been sent.');
+
+      if (forgotStep === 'email') {
+        await apiClient.requestPasswordReset({ email: forgotEmail.trim() });
+        toast.success('Password reset code sent. Check your email.');
+        setForgotStep('otp');
+        return;
+      }
+
+      if (forgotStep === 'otp') {
+        await apiClient.verifyOtp({
+          email: forgotEmail.trim(),
+          code: forgotOtp.trim(),
+          purpose: 'password_reset',
+        });
+        toast.success('Code verified. Set a new password.');
+        setForgotStep('reset');
+        return;
+      }
+
+      await apiClient.confirmPasswordReset({
+        email: forgotEmail.trim(),
+        code: forgotOtp.trim(),
+        purpose: 'password_reset',
+        newPassword: forgotPassword,
+        confirmPassword: forgotConfirm,
+      });
+      toast.success('Password reset successfully. You can sign in now.');
       setShowForgot(false);
       resetForgotState();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update password';
+      const fieldErrors = extractServerFieldErrors(err);
+      if (Object.keys(fieldErrors).length > 0) {
+        toast.error(getFirstServerFieldError(fieldErrors) || 'Please review the highlighted fields.');
+        return;
+      }
+      const message = getServerErrorMessage(err, 'Failed to update password');
       toast.error(message);
     } finally {
       setForgotLoading(false);
@@ -320,7 +334,12 @@ function LoginInner() {
                   type="email"
                   placeholder="you@example.com"
                   className="pl-10"
-                  {...register('email')}
+                  {...register('email', {
+                    onChange: () => {
+                      setServerError('');
+                      clearErrors('email');
+                    },
+                  })}
                   error={errors.email?.message}
                   disabled={isLoading}
                   autoFocus
@@ -342,7 +361,12 @@ function LoginInner() {
                   type="password"
                   placeholder="••••••••"
                   className="pl-10"
-                  {...register('password')}
+                  {...register('password', {
+                    onChange: () => {
+                      setServerError('');
+                      clearErrors('password');
+                    },
+                  })}
                   error={errors.password?.message}
                   disabled={isLoading}
                   autoComplete="new-password"
@@ -361,7 +385,11 @@ function LoginInner() {
                     label="Remember me"
                     disabled={isLoading}
                     checked={!!field.value}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => field.onChange(e.target.checked)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      setServerError('');
+                      clearErrors('rememberMe');
+                      field.onChange(e.target.checked);
+                    }}
                   />
                 )}
               />

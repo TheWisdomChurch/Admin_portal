@@ -15,6 +15,7 @@ import type { CreateFormRequest, FormFieldType } from '@/lib/types';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
+import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 
 type FieldDraft = {
   key: string;
@@ -59,6 +60,15 @@ export default withAuth(function TestPage() {
   const [submitButtonTextColor, setSubmitButtonTextColor] = useState('#111827');
   const [submitButtonIcon, setSubmitButtonIcon] = useState<SubmitButtonIcon>('check');
   const [formHeaderNote, setFormHeaderNote] = useState('Please ensure details are accurate before submitting.');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const clearFieldError = (key: string) =>
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
 
   // minimal v1: create a draft with at least one field
   const [fields, setFields] = useState<FieldDraft[]>([
@@ -91,21 +101,8 @@ export default withAuth(function TestPage() {
   };
 
   const save = async () => {
-    if (!title.trim()) {
-      toast.error('Title is required');
-      return;
-    }
-
-    if (!slug.trim()) {
-      toast.error('Form link name is required');
-      return;
-    }
-
+    setFieldErrors({});
     const normalizedSlug = normalizeSlug(slug);
-    if (!normalizedSlug) {
-      toast.error('Form link name must contain letters or numbers');
-      return;
-    }
 
     const payload: CreateFormRequest = {
       title: title.trim(),
@@ -153,7 +150,13 @@ export default withAuth(function TestPage() {
       router.push(`/dashboard/forms/${created.id}/edit`);
     } catch (err) {
       console.error(err);
-      const message = err instanceof Error ? err.message : 'Failed to create form';
+      const fieldErrors = extractServerFieldErrors(err);
+      if (Object.keys(fieldErrors).length > 0) {
+        setFieldErrors(fieldErrors);
+        toast.error(getFirstServerFieldError(fieldErrors) || 'Please review the highlighted fields.');
+        return;
+      }
+      const message = getServerErrorMessage(err, 'Failed to create form');
       toast.error(message);
     } finally {
       setSaving(false);
@@ -186,17 +189,25 @@ export default withAuth(function TestPage() {
           <Input
             label="Title *"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              clearFieldError('title');
+              setTitle(e.target.value);
+            }}
             placeholder="e.g., Youth Summit Registration"
+            error={fieldErrors.title}
           />
 
           <div className="space-y-2">
             <Input
               label="Form Link Name *"
               value={slug}
-              onChange={(e) => setSlug(e.target.value)}
+              onChange={(e) => {
+                clearFieldError('slug');
+                setSlug(e.target.value);
+              }}
               onBlur={() => setSlug((current) => normalizeSlug(current))}
               placeholder="e.g., wpc"
+              error={fieldErrors.slug}
             />
             <p className="text-xs text-[var(--color-text-tertiary)]">
               Public link preview:{' '}

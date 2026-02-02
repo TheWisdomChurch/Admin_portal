@@ -13,6 +13,8 @@ import { withAuth } from '@/providers/withAuth';
 import { ConfirmationModal } from '@/ui/ConfirmationModal';
 import { PageHeader } from '@/layouts';
 import { OtpModal } from '@/ui/OtpModal';
+import { PasswordStrengthMeter } from '@/ui/PasswordStrengthMeter';
+import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 
 
 interface ProfileFormData {
@@ -46,12 +48,14 @@ function SettingsPage() {
     username: '',
     email: '',
   });
+  const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
 
   const [passwordFormData, setPasswordFormData] = useState<PasswordFormData>({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
 
   // Initialize form data with user info
   useEffect(() => {
@@ -66,6 +70,7 @@ function SettingsPage() {
 
   const handleProfileSubmit = (e: FormEvent) => {
     e.preventDefault();
+    setProfileErrors({});
     setPendingAction('profile');
     setOtpStep('email');
     setOtpCode('');
@@ -89,8 +94,18 @@ function SettingsPage() {
         username: updatedUser.first_name || '',
         email: updatedUser.email || '',
       });
+      setProfileErrors({});
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to update profile';
+      const fieldErrors = extractServerFieldErrors(error);
+      if (Object.keys(fieldErrors).length > 0) {
+        const mappedErrors: Record<string, string> = {};
+        if (fieldErrors.first_name) mappedErrors.username = fieldErrors.first_name;
+        if (fieldErrors.email) mappedErrors.email = fieldErrors.email;
+        setProfileErrors(Object.keys(mappedErrors).length > 0 ? mappedErrors : fieldErrors);
+        toast.error(getFirstServerFieldError(fieldErrors) || 'Please review your profile details.');
+        return;
+      }
+      const message = getServerErrorMessage(error, 'Failed to update profile');
       toast.error(message);
     } finally {
       setProfileLoading(false);
@@ -99,16 +114,7 @@ function SettingsPage() {
 
   const handlePasswordSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // Validate passwords
-    if (passwordFormData.newPassword !== passwordFormData.confirmPassword) {
-      toast.error('New passwords do not match');
-      return;
-    }
-    
-    if (passwordFormData.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters');
-      return;
-    }
+    setPasswordErrors({});
     setPendingAction('password');
     setOtpStep('email');
     setOtpCode('');
@@ -135,8 +141,19 @@ function SettingsPage() {
         newPassword: '',
         confirmPassword: '',
       });
+      setPasswordErrors({});
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to change password';
+      const fieldErrors = extractServerFieldErrors(error);
+      if (Object.keys(fieldErrors).length > 0) {
+        const mappedErrors: Record<string, string> = {};
+        if (fieldErrors.current_password) mappedErrors.currentPassword = fieldErrors.current_password;
+        if (fieldErrors.new_password) mappedErrors.newPassword = fieldErrors.new_password;
+        if (fieldErrors.confirm_password) mappedErrors.confirmPassword = fieldErrors.confirm_password;
+        setPasswordErrors(Object.keys(mappedErrors).length > 0 ? mappedErrors : fieldErrors);
+        toast.error(getFirstServerFieldError(fieldErrors) || 'Please review your password details.');
+        return;
+      }
+      const message = getServerErrorMessage(error, 'Failed to change password');
       toast.error(message);
     } finally {
       setPasswordLoading(false);
@@ -147,10 +164,6 @@ function SettingsPage() {
     const targetEmail = otpEmail.trim() || auth.user?.email || '';
     if (!pendingAction) {
       toast.error('Select an action to verify');
-      return;
-    }
-    if (!targetEmail) {
-      toast.error('Email address is required for verification');
       return;
     }
 
@@ -174,10 +187,6 @@ function SettingsPage() {
   const verifyOtpAndRun = async () => {
     if (!pendingAction) {
       toast.error('No pending action to verify');
-      return;
-    }
-    if (!otpCode.trim()) {
-      toast.error('Enter the code we sent to your email');
       return;
     }
     const purpose = pendingAction === 'password' ? 'password_change' : 'profile_update';
@@ -210,6 +219,13 @@ function SettingsPage() {
       ...profileFormData,
       [e.target.name]: e.target.value,
     });
+    if (profileErrors[e.target.name]) {
+      setProfileErrors((prev) => {
+        const next = { ...prev };
+        delete next[e.target.name];
+        return next;
+      });
+    }
   };
 
   const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -217,6 +233,13 @@ function SettingsPage() {
       ...passwordFormData,
       [e.target.name]: e.target.value,
     });
+    if (passwordErrors[e.target.name]) {
+      setPasswordErrors((prev) => {
+        const next = { ...prev };
+        delete next[e.target.name];
+        return next;
+      });
+    }
   };
 
   const handleClearData = async () => {
@@ -310,6 +333,7 @@ function SettingsPage() {
                     onChange={handleProfileChange}
                     placeholder="Enter display name"
                     helperText="This name will be displayed to other users"
+                    error={profileErrors.username}
                   />
                   
                   <Input
@@ -319,7 +343,7 @@ function SettingsPage() {
                     value={profileFormData.email}
                     onChange={handleProfileChange}
                     placeholder="Enter your email"
-                    required
+                    error={profileErrors.email}
                   />
                   
                   <div className="pt-4">
@@ -353,7 +377,7 @@ function SettingsPage() {
                     value={passwordFormData.currentPassword}
                     onChange={handlePasswordChange}
                     placeholder="Enter current password"
-                    required
+                    error={passwordErrors.currentPassword}
                   />
                   
                   <Input
@@ -363,9 +387,9 @@ function SettingsPage() {
                     value={passwordFormData.newPassword}
                     onChange={handlePasswordChange}
                     placeholder="Enter new password (min. 6 characters)"
-                    required
-                    minLength={6}
+                    error={passwordErrors.newPassword}
                   />
+                  <PasswordStrengthMeter password={passwordFormData.newPassword} />
                   
                   <Input
                     label="Confirm New Password"
@@ -374,8 +398,7 @@ function SettingsPage() {
                     value={passwordFormData.confirmPassword}
                     onChange={handlePasswordChange}
                     placeholder="Confirm new password"
-                    required
-                    minLength={6}
+                    error={passwordErrors.confirmPassword}
                   />
                   
                   <div className="pt-4">
