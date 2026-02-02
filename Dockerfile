@@ -1,5 +1,6 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1.4
 
+# ===== BASE =====
 FROM node:20-alpine AS base
 SHELL ["/bin/sh", "-lc"]
 WORKDIR /app
@@ -13,12 +14,10 @@ WORKDIR /app
 ENV CI=true
 ENV HUSKY=0
 
-# ✅ Add tools needed during `npm ci` (git + build toolchain)
-# - git: for deps that install from git urls
-# - python3/make/g++: for native modules
-# - vips-dev: common requirement for sharp on alpine
+# ✅ Tools for git deps + native modules (sharp/swc/esbuild/etc.)
 RUN apk add --no-cache \
   git \
+  openssh-client \
   python3 \
   make \
   g++ \
@@ -26,8 +25,18 @@ RUN apk add --no-cache \
 
 COPY package.json package-lock.json ./
 
-RUN node -v && npm -v
-RUN npm ci --no-audit --no-fund
+# ✅ Ensure github host key is known (prevents "Host key verification failed")
+RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh \
+ && ssh-keyscan github.com >> /root/.ssh/known_hosts
+
+# ✅ If install fails, dump npm debug log into the GH Actions output
+RUN --mount=type=ssh \
+    node -v && npm -v \
+ && npm ci --no-audit --no-fund \
+ || (echo "---- npm debug log ----" \
+     && ls -la /root/.npm/_logs || true \
+     && cat /root/.npm/_logs/*-debug-0.log || true \
+     && exit 1)
 
 # ===== BUILDER =====
 FROM base AS builder
