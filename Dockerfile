@@ -17,8 +17,8 @@ ENV HUSKY=0
 
 COPY package.json package-lock.json ./
 
-# ✅ Key fix: prevent prepare/postinstall scripts (husky/git hooks/etc.)
-RUN npm ci --ignore-scripts --no-audit --no-fund
+# ✅ IMPORTANT: do NOT ignore scripts (sharp/swc/esbuild/etc. need postinstall)
+RUN npm ci --no-audit --no-fund
 
 # ===== BUILDER =====
 FROM base AS builder
@@ -28,17 +28,21 @@ ENV CI=true
 ENV HUSKY=0
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# ✅ Native deps for Next builds + sharp on Alpine
+RUN apk add --no-cache \
+  python3 \
+  make \
+  g++ \
+  vips-dev
+
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build
 RUN node -v && npm -v
 RUN npm run build --loglevel verbose
-
-
 
 # ===== PRODUCTION =====
 FROM node:20-alpine AS production
