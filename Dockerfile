@@ -1,11 +1,9 @@
 # syntax=docker/dockerfile:1
 
-# ===== BASE =====
 FROM node:20-alpine AS base
 SHELL ["/bin/sh", "-lc"]
 WORKDIR /app
 
-# Needed by some deps
 RUN apk add --no-cache libc6-compat
 
 # ===== DEPS =====
@@ -15,9 +13,20 @@ WORKDIR /app
 ENV CI=true
 ENV HUSKY=0
 
+# ✅ Add tools needed during `npm ci` (git + build toolchain)
+# - git: for deps that install from git urls
+# - python3/make/g++: for native modules
+# - vips-dev: common requirement for sharp on alpine
+RUN apk add --no-cache \
+  git \
+  python3 \
+  make \
+  g++ \
+  vips-dev
+
 COPY package.json package-lock.json ./
 
-# ✅ IMPORTANT: do NOT ignore scripts (sharp/swc/esbuild/etc. need postinstall)
+RUN node -v && npm -v
 RUN npm ci --no-audit --no-fund
 
 # ===== BUILDER =====
@@ -28,20 +37,12 @@ ENV CI=true
 ENV HUSKY=0
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# ✅ Native deps for Next builds + sharp on Alpine
-RUN apk add --no-cache \
-  python3 \
-  make \
-  g++ \
-  vips-dev
-
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-RUN node -v && npm -v
 RUN npm run build --loglevel verbose
 
 # ===== PRODUCTION =====
