@@ -3,6 +3,8 @@
 
 import { useState } from 'react';
 import { useForm, Controller, useWatch, type SubmitHandler } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
 import { ArrowLeft, UserPlus, CheckCircle, Mail, Lock, User } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -26,6 +28,16 @@ type RegisterFormData = {
   role: 'admin' | 'super_admin';
   rememberMe: boolean;
 };
+
+const schema = yup.object({
+  first_name: yup.string().required('First name is required').trim(),
+  last_name: yup.string().required('Last name is required').trim(),
+  email: yup.string().email('Invalid email format').required('Email is required').trim(),
+  password: yup.string().min(8, 'Password must be at least 8 characters').required('Password is required'),
+  confirmPassword: yup.string().oneOf([yup.ref('password')], 'Passwords must match').required('Confirm password is required'),
+  role: yup.string().oneOf(['admin', 'super_admin'], 'Select a role').required('Role is required'),
+  rememberMe: yup.boolean().required(),
+}).required();
 
 function humanizeServerError(err: unknown): string {
   const fieldErrors = extractServerFieldErrors(err);
@@ -57,7 +69,7 @@ function SuccessModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <div
         className="absolute inset-0 bg-black/50"
         onClick={onClose}
@@ -107,7 +119,6 @@ export default function RegisterPage() {
     register,
     control,
     handleSubmit,
-    // watch,
     reset,
     clearErrors,
     setError,
@@ -123,6 +134,7 @@ export default function RegisterPage() {
       rememberMe: false,
     },
     mode: 'onSubmit',
+    resolver: yupResolver(schema),
   });
 
   const password = useWatch({ control, name: 'password' });
@@ -267,10 +279,11 @@ export default function RegisterPage() {
               {/* Name row */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">First name</label>
+                  <label htmlFor="first_name" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">First name</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input
+                      id="first_name"
                       type="text"
                       placeholder="John"
                       className="pl-10"
@@ -289,10 +302,11 @@ export default function RegisterPage() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Last name</label>
+                  <label htmlFor="last_name" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Last name</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input
+                      id="last_name"
                       type="text"
                       placeholder="Doe"
                       className="pl-10"
@@ -313,10 +327,11 @@ export default function RegisterPage() {
 
               {/* Email */}
               <div>
-                <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Email</label>
+                <label htmlFor="email" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Email</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                   <Input
+                    id="email"
                     type="email"
                     placeholder="your.email@example.com"
                     className="pl-10"
@@ -339,10 +354,11 @@ export default function RegisterPage() {
               {/* Password row */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Password</label>
+                  <label htmlFor="password" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Password</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input
+                      id="password"
                       type="password"
                       placeholder="••••••••"
                       className="pl-10"
@@ -363,10 +379,11 @@ export default function RegisterPage() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Confirm password</label>
+                  <label htmlFor="confirmPassword" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Confirm password</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input
+                      id="confirmPassword"
                       type="password"
                       placeholder="••••••••"
                       className="pl-10"
