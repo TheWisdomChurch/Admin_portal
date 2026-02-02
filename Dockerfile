@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1
 
+# ===== BASE =====
 FROM node:20-alpine AS base
 SHELL ["/bin/sh", "-lc"]
 WORKDIR /app
 
-# Base OS deps
 RUN apk add --no-cache libc6-compat ca-certificates \
  && update-ca-certificates
 
@@ -15,7 +15,7 @@ WORKDIR /app
 ENV CI=true
 ENV HUSKY=0
 
-# Build tools for native deps (sharp/swc/esbuild etc.)
+# Native deps + tools
 RUN apk add --no-cache \
   git \
   python3 \
@@ -25,21 +25,13 @@ RUN apk add --no-cache \
 
 COPY package.json package-lock.json ./
 
-# (Optional) pin npm to reduce CI weirdness
-RUN npm -v && npm i -g npm@10.8.3 && npm -v
+# ✅ Critical fix: remove git-hook installer scripts that run "git config core.hooksPath ..."
+# (common in husky/githooks setups). This prevents exit 128 in Docker where .git isn't present.
+RUN npm pkg delete scripts.prepare || true
 
-# Extra diagnostics + install
-RUN node -v \
- && echo "---- lockfileVersion ----" \
- && node -e "console.log(require('./package-lock.json').lockfileVersion)" \
- && echo "---- npm config ----" \
- && npm config list \
- && echo "---- npm ci ----" \
- && npm ci --no-audit --no-fund --loglevel verbose \
- || (echo "---- npm debug log ----" \
-     && ls -la /root/.npm/_logs || true \
-     && cat /root/.npm/_logs/*-debug-0.log || true \
-     && exit 1)
+# Install dependencies
+RUN node -v && npm -v \
+ && npm ci --no-audit --no-fund
 
 # ===== BUILDER =====
 FROM base AS builder
