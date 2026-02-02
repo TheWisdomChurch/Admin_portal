@@ -11,6 +11,7 @@ import type { AdminForm, FormField, FormFieldType, UpdateFormRequest } from '@/l
 import { withAuth } from '@/providers/withAuth';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, Copy, Save, Globe } from 'lucide-react';
+import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 
 type FieldDraft = Omit<FormField, 'id'>;
 
@@ -27,6 +28,15 @@ function EditFormPage() {
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const clearFieldError = (key: string) =>
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
 
   useEffect(() => {
     if (!formId) return;
@@ -63,10 +73,7 @@ function EditFormPage() {
 
   const saveForm = async () => {
     if (!form) return;
-    if (!form.title?.trim()) {
-      toast.error('Title is required');
-      return;
-    }
+    setFieldErrors({});
     setSaving(true);
     const payload: UpdateFormRequest = {
       title: form.title.trim(),
@@ -87,7 +94,13 @@ function EditFormPage() {
       toast.success('Form updated');
       router.push('/dashboard/forms');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to save form';
+      const fieldErrors = extractServerFieldErrors(err);
+      if (Object.keys(fieldErrors).length > 0) {
+        setFieldErrors(fieldErrors);
+        toast.error(getFirstServerFieldError(fieldErrors) || 'Please review the highlighted fields.');
+        return;
+      }
+      const message = getServerErrorMessage(err, 'Failed to save form');
       toast.error(message);
     } finally {
       setSaving(false);
@@ -156,7 +169,11 @@ function EditFormPage() {
           <Input
             label="Title"
             value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            onChange={(e) => {
+              clearFieldError('title');
+              setForm({ ...form, title: e.target.value });
+            }}
+            error={fieldErrors.title}
           />
           <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Description</label>
           <textarea
