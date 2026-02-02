@@ -1,11 +1,12 @@
-# syntax=docker/dockerfile:1.4
+# syntax=docker/dockerfile:1
 
-# ===== BASE =====
 FROM node:20-alpine AS base
 SHELL ["/bin/sh", "-lc"]
 WORKDIR /app
 
-RUN apk add --no-cache libc6-compat
+# Base OS deps
+RUN apk add --no-cache libc6-compat ca-certificates \
+ && update-ca-certificates
 
 # ===== DEPS =====
 FROM base AS deps
@@ -14,10 +15,9 @@ WORKDIR /app
 ENV CI=true
 ENV HUSKY=0
 
-# ✅ Tools for git deps + native modules (sharp/swc/esbuild/etc.)
+# Build tools for native deps (sharp/swc/esbuild etc.)
 RUN apk add --no-cache \
   git \
-  openssh-client \
   python3 \
   make \
   g++ \
@@ -25,14 +25,17 @@ RUN apk add --no-cache \
 
 COPY package.json package-lock.json ./
 
-# ✅ Ensure github host key is known (prevents "Host key verification failed")
-RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh \
- && ssh-keyscan github.com >> /root/.ssh/known_hosts
+# (Optional) pin npm to reduce CI weirdness
+RUN npm -v && npm i -g npm@10.8.3 && npm -v
 
-# ✅ If install fails, dump npm debug log into the GH Actions output
-RUN --mount=type=ssh \
-    node -v && npm -v \
- && npm ci --no-audit --no-fund \
+# Extra diagnostics + install
+RUN node -v \
+ && echo "---- lockfileVersion ----" \
+ && node -e "console.log(require('./package-lock.json').lockfileVersion)" \
+ && echo "---- npm config ----" \
+ && npm config list \
+ && echo "---- npm ci ----" \
+ && npm ci --no-audit --no-fund --loglevel verbose \
  || (echo "---- npm debug log ----" \
      && ls -la /root/.npm/_logs || true \
      && cat /root/.npm/_logs/*-debug-0.log || true \
