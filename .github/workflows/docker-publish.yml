@@ -22,6 +22,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ✅ SSH agent so Docker can pull private git deps during npm ci
+      - name: Set up SSH agent (for private git deps)
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.GH_SSH_KEY }}
+
+      - name: Add github.com to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -54,7 +65,8 @@ jobs:
           target: production
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # ✅ if your Next build needs a public API url at build time
+          # ✅ Forward SSH into Docker build (enables --mount=type=ssh)
+          ssh: default
           build-args: |
             NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
           cache-from: type=gha
