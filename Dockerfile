@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
 
+# ===== BASE =====
 FROM node:20-alpine AS base
 SHELL ["/bin/sh", "-lc"]
 WORKDIR /app
@@ -14,6 +15,7 @@ WORKDIR /app
 ENV CI=true
 ENV HUSKY=0
 
+# ✅ Native deps for sharp/swc/esbuild on Alpine
 RUN apk add --no-cache \
   git \
   python3 \
@@ -23,7 +25,7 @@ RUN apk add --no-cache \
 
 COPY package.json package-lock.json ./
 
-# prevents git hooks script from breaking docker builds
+# ✅ Fix: remove prepare script (your repo runs `git config core.hooksPath ...` and fails in Docker)
 RUN npm pkg delete scripts.prepare || true
 
 RUN npm ci --no-audit --no-fund
@@ -36,11 +38,16 @@ ENV CI=true
 ENV HUSKY=0
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# ✅ accept both names (your code checks either)
-ARG NEXT_PUBLIC_API_URL
+# ✅ Accept both names your code checks + portal url
 ARG NEXT_PUBLIC_BACKEND_URL
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+ARG NEXT_PUBLIC_API_URL
+ARG APP_ADMIN_PORTAL_URL
+
+# ✅ Hard defaults so build never fails even if secrets are missing
+# Change these if your API base differs (e.g. remove /api/v1 if your client appends it already)
+ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-https://api.wisdomchurchhq.org/api/v1}
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.wisdomchurchhq.org/api/v1}
+ENV APP_ADMIN_PORTAL_URL=${APP_ADMIN_PORTAL_URL:-https://admin-portalwisdomchurch.org}
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -60,6 +67,7 @@ EXPOSE 3000
 RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs
 
+# Next standalone output
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/.next/standalone ./
