@@ -107,27 +107,58 @@ const UPLOAD_V1_BASE_URL = `${UPLOAD_ORIGIN}/api/v1`;
 const AUTH_USER_KEY = 'wisdomhouse_auth_user';
 
 /* ============================================================================
-   Error Utilities
+   Error Utilities (WITH validationErrors)
 ============================================================================ */
+
+export type ValidationFieldError = {
+  field: string;
+  code?: string;
+  message: string;
+};
 
 export interface ApiError extends Error {
   statusCode?: number;
   details?: unknown;
+  validationErrors?: ValidationFieldError[];
 }
 
 export function createApiError(
   message: string,
   statusCode?: number,
-  details?: unknown
+  details?: unknown,
+  validationErrors?: ValidationFieldError[]
 ): ApiError {
   const error = new Error(message) as ApiError;
   error.statusCode = statusCode;
   error.details = details;
+  if (validationErrors && validationErrors.length > 0) {
+    error.validationErrors = validationErrors;
+  }
   return error;
 }
 
-function isApiError(err: unknown): err is ApiError {
+export function isApiError(err: unknown): err is ApiError {
   return typeof err === 'object' && err !== null && 'statusCode' in err;
+}
+
+export function isValidationError(
+  err: unknown
+): err is ApiError & { validationErrors: ValidationFieldError[] } {
+  return (
+    isApiError(err) &&
+    Array.isArray((err as ApiError).validationErrors) &&
+    (err as ApiError).validationErrors!.length > 0
+  );
+}
+
+export function mapValidationErrors(err: unknown): Record<string, string> | null {
+  if (!isValidationError(err)) return null;
+  const out: Record<string, string> = {};
+  for (const e of err.validationErrors) {
+    if (!e.field) continue;
+    if (!out[e.field]) out[e.field] = e.message;
+  }
+  return out;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -141,6 +172,34 @@ function getMessageFromPayload(payload: unknown): string | undefined {
   const message = payload.message;
   if (typeof message === 'string' && message.trim()) return message;
   return undefined;
+}
+
+/**
+ * Expects backend payload like:
+ * { errors: [{ field: "firstName", message: "...", code: "required" }, ...] }
+ */
+function extractValidationErrors(payload: unknown): ValidationFieldError[] | undefined {
+  if (!isRecord(payload)) return undefined;
+
+  const raw = (payload as Record<string, unknown>).errors;
+  if (!Array.isArray(raw)) return undefined;
+
+  const normalized: ValidationFieldError[] = [];
+  for (const item of raw) {
+    if (!isRecord(item)) continue;
+
+    const field = typeof item.field === 'string' ? item.field.trim() : '';
+    const message =
+      typeof item.message === 'string' && item.message.trim()
+        ? item.message.trim()
+        : 'Invalid value';
+    const code =
+      typeof item.code === 'string' && item.code.trim() ? item.code.trim() : undefined;
+
+    normalized.push({ field, code, message });
+  }
+
+  return normalized.length > 0 ? normalized : undefined;
 }
 
 function getErrorMessage(err: unknown): string {
@@ -196,10 +255,7 @@ async function safeParseJson(response: Response): Promise<unknown | null> {
   }
 }
 
-async function apiFetch<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_V1_BASE_URL}${endpoint}`;
   const isFormData =
     typeof FormData !== 'undefined' && options.body instanceof FormData;
@@ -221,10 +277,12 @@ async function apiFetch<T>(
       json ?? { message: await response.text().catch(() => '') };
 
     if (!response.ok) {
+      const validationErrors = extractValidationErrors(payload);
       throw createApiError(
         getMessageFromPayload(payload) || 'Request failed',
         response.status,
-        payload
+        payload,
+        validationErrors
       );
     }
 
@@ -238,10 +296,7 @@ async function apiFetch<T>(
 /**
  * Upload fetch: same as apiFetch but allows a different origin for CDN/upload proxies.
  */
-async function uploadFetch<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function uploadFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${UPLOAD_V1_BASE_URL}${endpoint}`;
   const isFormData =
     typeof FormData !== 'undefined' && options.body instanceof FormData;
@@ -263,10 +318,12 @@ async function uploadFetch<T>(
       json ?? { message: await response.text().catch(() => '') };
 
     if (!response.ok) {
+      const validationErrors = extractValidationErrors(payload);
       throw createApiError(
         getMessageFromPayload(payload) || 'Request failed',
         response.status,
-        payload
+        payload,
+        validationErrors
       );
     }
 
@@ -278,10 +335,7 @@ async function uploadFetch<T>(
 }
 
 /** Root fetch (NOT /api/v1). Needed for /health. */
-async function rootFetch<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function rootFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_ORIGIN}${endpoint}`;
   const headers: HeadersInit = { ...(options.headers || {}) };
 
@@ -297,10 +351,12 @@ async function rootFetch<T>(
       json ?? { message: await response.text().catch(() => '') };
 
     if (!response.ok) {
+      const validationErrors = extractValidationErrors(payload);
       throw createApiError(
         getMessageFromPayload(payload) || 'Request failed',
         response.status,
-        payload
+        payload,
+        validationErrors
       );
     }
 
@@ -316,11 +372,9 @@ async function rootFetch<T>(
 ============================================================================ */
 
 function isUserLike(value: unknown): value is User {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'string' &&
-    typeof value.email === 'string'
-  );
+  if (!isRecord(value)) return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.id === 'string' && typeof record.email === 'string';
 }
 
 function extractUser(response: unknown): User {
@@ -421,9 +475,7 @@ export const apiClient = {
     return extractUser(res);
   },
 
-  async requestPasswordReset(
-    payload: PasswordResetRequestPayload
-  ): Promise<SendOTPResponse> {
+  async requestPasswordReset(payload: PasswordResetRequestPayload): Promise<SendOTPResponse> {
     const res = await apiFetch<ApiResponse<SendOTPResponse>>(
       '/auth/password-reset/request',
       { method: 'POST', body: JSON.stringify(payload) }
@@ -431,9 +483,7 @@ export const apiClient = {
     return unwrapData<SendOTPResponse>(res, 'Invalid password reset response');
   },
 
-  async confirmPasswordReset(
-    payload: PasswordResetConfirmPayload
-  ): Promise<MessageResponse> {
+  async confirmPasswordReset(payload: PasswordResetConfirmPayload): Promise<MessageResponse> {
     return apiFetch('/auth/password-reset/confirm', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -491,7 +541,6 @@ export const apiClient = {
   /* ===================== HEALTH ===================== */
 
   healthCheck(): Promise<HealthCheckResponse> {
-    // backend is GET /health (root), not /api/v1/health
     return rootFetch('/health', { method: 'GET' });
   },
 
@@ -503,17 +552,13 @@ export const apiClient = {
     return unwrapData<Testimonial[]>(res, 'Invalid testimonials payload');
   },
 
-  getPaginatedTestimonials(
-    params?: Record<string, string>
-  ): Promise<PaginatedResponse<Testimonial>> {
+  getPaginatedTestimonials(params?: Record<string, string>): Promise<PaginatedResponse<Testimonial>> {
     const qs = params ? `?${new URLSearchParams(params)}` : '';
     return apiFetch(`/testimonials/paginated${qs}`);
   },
 
   async getTestimonialById(id: string): Promise<Testimonial> {
-    const res = await apiFetch<ApiResponse<Testimonial>>(
-      `/testimonials/${encodeURIComponent(id)}`
-    );
+    const res = await apiFetch<ApiResponse<Testimonial>>(`/testimonials/${encodeURIComponent(id)}`);
     return unwrapData<Testimonial>(res, 'Invalid testimonial payload');
   },
 
@@ -526,26 +571,19 @@ export const apiClient = {
   },
 
   async updateTestimonial(id: string, data: UpdateTestimonialData): Promise<Testimonial> {
-    const res = await apiFetch<ApiResponse<Testimonial>>(
-      `/admin/testimonials/${encodeURIComponent(id)}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }
-    );
+    const res = await apiFetch<ApiResponse<Testimonial>>(`/admin/testimonials/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
     return unwrapData<Testimonial>(res, 'Invalid testimonial payload');
   },
 
   deleteTestimonial(id: string) {
-    return apiFetch(`/admin/testimonials/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-    });
+    return apiFetch(`/admin/testimonials/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
 
   approveTestimonial(id: string) {
-    return apiFetch(`/admin/testimonials/${encodeURIComponent(id)}/approve`, {
-      method: 'PATCH',
-    });
+    return apiFetch(`/admin/testimonials/${encodeURIComponent(id)}/approve`, { method: 'PATCH' });
   },
 
   /* ===================== ADMIN ===================== */
@@ -564,27 +602,19 @@ export const apiClient = {
 
   async getAnalytics(params?: Record<string, unknown>): Promise<DashboardAnalytics> {
     const qs = toQueryString(params);
-    const res = await apiFetch<ApiResponse<DashboardAnalytics>>(
-      `/admin/analytics${qs}`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<ApiResponse<DashboardAnalytics>>(`/admin/analytics${qs}`, { method: 'GET' });
     return unwrapData<DashboardAnalytics>(res, 'Invalid analytics payload');
   },
 
   /* ===================== EVENTS ===================== */
 
-  async getEvents(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<EventData>> {
+  async getEvents(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<EventData>> {
     const qs = toQueryString(params);
     return apiFetch(`/events${qs}`, { method: 'GET' });
   },
 
   async getEvent(id: string): Promise<EventData> {
-    const res = await apiFetch<{ data: EventData }>(
-      `/events/${encodeURIComponent(id)}`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<{ data: EventData }>(`/events/${encodeURIComponent(id)}`, { method: 'GET' });
     return unwrapData<EventData>(res, 'Invalid event payload');
   },
 
@@ -597,10 +627,10 @@ export const apiClient = {
   },
 
   async updateEvent(id: string, data: EventPayload): Promise<EventData> {
-    const res = await apiFetch<{ data: EventData }>(
-      `/events/${encodeURIComponent(id)}`,
-      { method: 'PUT', body: JSON.stringify(data) }
-    );
+    const res = await apiFetch<{ data: EventData }>(`/events/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
     return unwrapData<EventData>(res, 'Invalid event payload');
   },
 
@@ -611,28 +641,26 @@ export const apiClient = {
   async uploadEventImage(id: string, file: File): Promise<EventData> {
     const form = new FormData();
     form.append('file', file);
-    const res = await uploadFetch<{ data: EventData }>(
-      `/events/${encodeURIComponent(id)}/image`,
-      { method: 'POST', body: form }
-    );
+    const res = await uploadFetch<{ data: EventData }>(`/events/${encodeURIComponent(id)}/image`, {
+      method: 'POST',
+      body: form,
+    });
     return unwrapData<EventData>(res, 'Invalid upload image payload');
   },
 
   async uploadEventBanner(id: string, file: File): Promise<EventData> {
     const form = new FormData();
     form.append('file', file);
-    const res = await uploadFetch<{ data: EventData }>(
-      `/events/${encodeURIComponent(id)}/banner`,
-      { method: 'POST', body: form }
-    );
+    const res = await uploadFetch<{ data: EventData }>(`/events/${encodeURIComponent(id)}/banner`, {
+      method: 'POST',
+      body: form,
+    });
     return unwrapData<EventData>(res, 'Invalid upload banner payload');
   },
 
   /* ===================== REELS ===================== */
 
-  async getReels(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<ReelData>> {
+  async getReels(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<ReelData>> {
     const qs = toQueryString(params);
     return apiFetch(`/reels${qs}`, { method: 'GET' });
   },
@@ -651,18 +679,13 @@ export const apiClient = {
 
   /* ===================== FORMS (ADMIN) ===================== */
 
-  async getAdminForms(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<AdminForm>> {
+  async getAdminForms(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<AdminForm>> {
     const qs = toQueryString(params);
     return apiFetch(`/admin/forms${qs}`, { method: 'GET' });
   },
 
   async getAdminForm(id: string): Promise<AdminForm> {
-    const res = await apiFetch<{ data: AdminForm }>(
-      `/admin/forms/${encodeURIComponent(id)}`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<{ data: AdminForm }>(`/admin/forms/${encodeURIComponent(id)}`, { method: 'GET' });
     return unwrapData<AdminForm>(res, 'Invalid form payload');
   },
 
@@ -675,60 +698,43 @@ export const apiClient = {
   },
 
   async updateAdminForm(id: string, payload: UpdateFormRequest): Promise<AdminForm> {
-    const res = await apiFetch<{ data: AdminForm }>(
-      `/admin/forms/${encodeURIComponent(id)}`,
-      { method: 'PUT', body: JSON.stringify(payload) }
-    );
+    const res = await apiFetch<{ data: AdminForm }>(`/admin/forms/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
     return unwrapData<AdminForm>(res, 'Invalid form payload');
   },
 
   async deleteAdminForm(id: string): Promise<MessageResponse> {
-    return apiFetch(`/admin/forms/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-    });
+    return apiFetch(`/admin/forms/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
 
   async publishAdminForm(id: string): Promise<{ slug: string }> {
-    const res = await apiFetch<{ data: { slug: string } }>(
-      `/admin/forms/${encodeURIComponent(id)}/publish`,
-      { method: 'POST' }
-    );
+    const res = await apiFetch<{ data: { slug: string } }>(`/admin/forms/${encodeURIComponent(id)}/publish`, {
+      method: 'POST',
+    });
     return unwrapData<{ slug: string }>(res, 'Invalid publish payload');
   },
 
-  async getFormSubmissions(
-    id: string,
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<FormSubmission>> {
+  async getFormSubmissions(id: string, params?: Record<string, unknown>): Promise<SimplePaginatedResponse<FormSubmission>> {
     const qs = toQueryString(params);
-    return apiFetch(`/admin/forms/${encodeURIComponent(id)}/submissions${qs}`, {
-      method: 'GET',
-    });
+    return apiFetch(`/admin/forms/${encodeURIComponent(id)}/submissions${qs}`, { method: 'GET' });
   },
 
   async getFormStats(params?: Record<string, unknown>): Promise<FormStatsResponse> {
     const qs = toQueryString(params);
-    const res = await apiFetch<ApiResponse<FormStatsResponse>>(
-      `/admin/forms/stats${qs}`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<ApiResponse<FormStatsResponse>>(`/admin/forms/stats${qs}`, { method: 'GET' });
     return unwrapData<FormStatsResponse>(res, 'Invalid form stats payload');
   },
 
   /* ===================== FORMS (PUBLIC) ===================== */
 
   async getPublicForm(slug: string): Promise<PublicFormPayload> {
-    const res = await apiFetch<{ data: PublicFormPayload }>(
-      `/forms/${encodeURIComponent(slug)}`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<{ data: PublicFormPayload }>(`/forms/${encodeURIComponent(slug)}`, { method: 'GET' });
     return unwrapData<PublicFormPayload>(res, 'Invalid public form payload');
   },
 
-  async submitPublicForm(
-    slug: string,
-    payload: SubmitFormRequest
-  ): Promise<MessageResponse> {
+  async submitPublicForm(slug: string, payload: SubmitFormRequest): Promise<MessageResponse> {
     return apiFetch(`/forms/${encodeURIComponent(slug)}/submissions`, {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -752,20 +758,16 @@ export const apiClient = {
     });
   },
 
-  async listSubscribers(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<Subscriber>> {
+  async listSubscribers(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<Subscriber>> {
     const qs = toQueryString(params);
     return apiFetch(`/admin/subscribers${qs}`, { method: 'GET' });
   },
 
-  async sendNotification(
-    payload: SendNotificationRequest
-  ): Promise<SendNotificationResult> {
-    const res = await apiFetch<ApiResponse<SendNotificationResult>>(
-      '/admin/notifications',
-      { method: 'POST', body: JSON.stringify(payload) }
-    );
+  async sendNotification(payload: SendNotificationRequest): Promise<SendNotificationResult> {
+    const res = await apiFetch<ApiResponse<SendNotificationResult>>('/admin/notifications', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
     return unwrapData<SendNotificationResult>(res, 'Invalid notification payload');
   },
 
@@ -789,9 +791,7 @@ export const apiClient = {
 
   /* ===================== WORKFORCE ===================== */
 
-  async listWorkforce(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<WorkforceMember>> {
+  async listWorkforce(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<WorkforceMember>> {
     const qs = toQueryString(params);
     return apiFetch(`/admin/workforce${qs}`, { method: 'GET' });
   },
@@ -804,22 +804,19 @@ export const apiClient = {
     return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
   },
 
-  async updateWorkforce(
-    id: string,
-    payload: UpdateWorkforceRequest
-  ): Promise<WorkforceMember> {
-    const res = await apiFetch<ApiResponse<WorkforceMember>>(
-      `/admin/workforce/${encodeURIComponent(id)}`,
-      { method: 'PATCH', body: JSON.stringify(payload) }
-    );
+  async updateWorkforce(id: string, payload: UpdateWorkforceRequest): Promise<WorkforceMember> {
+    const res = await apiFetch<ApiResponse<WorkforceMember>>(`/admin/workforce/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
     return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
   },
 
-  async approveWorkforce(id: string): Promise<WorkforceMember> {
-    const res = await apiFetch<ApiResponse<WorkforceMember>>(
-      `/admin/workforce/${encodeURIComponent(id)}/approve`,
-      { method: 'PATCH' }
-    );
+  async approveWorkforce(id: string, payload?: Record<string, unknown>): Promise<WorkforceMember> {
+    const res = await apiFetch<ApiResponse<WorkforceMember>>(`/admin/workforce/${encodeURIComponent(id)}/approve`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload || {}),
+    });
     return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
   },
 
@@ -832,10 +829,7 @@ export const apiClient = {
   },
 
   async getWorkforceStats(): Promise<WorkforceStatsResponse> {
-    const res = await apiFetch<ApiResponse<WorkforceStatsResponse>>(
-      '/admin/workforce/stats',
-      { method: 'GET' }
-    );
+    const res = await apiFetch<ApiResponse<WorkforceStatsResponse>>('/admin/workforce/stats', { method: 'GET' });
     return unwrapData<WorkforceStatsResponse>(res, 'Invalid workforce stats payload');
   },
 };
