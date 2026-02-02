@@ -1,6 +1,5 @@
 # syntax=docker/dockerfile:1
 
-# ===== BASE =====
 FROM node:20-alpine AS base
 SHELL ["/bin/sh", "-lc"]
 WORKDIR /app
@@ -15,7 +14,6 @@ WORKDIR /app
 ENV CI=true
 ENV HUSKY=0
 
-# Native deps + tools
 RUN apk add --no-cache \
   git \
   python3 \
@@ -25,13 +23,10 @@ RUN apk add --no-cache \
 
 COPY package.json package-lock.json ./
 
-# ✅ Critical fix: remove git-hook installer scripts that run "git config core.hooksPath ..."
-# (common in husky/githooks setups). This prevents exit 128 in Docker where .git isn't present.
+# prevents git hooks script from breaking docker builds
 RUN npm pkg delete scripts.prepare || true
 
-# Install dependencies
-RUN node -v && npm -v \
- && npm ci --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 
 # ===== BUILDER =====
 FROM base AS builder
@@ -41,8 +36,11 @@ ENV CI=true
 ENV HUSKY=0
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# ✅ accept both names (your code checks either)
 ARG NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_BACKEND_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
