@@ -9,7 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "precommit": "npm run lint && npm run typecheck",
-    "prepare": "git config core.hooksPath .githooks"
+    "prepare": "test -d .git && git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
