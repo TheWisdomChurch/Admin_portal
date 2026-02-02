@@ -46,22 +46,64 @@ import type {
    API CLIENT CONFIG
 ============================================================================ */
 
+/**
+ * Normalize an origin string:
+ * - trims
+ * - removes trailing slashes
+ * - strips a trailing /api/v1 if someone passes that
+ *
+ * In development, falls back to localhost.
+ * In production, requires an explicit env var (fails loudly if missing).
+ */
 function normalizeOrigin(raw?: string | null): string {
-  const fallback = 'http://localhost:8080';
-  if (!raw) return fallback;
+  const nodeEnv = process.env.NODE_ENV;
+  const isProd = nodeEnv === 'production';
+
+  // DEV fallback: localhost, PROD: throw
+  if (!raw || !raw.trim()) {
+    if (!isProd) return 'http://localhost:8080';
+    throw new Error(
+      '[api] Missing NEXT_PUBLIC_API_URL (or NEXT_PUBLIC_BACKEND_URL) in production. Refusing to fall back to localhost.'
+    );
+  }
+
   let base = raw.trim().replace(/\/+$/, '');
+
+  // allow passing full base like https://api.domain.com/api/v1
   if (base.endsWith('/api/v1')) {
     base = base.slice(0, -'/api/v1'.length);
   }
-  return base || fallback;
+
+  return base;
 }
 
-const API_ORIGIN = normalizeOrigin(process.env.NEXT_PUBLIC_API_URL);
-const API_V1_BASE_URL = `${API_ORIGIN}/api/v1`;
-const UPLOAD_ORIGIN = normalizeOrigin(
-  process.env.NEXT_PUBLIC_UPLOAD_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL
+/**
+ * Choose the API origin from envs.
+ * - Prefer NEXT_PUBLIC_API_URL
+ * - Support NEXT_PUBLIC_BACKEND_URL for compatibility
+ *
+ * DEV: if missing -> localhost
+ * PROD: if missing -> throws
+ */
+const API_ORIGIN = normalizeOrigin(
+  process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL
 );
+
+const API_V1_BASE_URL = `${API_ORIGIN}/api/v1`;
+
+/**
+ * Upload origin can be different (CDN/proxy), but should default to API_ORIGIN.
+ * - Prefer NEXT_PUBLIC_UPLOAD_BASE_URL
+ * - Fallback to NEXT_PUBLIC_API_URL / NEXT_PUBLIC_BACKEND_URL
+ */
+const UPLOAD_ORIGIN = normalizeOrigin(
+  process.env.NEXT_PUBLIC_UPLOAD_BASE_URL ??
+    process.env.NEXT_PUBLIC_API_URL ??
+    process.env.NEXT_PUBLIC_BACKEND_URL
+);
+
 const UPLOAD_V1_BASE_URL = `${UPLOAD_ORIGIN}/api/v1`;
+
 const AUTH_USER_KEY = 'wisdomhouse_auth_user';
 
 /* ============================================================================
@@ -175,7 +217,8 @@ async function apiFetch<T>(
     });
 
     const json = await safeParseJson(response);
-    const payload: unknown = json ?? { message: await response.text().catch(() => '') };
+    const payload: unknown =
+      json ?? { message: await response.text().catch(() => '') };
 
     if (!response.ok) {
       throw createApiError(
@@ -200,7 +243,6 @@ async function uploadFetch<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${UPLOAD_V1_BASE_URL}${endpoint}`;
-
   const isFormData =
     typeof FormData !== 'undefined' && options.body instanceof FormData;
 
@@ -217,7 +259,8 @@ async function uploadFetch<T>(
     });
 
     const json = await safeParseJson(response);
-    const payload: unknown = json ?? { message: await response.text().catch(() => '') };
+    const payload: unknown =
+      json ?? { message: await response.text().catch(() => '') };
 
     if (!response.ok) {
       throw createApiError(
@@ -250,7 +293,8 @@ async function rootFetch<T>(
     });
 
     const json = await safeParseJson(response);
-    const payload: unknown = json ?? { message: await response.text().catch(() => '') };
+    const payload: unknown =
+      json ?? { message: await response.text().catch(() => '') };
 
     if (!response.ok) {
       throw createApiError(
@@ -272,47 +316,57 @@ async function rootFetch<T>(
 ============================================================================ */
 
 function isUserLike(value: unknown): value is User {
-  return isRecord(value) && typeof value.id === 'string' && typeof value.email === 'string';
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.email === 'string'
+  );
 }
 
 function extractUser(response: unknown): User {
-  const data = isRecord(response) && 'data' in response ? (response as { data?: unknown }).data : response;
+  const data =
+    isRecord(response) && 'data' in response
+      ? (response as { data?: unknown }).data
+      : response;
+
   if (isRecord(data) && isUserLike((data as { user?: unknown }).user)) {
     return (data as { user: User }).user;
   }
   if (isUserLike(data)) return data;
+
   throw createApiError('Invalid user payload', 400, response);
 }
 
 function unwrapData<T>(res: unknown, errorMessage: string): T {
   if (isRecord(res) && 'data' in res) {
     const data = (res as Record<string, unknown>)['data'];
-
     if (data === undefined || data === null) {
       throw createApiError(errorMessage, 400, res);
     }
-
     return data as T;
   }
-
   throw createApiError(errorMessage, 400, res);
 }
 
-
 function extractLoginResult(res: unknown): LoginResult {
-  const data = isRecord(res) && 'data' in res ? (res as { data?: unknown }).data : res;
-  if (isRecord(data) && isUserLike(data.user)) {
-    return { user: data.user };
+  const data =
+    isRecord(res) && 'data' in res ? (res as { data?: unknown }).data : res;
+
+  if (isRecord(data) && isUserLike((data as Record<string, unknown>).user)) {
+    return { user: (data as { user: User }).user };
   }
-  if (isRecord(data) && data.otp_required === true) {
+
+  if (isRecord(data) && (data as Record<string, unknown>).otp_required === true) {
+    const d = data as Record<string, unknown>;
     return {
       otp_required: true,
-      purpose: typeof data.purpose === 'string' ? data.purpose : 'login',
-      expires_at: typeof data.expires_at === 'string' ? data.expires_at : undefined,
-      action_url: typeof data.action_url === 'string' ? data.action_url : undefined,
-      email: typeof data.email === 'string' ? data.email : '',
+      purpose: typeof d.purpose === 'string' ? d.purpose : 'login',
+      expires_at: typeof d.expires_at === 'string' ? d.expires_at : undefined,
+      action_url: typeof d.action_url === 'string' ? d.action_url : undefined,
+      email: typeof d.email === 'string' ? d.email : '',
     } as LoginChallenge;
   }
+
   throw createApiError('Invalid login payload', 400, res);
 }
 
@@ -408,14 +462,18 @@ export const apiClient = {
   },
 
   async changePassword(
-currentPassword: string, newPassword: string, payload: {
-  currentPassword: string;
-  newPassword: string;
-  confirmPassword?: string;
-  email?: string;
-  otpCode?: string;
-} |
-  ChangePasswordData  ): Promise<MessageResponse> {
+    _currentPassword: string,
+    _newPassword: string,
+    payload:
+      | {
+          currentPassword: string;
+          newPassword: string;
+          confirmPassword?: string;
+          email?: string;
+          otpCode?: string;
+        }
+      | ChangePasswordData
+  ): Promise<MessageResponse> {
     return apiFetch('/auth/change-password', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -440,8 +498,7 @@ currentPassword: string, newPassword: string, payload: {
   /* ===================== TESTIMONIALS ===================== */
 
   async getAllTestimonials(params?: { approved?: boolean }): Promise<Testimonial[]> {
-    const qs =
-      params?.approved !== undefined ? `?approved=${params.approved}` : '';
+    const qs = params?.approved !== undefined ? `?approved=${params.approved}` : '';
     const res = await apiFetch<ApiResponse<Testimonial[]>>(`/testimonials${qs}`);
     return unwrapData<Testimonial[]>(res, 'Invalid testimonials payload');
   },
@@ -468,10 +525,7 @@ currentPassword: string, newPassword: string, payload: {
     return unwrapData<Testimonial>(res, 'Invalid testimonial payload');
   },
 
-  async updateTestimonial(
-    id: string,
-    data: UpdateTestimonialData
-  ): Promise<Testimonial> {
+  async updateTestimonial(id: string, data: UpdateTestimonialData): Promise<Testimonial> {
     const res = await apiFetch<ApiResponse<Testimonial>>(
       `/admin/testimonials/${encodeURIComponent(id)}`,
       {
@@ -510,9 +564,10 @@ currentPassword: string, newPassword: string, payload: {
 
   async getAnalytics(params?: Record<string, unknown>): Promise<DashboardAnalytics> {
     const qs = toQueryString(params);
-    const res = await apiFetch<ApiResponse<DashboardAnalytics>>(`/admin/analytics${qs}`, {
-      method: 'GET',
-    });
+    const res = await apiFetch<ApiResponse<DashboardAnalytics>>(
+      `/admin/analytics${qs}`,
+      { method: 'GET' }
+    );
     return unwrapData<DashboardAnalytics>(res, 'Invalid analytics payload');
   },
 
@@ -544,10 +599,7 @@ currentPassword: string, newPassword: string, payload: {
   async updateEvent(id: string, data: EventPayload): Promise<EventData> {
     const res = await apiFetch<{ data: EventData }>(
       `/events/${encodeURIComponent(id)}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }
+      { method: 'PUT', body: JSON.stringify(data) }
     );
     return unwrapData<EventData>(res, 'Invalid event payload');
   },
@@ -556,12 +608,6 @@ currentPassword: string, newPassword: string, payload: {
     return apiFetch(`/events/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
 
-  /**
-   * Bunny upload endpoints (admin-only):
-   * POST /api/v1/events/:id/image
-   * POST /api/v1/events/:id/banner
-   * FormData key must match handler: c.FormFile("file")
-   */
   async uploadEventImage(id: string, file: File): Promise<EventData> {
     const form = new FormData();
     form.append('file', file);
@@ -628,10 +674,7 @@ currentPassword: string, newPassword: string, payload: {
     return unwrapData<AdminForm>(res, 'Invalid form payload');
   },
 
-  async updateAdminForm(
-    id: string,
-    payload: UpdateFormRequest
-  ): Promise<AdminForm> {
+  async updateAdminForm(id: string, payload: UpdateFormRequest): Promise<AdminForm> {
     const res = await apiFetch<{ data: AdminForm }>(
       `/admin/forms/${encodeURIComponent(id)}`,
       { method: 'PUT', body: JSON.stringify(payload) }
