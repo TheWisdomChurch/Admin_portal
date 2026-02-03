@@ -41,12 +41,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # ✅ Accept both names your code checks + portal url
 ARG NEXT_PUBLIC_BACKEND_URL
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_API_PROXY
 ARG APP_ADMIN_PORTAL_URL
 
 # ✅ Hard defaults so build never fails even if secrets are missing
 # Change these if your API base differs (e.g. remove /api/v1 if your client appends it already)
-ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-https://api.wisdomchurchhq.org/api/v1}
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.wisdomchurchhq.org/api/v1}
+ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-https://api.wisdomchurchhq.org}
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.wisdomchurchhq.org}
+ENV NEXT_PUBLIC_API_PROXY=${NEXT_PUBLIC_API_PROXY:-false}
 ENV APP_ADMIN_PORTAL_URL=${APP_ADMIN_PORTAL_URL:-https://admin-portalwisdomchurch.org}
 
 COPY --from=deps /app/node_modules ./node_modules
