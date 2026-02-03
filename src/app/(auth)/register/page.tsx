@@ -1,4 +1,3 @@
-// src/app/(auth)/register/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -10,13 +9,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
+
 import { Footer } from '@/components/Footer';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
 import { Checkbox } from '@/ui/Checkbox';
-import { useAuthContext } from '@/providers/AuthProviders';
 import { PasswordStrengthMeter } from '@/ui/PasswordStrengthMeter';
+
+import apiClient from '@/lib/api';
 import { extractServerFieldErrors, getServerErrorMessage } from '@/lib/serverValidation';
 
 type RegisterFormData = {
@@ -29,15 +30,20 @@ type RegisterFormData = {
   rememberMe: boolean;
 };
 
-const schema = yup.object({
-  first_name: yup.string().required('First name is required').trim(),
-  last_name: yup.string().required('Last name is required').trim(),
-  email: yup.string().email('Invalid email format').required('Email is required').trim(),
-  password: yup.string().min(8, 'Password must be at least 8 characters').required('Password is required'),
-  confirmPassword: yup.string().oneOf([yup.ref('password')], 'Passwords must match').required('Confirm password is required'),
-  role: yup.string().oneOf(['admin', 'super_admin'], 'Select a role').required('Role is required'),
-  rememberMe: yup.boolean().required(),
-}).required();
+const schema = yup
+  .object({
+    first_name: yup.string().required('First name is required').trim(),
+    last_name: yup.string().required('Last name is required').trim(),
+    email: yup.string().email('Invalid email format').required('Email is required').trim(),
+    password: yup.string().min(8, 'Password must be at least 8 characters').required('Password is required'),
+    confirmPassword: yup
+      .string()
+      .oneOf([yup.ref('password')], 'Passwords must match')
+      .required('Confirm password is required'),
+    role: yup.string().oneOf(['admin', 'super_admin'], 'Select a role').required('Role is required'),
+    rememberMe: yup.boolean().required(),
+  })
+  .required();
 
 function humanizeServerError(err: unknown): string {
   const fieldErrors = extractServerFieldErrors(err);
@@ -70,20 +76,14 @@ function SuccessModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
       <div className="relative w-full max-w-md rounded-[var(--radius-card)] bg-[var(--color-background-primary)] p-8 shadow-2xl">
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-background-tertiary)]">
             <CheckCircle className="h-8 w-8 text-[var(--color-accent-success)]" />
           </div>
           <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">Registration successful</h2>
-          <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">
-            Your account has been created. Please sign in to continue.
-          </p>
+          <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">Your account has been created. Please sign in to continue.</p>
 
           <div className="mt-5 rounded-[var(--radius-button)] bg-[var(--color-background-tertiary)] p-4 text-left">
             <p className="text-xs font-medium text-[var(--color-text-tertiary)]">Registered email</p>
@@ -109,7 +109,6 @@ function SuccessModal({
 }
 
 export default function RegisterPage() {
-  const { register: registerUser } = useAuthContext();
   const router = useRouter();
 
   const [serverError, setServerError] = useState('');
@@ -153,13 +152,12 @@ export default function RegisterPage() {
         rememberMe: formData.rememberMe,
       };
 
-      await registerUser(payload);
+      await apiClient.register(payload);
 
       reset();
       setSuccessEmail(payload.email);
       toast.success('Account created successfully');
 
-      // Optional: auto-route after short delay (still allows user to click button)
       setTimeout(() => {
         router.replace('/login');
       }, 1200);
@@ -169,6 +167,7 @@ export default function RegisterPage() {
         confirm_password: 'confirmPassword',
         confirmPassword: 'confirmPassword',
       };
+
       const allowedFields: Array<keyof RegisterFormData> = [
         'first_name',
         'last_name',
@@ -197,13 +196,7 @@ export default function RegisterPage() {
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full border-2 border-white bg-black shadow-sm">
-            <Image
-              src="/OIP.webp"
-              alt="Wisdom Church logo"
-              width={40}
-              height={40}
-              className="rounded-full object-cover"
-            />
+            <Image src="/OIP.webp" alt="Wisdom Church logo" width={40} height={40} className="rounded-full object-cover" />
           </div>
           <div className="leading-tight">
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">The Wisdom Church</p>
@@ -217,44 +210,18 @@ export default function RegisterPage() {
 
       <main className="mx-auto w-full max-w-6xl px-4 pb-12 pt-6 sm:px-6 lg:px-8">
         <div className="grid w-full grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Left: marketing / info panel */}
           <div className="hidden lg:block">
             <div className="auth-glass h-full rounded-3xl p-10 shadow-sm">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)]">
                 <UserPlus className="h-7 w-7 text-[var(--color-accent-primary)]" />
               </div>
-              <h1 className="mt-6 text-3xl font-semibold text-[var(--color-text-primary)]">
-                Create your Wisdom House account
-              </h1>
+              <h1 className="mt-6 text-3xl font-semibold text-[var(--color-text-primary)]">Create your Wisdom House account</h1>
               <p className="mt-3 text-[var(--color-text-secondary)]">
                 Register to submit testimonials and access church resources. Admin accounts can manage events and content.
               </p>
-
-              <div className="mt-8 space-y-4">
-                <div className="rounded-2xl bg-[var(--color-background-primary)] p-5 shadow-sm">
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">Admin access</p>
-                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                    Manage testimonials, events, and site content.
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-[var(--color-background-primary)] p-5 shadow-sm">
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">Super admin access</p>
-                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                    Approve submissions and review analytics.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-10 text-sm text-[var(--color-text-tertiary)]">
-                Already have an account?{' '}
-                <Link href="/login" className="font-semibold text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)]">
-                  Sign in
-                </Link>
-              </div>
             </div>
           </div>
 
-          {/* Right: form */}
           <Card className="auth-glass w-full rounded-3xl p-8 shadow-lg">
             <div className="text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)]">
@@ -270,16 +237,12 @@ export default function RegisterPage() {
               </div>
             )}
 
-            <form
-              onSubmit={handleSubmit(onSubmit)}
-              className="mt-6 space-y-4"
-              noValidate
-              autoComplete="off"
-            >
-              {/* Name row */}
+            <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate autoComplete="off">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="first_name" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">First name</label>
+                  <label htmlFor="first_name" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">
+                    First name
+                  </label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input
@@ -302,7 +265,9 @@ export default function RegisterPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="last_name" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Last name</label>
+                  <label htmlFor="last_name" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">
+                    Last name
+                  </label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input
@@ -325,9 +290,10 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              {/* Email */}
               <div>
-                <label htmlFor="email" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Email</label>
+                <label htmlFor="email" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">
+                  Email
+                </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                   <Input
@@ -351,10 +317,11 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              {/* Password row */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="password" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Password</label>
+                  <label htmlFor="password" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">
+                    Password
+                  </label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input
@@ -379,7 +346,9 @@ export default function RegisterPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="confirmPassword" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Confirm password</label>
+                  <label htmlFor="confirmPassword" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">
+                    Confirm password
+                  </label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input
@@ -403,7 +372,6 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              {/* Role */}
               <div className="pt-2">
                 <label className="mb-2 block text-sm font-medium text-[var(--color-text-secondary)]">Register as</label>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -445,12 +413,9 @@ export default function RegisterPage() {
                     </span>
                   </label>
                 </div>
-                {errors.role?.message && (
-                  <p className="mt-2 text-xs text-red-600">{errors.role.message}</p>
-                )}
+                {errors.role?.message && <p className="mt-2 text-xs text-red-600">{errors.role.message}</p>}
               </div>
 
-              {/* Remember me */}
               <div className="pt-1">
                 <Controller
                   name="rememberMe"
@@ -470,23 +435,12 @@ export default function RegisterPage() {
                 />
               </div>
 
-              {/* Submit */}
-              <Button
-                type="submit"
-                variant="primary"
-                className="w-full mt-2"
-                disabled={isSubmitting}
-                loading={isSubmitting}
-              >
+              <Button type="submit" variant="primary" className="w-full mt-2" disabled={isSubmitting} loading={isSubmitting}>
                 {isSubmitting ? 'Creating Account...' : 'Create Account'}
               </Button>
 
-              {/* Footer links */}
               <div className="mt-3 flex items-center justify-between border-t border-[var(--color-border-secondary)] pt-5 text-sm">
-                <Link
-                  href="/login"
-                  className="inline-flex items-center text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
-                >
+                <Link href="/login" className="inline-flex items-center text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Already have an account?
                 </Link>
@@ -503,11 +457,7 @@ export default function RegisterPage() {
       <Footer />
 
       {successEmail && (
-        <SuccessModal
-          email={successEmail}
-          onClose={() => setSuccessEmail(null)}
-          onGoToLogin={() => router.replace('/login')}
-        />
+        <SuccessModal email={successEmail} onClose={() => setSuccessEmail(null)} onGoToLogin={() => router.replace('/login')} />
       )}
     </div>
   );

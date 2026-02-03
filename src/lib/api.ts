@@ -59,50 +59,35 @@ function normalizeOrigin(raw?: string | null): string {
   const nodeEnv = process.env.NODE_ENV;
   const isProd = nodeEnv === 'production';
 
-  // DEV fallback: localhost, PROD: throw
   if (!raw || !raw.trim()) {
     if (!isProd) return 'http://localhost:8080';
-    throw new Error(
-      '[api] Missing NEXT_PUBLIC_API_URL (or NEXT_PUBLIC_BACKEND_URL) in production. Refusing to fall back to localhost.'
-    );
+    throw new Error('[api] Missing NEXT_PUBLIC_API_URL (or NEXT_PUBLIC_BACKEND_URL) in production.');
   }
 
   let base = raw.trim().replace(/\/+$/, '');
-
-  // allow passing full base like https://api.domain.com/api/v1
-  if (base.endsWith('/api/v1')) {
-    base = base.slice(0, -'/api/v1'.length);
-  }
-
+  if (base.endsWith('/api/v1')) base = base.slice(0, -'/api/v1'.length);
   return base;
 }
 
-/**
- * Choose the API origin from envs.
- * - Prefer NEXT_PUBLIC_API_URL
- * - Support NEXT_PUBLIC_BACKEND_URL for compatibility
- *
- * DEV: if missing -> localhost
- * PROD: if missing -> throws
- */
+// IMPORTANT: for admin portal, always use same-origin proxy when enabled
+const USE_API_PROXY = process.env.NEXT_PUBLIC_API_PROXY === 'true';
+
+// Origin only used for rootFetch health in prod and for non-proxy mode
 const API_ORIGIN = normalizeOrigin(
   process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL
 );
 
-const API_V1_BASE_URL = `${API_ORIGIN}/api/v1`;
+// When proxy is enabled, all API calls go to same-origin:
+const API_V1_BASE_URL = USE_API_PROXY ? '/api/v1' : `${API_ORIGIN}/api/v1`;
 
-/**
- * Upload origin can be different (CDN/proxy), but should default to API_ORIGIN.
- * - Prefer NEXT_PUBLIC_UPLOAD_BASE_URL
- * - Fallback to NEXT_PUBLIC_API_URL / NEXT_PUBLIC_BACKEND_URL
- */
+// Uploads: route through same proxy too if you want cookies/session consistently
 const UPLOAD_ORIGIN = normalizeOrigin(
   process.env.NEXT_PUBLIC_UPLOAD_BASE_URL ??
     process.env.NEXT_PUBLIC_API_URL ??
     process.env.NEXT_PUBLIC_BACKEND_URL
 );
 
-const UPLOAD_V1_BASE_URL = `${UPLOAD_ORIGIN}/api/v1`;
+const UPLOAD_V1_BASE_URL = USE_API_PROXY ? '/api/v1' : `${UPLOAD_ORIGIN}/api/v1`;
 
 const AUTH_USER_KEY = 'wisdomhouse_auth_user';
 

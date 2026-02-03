@@ -81,145 +81,152 @@ function LoginInner() {
   });
 
   const onSubmit: SubmitHandler<LoginFormData> = async (data) => {
-    clearErrors();
-    setServerError('');
+  clearErrors();
+  setServerError('');
 
-    try {
-      setPendingLogin(data);
-      setOtpEmail(data.email);
-      setOtpLoading(true);
+  try {
+    setPendingLogin(data);
+    setOtpEmail(data.email.trim().toLowerCase());
+    setOtpLoading(true);
 
-      const result = await apiClient.login(data);
+    const result = await apiClient.login({
+      ...data,
+      email: data.email.trim().toLowerCase(),
+    });
 
-      // If backend says OTP required
-      if ('otp_required' in result && result.otp_required) {
-        setChallengePurpose(result.purpose || 'login');
-        setOtpStep('otp');
-        setOtpOpen(true);
-        toast.success('A verification code was sent to your email');
-        return;
-      }
-
-      // Otherwise authenticated
-      await checkAuth();
-      toast.success('Login successful!');
-      router.replace(redirectPath);
-    } catch (err) {
-      const apiErr = err as ApiError;
-      const status = apiErr.statusCode ?? 0;
-
-      if (status === 400 || status === 422) {
-        const fieldErrors = extractServerFieldErrors(apiErr);
-        let applied = false;
-
-        (Object.entries(fieldErrors) as Array<[keyof LoginFormData, string]>).forEach(([field, message]) => {
-          if (field in data) {
-            applied = true;
-            setError(field, { type: 'server', message });
-          }
-        });
-
-        if (!applied) {
-          setServerError(getServerErrorMessage(apiErr, 'Unable to sign in right now.'));
-        }
-        return;
-      }
-
-      if (status === 404) {
-        setErrorModal({
-          open: true,
-          title: 'Account not found',
-          description:
-            'No account exists for that email. You can register for access. Admin signups require super-admin approval.',
-          mode: 'not_found',
-        });
-      } else if (status === 401) {
-        setErrorModal({
-          open: true,
-          title: 'Incorrect password',
-          description: 'The email exists, but the password is incorrect. You can retry or reset your password.',
-          mode: 'bad_password',
-        });
-      } else {
-        const message = apiErr?.message || 'Unable to sign in right now.';
-        setErrorModal({
-          open: true,
-          title: 'Login failed',
-          description: message,
-          mode: 'generic',
-        });
-      }
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  const requestOtp = async () => {
-    toast.success('Check your email for the code we just sent.');
-    setOtpStep('otp');
-  };
-
-  const verifyOtpAndLogin = async () => {
-    if (!pendingLogin) {
-      toast.error('Please restart the login process');
-      setOtpOpen(false);
+    if ('otp_required' in result && result.otp_required) {
+      setChallengePurpose(result.purpose || 'login');
+      setOtpStep('otp');
+      setOtpOpen(true);
+      toast.success('A verification code was sent to your email');
       return;
     }
 
-    try {
-      setOtpLoading(true);
-      await apiClient.verifyLoginOtp({
-        email: otpEmail.trim(),
-        code: otpCode.trim(),
-        purpose: challengePurpose || 'login',
-        rememberMe: pendingLogin.rememberMe,
+    // If login returned user without OTP, session cookie should already be set.
+    await checkAuth();
+    toast.success('Login successful!');
+    router.replace(redirectPath);
+  } catch (err) {
+    const apiErr = err as ApiError;
+    const status = apiErr.statusCode ?? 0;
+
+    if (status === 400 || status === 422) {
+      const fieldErrors = extractServerFieldErrors(apiErr);
+      let applied = false;
+
+      (Object.entries(fieldErrors) as Array<[keyof LoginFormData, string]>).forEach(([field, message]) => {
+        if (field in data) {
+          applied = true;
+          setError(field, { type: 'server', message });
+        }
       });
 
-      await checkAuth();
-      toast.success('Login verified');
-      setOtpOpen(false);
-      setOtpCode('');
-      router.replace(redirectPath);
-    } catch (err) {
-      const apiErr = err as ApiError;
-      const status = apiErr.statusCode ?? 0;
-
-      if (status === 400 || status === 422) {
-        const fieldErrors = extractServerFieldErrors(apiErr);
-        if (Object.keys(fieldErrors).length > 0) {
-          toast.error(getFirstServerFieldError(fieldErrors) || 'Please check the code and try again.');
-          return;
-        }
-      }
-
-      if (status === 404) {
-        setErrorModal({
-          open: true,
-          title: 'Account not found',
-          description:
-            'We couldn’t find a user with that email. You can register for access. Admin signups require super-admin approval.',
-          mode: 'not_found',
-        });
-      } else if (status === 401) {
-        setErrorModal({
-          open: true,
-          title: 'Incorrect password',
-          description: 'The email exists, but the password is incorrect. You can retry or reset your password.',
-          mode: 'bad_password',
-        });
-      } else {
-        const message = apiErr?.message || 'Verification failed';
-        setErrorModal({
-          open: true,
-          title: 'Unable to sign in',
-          description: message,
-          mode: 'generic',
-        });
-      }
-    } finally {
-      setOtpLoading(false);
+      if (!applied) setServerError(getServerErrorMessage(apiErr, 'Unable to sign in right now.'));
+      return;
     }
-  };
+
+    if (status === 404) {
+      setErrorModal({
+        open: true,
+        title: 'Account not found',
+        description:
+          'No account exists for that email. You can register for access. Admin signups require super-admin approval.',
+        mode: 'not_found',
+      });
+    } else if (status === 401) {
+      setErrorModal({
+        open: true,
+        title: 'Incorrect password',
+        description: 'The email exists, but the password is incorrect. You can retry or reset your password.',
+        mode: 'bad_password',
+      });
+    } else {
+      setErrorModal({
+        open: true,
+        title: 'Login failed',
+        description: apiErr?.message || 'Unable to sign in right now.',
+        mode: 'generic',
+      });
+    }
+  } finally {
+    setOtpLoading(false);
+  }
+};
+
+const requestOtp = async () => {
+  if (!pendingLogin) {
+    toast.error('Please submit your email and password first.');
+    return;
+  }
+
+  try {
+    setOtpLoading(true);
+
+    // Re-hit login to resend OTP (your backend likely does this)
+    const result = await apiClient.login({
+      ...pendingLogin,
+      email: otpEmail.trim().toLowerCase(),
+    });
+
+    if ('otp_required' in result && result.otp_required) {
+      setChallengePurpose(result.purpose || 'login');
+      setOtpStep('otp');
+      toast.success('Check your email for the code we just sent.');
+      return;
+    }
+
+    // If it didn't require OTP this time, you are already logged in
+    await checkAuth();
+    toast.success('Login successful!');
+    setOtpOpen(false);
+    router.replace(redirectPath);
+  } catch (err) {
+    toast.error(getServerErrorMessage(err, 'Failed to send login code'));
+  } finally {
+    setOtpLoading(false);
+  }
+};
+
+const verifyOtpAndLogin = async () => {
+  if (!pendingLogin) {
+    toast.error('Please restart the login process');
+    setOtpOpen(false);
+    return;
+  }
+
+  try {
+    setOtpLoading(true);
+
+    await apiClient.verifyLoginOtp({
+      email: otpEmail.trim().toLowerCase(),
+      code: otpCode.trim(),
+      purpose: challengePurpose || 'login',
+      rememberMe: pendingLogin.rememberMe,
+    });
+
+    // After OTP verify, backend should set auth cookie.
+    const me = await checkAuth();
+
+    if (!me) {
+      toast.error('Login verified, but session was not established. Please refresh.');
+      return;
+    }
+
+    toast.success('Login verified');
+    setOtpOpen(false);
+    setOtpCode('');
+    router.replace(redirectPath);
+  } catch (err) {
+    const fieldErrors = extractServerFieldErrors(err);
+    if (Object.keys(fieldErrors).length > 0) {
+      toast.error(getFirstServerFieldError(fieldErrors) || 'Please check the code and try again.');
+      return;
+    }
+    toast.error(getServerErrorMessage(err, 'Verification failed'));
+  } finally {
+    setOtpLoading(false);
+  }
+};
 
   const resetForgotState = () => {
     setForgotEmail('');
