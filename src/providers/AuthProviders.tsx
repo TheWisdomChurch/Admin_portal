@@ -68,36 +68,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const initRef = useRef(false);
 
   const initializeAuth = useCallback(async () => {
-    if (initRef.current) return;
-    initRef.current = true;
+  if (initRef.current) return;
+  initRef.current = true;
 
-    setIsLoading(true);
-    setError(null);
+  setIsLoading(true);
+  setError(null);
 
-    const cached = getAuthUser();
-    if (cached) setUser(cached);
+  // optimistic cache (UI fast)
+  const cached = getAuthUser();
+  if (cached) setUser(cached);
 
-    try {
-      const verifiedRaw = await apiClient.getCurrentUser();
-      const verified = unwrapUser(verifiedRaw);
+  try {
+    // One-shot session probe. 401/403 is normal when not logged in.
+    const verified = await apiClient.getCurrentUser();
+    setUser(verified);
 
-      setUser(verified);
+    // If user previously chose rememberMe, they were stored in localStorage.
+    // If not, sessionStorage. We can infer by checking where it exists.
+    const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
+    setAuthUser(verified, remembered);
+  } catch (e) {
+    const status = getStatus(e);
 
-      const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
-      setAuthUser(verified, remembered);
-    } catch (e) {
-      const status = getStatus(e);
-      if (status === 401 || status === 403) {
-        clearAuthStorage();
-        setUser(null);
-      } else {
-        setError('Session check failed. Please refresh.');
-      }
-    } finally {
-      setIsInitialized(true);
-      setIsLoading(false);
+    if (status === 401 || status === 403) {
+      // Not authenticated: normal state
+      clearAuthStorage();
+      setUser(null);
+    } else {
+      // Real problem (network/server)
+      setError('Session check failed. Please refresh.');
     }
-  }, []);
+  } finally {
+    setIsInitialized(true);
+    setIsLoading(false);
+  }
+}, []);
+
 
   useEffect(() => {
     initializeAuth();
