@@ -492,7 +492,7 @@ export default function RegisterPage() {
                 </Link>
 
                 <Link href="/" className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
-                  Back to Home
+                  Back to Home.
                 </Link>
               </div>
             </form>
