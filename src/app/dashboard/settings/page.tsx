@@ -10,7 +10,7 @@ import { useAuthContext } from '@/providers/AuthProviders';
 import { apiClient } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { withAuth } from '@/providers/withAuth';
-import { ConfirmationModal } from '@/ui/ConfirmationModal';
+import { VerifyActionModal } from '@/ui/VerifyActionModal';
 import { PageHeader } from '@/layouts';
 import { OtpModal } from '@/ui/OtpModal';
 import { PasswordStrengthMeter } from '@/ui/PasswordStrengthMeter';
@@ -43,6 +43,9 @@ function SettingsPage() {
   
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showClearDataModal, setShowClearDataModal] = useState(false);
+
+  const deletePhrase = 'DELETE MY ACCOUNT';
+  const clearDataPhrase = 'CLEAR ALL DATA';
   
   const [profileFormData, setProfileFormData] = useState<ProfileFormData>({
     username: '',
@@ -580,7 +583,7 @@ function SettingsPage() {
       />
 
       {/* Delete Account Confirmation Modal */}
-      <ConfirmationModal
+      <VerifyActionModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={handleDeleteAccount}
@@ -590,6 +593,7 @@ function SettingsPage() {
         cancelText="Cancel"
         variant="danger"
         loading={deleteAccountLoading}
+        verifyText={deletePhrase}
       >
         <div className="mt-4 p-3 bg-red-50 rounded-md">
           <ul className="text-xs text-red-700 list-disc pl-4 space-y-1">
@@ -599,10 +603,10 @@ function SettingsPage() {
             <li>This action cannot be reversed</li>
           </ul>
         </div>
-      </ConfirmationModal>
+      </VerifyActionModal>
 
       {/* Clear Data Confirmation Modal */}
-      <ConfirmationModal
+      <VerifyActionModal
         isOpen={showClearDataModal}
         onClose={() => setShowClearDataModal(false)}
         onConfirm={handleClearData}
@@ -612,6 +616,7 @@ function SettingsPage() {
         cancelText="Cancel"
         variant="warning"
         loading={clearDataLoading}
+        verifyText={clearDataPhrase}
       >
         <div className="mt-4 p-3 bg-amber-50 rounded-md">
           <ul className="text-xs text-amber-700 list-disc pl-4 space-y-1">
@@ -621,7 +626,7 @@ function SettingsPage() {
             <li>You may need to reconfigure your settings</li>
           </ul>
         </div>
-      </ConfirmationModal>
+      </VerifyActionModal>
     </>
   );
 }

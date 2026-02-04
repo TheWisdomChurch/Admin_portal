@@ -11,6 +11,7 @@ import { Button } from '@/ui/Button';
 import { DataTable } from '@/components/DateTable';
 import { PageHeader } from '@/layouts';
 import { Input } from '@/ui/input';
+import { VerifyActionModal } from '@/ui/VerifyActionModal';
 
 import { apiClient } from '@/lib/api';
 import type { AdminForm, CreateFormRequest, FormFieldType, FormSettings } from '@/lib/types';
@@ -85,6 +86,8 @@ export default withAuth(function FormsPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const [deleteTarget, setDeleteTarget] = useState<AdminForm | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Builder state
   const [showBuilder, setShowBuilder] = useState(false);
@@ -153,6 +156,27 @@ export default withAuth(function FormsPage() {
     if (authBlocked) return;
     load();
   }, [authBlocked, load]);
+
+  const requestDelete = (form: AdminForm) => {
+    setDeleteTarget(form);
+  };
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      await apiClient.deleteAdminForm(deleteTarget.id);
+      toast.success('Form deleted');
+      setDeleteTarget(null);
+      await load();
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'Failed to delete form';
+      toast.error(message);
+    } finally {
+      setDeleteLoading(false);
+    }
+  }, [deleteTarget, load]);
 
   // ---------- Field builder actions ----------
   const addField = () => {
@@ -254,19 +278,9 @@ export default withAuth(function FormsPage() {
     }
   }, []);
 
-  const handleDelete = async (form: AdminForm) => {
-    if (!confirm(`Delete "${form.title}"? This cannot be undone.`)) return;
-
-    try {
-      await apiClient.deleteAdminForm(form.id);
-      toast.success('Form deleted');
-      load();
-    } catch (err) {
-      console.error(err);
-      const message = err instanceof Error ? err.message : 'Failed to delete form';
-      toast.error(message);
-    }
-  };
+  const deletePhrase = deleteTarget
+    ? `DELETE ${deleteTarget.title || deleteTarget.id}`
+    : 'DELETE';
 
   const save = async () => {
     setFieldErrors({});
@@ -722,7 +736,7 @@ export default withAuth(function FormsPage() {
           onPageChange={setPage}
           onLimitChange={setLimit}
           onEdit={handleEdit}
-          onDelete={handleDelete}
+          onDelete={requestDelete}
           onView={(f: AdminForm) => {
             if (!f.isPublished) {
               handlePublish(f);
@@ -737,6 +751,19 @@ export default withAuth(function FormsPage() {
       <div className="text-xs text-secondary-500">
         Tip: Click “View” action to publish (if draft) or copy link (if already published).
       </div>
+
+      <VerifyActionModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Delete Form"
+        description="This action permanently removes the form and its configuration."
+        confirmText="Delete Form"
+        cancelText="Cancel"
+        variant="danger"
+        loading={deleteLoading}
+        verifyText={deletePhrase}
+      />
     </div>
   );
 }, { requiredRole: 'admin' });
