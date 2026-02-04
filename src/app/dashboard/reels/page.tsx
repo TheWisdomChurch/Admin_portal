@@ -8,6 +8,7 @@ import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { DataTable } from '@/components/DateTable';
 import { ImageUpload } from '@/components/ImageUpload';
+import { VerifyActionModal } from '@/ui/VerifyActionModal';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
 import { ReelData } from '@/lib/types';
@@ -22,6 +23,8 @@ function ReelsPage() {
   const [limit, setLimit] = useState(10);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ReelData | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const loadReels = useCallback(async () => {
     try {
@@ -41,20 +44,29 @@ function ReelsPage() {
     loadReels();
   }, [loadReels]);
 
-  const handleDelete = async (reel: ReelData) => {
-    if (!confirm(`Are you sure you want to delete "${reel.title}"?`)) {
-      return;
-    }
+  const requestDelete = (reel: ReelData) => {
+    setDeleteTarget(reel);
+  };
 
+  const confirmDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
     try {
-      await apiClient.deleteReel(reel.id);
+      await apiClient.deleteReel(deleteTarget.id);
       toast.success('Reel deleted successfully');
-      loadReels();
+      setDeleteTarget(null);
+      await loadReels();
     } catch (error) {
       toast.error('Failed to delete reel');
       console.error(error);
+    } finally {
+      setDeleteLoading(false);
     }
-  };
+  }, [deleteTarget, loadReels]);
+
+  const deletePhrase = deleteTarget
+    ? `DELETE ${deleteTarget.title || deleteTarget.id}`
+    : 'DELETE';
 
   const handleUpload = async (files: File[]) => {
     if (files.length === 0) return;
@@ -156,7 +168,7 @@ function ReelsPage() {
         limit={limit}
         onPageChange={setPage}
         onLimitChange={setLimit}
-        onDelete={handleDelete}
+        onDelete={requestDelete}
         isLoading={loading}
       />
 
@@ -194,6 +206,19 @@ function ReelsPage() {
           </Card>
         </div>
       )}
+
+      <VerifyActionModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Delete Reel"
+        description="This action permanently removes the reel and its media references."
+        confirmText="Delete Reel"
+        cancelText="Cancel"
+        variant="danger"
+        loading={deleteLoading}
+        verifyText={deletePhrase}
+      />
     </div>
   );
 }

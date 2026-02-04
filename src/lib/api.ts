@@ -489,8 +489,8 @@ export const apiClient = {
   },
 
   async updateProfile(userData: Partial<User>): Promise<User> {
-    const res = await apiFetch<ApiResponse<unknown>>('/auth/update-profile', {
-      method: 'PUT',
+    const res = await apiFetch<ApiResponse<unknown>>('/auth/profile', {
+      method: 'PATCH',
       body: JSON.stringify(userData),
     });
     return extractUser(res);
@@ -520,26 +520,31 @@ export const apiClient = {
   },
 
   async deleteAccount(): Promise<MessageResponse> {
-    return apiFetch('/auth/delete-account', { method: 'DELETE' });
+    return apiFetch('/auth/account', { method: 'DELETE' });
   },
 
   /* ===================== HEALTH ===================== */
 
   healthCheck(): Promise<HealthCheckResponse> {
-    return rootFetch('/health', { method: 'GET' });
+    return rootFetch('/healthz', { method: 'GET' });
   },
 
   /* ===================== TESTIMONIALS ===================== */
 
   async getAllTestimonials(params?: { approved?: boolean }): Promise<Testimonial[]> {
+    if (params?.approved === false) {
+      const res = await apiFetch<ApiResponse<Testimonial[]>>('/admin/testimonials/pending');
+      return unwrapData<Testimonial[]>(res, 'Invalid testimonials payload');
+    }
+
     const qs = params?.approved !== undefined ? `?approved=${params.approved}` : '';
-    const res = await apiFetch<ApiResponse<Testimonial[]>>(`/testimonials${qs}`);
+    const res = await apiFetch<ApiResponse<Testimonial[]>>(`/testimonials/all${qs}`);
     return unwrapData<Testimonial[]>(res, 'Invalid testimonials payload');
   },
 
   getPaginatedTestimonials(params?: Record<string, string>): Promise<PaginatedResponse<Testimonial>> {
     const qs = params ? `?${new URLSearchParams(params)}` : '';
-    return apiFetch(`/testimonials/paginated${qs}`);
+    return apiFetch(`/testimonials${qs}`);
   },
 
   async getTestimonialById(id: string): Promise<Testimonial> {
@@ -595,7 +600,7 @@ export const apiClient = {
 
   async getEvents(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<EventData>> {
     const qs = toQueryString(params);
-    return apiFetch(`/events${qs}`, { method: 'GET' });
+    return apiFetch(`/admin/events${qs}`, { method: 'GET' });
   },
 
   async getEvent(id: string): Promise<EventData> {
@@ -604,7 +609,7 @@ export const apiClient = {
   },
 
   async createEvent(data: EventPayload): Promise<EventData> {
-    const res = await apiFetch<{ data: EventData }>('/events', {
+    const res = await apiFetch<{ data: EventData }>('/admin/events', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -612,7 +617,7 @@ export const apiClient = {
   },
 
   async updateEvent(id: string, data: EventPayload): Promise<EventData> {
-    const res = await apiFetch<{ data: EventData }>(`/events/${encodeURIComponent(id)}`, {
+    const res = await apiFetch<{ data: EventData }>(`/admin/events/${encodeURIComponent(id)}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -620,13 +625,13 @@ export const apiClient = {
   },
 
   async deleteEvent(id: string): Promise<MessageResponse> {
-    return apiFetch(`/events/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    return apiFetch(`/admin/events/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
 
   async uploadEventImage(id: string, file: File): Promise<EventData> {
     const form = new FormData();
     form.append('file', file);
-    const res = await uploadFetch<{ data: EventData }>(`/events/${encodeURIComponent(id)}/image`, {
+    const res = await uploadFetch<{ data: EventData }>(`/admin/events/${encodeURIComponent(id)}/image`, {
       method: 'POST',
       body: form,
     });
@@ -636,7 +641,7 @@ export const apiClient = {
   async uploadEventBanner(id: string, file: File): Promise<EventData> {
     const form = new FormData();
     form.append('file', file);
-    const res = await uploadFetch<{ data: EventData }>(`/events/${encodeURIComponent(id)}/banner`, {
+    const res = await uploadFetch<{ data: EventData }>(`/admin/events/${encodeURIComponent(id)}/banner`, {
       method: 'POST',
       body: form,
     });
@@ -647,11 +652,11 @@ export const apiClient = {
 
   async getReels(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<ReelData>> {
     const qs = toQueryString(params);
-    return apiFetch(`/reels${qs}`, { method: 'GET' });
+    return apiFetch(`/admin/reels${qs}`, { method: 'GET' });
   },
 
   async createReel(payload: CreateReelData): Promise<ReelData> {
-    const res = await apiFetch<{ data: ReelData }>('/reels', {
+    const res = await apiFetch<{ data: ReelData }>('/admin/reels', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -659,7 +664,7 @@ export const apiClient = {
   },
 
   async deleteReel(id: string): Promise<MessageResponse> {
-    return apiFetch(`/reels/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    return apiFetch(`/admin/reels/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
 
   /* ===================== FORMS (ADMIN) ===================== */
@@ -729,7 +734,7 @@ export const apiClient = {
   /* ===================== SUBSCRIBERS + NOTIFICATIONS ===================== */
 
   async subscribe(payload: SubscribeRequest): Promise<Subscriber> {
-    const res = await apiFetch<ApiResponse<Subscriber>>('/subscribers', {
+    const res = await apiFetch<ApiResponse<Subscriber>>('/notifications/subscribe', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -737,7 +742,7 @@ export const apiClient = {
   },
 
   async unsubscribe(payload: UnsubscribeRequest): Promise<MessageResponse> {
-    return apiFetch('/subscribers/unsubscribe', {
+    return apiFetch('/notifications/unsubscribe', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -745,11 +750,11 @@ export const apiClient = {
 
   async listSubscribers(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<Subscriber>> {
     const qs = toQueryString(params);
-    return apiFetch(`/admin/subscribers${qs}`, { method: 'GET' });
+    return apiFetch(`/admin/notifications/subscribers${qs}`, { method: 'GET' });
   },
 
   async sendNotification(payload: SendNotificationRequest): Promise<SendNotificationResult> {
-    const res = await apiFetch<ApiResponse<SendNotificationResult>>('/admin/notifications', {
+    const res = await apiFetch<ApiResponse<SendNotificationResult>>('/admin/notifications/send', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -791,7 +796,7 @@ export const apiClient = {
 
   async updateWorkforce(id: string, payload: UpdateWorkforceRequest): Promise<WorkforceMember> {
     const res = await apiFetch<ApiResponse<WorkforceMember>>(`/admin/workforce/${encodeURIComponent(id)}`, {
-      method: 'PATCH',
+      method: 'PUT',
       body: JSON.stringify(payload),
     });
     return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
@@ -799,7 +804,7 @@ export const apiClient = {
 
   async approveWorkforce(id: string, payload?: Record<string, unknown>): Promise<WorkforceMember> {
     const res = await apiFetch<ApiResponse<WorkforceMember>>(`/admin/workforce/${encodeURIComponent(id)}/approve`, {
-      method: 'PATCH',
+      method: 'POST',
       body: JSON.stringify(payload || {}),
     });
     return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
@@ -816,6 +821,37 @@ export const apiClient = {
   async getWorkforceStats(): Promise<WorkforceStatsResponse> {
     const res = await apiFetch<ApiResponse<WorkforceStatsResponse>>('/admin/workforce/stats', { method: 'GET' });
     return unwrapData<WorkforceStatsResponse>(res, 'Invalid workforce stats payload');
+  },
+
+  /* ===================== WORKFORCE (BIRTHDAYS) ===================== */
+
+  async getWorkforceBirthdayStats(): Promise<Record<string, unknown>> {
+    const res = await apiFetch<ApiResponse<Record<string, unknown>>>('/admin/workforce/birthdays/stats', {
+      method: 'GET',
+    });
+    return unwrapData<Record<string, unknown>>(res, 'Invalid birthday stats payload');
+  },
+
+  async getWorkforceBirthdaysByMonth(month: number): Promise<WorkforceMember[]> {
+    const res = await apiFetch<ApiResponse<WorkforceMember[]>>(
+      `/admin/workforce/birthdays/month/${encodeURIComponent(String(month))}`,
+      { method: 'GET' }
+    );
+    return unwrapData<WorkforceMember[]>(res, 'Invalid birthdays by month payload');
+  },
+
+  async getWorkforceBirthdaysToday(): Promise<WorkforceMember[]> {
+    const res = await apiFetch<ApiResponse<WorkforceMember[]>>('/admin/workforce/birthdays/today', {
+      method: 'GET',
+    });
+    return unwrapData<WorkforceMember[]>(res, 'Invalid birthdays today payload');
+  },
+
+  async sendWorkforceBirthdaysToday(): Promise<Record<string, number>> {
+    const res = await apiFetch<ApiResponse<Record<string, number>>>('/admin/workforce/birthdays/send-today', {
+      method: 'POST',
+    });
+    return unwrapData<Record<string, number>>(res, 'Invalid birthday send payload');
   },
 };
 
