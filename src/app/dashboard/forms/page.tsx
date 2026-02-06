@@ -856,7 +856,7 @@ export default withAuth(function FormsPage() {
         ),
       },
     ],
-    [handleCopyLink, formCounts]
+    [handleCopyLink, handlePublish, formCounts]
   );
 
   const submissionColumns = useMemo<Column<FormSubmission>[]>(
