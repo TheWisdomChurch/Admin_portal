@@ -3,7 +3,7 @@
 // This page mirrors the rich builder experience from /dashboard/test
 // so admins can create new forms from the canonical /dashboard/forms/new route.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Save, Plus, Trash2, Copy } from 'lucide-react';
@@ -14,7 +14,7 @@ import { PageHeader } from '@/layouts';
 import { Input } from '@/ui/input';
 
 import { apiClient } from '@/lib/api';
-import type { CreateFormRequest, FormFieldType } from '@/lib/types';
+import type { CreateFormRequest, EventData, FormFieldType } from '@/lib/types';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
@@ -63,6 +63,12 @@ export default withAuth(function NewFormPage() {
   const [description, setDescription] = useState('');
   const [slug, setSlug] = useState('');
   const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
+  const [events, setEvents] = useState<EventData[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventId, setEventId] = useState('');
+  const [capacity, setCapacity] = useState('');
+  const [closesAt, setClosesAt] = useState('');
+  const [expiresAt, setExpiresAt] = useState('');
   const [introTitle, setIntroTitle] = useState('Event Registration');
   const [introSubtitle, setIntroSubtitle] = useState('Secure your spot by registering below.');
   const [introBullets, setIntroBullets] = useState('Smooth check-in\nEngaging sessions\nFriendly community');
@@ -86,6 +92,27 @@ export default withAuth(function NewFormPage() {
       delete next[key];
       return next;
     });
+
+  const toIso = (value: string) => {
+    if (!value) return undefined;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return undefined;
+    return d.toISOString();
+  };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setEventsLoading(true);
+        const res = await apiClient.getEvents({ page: 1, limit: 200 });
+        setEvents(Array.isArray(res.data) ? res.data : []);
+      } catch {
+        setEvents([]);
+      } finally {
+        setEventsLoading(false);
+      }
+    })();
+  }, []);
 
   // field builder
   const [fields, setFields] = useState<FieldDraft[]>([
@@ -111,12 +138,13 @@ export default withAuth(function NewFormPage() {
 
   const save = async () => {
     setFieldErrors({});
-    const normalizedSlug = normalizeSlug(slug);
+    const normalizedSlug = normalizeSlug(slug || title);
 
     const payload: CreateFormRequest = {
       title: title.trim(),
       description: description.trim() || undefined,
       slug: normalizedSlug,
+      eventId: eventId || undefined,
       fields: fields.map((f, idx) => ({
         key: (f.key || `field_${idx + 1}`).trim(),
         label: f.label.trim(),
@@ -126,6 +154,9 @@ export default withAuth(function NewFormPage() {
         order: idx + 1,
       })),
       settings: {
+        capacity: capacity ? Number(capacity) : undefined,
+        closesAt: toIso(closesAt),
+        expiresAt: toIso(expiresAt),
         successMessage: 'Thanks! Your registration has been received.',
         introTitle,
         introSubtitle,
@@ -221,7 +252,7 @@ export default withAuth(function NewFormPage() {
             <p className="text-xs text-[var(--color-text-tertiary)]">
               Public link preview:{' '}
               <span className="font-medium text-[var(--color-text-secondary)]">
-                /forms/{normalizeSlug(slug || 'your-link')}
+                /forms/{normalizeSlug(slug || title || 'your-link')}
               </span>
             </p>
           </div>
@@ -314,6 +345,54 @@ export default withAuth(function NewFormPage() {
               </div>
             </div>
           </div>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Registration Settings</h3>
+        <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">
+          Control capacity and registration window for this form.
+        </p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Linked Event</label>
+            <select
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+              value={eventId}
+              onChange={(e) => setEventId(e.target.value)}
+              disabled={eventsLoading}
+            >
+              <option value="">No event (standalone form)</option>
+              {events.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <Input
+            label="Capacity (optional)"
+            type="number"
+            min={0}
+            value={capacity}
+            onChange={(e) => setCapacity(e.target.value)}
+            placeholder="e.g., 250"
+          />
+
+          <Input
+            label="Closes At (optional)"
+            type="datetime-local"
+            value={closesAt}
+            onChange={(e) => setClosesAt(e.target.value)}
+          />
+
+          <Input
+            label="Expires At (optional)"
+            type="datetime-local"
+            value={expiresAt}
+            onChange={(e) => setExpiresAt(e.target.value)}
+          />
         </div>
       </Card>
 
