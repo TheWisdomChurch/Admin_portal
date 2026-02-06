@@ -14,7 +14,7 @@ import { Input } from '@/ui/input';
 import { VerifyActionModal } from '@/ui/VerifyActionModal';
 
 import { apiClient } from '@/lib/api';
-import type { AdminForm, CreateFormRequest, FormFieldType, FormSettings } from '@/lib/types';
+import type { AdminForm, CreateFormRequest, EventData, FormFieldType, FormSettings, FormStatsResponse } from '@/lib/types';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
@@ -88,6 +88,8 @@ export default withAuth(function FormsPage() {
   const [limit, setLimit] = useState(10);
   const [deleteTarget, setDeleteTarget] = useState<AdminForm | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [formCounts, setFormCounts] = useState<Record<string, number>>({});
+  const [formStats, setFormStats] = useState<FormStatsResponse | null>(null);
 
   // Builder state
   const [showBuilder, setShowBuilder] = useState(false);
@@ -97,6 +99,12 @@ export default withAuth(function FormsPage() {
   const [description, setDescription] = useState('');
   const [slug, setSlug] = useState('');
   const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
+  const [events, setEvents] = useState<EventData[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventId, setEventId] = useState('');
+  const [capacity, setCapacity] = useState('');
+  const [closesAt, setClosesAt] = useState('');
+  const [expiresAt, setExpiresAt] = useState('');
 
   const [introTitle, setIntroTitle] = useState('Event Registration');
   const [introSubtitle, setIntroSubtitle] = useState('Secure your spot by registering below.');
@@ -125,6 +133,13 @@ export default withAuth(function FormsPage() {
       return next;
     });
 
+  const toIso = (value: string) => {
+    if (!value) return undefined;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return undefined;
+    return d.toISOString();
+  };
+
   const [fields, setFields] = useState<FieldDraft[]>([
     { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
     { key: 'email', label: 'Email', type: 'email', required: true, order: 2 },
@@ -138,15 +153,41 @@ export default withAuth(function FormsPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await apiClient.getAdminForms({ page, limit });
-      setForms(Array.isArray(res.data) ? res.data : []);
-      setTotal(typeof res.total === 'number' ? res.total : 0);
+      const [formsResult, statsResult] = await Promise.allSettled([
+        apiClient.getAdminForms({ page, limit }),
+        apiClient.getFormStats(),
+      ]);
+
+      if (formsResult.status === 'fulfilled') {
+        const res = formsResult.value;
+        setForms(Array.isArray(res.data) ? res.data : []);
+        setTotal(typeof res.total === 'number' ? res.total : 0);
+      } else {
+        console.error(formsResult.reason);
+        setForms([]);
+        setTotal(0);
+      }
+
+      if (statsResult.status === 'fulfilled') {
+        setFormStats(statsResult.value);
+        const map: Record<string, number> = {};
+        statsResult.value.perForm?.forEach((row) => {
+          map[row.formId] = row.count;
+        });
+        setFormCounts(map);
+      } else {
+        console.warn('Form stats unavailable:', statsResult.reason);
+        setFormCounts({});
+        setFormStats(null);
+      }
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : 'Failed to load forms';
       toast.error(message);
       setForms([]);
       setTotal(0);
+      setFormCounts({});
+      setFormStats(null);
     } finally {
       setLoading(false);
     }
@@ -156,6 +197,20 @@ export default withAuth(function FormsPage() {
     if (authBlocked) return;
     load();
   }, [authBlocked, load]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setEventsLoading(true);
+        const res = await apiClient.getEvents({ page: 1, limit: 200 });
+        setEvents(Array.isArray(res.data) ? res.data : []);
+      } catch {
+        setEvents([]);
+      } finally {
+        setEventsLoading(false);
+      }
+    })();
+  }, []);
 
   const requestDelete = (form: AdminForm) => {
     setDeleteTarget(form);
@@ -284,12 +339,13 @@ export default withAuth(function FormsPage() {
 
   const save = async () => {
     setFieldErrors({});
-    const normalizedSlug = normalizeSlug(slug);
+    const normalizedSlug = normalizeSlug(slug || title);
 
     const payload: CreateFormRequest = {
       title: title.trim(),
       description: description.trim() || undefined,
       slug: normalizedSlug,
+      eventId: eventId || undefined,
       fields: fields.map((f, idx) => {
         const base = {
           key: (f.key || `field_${idx + 1}`).trim(),
@@ -316,6 +372,9 @@ export default withAuth(function FormsPage() {
       // NOTE: if your backend FormSettings doesn't include these custom fields, move them to `settings.design`
       // or extend your types/backend. I'm leaving your structure as you currently use it.
       settings: {
+        capacity: capacity ? Number(capacity) : undefined,
+        closesAt: toIso(closesAt),
+        expiresAt: toIso(expiresAt),
         successMessage: 'Thanks! Your registration has been received.',
         introTitle,
         introSubtitle,
@@ -409,6 +468,15 @@ export default withAuth(function FormsPage() {
         ),
       },
       {
+        key: 'id' as keyof AdminForm,
+        header: 'Registrations',
+        cell: (f: AdminForm) => (
+          <span className="text-sm text-secondary-700">
+            {formCounts[f.id] ?? 0}
+          </span>
+        ),
+      },
+      {
         key: 'slug' as keyof AdminForm,
         header: 'Link',
         cell: (f: AdminForm) => (
@@ -426,7 +494,13 @@ export default withAuth(function FormsPage() {
                 </button>
               </>
             ) : (
-              <span className="text-xs text-secondary-500">Not published</span>
+              <button
+                type="button"
+                onClick={() => handlePublish(f)}
+                className="inline-flex items-center gap-1 rounded-md border border-secondary-200 bg-white px-2 py-1 text-xs text-secondary-700 hover:bg-secondary-50"
+              >
+                Publish
+              </button>
             )}
           </div>
         ),
@@ -439,7 +513,7 @@ export default withAuth(function FormsPage() {
         ),
       },
     ],
-    [handleCopyLink]
+    [handleCopyLink, formCounts]
   );
 
   if (authBlocked) {
@@ -509,7 +583,7 @@ export default withAuth(function FormsPage() {
                 <p className="text-xs text-[var(--color-text-tertiary)]">
                   Public link preview:{' '}
                   <span className="font-medium text-[var(--color-text-secondary)]">
-                    /forms/{normalizeSlug(slug || 'your-link')}
+                    /forms/{normalizeSlug(slug || title || 'your-link')}
                   </span>
                 </p>
               </div>
@@ -523,6 +597,56 @@ export default withAuth(function FormsPage() {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Optional short intro"
                 />
+              </div>
+
+              <div className="md:col-span-2 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+                <div className="mb-3">
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">Registration Settings</p>
+                  <p className="text-xs text-[var(--color-text-tertiary)]">
+                    Set capacity and registration window for this form.
+                  </p>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Linked Event</label>
+                    <select
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                      value={eventId}
+                      onChange={(e) => setEventId(e.target.value)}
+                      disabled={eventsLoading}
+                    >
+                      <option value="">No event (standalone form)</option>
+                      {events.map((ev) => (
+                        <option key={ev.id} value={ev.id}>
+                          {ev.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <Input
+                    label="Capacity (optional)"
+                    type="number"
+                    min={0}
+                    value={capacity}
+                    onChange={(e) => setCapacity(e.target.value)}
+                    placeholder="e.g., 250"
+                  />
+
+                  <Input
+                    label="Closes At (optional)"
+                    type="datetime-local"
+                    value={closesAt}
+                    onChange={(e) => setClosesAt(e.target.value)}
+                  />
+
+                  <Input
+                    label="Expires At (optional)"
+                    type="datetime-local"
+                    value={expiresAt}
+                    onChange={(e) => setExpiresAt(e.target.value)}
+                  />
+                </div>
               </div>
 
               <div className="md:col-span-2 grid gap-3 md:grid-cols-3">
@@ -737,19 +861,19 @@ export default withAuth(function FormsPage() {
           onLimitChange={setLimit}
           onEdit={handleEdit}
           onDelete={requestDelete}
-          onView={(f: AdminForm) => {
-            if (!f.isPublished) {
-              handlePublish(f);
-              return;
-            }
-            handleCopyLink(f);
-          }}
+          onView={(f: AdminForm) => router.push(`/dashboard/forms/${f.id}/submissions`)}
           isLoading={loading}
         />
       </Card>
 
+      {formStats && (
+        <div className="text-xs text-secondary-500">
+          Total registrations across all forms: {formStats.totalSubmissions}
+        </div>
+      )}
+
       <div className="text-xs text-secondary-500">
-        Tip: Click “View” action to publish (if draft) or copy link (if already published).
+        Tip: Click “View” to see registrations for a form.
       </div>
 
       <VerifyActionModal
