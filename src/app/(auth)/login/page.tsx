@@ -86,17 +86,6 @@ function LoginInner() {
         email: normalizedEmail,
       });
 
-      if ('otp_required' in result && result.otp_required) {
-        setErrorModal({
-          open: true,
-          title: 'Two-factor disabled',
-          description:
-            'This portal no longer requires OTP on sign-in. Please contact support if this keeps happening.',
-          mode: 'generic',
-        });
-        return;
-      }
-
       await checkAuth();
       toast.success('Login successful!');
       router.replace(redirectPath);
