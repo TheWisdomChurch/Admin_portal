@@ -397,6 +397,8 @@ export interface FormSettings {
   design?: FormDesignSettings;
 }
 
+export type FormStatus = 'draft' | 'published' | 'invalid';
+
 export interface AdminForm {
   id: string;
   title: string;
@@ -404,6 +406,9 @@ export interface AdminForm {
   eventId?: string;
   slug?: string;
   isPublished: boolean;
+  status?: FormStatus;
+  publishedAt?: string;
+  publicUrl?: string;
   settings?: FormSettings;
   fields: FormField[];
   createdAt: string;

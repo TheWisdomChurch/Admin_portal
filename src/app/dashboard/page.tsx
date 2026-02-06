@@ -9,6 +9,7 @@ import {
   Video,
   AlertCircle,
   ArrowUpRight,
+  ClipboardList,
 } from 'lucide-react';
 import { Card } from '@/ui/Card';
 import { Badge } from '@/ui/Badge';
@@ -16,7 +17,7 @@ import { Button } from '@/ui/Button';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
 import { useAuthContext } from '@/providers/AuthProviders';
-import { EventData, DashboardAnalytics } from '@/lib/types';
+import { EventData, DashboardAnalytics, AdminForm } from '@/lib/types';
 
 export default function DashboardPage() {
   const auth = useAuthContext();
@@ -32,16 +33,21 @@ export default function DashboardPage() {
   const [recentEvents, setRecentEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
   const [approvedTestimonials, setApprovedTestimonials] = useState<{ id: string; full_name?: string; testimony?: string }[]>([]);
+  const [formOverview, setFormOverview] = useState<{ total: number; recent: AdminForm[] }>({
+    total: 0,
+    recent: [],
+  });
 
   const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
 
       // Try to fetch real data, fall back to mock data if it fails
-      const [analyticsResult, eventsResult, testimonialsResult] = await Promise.allSettled([
+      const [analyticsResult, eventsResult, testimonialsResult, formsResult] = await Promise.allSettled([
         apiClient.getAnalytics(),
         apiClient.getEvents({ limit: 5, page: 1 }),
         apiClient.getAllTestimonials({ approved: true }),
+        apiClient.getAdminForms({ page: 1, limit: 4 }),
       ]);
 
       if (analyticsResult.status === 'fulfilled') {
@@ -85,6 +91,21 @@ export default function DashboardPage() {
       } else {
         console.warn('Testimonials unavailable:', testimonialsResult.reason);
         setApprovedTestimonials([]);
+      }
+
+      if (formsResult.status === 'fulfilled') {
+        const formsData = formsResult.value as { data?: unknown; total?: number };
+        const list = Array.isArray(formsData?.data)
+          ? (formsData.data as AdminForm[])
+          : [];
+        const total =
+          typeof formsData?.total === 'number'
+            ? formsData.total
+            : list.length;
+        setFormOverview({ total, recent: list });
+      } else {
+        console.warn('Forms unavailable:', formsResult.reason);
+        setFormOverview({ total: 0, recent: [] });
       }
     } catch (error) {
       console.error('Dashboard error:', error);
@@ -173,6 +194,11 @@ export default function DashboardPage() {
           value={Object.keys(stats.eventsByCategory).length}
           icon={<Video className="h-5 w-5 text-[var(--color-text-primary)]" />}
         />
+        <StatCard
+          title="Forms"
+          value={formOverview.total}
+          icon={<ClipboardList className="h-5 w-5 text-[var(--color-text-primary)]" />}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
@@ -222,6 +248,29 @@ export default function DashboardPage() {
         </Card>
 
         <div className="space-y-6">
+          <Card title="Latest Forms" className="fade-up">
+            {formOverview.recent.length > 0 ? (
+              <div className="space-y-3">
+                {formOverview.recent.map((form) => (
+                  <div
+                    key={form.id}
+                    className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3"
+                  >
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{form.title}</p>
+                    <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                      {form.slug ? `/forms/${form.slug}` : 'Not published yet'}
+                    </p>
+                    <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-text-tertiary)]">
+                      <span>{form.isPublished ? 'Published' : 'Draft'}</span>
+                      <span>{form.updatedAt ? new Date(form.updatedAt).toLocaleDateString() : '—'}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--color-text-tertiary)]">No forms created yet.</p>
+            )}
+          </Card>
           <Card title="Approved Testimonials" className="fade-up">
             {approvedTestimonials.length > 0 ? (
               <div className="space-y-3">

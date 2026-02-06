@@ -13,8 +13,17 @@ import { PageHeader } from '@/layouts';
 import { Input } from '@/ui/input';
 import { VerifyActionModal } from '@/ui/VerifyActionModal';
 
-import { apiClient } from '@/lib/api';
-import type { AdminForm, CreateFormRequest, FormFieldType, FormSettings } from '@/lib/types';
+import { apiClient, mapValidationErrors } from '@/lib/api';
+import type {
+  AdminForm,
+  CreateFormRequest,
+  FormFieldType,
+  FormSettings,
+  FormStatsResponse,
+  FormSubmission,
+  EventData,
+  FormStatus,
+} from '@/lib/types';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
@@ -60,6 +69,16 @@ function slugifyValue(label: string, fallback: string) {
   return v || fallback;
 }
 
+function normalizeFieldKey(value: string, fallback: string) {
+  const v = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/_{2,}/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return v || fallback;
+}
+
 function ensureOptions(f: FieldDraft): FieldDraft {
   if (!isOptionField(f.type)) return { ...f, options: undefined };
 
@@ -76,11 +95,92 @@ function ensureOptions(f: FieldDraft): FieldDraft {
   };
 }
 
+function normalizeFormStatus(status?: string): FormStatus | undefined {
+  if (status === 'draft' || status === 'published' || status === 'invalid') return status;
+  return undefined;
+}
+
+function extractFormList(res: unknown): AdminForm[] {
+  if (!res || typeof res !== 'object') return [];
+  const candidate = res as { data?: unknown; forms?: unknown };
+
+  if (Array.isArray(candidate.data)) return candidate.data as AdminForm[];
+  if (Array.isArray(candidate.forms)) return candidate.forms as AdminForm[];
+
+  if (candidate.data && typeof candidate.data === 'object') {
+    const dataObj = candidate.data as { items?: unknown; forms?: unknown; data?: unknown };
+    if (Array.isArray(dataObj.items)) return dataObj.items as AdminForm[];
+    if (Array.isArray(dataObj.forms)) return dataObj.forms as AdminForm[];
+    if (Array.isArray(dataObj.data)) return dataObj.data as AdminForm[];
+  }
+
+  return [];
+}
+
+function getFormTotal(res: unknown, fallback: number): number {
+  if (!res || typeof res !== 'object') return fallback;
+  const candidate = res as { total?: unknown; data?: unknown };
+  if (typeof candidate.total === 'number') return candidate.total;
+  if (candidate.data && typeof candidate.data === 'object') {
+    const dataObj = candidate.data as { total?: unknown; total_items?: unknown };
+    if (typeof dataObj.total === 'number') return dataObj.total;
+    if (typeof dataObj.total_items === 'number') return dataObj.total_items;
+  }
+  return fallback;
+}
+
+function isExpiredForm(form: AdminForm): boolean {
+  if (form.status === 'invalid') return true;
+  const closesAt = form.settings?.closesAt;
+  if (!closesAt) return false;
+  const date = new Date(closesAt);
+  if (Number.isNaN(date.getTime())) return false;
+  return date.getTime() < Date.now();
+}
+
+const PUBLIC_BASE_URL = (process.env.NEXT_PUBLIC_PUBLIC_URL ?? process.env.NEXT_PUBLIC_FRONTEND_URL ?? '').replace(/\/+$/, '');
+
+function buildPublicUrl(slug?: string, publicUrl?: string): string | null {
+  if (publicUrl) return publicUrl;
+  if (slug && PUBLIC_BASE_URL) return `${PUBLIC_BASE_URL}/forms/${slug}`;
+  if (slug) return `/forms/${slug}`;
+  return null;
+}
+
+function formatDateTime(value?: string): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
+
+function formatRemaining(value?: string): string {
+  if (!value) return 'No expiry';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'No expiry';
+  const diff = date.getTime() - Date.now();
+  if (diff <= 0) return 'Expired';
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(hours / 24);
+  const remHours = hours % 24;
+  if (days > 0) return `${days}d ${remHours}h left`;
+  return `${remHours}h left`;
+}
+
+function getFormStatus(form: AdminForm): 'draft' | 'published' | 'invalid' {
+  if (form.status === 'invalid') return 'invalid';
+  if (isExpiredForm(form)) return 'invalid';
+  if (form.isPublished || form.status === 'published') return 'published';
+  return 'draft';
+}
+
 export default withAuth(function FormsPage() {
   const router = useRouter();
   const auth = useAuthContext();
 
+  const [activeTab, setActiveTab] = useState<'forms' | 'submissions'>('forms');
   const [forms, setForms] = useState<AdminForm[]>([]);
+  const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [total, setTotal] = useState(0);
@@ -88,6 +188,19 @@ export default withAuth(function FormsPage() {
   const [limit, setLimit] = useState(10);
   const [deleteTarget, setDeleteTarget] = useState<AdminForm | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [formStats, setFormStats] = useState<FormStatsResponse | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string>('');
+
+  const [selectedFormId, setSelectedFormId] = useState<string>('');
+  const [submissions, setSubmissions] = useState<FormSubmission[]>([]);
+  const [submissionsTotal, setSubmissionsTotal] = useState(0);
+  const [submissionsPage, setSubmissionsPage] = useState(1);
+  const [submissionsLimit, setSubmissionsLimit] = useState(10);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [filterText, setFilterText] = useState('');
+  const [filterStart, setFilterStart] = useState('');
+  const [filterEnd, setFilterEnd] = useState('');
+  const [liveUpdates, setLiveUpdates] = useState(true);
 
   // Builder state
   const [showBuilder, setShowBuilder] = useState(false);
@@ -96,7 +209,8 @@ export default withAuth(function FormsPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [slug, setSlug] = useState('');
-  const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
+  const [publishedPublicUrl, setPublishedPublicUrl] = useState<string | null>(null);
+  const [closesAt, setClosesAt] = useState('');
 
   const [introTitle, setIntroTitle] = useState('Event Registration');
   const [introSubtitle, setIntroSubtitle] = useState('Secure your spot by registering below.');
@@ -135,27 +249,144 @@ export default withAuth(function FormsPage() {
     [auth.isInitialized, auth.isLoading]
   );
 
+  const resolvedPublicUrl = useMemo(() => {
+    if (publishedPublicUrl) return publishedPublicUrl;
+    const firstPublished = forms.find((f) => f.publicUrl || (f.slug && (f.isPublished || f.status === 'published')));
+    if (!firstPublished) return null;
+    return buildPublicUrl(firstPublished.slug, firstPublished.publicUrl);
+  }, [publishedPublicUrl, forms]);
+
+  const perFormStats = useMemo(() => formStats?.perForm ?? [], [formStats]);
+  const maxPerForm = useMemo(() => {
+    const counts = perFormStats.map((item) => item.count);
+    return counts.length > 0 ? Math.max(...counts) : 1;
+  }, [perFormStats]);
+
+  const eventMap = useMemo(() => {
+    return events.reduce((acc, event) => {
+      acc[event.id] = event.title;
+      return acc;
+    }, {} as Record<string, string>);
+  }, [events]);
+
+  const eventCounts = useMemo(() => {
+    const bucket = new Map<string, { eventId: string; name: string; count: number }>();
+    perFormStats.forEach((stat) => {
+      const form = forms.find((f) => f.id === stat.formId);
+      const eventId = form?.eventId || 'no_event';
+      const name = eventId === 'no_event' ? 'No event attached' : eventMap[eventId] || eventId;
+      const current = bucket.get(eventId) || { eventId, name, count: 0 };
+      current.count += stat.count;
+      bucket.set(eventId, current);
+    });
+    return Array.from(bucket.values()).sort((a, b) => b.count - a.count);
+  }, [perFormStats, forms, eventMap]);
+
+  const maxEventCount = useMemo(() => {
+    const counts = eventCounts.map((item) => item.count);
+    return counts.length > 0 ? Math.max(...counts) : 1;
+  }, [eventCounts]);
+
+  const trendSource = useMemo(() => {
+    const source = formStats?.recent ?? [];
+    if (!selectedFormId) return source;
+    return source.filter((item) => item.formId === selectedFormId);
+  }, [formStats, selectedFormId]);
+
+  const trendData = useMemo(() => {
+    const days = 7;
+    const today = new Date();
+    const buckets = Array.from({ length: days }, (_, index) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - (days - 1 - index));
+      const label = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      return { label, dateKey: date.toDateString(), count: 0 };
+    });
+
+    trendSource.forEach((item) => {
+      const created = new Date(item.createdAt);
+      if (Number.isNaN(created.getTime())) return;
+      const key = created.toDateString();
+      const bucket = buckets.find((b) => b.dateKey === key);
+      if (bucket) bucket.count += 1;
+    });
+
+    return buckets;
+  }, [trendSource]);
+
+  const maxTrendCount = useMemo(() => {
+    const counts = trendData.map((item) => item.count);
+    return counts.length > 0 ? Math.max(...counts) : 1;
+  }, [trendData]);
+
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await apiClient.getAdminForms({ page, limit });
-      setForms(Array.isArray(res.data) ? res.data : []);
-      setTotal(typeof res.total === 'number' ? res.total : 0);
+      const [formsResult, statsResult] = await Promise.allSettled([
+        apiClient.getAdminForms({ page, limit }),
+        apiClient.getFormStats(),
+      ]);
+
+      if (formsResult.status === 'fulfilled') {
+        const res = formsResult.value;
+        const list = extractFormList(res);
+        setForms(list);
+        setTotal(getFormTotal(res, list.length));
+      } else {
+        console.error(formsResult.reason);
+        setForms([]);
+        setTotal(0);
+      }
+
+      if (statsResult.status === 'fulfilled') {
+        setFormStats(statsResult.value);
+      } else {
+        setFormStats(null);
+      }
+      setLastUpdatedAt(new Date().toISOString());
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : 'Failed to load forms';
       toast.error(message);
       setForms([]);
       setTotal(0);
+      setFormStats(null);
     } finally {
       setLoading(false);
     }
   }, [page, limit]);
 
+  const loadEvents = useCallback(async () => {
+    try {
+      const res = await apiClient.getEvents({ page: 1, limit: 100 });
+      if (res && typeof res === 'object' && 'data' in res && Array.isArray(res.data)) {
+        setEvents(res.data);
+      } else if (Array.isArray(res)) {
+        setEvents(res);
+      } else {
+        setEvents([]);
+      }
+    } catch (err) {
+      console.warn('Failed to load events:', err);
+      setEvents([]);
+    }
+  }, []);
+
   useEffect(() => {
     if (authBlocked) return;
     load();
   }, [authBlocked, load]);
+
+  useEffect(() => {
+    if (authBlocked) return;
+    loadEvents();
+  }, [authBlocked, loadEvents]);
+
+  useEffect(() => {
+    if (!selectedFormId && forms.length > 0) {
+      setSelectedFormId(forms[0].id);
+    }
+  }, [forms, selectedFormId]);
 
   const requestDelete = (form: AdminForm) => {
     setDeleteTarget(form);
@@ -177,6 +408,147 @@ export default withAuth(function FormsPage() {
       setDeleteLoading(false);
     }
   }, [deleteTarget, load]);
+
+  const loadSubmissions = useCallback(async () => {
+    if (!selectedFormId) {
+      setSubmissions([]);
+      setSubmissionsTotal(0);
+      return;
+    }
+    try {
+      setSubmissionsLoading(true);
+      const res = await apiClient.getFormSubmissions(selectedFormId, {
+        page: submissionsPage,
+        limit: submissionsLimit,
+      });
+      setSubmissions(Array.isArray(res.data) ? res.data : []);
+      setSubmissionsTotal(typeof res.total === 'number' ? res.total : 0);
+      setLastUpdatedAt(new Date().toISOString());
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to load submissions');
+      setSubmissions([]);
+      setSubmissionsTotal(0);
+    } finally {
+      setSubmissionsLoading(false);
+    }
+  }, [selectedFormId, submissionsPage, submissionsLimit]);
+
+  useEffect(() => {
+    if (activeTab !== 'submissions') return;
+    loadSubmissions();
+  }, [activeTab, loadSubmissions]);
+
+  useEffect(() => {
+    if (activeTab !== 'submissions') return;
+    if (!liveUpdates) return;
+    const interval = setInterval(() => {
+      load();
+      loadSubmissions();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [activeTab, liveUpdates, load, loadSubmissions]);
+
+  const filteredSubmissions = useMemo(() => {
+    const term = filterText.trim().toLowerCase();
+    const start = filterStart ? new Date(filterStart) : null;
+    const end = filterEnd ? new Date(filterEnd) : null;
+
+    if (start && Number.isNaN(start.getTime())) return submissions;
+    if (end && Number.isNaN(end.getTime())) return submissions;
+
+    return submissions.filter((submission) => {
+      const haystack = [
+        submission.name,
+        submission.email,
+        submission.contactNumber,
+        submission.contactAddress,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      if (term && !haystack.includes(term)) return false;
+
+      if (start || end) {
+        const created = new Date(submission.createdAt);
+        if (Number.isNaN(created.getTime())) return false;
+        if (start && created < start) return false;
+        if (end) {
+          const endOfDay = new Date(end);
+          endOfDay.setHours(23, 59, 59, 999);
+          if (created > endOfDay) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [submissions, filterText, filterStart, filterEnd]);
+
+  const filteredTotal = useMemo(() => {
+    const hasFilters = filterText.trim() || filterStart || filterEnd;
+    return hasFilters ? filteredSubmissions.length : submissionsTotal;
+  }, [filterText, filterStart, filterEnd, filteredSubmissions.length, submissionsTotal]);
+
+  const exportSubmissions = useCallback(() => {
+    if (filteredSubmissions.length === 0) {
+      toast.error('No submissions to export');
+      return;
+    }
+
+    const valueKeys = Array.from(
+      new Set(
+        filteredSubmissions.flatMap((item) => Object.keys(item.values || {}))
+      )
+    );
+
+    const headers = [
+      'id',
+      'formId',
+      'name',
+      'email',
+      'contactNumber',
+      'contactAddress',
+      'createdAt',
+      ...valueKeys,
+    ];
+
+    const escapeCsv = (value: unknown) => {
+      const raw = value === undefined || value === null ? '' : String(value);
+      if (raw.includes('"') || raw.includes(',') || raw.includes('\n')) {
+        return `"${raw.replace(/"/g, '""')}"`;
+      }
+      return raw;
+    };
+
+    const rows = filteredSubmissions.map((item) => {
+      const base = [
+        item.id,
+        item.formId,
+        item.name ?? '',
+        item.email ?? '',
+        item.contactNumber ?? '',
+        item.contactAddress ?? '',
+        item.createdAt ?? '',
+      ];
+
+      const values = valueKeys.map((key) => {
+        const v = item.values?.[key as keyof typeof item.values];
+        return v !== undefined && v !== null ? String(v) : '';
+      });
+
+      return [...base, ...values].map(escapeCsv).join(',');
+    });
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `form-submissions-${selectedFormId || 'all'}-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }, [filteredSubmissions, selectedFormId]);
 
   // ---------- Field builder actions ----------
   const addField = () => {
@@ -251,9 +623,28 @@ export default withAuth(function FormsPage() {
       const res = await apiClient.publishAdminForm(form.id);
       toast.success('Form published');
 
-      const origin = window.location.origin;
-      const url = `${origin}/forms/${res.slug}`;
-      await navigator.clipboard.writeText(url);
+      const nextSlug = res?.slug || form.slug || '';
+      const nextPublicUrl = buildPublicUrl(nextSlug, res?.publicUrl || form.publicUrl || undefined);
+      if (nextPublicUrl) setPublishedPublicUrl(nextPublicUrl);
+
+      setForms((prev) =>
+        prev.map((item) =>
+          item.id === form.id
+            ? {
+                ...item,
+                slug: nextSlug || item.slug,
+                publicUrl: nextPublicUrl || item.publicUrl,
+                isPublished: true,
+                status: normalizeFormStatus(res?.status) ?? 'published',
+                publishedAt: res?.publishedAt || item.publishedAt,
+              }
+            : item
+        )
+      );
+
+      if (nextPublicUrl) {
+        await navigator.clipboard.writeText(nextPublicUrl);
+      }
       toast.success('Link copied to clipboard');
       load();
     } catch (err) {
@@ -264,14 +655,17 @@ export default withAuth(function FormsPage() {
   };
 
   const handleCopyLink = useCallback(async (form: AdminForm) => {
-    if (!form.slug) {
+    const link = buildPublicUrl(form.slug, form.publicUrl);
+    if (!link) {
       toast.error('This form is not published yet');
       return;
     }
+    if (isExpiredForm(form)) {
+      toast.error('This form has expired and is no longer available.');
+      return;
+    }
     try {
-      const origin = window.location.origin;
-      const url = `${origin}/forms/${form.slug}`;
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(link);
       toast.success('Link copied');
     } catch {
       toast.error('Failed to copy link');
@@ -284,16 +678,75 @@ export default withAuth(function FormsPage() {
 
   const save = async () => {
     setFieldErrors({});
-    const normalizedSlug = normalizeSlug(slug);
+    const normalizedTitle = title.trim();
+    const normalizedSlug = normalizeSlug(slug || title);
+
+    if (!normalizedTitle) {
+      setFieldErrors({ title: 'Title is required' });
+      toast.error('Please enter a form title.');
+      return;
+    }
+
+    if (!normalizedSlug) {
+      setFieldErrors({ slug: 'Form link name is required' });
+      toast.error('Please enter a form link name.');
+      return;
+    }
+
+    if (!slug || slug !== normalizedSlug) {
+      setSlug(normalizedSlug);
+    }
+
+    if (fields.length === 0) {
+      toast.error('Add at least one field before creating a form.');
+      return;
+    }
+
+    const normalizedKeys = fields.map((f, idx) =>
+      normalizeFieldKey(f.key || `field_${idx + 1}`, `field_${idx + 1}`)
+    );
+    const duplicateKeys = normalizedKeys.filter(
+      (key, index) => normalizedKeys.indexOf(key) !== index
+    );
+    if (duplicateKeys.length > 0) {
+      toast.error('Field keys must be unique. Please adjust duplicate fields.');
+      return;
+    }
+
+    const missingOptions = fields.some(
+      (f) => isOptionField(f.type) && (!f.options || f.options.filter((o) => o.label?.trim()).length === 0)
+    );
+    if (missingOptions) {
+      toast.error('Dropdown, checkbox, and radio fields require at least one option.');
+      return;
+    }
+
+    if (forms.some((f) => f.slug === normalizedSlug)) {
+      setFieldErrors({ slug: 'This link name already exists. Choose a unique one.' });
+      toast.error('Form link name already exists.');
+      return;
+    }
+
+    const closesAtIso = closesAt
+      ? (() => {
+          const parsed = new Date(closesAt);
+          return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+        })()
+      : undefined;
+
+    if (closesAt && !closesAtIso) {
+      toast.error('Publish end time is invalid.');
+      return;
+    }
 
     const payload: CreateFormRequest = {
-      title: title.trim(),
+      title: normalizedTitle,
       description: description.trim() || undefined,
       slug: normalizedSlug,
       fields: fields.map((f, idx) => {
         const base = {
-          key: (f.key || `field_${idx + 1}`).trim(),
-          label: f.label.trim(),
+          key: normalizeFieldKey(f.key || `field_${idx + 1}`, `field_${idx + 1}`),
+          label: f.label.trim() || `Field ${idx + 1}`,
           type: f.type,
           required: f.required,
           order: idx + 1,
@@ -308,7 +761,7 @@ export default withAuth(function FormsPage() {
               }))
               .filter((o) => o.label.length > 0);
 
-          return { ...base, options };
+          return { ...base, options: options.length > 0 ? options : undefined };
         }
 
         return base;
@@ -325,6 +778,7 @@ export default withAuth(function FormsPage() {
         introBulletSubtexts: introBulletSubs.split('\n').filter(Boolean),
   
         layoutMode,
+        closesAt: closesAtIso,
      
         dateFormat,
        
@@ -351,19 +805,29 @@ export default withAuth(function FormsPage() {
       const created = await apiClient.createAdminForm(payload);
 
       let slugToUse = created.slug || normalizedSlug;
+      let publicUrlToUse: string | null = created.publicUrl
+        ? buildPublicUrl(created.slug, created.publicUrl)
+        : buildPublicUrl(slugToUse);
       try {
         const published = await apiClient.publishAdminForm(created.id);
         slugToUse = published?.slug || slugToUse;
+        publicUrlToUse = buildPublicUrl(slugToUse, published?.publicUrl || publicUrlToUse || undefined);
       } catch {
         // publish optional
       }
 
-      setPublishedSlug(slugToUse);
+      setPublishedPublicUrl(publicUrlToUse);
       toast.success('Form created and link ready');
       setShowBuilder(false);
       load();
     } catch (err) {
       console.error(err);
+      const validationMap = mapValidationErrors(err);
+      if (validationMap && Object.keys(validationMap).length > 0) {
+        setFieldErrors(validationMap);
+        toast.error(getFirstServerFieldError(validationMap) || 'Please review the highlighted fields.');
+        return;
+      }
       const fieldErrors = extractServerFieldErrors(err);
       if (Object.keys(fieldErrors).length > 0) {
         setFieldErrors(fieldErrors);
@@ -394,28 +858,44 @@ export default withAuth(function FormsPage() {
         ),
       },
       {
-        key: 'isPublished' as keyof AdminForm,
-        header: 'Status',
+        key: 'id' as keyof AdminForm,
+        header: 'ID',
         cell: (f: AdminForm) => (
-          <span
-            className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-              f.isPublished
-                ? 'bg-green-50 text-green-700 border border-green-200'
-                : 'bg-secondary-50 text-secondary-700 border border-secondary-200'
-            }`}
-          >
-            {f.isPublished ? 'Published' : 'Draft'}
+          <span className="text-xs text-secondary-600 font-mono truncate max-w-[140px] inline-block">
+            {f.id}
           </span>
         ),
+      },
+      {
+        key: 'isPublished' as keyof AdminForm,
+        header: 'Status',
+        cell: (f: AdminForm) => {
+          const status = getFormStatus(f);
+          const label = status === 'invalid' ? 'Invalid' : status === 'published' ? 'Published' : 'Draft';
+          const classes = status === 'invalid'
+            ? 'bg-red-50 text-red-700 border border-red-200'
+            : status === 'published'
+              ? 'bg-green-50 text-green-700 border border-green-200'
+              : 'bg-secondary-50 text-secondary-700 border border-secondary-200';
+          return (
+            <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${classes}`}>
+              {label}
+            </span>
+          );
+        },
       },
       {
         key: 'slug' as keyof AdminForm,
         header: 'Link',
         cell: (f: AdminForm) => (
           <div className="flex items-center gap-2">
-            {f.slug ? (
+            {isExpiredForm(f) ? (
+              <span className="text-xs text-red-500">Expired</span>
+            ) : f.slug ? (
               <>
-                <span className="text-xs text-secondary-600 truncate max-w-[220px]">/forms/{f.slug}</span>
+                <span className="text-xs text-secondary-600 truncate max-w-[220px]">
+                  {buildPublicUrl(f.slug, f.publicUrl) || `/forms/${f.slug}`}
+                </span>
                 <button
                   type="button"
                   onClick={() => handleCopyLink(f)}
@@ -432,6 +912,23 @@ export default withAuth(function FormsPage() {
         ),
       },
       {
+        key: 'publishedAt' as keyof AdminForm,
+        header: 'Published',
+        cell: (f: AdminForm) => (
+          <span className="text-xs text-secondary-600">{formatDateTime(f.publishedAt)}</span>
+        ),
+      },
+      {
+        key: 'settings' as keyof AdminForm,
+        header: 'Active Until',
+        cell: (f: AdminForm) => (
+          <div className="text-xs text-secondary-600">
+            <div>{formatDateTime(f.settings?.closesAt)}</div>
+            <div className="text-[0.7rem] text-secondary-400">{formatRemaining(f.settings?.closesAt)}</div>
+          </div>
+        ),
+      },
+      {
         key: 'updatedAt' as keyof AdminForm,
         header: 'Updated',
         cell: (f: AdminForm) => (
@@ -440,6 +937,49 @@ export default withAuth(function FormsPage() {
       },
     ],
     [handleCopyLink]
+  );
+
+  const submissionColumns = useMemo<Column<FormSubmission>[]>(
+    () => [
+      {
+        key: 'name' as keyof FormSubmission,
+        header: 'Name',
+        cell: (item: FormSubmission) => (
+          <div className="space-y-1">
+            <div className="text-sm font-semibold text-secondary-900">
+              {item.name || item.email || 'Anonymous'}
+            </div>
+            <div className="text-xs text-secondary-500">{item.email || 'No email'}</div>
+          </div>
+        ),
+      },
+      {
+        key: 'contactNumber' as keyof FormSubmission,
+        header: 'Contact',
+        cell: (item: FormSubmission) => (
+          <div className="text-xs text-secondary-600">
+            {item.contactNumber || item.contactAddress || '—'}
+          </div>
+        ),
+      },
+      {
+        key: 'values' as keyof FormSubmission,
+        header: 'Responses',
+        cell: (item: FormSubmission) => (
+          <span className="text-xs text-secondary-600">
+            {Object.keys(item.values || {}).length} fields
+          </span>
+        ),
+      },
+      {
+        key: 'createdAt' as keyof FormSubmission,
+        header: 'Submitted',
+        cell: (item: FormSubmission) => (
+          <span className="text-xs text-secondary-600">{formatDateTime(item.createdAt)}</span>
+        ),
+      },
+    ],
+    []
   );
 
   if (authBlocked) {
@@ -479,7 +1019,149 @@ export default withAuth(function FormsPage() {
         }
       />
 
-      {showBuilder && (
+      <Card>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant={activeTab === 'forms' ? 'secondary' : 'ghost'}
+            onClick={() => setActiveTab('forms')}
+          >
+            Forms
+          </Button>
+          <Button
+            variant={activeTab === 'submissions' ? 'secondary' : 'ghost'}
+            onClick={() => setActiveTab('submissions')}
+          >
+            Submissions
+          </Button>
+          <div className="ml-auto text-xs text-[var(--color-text-tertiary)]">
+            Last updated: {lastUpdatedAt ? formatDateTime(lastUpdatedAt) : '—'}
+          </div>
+        </div>
+      </Card>
+
+      {activeTab === 'submissions' && (
+        <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+          <Card title="Registration Insights">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+                <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Total registrations</p>
+              <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">
+                {formStats?.totalSubmissions ?? 0}
+              </p>
+            </div>
+            <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Active forms</p>
+              <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">
+                {forms.filter((f) => getFormStatus(f) === 'published').length}
+              </p>
+            </div>
+            <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Invalid/expired</p>
+              <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">
+                {forms.filter((f) => getFormStatus(f) === 'invalid').length}
+              </p>
+            </div>
+          </div>
+
+            <div className="mt-6">
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Registrations per form</p>
+              {perFormStats.length === 0 ? (
+                <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">No registrations yet.</p>
+              ) : (
+                <div className="mt-3 space-y-3">
+                {perFormStats.slice(0, 6).map((item) => (
+                  <div key={item.formId} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
+                      <span className="font-medium">{item.formTitle}</span>
+                      <span>{item.count}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-[var(--color-background-tertiary)]">
+                      <div
+                        className="h-2 rounded-full bg-[var(--color-accent-primary)]"
+                        style={{ width: `${Math.max(5, (item.count / maxPerForm) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              )}
+            </div>
+
+            <div className="mt-6">
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Registration trend (last 7 days)</p>
+              {trendData.length === 0 ? (
+                <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">No submissions yet.</p>
+              ) : (
+                <div className="mt-3 grid grid-cols-7 gap-2">
+                  {trendData.map((item) => (
+                    <div key={item.label} className="flex flex-col items-center gap-2">
+                      <div className="flex h-24 w-full items-end rounded-[var(--radius-card)] bg-[var(--color-background-tertiary)] p-1">
+                        <div
+                          className="w-full rounded-[var(--radius-card)] bg-[var(--color-accent-primary)]"
+                          style={{
+                            height: `${Math.max(6, (item.count / maxTrendCount) * 100)}%`,
+                          }}
+                        />
+                      </div>
+                      <div className="text-[0.7rem] text-[var(--color-text-tertiary)]">{item.label}</div>
+                      <div className="text-[0.7rem] font-semibold text-[var(--color-text-secondary)]">{item.count}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6">
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Event registrations</p>
+              {eventCounts.length === 0 ? (
+                <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">No event registrations yet.</p>
+              ) : (
+                <div className="mt-3 space-y-3">
+                  {eventCounts.slice(0, 6).map((item) => (
+                    <div key={item.eventId} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
+                        <span className="font-medium">{item.name}</span>
+                        <span>{item.count}</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-[var(--color-background-tertiary)]">
+                        <div
+                          className="h-2 rounded-full bg-[var(--color-accent-primary)]"
+                          style={{ width: `${Math.max(5, (item.count / maxEventCount) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card title="Recent Submissions">
+            {formStats?.recent?.length ? (
+            <div className="space-y-3">
+              {formStats.recent.slice(0, 6).map((submission) => (
+                <div
+                  key={submission.id}
+                  className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3"
+                >
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                    {submission.name || submission.email || 'Anonymous'}
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{submission.formTitle}</p>
+                  <p className="mt-2 text-[0.7rem] text-[var(--color-text-tertiary)]">
+                    {formatDateTime(submission.createdAt)}
+                  </p>
+                </div>
+              ))}
+            </div>
+            ) : (
+              <p className="text-sm text-[var(--color-text-tertiary)]">No submissions yet.</p>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {activeTab === 'forms' && showBuilder && (
         <div className="space-y-6">
           <Card className="p-6">
             <div className="grid gap-5 md:grid-cols-2">
@@ -512,6 +1194,16 @@ export default withAuth(function FormsPage() {
                     /forms/{normalizeSlug(slug || 'your-link')}
                   </span>
                 </p>
+              </div>
+
+              <div className="space-y-2">
+                <Input
+                  label="Publish Until (optional)"
+                  type="datetime-local"
+                  value={closesAt}
+                  onChange={(e) => setClosesAt(e.target.value)}
+                  helperText="Forms auto-expire after this time."
+                />
               </div>
 
               <div className="md:col-span-2">
@@ -703,21 +1395,21 @@ export default withAuth(function FormsPage() {
           <Card title="Form Link">
             <div className="flex flex-wrap items-center gap-3">
               <p className="text-sm text-[var(--color-text-secondary)]">
-                {publishedSlug ? `/forms/${publishedSlug}` : 'Create & publish to generate link'}
+                {resolvedPublicUrl || 'Create & publish to generate link'}
               </p>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={async () => {
-                  if (!publishedSlug) {
+                  if (!resolvedPublicUrl) {
                     toast.error('Publish first to copy link');
                     return;
                   }
-                  await navigator.clipboard.writeText(`${window.location.origin}/forms/${publishedSlug}`);
+                  await navigator.clipboard.writeText(resolvedPublicUrl);
                   toast.success('Link copied');
                 }}
                 icon={<Copy className="h-4 w-4" />}
-                disabled={!publishedSlug}
+                disabled={!resolvedPublicUrl}
               >
                 Copy
               </Button>
@@ -726,31 +1418,119 @@ export default withAuth(function FormsPage() {
         </div>
       )}
 
-      <Card className="p-0">
-        <DataTable
-          data={forms ?? []}
-          columns={columns}
-          total={total}
-          page={page}
-          limit={limit}
-          onPageChange={setPage}
-          onLimitChange={setLimit}
-          onEdit={handleEdit}
-          onDelete={requestDelete}
-          onView={(f: AdminForm) => {
-            if (!f.isPublished) {
-              handlePublish(f);
-              return;
-            }
-            handleCopyLink(f);
-          }}
-          isLoading={loading}
-        />
-      </Card>
+      {activeTab === 'forms' && (
+        <>
+          <Card className="p-0">
+            <DataTable
+              data={forms ?? []}
+              columns={columns}
+              total={total}
+              page={page}
+              limit={limit}
+              onPageChange={setPage}
+              onLimitChange={setLimit}
+              onEdit={handleEdit}
+              onDelete={requestDelete}
+              onView={(f: AdminForm) => {
+                if (!f.isPublished) {
+                  handlePublish(f);
+                  return;
+                }
+                handleCopyLink(f);
+              }}
+              isLoading={loading}
+            />
+          </Card>
 
-      <div className="text-xs text-secondary-500">
-        Tip: Click “View” action to publish (if draft) or copy link (if already published).
-      </div>
+          <div className="text-xs text-secondary-500">
+            Tip: Click “View” action to publish (if draft) or copy link (if already published).
+          </div>
+        </>
+      )}
+
+      {activeTab === 'submissions' && (
+        <Card>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="text-sm text-[var(--color-text-secondary)]">
+                Form
+                <select
+                  className="mt-1 w-full rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-2 text-sm"
+                  value={selectedFormId}
+                  onChange={(e) => {
+                    setSelectedFormId(e.target.value);
+                    setSubmissionsPage(1);
+                  }}
+                >
+                  {forms.map((form) => (
+                    <option key={form.id} value={form.id}>
+                      {form.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="text-sm text-[var(--color-text-secondary)]">
+                Search
+                <Input
+                  value={filterText}
+                  onChange={(e) => setFilterText(e.target.value)}
+                  placeholder="Name, email, phone"
+                />
+              </label>
+
+              <label className="text-sm text-[var(--color-text-secondary)]">
+                From
+                <Input
+                  type="date"
+                  value={filterStart}
+                  onChange={(e) => setFilterStart(e.target.value)}
+                />
+              </label>
+
+              <label className="text-sm text-[var(--color-text-secondary)]">
+                To
+                <Input
+                  type="date"
+                  value={filterEnd}
+                  onChange={(e) => setFilterEnd(e.target.value)}
+                />
+              </label>
+
+              <div className="flex items-center gap-2 pt-6 text-sm text-[var(--color-text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={liveUpdates}
+                  onChange={(e) => setLiveUpdates(e.target.checked)}
+                />
+                Live updates
+              </div>
+
+              <div className="ml-auto flex flex-wrap items-center gap-2 pt-6">
+                <Button variant="outline" onClick={loadSubmissions} disabled={submissionsLoading}>
+                  Refresh
+                </Button>
+                <Button onClick={exportSubmissions} variant="secondary">
+                  Export CSV
+                </Button>
+              </div>
+            </div>
+
+            <Card className="p-0">
+              <DataTable
+                data={filteredSubmissions}
+                columns={submissionColumns}
+                total={filteredTotal}
+                page={submissionsPage}
+                limit={submissionsLimit}
+                onPageChange={setSubmissionsPage}
+                onLimitChange={setSubmissionsLimit}
+                isLoading={submissionsLoading}
+              />
+            </Card>
+          </div>
+        </Card>
+      )}
 
       <VerifyActionModal
         isOpen={!!deleteTarget}
