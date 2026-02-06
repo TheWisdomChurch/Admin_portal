@@ -19,6 +19,35 @@ import { apiClient } from '@/lib/api';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { EventData, DashboardAnalytics, AdminForm } from '@/lib/types';
 
+const toArray = <T,>(value: unknown): T[] => {
+  if (Array.isArray(value)) return value as T[];
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    if (Array.isArray(record.data)) return record.data as T[];
+    if (Array.isArray(record.items)) return record.items as T[];
+    const nested = record.data;
+    if (nested && typeof nested === 'object') {
+      const nestedRecord = nested as Record<string, unknown>;
+      if (Array.isArray(nestedRecord.items)) return nestedRecord.items as T[];
+      if (Array.isArray(nestedRecord.data)) return nestedRecord.data as T[];
+    }
+  }
+  return [];
+};
+
+const readTotal = (value: unknown, fallback: number): number => {
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    if (typeof record.total === 'number') return record.total;
+    const nested = record.data;
+    if (nested && typeof nested === 'object') {
+      const nestedRecord = nested as Record<string, unknown>;
+      if (typeof nestedRecord.total === 'number') return nestedRecord.total;
+    }
+  }
+  return fallback;
+};
+
 export default function DashboardPage() {
   const auth = useAuthContext();
 
@@ -65,43 +94,24 @@ export default function DashboardPage() {
       }
 
       if (eventsResult.status === 'fulfilled') {
-        const eventsData = eventsResult.value;
-        if (Array.isArray(eventsData)) {
-          setRecentEvents(eventsData);
-        } else if (eventsData && 'data' in eventsData) {
-          setRecentEvents(eventsData.data);
-        } else {
-          setRecentEvents([]);
-        }
+        const eventsList = toArray<EventData>(eventsResult.value);
+        setRecentEvents(eventsList);
       } else {
         console.warn('Events unavailable:', eventsResult.reason);
         setRecentEvents([]);
       }
 
       if (testimonialsResult.status === 'fulfilled') {
-        const testimonialsData = testimonialsResult.value;
-        if (Array.isArray(testimonialsData)) {
-          setApprovedTestimonials(testimonialsData.slice(0, 4));
-        } else if (testimonialsData && typeof testimonialsData === 'object' && 'data' in testimonialsData) {
-          const data = (testimonialsData as { data?: unknown }).data;
-          setApprovedTestimonials(Array.isArray(data) ? data.slice(0, 4) : []);
-        } else {
-          setApprovedTestimonials([]);
-        }
+        const list = toArray<{ id: string; full_name?: string; testimony?: string }>(testimonialsResult.value);
+        setApprovedTestimonials(list.slice(0, 4));
       } else {
         console.warn('Testimonials unavailable:', testimonialsResult.reason);
         setApprovedTestimonials([]);
       }
 
       if (formsResult.status === 'fulfilled') {
-        const formsData = formsResult.value as { data?: unknown; total?: number };
-        const list = Array.isArray(formsData?.data)
-          ? (formsData.data as AdminForm[])
-          : [];
-        const total =
-          typeof formsData?.total === 'number'
-            ? formsData.total
-            : list.length;
+        const list = toArray<AdminForm>(formsResult.value);
+        const total = readTotal(formsResult.value, list.length);
         setFormOverview({ total, recent: list });
       } else {
         console.warn('Forms unavailable:', formsResult.reason);

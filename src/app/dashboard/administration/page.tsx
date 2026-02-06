@@ -97,12 +97,21 @@ const pickNumber = (value: unknown): number | null => {
 
 const toArray = <T,>(value: unknown): T[] => {
   if (Array.isArray(value)) return value as T[];
-  if (value && typeof value === 'object' && 'data' in value) {
-    const data = (value as { data?: unknown }).data;
-    if (Array.isArray(data)) return data as T[];
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    if (Array.isArray(record.data)) return record.data as T[];
+    if (Array.isArray(record.items)) return record.items as T[];
+    const nested = record.data;
+    if (nested && typeof nested === 'object') {
+      const nestedRecord = nested as Record<string, unknown>;
+      if (Array.isArray(nestedRecord.items)) return nestedRecord.items as T[];
+      if (Array.isArray(nestedRecord.data)) return nestedRecord.data as T[];
+    }
   }
   return [];
 };
+
+const safeArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
 
 const getStatNumber = (stats: Record<string, unknown> | null, keys: string[]): number | null => {
   if (!stats) return null;
@@ -193,6 +202,16 @@ export default function AdministrationPage() {
   const [birthdayMonthLoading, setBirthdayMonthLoading] = useState(false);
   const [birthdaySending, setBirthdaySending] = useState(false);
 
+  const safeWorkforce = useMemo(() => safeArray<WorkforceRow>(workforce), [workforce]);
+  const safeMembers = useMemo(() => safeArray<MemberRow>(members), [members]);
+  const safeLeaders = useMemo(() => safeArray<LeaderRow>(leaders), [leaders]);
+  const safeBirthdaysToday = useMemo(() => safeArray<WorkforceMember>(birthdaysToday), [birthdaysToday]);
+  const safeBirthdaysByMonth = useMemo(
+    () => safeArray<WorkforceMember>(birthdaysByMonth),
+    [birthdaysByMonth]
+  );
+  const safeMonthLabels = useMemo(() => safeArray<string>(monthLabels), []);
+
   const [memberForm, setMemberForm] = useState<MemberRow>({
     id: '',
     firstName: '',
@@ -212,14 +231,14 @@ export default function AdministrationPage() {
   });
 
   const workforceCounts = useMemo(() => {
-    return workforce.reduce(
+    return safeWorkforce.reduce(
       (acc, row) => {
         acc[row.status] = (acc[row.status] || 0) + 1;
         return acc;
       },
       {} as Record<string, number>
     );
-  }, [workforce]);
+  }, [safeWorkforce]);
 
   const loadBirthdayOverview = useCallback(async () => {
     setBirthdayLoading(true);
@@ -410,13 +429,13 @@ export default function AdministrationPage() {
                 <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
                   <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Today</p>
                   <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">
-                    {birthdayLoading ? '—' : (getStatNumber(birthdayStats, ['today', 'todayCount', 'birthdaysToday']) ?? birthdaysToday.length)}
+                    {birthdayLoading ? '—' : (getStatNumber(birthdayStats, ['today', 'todayCount', 'birthdaysToday']) ?? safeBirthdaysToday.length)}
                   </p>
                 </div>
                 <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
                   <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">This month</p>
                   <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">
-                    {birthdayMonthLoading ? '—' : (getStatNumber(birthdayStats, ['month', 'monthCount', 'birthdaysThisMonth']) ?? birthdaysByMonth.length)}
+                    {birthdayMonthLoading ? '—' : (getStatNumber(birthdayStats, ['month', 'monthCount', 'birthdaysThisMonth']) ?? safeBirthdaysByMonth.length)}
                   </p>
                 </div>
                 <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
@@ -435,7 +454,7 @@ export default function AdministrationPage() {
                     value={birthdayMonth}
                     onChange={(e) => setBirthdayMonth(Number(e.target.value))}
                   >
-                    {monthLabels.map((label, index) => (
+                    {safeMonthLabels.map((label, index) => (
                       <option key={label} value={index + 1}>
                         {label}
                       </option>
@@ -446,11 +465,11 @@ export default function AdministrationPage() {
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-2">
                     <p className="text-sm font-semibold text-[var(--color-text-primary)]">Today&apos;s birthdays</p>
-                    {birthdaysToday.length === 0 ? (
+                    {safeBirthdaysToday.length === 0 ? (
                       <p className="text-xs text-[var(--color-text-tertiary)]">No birthdays today.</p>
                     ) : (
                       <ul className="space-y-2">
-                        {birthdaysToday.map((member) => {
+                        {safeBirthdaysToday.map((member) => {
                           const record = member as BirthdayMember;
                           const name = getMemberName(record);
                           const department = member.department || (record.department as string | undefined);
@@ -476,15 +495,15 @@ export default function AdministrationPage() {
 
                   <div className="space-y-2">
                     <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                      {monthLabels[birthdayMonth - 1]} birthdays
+                      {safeMonthLabels[birthdayMonth - 1]} birthdays
                     </p>
-                    {birthdaysByMonth.length === 0 ? (
+                    {safeBirthdaysByMonth.length === 0 ? (
                       <p className="text-xs text-[var(--color-text-tertiary)]">
                         {birthdayMonthLoading ? 'Loading birthdays...' : 'No birthdays recorded for this month.'}
                       </p>
                     ) : (
                       <ul className="space-y-2">
-                        {birthdaysByMonth.map((member) => {
+                        {safeBirthdaysByMonth.map((member) => {
                           const record = member as BirthdayMember;
                           const name = getMemberName(record);
                           const department = member.department || (record.department as string | undefined);
@@ -513,7 +532,7 @@ export default function AdministrationPage() {
           </Card>
 
           <div className="space-y-3">
-            {workforce.map((row) => (
+            {safeWorkforce.map((row) => (
               <AccordionRow
                 key={row.id}
                 title={row.name}
@@ -549,7 +568,7 @@ export default function AdministrationPage() {
 
       {activeTab === 'members' && (
         <div className="space-y-3">
-          {members.map((row) => (
+          {safeMembers.map((row) => (
             <AccordionRow
               key={row.id}
               title={`${row.firstName} ${row.lastName}`}
@@ -573,7 +592,7 @@ export default function AdministrationPage() {
 
       {activeTab === 'leadership' && (
         <div className="space-y-3">
-          {leaders.map((row) => (
+          {safeLeaders.map((row) => (
             <AccordionRow
               key={row.id}
               title={row.name}

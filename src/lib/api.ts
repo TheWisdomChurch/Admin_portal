@@ -21,6 +21,7 @@ import type {
   SubmitFormRequest,
   FormSubmission,
   FormStatsResponse,
+  FormStatus,
   Subscriber,
   SubscribeRequest,
   UnsubscribeRequest,
@@ -699,14 +700,18 @@ export const apiClient = {
     return apiFetch(`/admin/forms/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
 
-  async publishAdminForm(id: string): Promise<{ slug: string; publicUrl?: string; publishedAt?: string; status?: string }> {
-    const res = await apiFetch<{ data: { slug: string; publicUrl?: string; publishedAt?: string; status?: string } }>(
+  async publishAdminForm(
+    id: string
+  ): Promise<{ slug: string; publicUrl?: string; publishedAt?: string; status?: FormStatus }> {
+    const res = await apiFetch<{
+      data: { slug: string; publicUrl?: string; publishedAt?: string; status?: FormStatus };
+    }>(
       `/admin/forms/${encodeURIComponent(id)}/publish`,
       {
       method: 'POST',
       }
     );
-    return unwrapData<{ slug: string; publicUrl?: string; publishedAt?: string; status?: string }>(
+    return unwrapData<{ slug: string; publicUrl?: string; publishedAt?: string; status?: FormStatus }>(
       res,
       'Invalid publish payload'
     );
