@@ -14,16 +14,7 @@ import { Input } from '@/ui/input';
 import { VerifyActionModal } from '@/ui/VerifyActionModal';
 
 import { apiClient, mapValidationErrors } from '@/lib/api';
-import type {
-  AdminForm,
-  CreateFormRequest,
-  FormFieldType,
-  FormSettings,
-  FormStatsResponse,
-  FormSubmission,
-  EventData,
-  FormStatus,
-} from '@/lib/types';
+import type { AdminForm, CreateFormRequest, EventData, FormFieldType, FormSettings, FormStatsResponse, FormStatus, FormSubmission } from '@/lib/types';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
@@ -100,34 +91,7 @@ function normalizeFormStatus(status?: string): FormStatus | undefined {
   return undefined;
 }
 
-function extractFormList(res: unknown): AdminForm[] {
-  if (!res || typeof res !== 'object') return [];
-  const candidate = res as { data?: unknown; forms?: unknown };
 
-  if (Array.isArray(candidate.data)) return candidate.data as AdminForm[];
-  if (Array.isArray(candidate.forms)) return candidate.forms as AdminForm[];
-
-  if (candidate.data && typeof candidate.data === 'object') {
-    const dataObj = candidate.data as { items?: unknown; forms?: unknown; data?: unknown };
-    if (Array.isArray(dataObj.items)) return dataObj.items as AdminForm[];
-    if (Array.isArray(dataObj.forms)) return dataObj.forms as AdminForm[];
-    if (Array.isArray(dataObj.data)) return dataObj.data as AdminForm[];
-  }
-
-  return [];
-}
-
-function getFormTotal(res: unknown, fallback: number): number {
-  if (!res || typeof res !== 'object') return fallback;
-  const candidate = res as { total?: unknown; data?: unknown };
-  if (typeof candidate.total === 'number') return candidate.total;
-  if (candidate.data && typeof candidate.data === 'object') {
-    const dataObj = candidate.data as { total?: unknown; total_items?: unknown };
-    if (typeof dataObj.total === 'number') return dataObj.total;
-    if (typeof dataObj.total_items === 'number') return dataObj.total_items;
-  }
-  return fallback;
-}
 
 function isExpiredForm(form: AdminForm): boolean {
   if (form.status === 'invalid') return true;
@@ -188,10 +152,10 @@ export default withAuth(function FormsPage() {
   const [limit, setLimit] = useState(10);
   const [deleteTarget, setDeleteTarget] = useState<AdminForm | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [formCounts, setFormCounts] = useState<Record<string, number>>({});
   const [formStats, setFormStats] = useState<FormStatsResponse | null>(null);
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<string>('');
-
-  const [selectedFormId, setSelectedFormId] = useState<string>('');
+  const [publishedPublicUrl, setPublishedPublicUrl] = useState<string | null>(null);
+  const [selectedFormId, setSelectedFormId] = useState('');
   const [submissions, setSubmissions] = useState<FormSubmission[]>([]);
   const [submissionsTotal, setSubmissionsTotal] = useState(0);
   const [submissionsPage, setSubmissionsPage] = useState(1);
@@ -201,6 +165,7 @@ export default withAuth(function FormsPage() {
   const [filterStart, setFilterStart] = useState('');
   const [filterEnd, setFilterEnd] = useState('');
   const [liveUpdates, setLiveUpdates] = useState(true);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
 
   // Builder state
   const [showBuilder, setShowBuilder] = useState(false);
@@ -209,8 +174,11 @@ export default withAuth(function FormsPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [slug, setSlug] = useState('');
-  const [publishedPublicUrl, setPublishedPublicUrl] = useState<string | null>(null);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventId, setEventId] = useState('');
+  const [capacity, setCapacity] = useState('');
   const [closesAt, setClosesAt] = useState('');
+  const [expiresAt, setExpiresAt] = useState('');
 
   const [introTitle, setIntroTitle] = useState('Event Registration');
   const [introSubtitle, setIntroSubtitle] = useState('Secure your spot by registering below.');
@@ -238,6 +206,13 @@ export default withAuth(function FormsPage() {
       delete next[key];
       return next;
     });
+
+  const toIso = (value: string) => {
+    if (!value) return undefined;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return undefined;
+    return d.toISOString();
+  };
 
   const [fields, setFields] = useState<FieldDraft[]>([
     { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
@@ -329,9 +304,8 @@ export default withAuth(function FormsPage() {
 
       if (formsResult.status === 'fulfilled') {
         const res = formsResult.value;
-        const list = extractFormList(res);
-        setForms(list);
-        setTotal(getFormTotal(res, list.length));
+        setForms(Array.isArray(res.data) ? res.data : []);
+        setTotal(typeof res.total === 'number' ? res.total : 0);
       } else {
         console.error(formsResult.reason);
         setForms([]);
@@ -340,37 +314,28 @@ export default withAuth(function FormsPage() {
 
       if (statsResult.status === 'fulfilled') {
         setFormStats(statsResult.value);
+        const map: Record<string, number> = {};
+        statsResult.value.perForm?.forEach((row) => {
+          map[row.formId] = row.count;
+        });
+        setFormCounts(map);
       } else {
+        console.warn('Form stats unavailable:', statsResult.reason);
+        setFormCounts({});
         setFormStats(null);
       }
-      setLastUpdatedAt(new Date().toISOString());
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : 'Failed to load forms';
       toast.error(message);
       setForms([]);
       setTotal(0);
+      setFormCounts({});
       setFormStats(null);
     } finally {
       setLoading(false);
     }
   }, [page, limit]);
-
-  const loadEvents = useCallback(async () => {
-    try {
-      const res = await apiClient.getEvents({ page: 1, limit: 100 });
-      if (res && typeof res === 'object' && 'data' in res && Array.isArray(res.data)) {
-        setEvents(res.data);
-      } else if (Array.isArray(res)) {
-        setEvents(res);
-      } else {
-        setEvents([]);
-      }
-    } catch (err) {
-      console.warn('Failed to load events:', err);
-      setEvents([]);
-    }
-  }, []);
 
   useEffect(() => {
     if (authBlocked) return;
@@ -378,15 +343,23 @@ export default withAuth(function FormsPage() {
   }, [authBlocked, load]);
 
   useEffect(() => {
-    if (authBlocked) return;
-    loadEvents();
-  }, [authBlocked, loadEvents]);
+    if (selectedFormId) return;
+    if (forms.length > 0) setSelectedFormId(forms[0].id);
+  }, [forms, selectedFormId]);
 
   useEffect(() => {
-    if (!selectedFormId && forms.length > 0) {
-      setSelectedFormId(forms[0].id);
-    }
-  }, [forms, selectedFormId]);
+    (async () => {
+      try {
+        setEventsLoading(true);
+        const res = await apiClient.getEvents({ page: 1, limit: 200 });
+        setEvents(Array.isArray(res.data) ? res.data : []);
+      } catch {
+        setEvents([]);
+      } finally {
+        setEventsLoading(false);
+      }
+    })();
+  }, []);
 
   const requestDelete = (form: AdminForm) => {
     setDeleteTarget(form);
@@ -679,70 +652,18 @@ export default withAuth(function FormsPage() {
   const save = async () => {
     setFieldErrors({});
     const normalizedTitle = title.trim();
-    const normalizedSlug = normalizeSlug(slug || title);
-
     if (!normalizedTitle) {
-      setFieldErrors({ title: 'Title is required' });
-      toast.error('Please enter a form title.');
+      setFieldErrors((prev) => ({ ...prev, title: 'Title is required' }));
+      toast.error('Title is required');
       return;
     }
-
-    if (!normalizedSlug) {
-      setFieldErrors({ slug: 'Form link name is required' });
-      toast.error('Please enter a form link name.');
-      return;
-    }
-
-    if (!slug || slug !== normalizedSlug) {
-      setSlug(normalizedSlug);
-    }
-
-    if (fields.length === 0) {
-      toast.error('Add at least one field before creating a form.');
-      return;
-    }
-
-    const normalizedKeys = fields.map((f, idx) =>
-      normalizeFieldKey(f.key || `field_${idx + 1}`, `field_${idx + 1}`)
-    );
-    const duplicateKeys = normalizedKeys.filter(
-      (key, index) => normalizedKeys.indexOf(key) !== index
-    );
-    if (duplicateKeys.length > 0) {
-      toast.error('Field keys must be unique. Please adjust duplicate fields.');
-      return;
-    }
-
-    const missingOptions = fields.some(
-      (f) => isOptionField(f.type) && (!f.options || f.options.filter((o) => o.label?.trim()).length === 0)
-    );
-    if (missingOptions) {
-      toast.error('Dropdown, checkbox, and radio fields require at least one option.');
-      return;
-    }
-
-    if (forms.some((f) => f.slug === normalizedSlug)) {
-      setFieldErrors({ slug: 'This link name already exists. Choose a unique one.' });
-      toast.error('Form link name already exists.');
-      return;
-    }
-
-    const closesAtIso = closesAt
-      ? (() => {
-          const parsed = new Date(closesAt);
-          return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-        })()
-      : undefined;
-
-    if (closesAt && !closesAtIso) {
-      toast.error('Publish end time is invalid.');
-      return;
-    }
+    const normalizedSlug = normalizeSlug(slug || normalizedTitle);
 
     const payload: CreateFormRequest = {
       title: normalizedTitle,
       description: description.trim() || undefined,
       slug: normalizedSlug,
+      eventId: eventId || undefined,
       fields: fields.map((f, idx) => {
         const base = {
           key: normalizeFieldKey(f.key || `field_${idx + 1}`, `field_${idx + 1}`),
@@ -769,6 +690,9 @@ export default withAuth(function FormsPage() {
       // NOTE: if your backend FormSettings doesn't include these custom fields, move them to `settings.design`
       // or extend your types/backend. I'm leaving your structure as you currently use it.
       settings: {
+        capacity: capacity ? Number(capacity) : undefined,
+        closesAt: toIso(closesAt),
+        expiresAt: toIso(expiresAt),
         successMessage: 'Thanks! Your registration has been received.',
         introTitle,
         introSubtitle,
@@ -778,7 +702,6 @@ export default withAuth(function FormsPage() {
         introBulletSubtexts: introBulletSubs.split('\n').filter(Boolean),
   
         layoutMode,
-        closesAt: closesAtIso,
      
         dateFormat,
        
@@ -867,22 +790,13 @@ export default withAuth(function FormsPage() {
         ),
       },
       {
-        key: 'isPublished' as keyof AdminForm,
-        header: 'Status',
-        cell: (f: AdminForm) => {
-          const status = getFormStatus(f);
-          const label = status === 'invalid' ? 'Invalid' : status === 'published' ? 'Published' : 'Draft';
-          const classes = status === 'invalid'
-            ? 'bg-red-50 text-red-700 border border-red-200'
-            : status === 'published'
-              ? 'bg-green-50 text-green-700 border border-green-200'
-              : 'bg-secondary-50 text-secondary-700 border border-secondary-200';
-          return (
-            <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${classes}`}>
-              {label}
-            </span>
-          );
-        },
+        key: 'id' as keyof AdminForm,
+        header: 'Registrations',
+        cell: (f: AdminForm) => (
+          <span className="text-sm text-secondary-700">
+            {formCounts[f.id] ?? 0}
+          </span>
+        ),
       },
       {
         key: 'slug' as keyof AdminForm,
@@ -906,7 +820,13 @@ export default withAuth(function FormsPage() {
                 </button>
               </>
             ) : (
-              <span className="text-xs text-secondary-500">Not published</span>
+              <button
+                type="button"
+                onClick={() => handlePublish(f)}
+                className="inline-flex items-center gap-1 rounded-md border border-secondary-200 bg-white px-2 py-1 text-xs text-secondary-700 hover:bg-secondary-50"
+              >
+                Publish
+              </button>
             )}
           </div>
         ),
@@ -936,7 +856,7 @@ export default withAuth(function FormsPage() {
         ),
       },
     ],
-    [handleCopyLink]
+    [handleCopyLink, formCounts]
   );
 
   const submissionColumns = useMemo<Column<FormSubmission>[]>(
@@ -1040,125 +960,214 @@ export default withAuth(function FormsPage() {
       </Card>
 
       {activeTab === 'submissions' && (
-        <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-          <Card title="Registration Insights">
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Total registrations</p>
-              <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">
-                {formStats?.totalSubmissions ?? 0}
-              </p>
-            </div>
-            <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Active forms</p>
-              <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">
-                {forms.filter((f) => getFormStatus(f) === 'published').length}
-              </p>
-            </div>
-            <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Invalid/expired</p>
-              <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">
-                {forms.filter((f) => getFormStatus(f) === 'invalid').length}
-              </p>
-            </div>
+        <>
+          <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+            <Card title="Registration Insights">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+                  <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Total registrations</p>
+                  <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">
+                    {formStats?.totalSubmissions ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+                  <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Active forms</p>
+                  <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">
+                    {forms.filter((f) => getFormStatus(f) === 'published').length}
+                  </p>
+                </div>
+                <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+                  <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Invalid/expired</p>
+                  <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">
+                    {forms.filter((f) => getFormStatus(f) === 'invalid').length}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">Registrations per form</p>
+                {perFormStats.length === 0 ? (
+                  <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">No registrations yet.</p>
+                ) : (
+                  <div className="mt-3 space-y-3">
+                    {perFormStats.slice(0, 6).map((item) => (
+                      <div key={item.formId} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
+                          <span className="font-medium">{item.formTitle}</span>
+                          <span>{item.count}</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-[var(--color-background-tertiary)]">
+                          <div
+                            className="h-2 rounded-full bg-[var(--color-accent-primary)]"
+                            style={{ width: `${Math.max(5, (item.count / maxPerForm) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6">
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">Registration trend (last 7 days)</p>
+                {trendData.length === 0 ? (
+                  <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">No submissions yet.</p>
+                ) : (
+                  <div className="mt-3 grid grid-cols-7 gap-2">
+                    {trendData.map((item) => (
+                      <div key={item.label} className="flex flex-col items-center gap-2">
+                        <div className="flex h-24 w-full items-end rounded-[var(--radius-card)] bg-[var(--color-background-tertiary)] p-1">
+                          <div
+                            className="w-full rounded-[var(--radius-card)] bg-[var(--color-accent-primary)]"
+                            style={{
+                              height: `${Math.max(6, (item.count / maxTrendCount) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                        <div className="text-[0.7rem] text-[var(--color-text-tertiary)]">{item.label}</div>
+                        <div className="text-[0.7rem] font-semibold text-[var(--color-text-secondary)]">{item.count}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6">
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">Event registrations</p>
+                {eventCounts.length === 0 ? (
+                  <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">No event registrations yet.</p>
+                ) : (
+                  <div className="mt-3 space-y-3">
+                    {eventCounts.slice(0, 6).map((item) => (
+                      <div key={item.eventId} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
+                          <span className="font-medium">{item.name}</span>
+                          <span>{item.count}</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-[var(--color-background-tertiary)]">
+                          <div
+                            className="h-2 rounded-full bg-[var(--color-accent-primary)]"
+                            style={{ width: `${Math.max(5, (item.count / maxEventCount) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            <Card title="Recent Submissions">
+              {formStats?.recent?.length ? (
+                <div className="space-y-3">
+                  {formStats.recent.slice(0, 6).map((submission) => (
+                    <div
+                      key={submission.id}
+                      className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3"
+                    >
+                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                        {submission.name || submission.email || 'Anonymous'}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{submission.formTitle}</p>
+                      <p className="mt-2 text-[0.7rem] text-[var(--color-text-tertiary)]">
+                        {formatDateTime(submission.createdAt)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-[var(--color-text-tertiary)]">No submissions yet.</p>
+              )}
+            </Card>
           </div>
 
-            <div className="mt-6">
-              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Registrations per form</p>
-              {perFormStats.length === 0 ? (
-                <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">No registrations yet.</p>
-              ) : (
-                <div className="mt-3 space-y-3">
-                {perFormStats.slice(0, 6).map((item) => (
-                  <div key={item.formId} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
-                      <span className="font-medium">{item.formTitle}</span>
-                      <span>{item.count}</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-[var(--color-background-tertiary)]">
-                      <div
-                        className="h-2 rounded-full bg-[var(--color-accent-primary)]"
-                        style={{ width: `${Math.max(5, (item.count / maxPerForm) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              )}
-            </div>
-
-            <div className="mt-6">
-              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Registration trend (last 7 days)</p>
-              {trendData.length === 0 ? (
-                <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">No submissions yet.</p>
-              ) : (
-                <div className="mt-3 grid grid-cols-7 gap-2">
-                  {trendData.map((item) => (
-                    <div key={item.label} className="flex flex-col items-center gap-2">
-                      <div className="flex h-24 w-full items-end rounded-[var(--radius-card)] bg-[var(--color-background-tertiary)] p-1">
-                        <div
-                          className="w-full rounded-[var(--radius-card)] bg-[var(--color-accent-primary)]"
-                          style={{
-                            height: `${Math.max(6, (item.count / maxTrendCount) * 100)}%`,
-                          }}
-                        />
-                      </div>
-                      <div className="text-[0.7rem] text-[var(--color-text-tertiary)]">{item.label}</div>
-                      <div className="text-[0.7rem] font-semibold text-[var(--color-text-secondary)]">{item.count}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6">
-              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Event registrations</p>
-              {eventCounts.length === 0 ? (
-                <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">No event registrations yet.</p>
-              ) : (
-                <div className="mt-3 space-y-3">
-                  {eventCounts.slice(0, 6).map((item) => (
-                    <div key={item.eventId} className="space-y-1">
-                      <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
-                        <span className="font-medium">{item.name}</span>
-                        <span>{item.count}</span>
-                      </div>
-                      <div className="h-2 rounded-full bg-[var(--color-background-tertiary)]">
-                        <div
-                          className="h-2 rounded-full bg-[var(--color-accent-primary)]"
-                          style={{ width: `${Math.max(5, (item.count / maxEventCount) * 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </Card>
-
-          <Card title="Recent Submissions">
-            {formStats?.recent?.length ? (
-            <div className="space-y-3">
-              {formStats.recent.slice(0, 6).map((submission) => (
-                <div
-                  key={submission.id}
-                  className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3"
+          <Card title="Submission Explorer">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="min-w-[220px]">
+                <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">Form</label>
+                <select
+                  className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                  value={selectedFormId}
+                  onChange={(e) => {
+                    setSelectedFormId(e.target.value);
+                    setSubmissionsPage(1);
+                  }}
                 >
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                    {submission.name || submission.email || 'Anonymous'}
-                  </p>
-                  <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{submission.formTitle}</p>
-                  <p className="mt-2 text-[0.7rem] text-[var(--color-text-tertiary)]">
-                    {formatDateTime(submission.createdAt)}
-                  </p>
-                </div>
-              ))}
+                  <option value="">Select a form</option>
+                  {forms.map((form) => (
+                    <option key={form.id} value={form.id}>
+                      {form.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <Input
+                label="Search"
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                placeholder="Name, email, phone..."
+              />
+
+              <Input
+                label="From"
+                type="date"
+                value={filterStart}
+                onChange={(e) => setFilterStart(e.target.value)}
+              />
+
+              <Input
+                label="To"
+                type="date"
+                value={filterEnd}
+                onChange={(e) => setFilterEnd(e.target.value)}
+              />
+
+              <label className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={liveUpdates}
+                  onChange={(e) => setLiveUpdates(e.target.checked)}
+                />
+                Live updates
+              </label>
+
+              <Button variant="outline" onClick={loadSubmissions} className="whitespace-nowrap">
+                Refresh
+              </Button>
+              <Button
+                variant="outline"
+                onClick={exportSubmissions}
+                disabled={filteredSubmissions.length === 0}
+                className="whitespace-nowrap"
+              >
+                Export CSV
+              </Button>
             </div>
+
+            {!selectedFormId ? (
+              <p className="mt-4 text-sm text-[var(--color-text-tertiary)]">
+                Select a form to view registrations.
+              </p>
             ) : (
-              <p className="text-sm text-[var(--color-text-tertiary)]">No submissions yet.</p>
+              <div className="mt-4">
+                <DataTable
+                  data={filteredSubmissions}
+                  columns={submissionColumns}
+                  total={filteredTotal}
+                  page={submissionsPage}
+                  limit={submissionsLimit}
+                  onPageChange={setSubmissionsPage}
+                  onLimitChange={(next) => {
+                    setSubmissionsLimit(next);
+                    setSubmissionsPage(1);
+                  }}
+                  isLoading={submissionsLoading}
+                />
+              </div>
             )}
           </Card>
-        </div>
+        </>
       )}
 
       {activeTab === 'forms' && showBuilder && (
@@ -1191,7 +1200,7 @@ export default withAuth(function FormsPage() {
                 <p className="text-xs text-[var(--color-text-tertiary)]">
                   Public link preview:{' '}
                   <span className="font-medium text-[var(--color-text-secondary)]">
-                    /forms/{normalizeSlug(slug || 'your-link')}
+                    /forms/{normalizeSlug(slug || title || 'your-link')}
                   </span>
                 </p>
               </div>
@@ -1215,6 +1224,56 @@ export default withAuth(function FormsPage() {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Optional short intro"
                 />
+              </div>
+
+              <div className="md:col-span-2 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+                <div className="mb-3">
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">Registration Settings</p>
+                  <p className="text-xs text-[var(--color-text-tertiary)]">
+                    Set capacity and registration window for this form.
+                  </p>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Linked Event</label>
+                    <select
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                      value={eventId}
+                      onChange={(e) => setEventId(e.target.value)}
+                      disabled={eventsLoading}
+                    >
+                      <option value="">No event (standalone form)</option>
+                      {events.map((ev) => (
+                        <option key={ev.id} value={ev.id}>
+                          {ev.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <Input
+                    label="Capacity (optional)"
+                    type="number"
+                    min={0}
+                    value={capacity}
+                    onChange={(e) => setCapacity(e.target.value)}
+                    placeholder="e.g., 250"
+                  />
+
+                  <Input
+                    label="Closes At (optional)"
+                    type="datetime-local"
+                    value={closesAt}
+                    onChange={(e) => setClosesAt(e.target.value)}
+                  />
+
+                  <Input
+                    label="Expires At (optional)"
+                    type="datetime-local"
+                    value={expiresAt}
+                    onChange={(e) => setExpiresAt(e.target.value)}
+                  />
+                </div>
               </div>
 
               <div className="md:col-span-2 grid gap-3 md:grid-cols-3">
@@ -1418,119 +1477,31 @@ export default withAuth(function FormsPage() {
         </div>
       )}
 
-      {activeTab === 'forms' && (
-        <>
-          <Card className="p-0">
-            <DataTable
-              data={forms ?? []}
-              columns={columns}
-              total={total}
-              page={page}
-              limit={limit}
-              onPageChange={setPage}
-              onLimitChange={setLimit}
-              onEdit={handleEdit}
-              onDelete={requestDelete}
-              onView={(f: AdminForm) => {
-                if (!f.isPublished) {
-                  handlePublish(f);
-                  return;
-                }
-                handleCopyLink(f);
-              }}
-              isLoading={loading}
-            />
-          </Card>
+      <Card className="p-0">
+        <DataTable
+          data={forms ?? []}
+          columns={columns}
+          total={total}
+          page={page}
+          limit={limit}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
+          onEdit={handleEdit}
+          onDelete={requestDelete}
+          onView={(f: AdminForm) => router.push(`/dashboard/forms/${f.id}/submissions`)}
+          isLoading={loading}
+        />
+      </Card>
 
-          <div className="text-xs text-secondary-500">
-            Tip: Click “View” action to publish (if draft) or copy link (if already published).
-          </div>
-        </>
+      {formStats && (
+        <div className="text-xs text-secondary-500">
+          Total registrations across all forms: {formStats.totalSubmissions}
+        </div>
       )}
 
-      {activeTab === 'submissions' && (
-        <Card>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="text-sm text-[var(--color-text-secondary)]">
-                Form
-                <select
-                  className="mt-1 w-full rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-2 text-sm"
-                  value={selectedFormId}
-                  onChange={(e) => {
-                    setSelectedFormId(e.target.value);
-                    setSubmissionsPage(1);
-                  }}
-                >
-                  {forms.map((form) => (
-                    <option key={form.id} value={form.id}>
-                      {form.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="text-sm text-[var(--color-text-secondary)]">
-                Search
-                <Input
-                  value={filterText}
-                  onChange={(e) => setFilterText(e.target.value)}
-                  placeholder="Name, email, phone"
-                />
-              </label>
-
-              <label className="text-sm text-[var(--color-text-secondary)]">
-                From
-                <Input
-                  type="date"
-                  value={filterStart}
-                  onChange={(e) => setFilterStart(e.target.value)}
-                />
-              </label>
-
-              <label className="text-sm text-[var(--color-text-secondary)]">
-                To
-                <Input
-                  type="date"
-                  value={filterEnd}
-                  onChange={(e) => setFilterEnd(e.target.value)}
-                />
-              </label>
-
-              <div className="flex items-center gap-2 pt-6 text-sm text-[var(--color-text-secondary)]">
-                <input
-                  type="checkbox"
-                  checked={liveUpdates}
-                  onChange={(e) => setLiveUpdates(e.target.checked)}
-                />
-                Live updates
-              </div>
-
-              <div className="ml-auto flex flex-wrap items-center gap-2 pt-6">
-                <Button variant="outline" onClick={loadSubmissions} disabled={submissionsLoading}>
-                  Refresh
-                </Button>
-                <Button onClick={exportSubmissions} variant="secondary">
-                  Export CSV
-                </Button>
-              </div>
-            </div>
-
-            <Card className="p-0">
-              <DataTable
-                data={filteredSubmissions}
-                columns={submissionColumns}
-                total={filteredTotal}
-                page={submissionsPage}
-                limit={submissionsLimit}
-                onPageChange={setSubmissionsPage}
-                onLimitChange={setSubmissionsLimit}
-                isLoading={submissionsLoading}
-              />
-            </Card>
-          </div>
-        </Card>
-      )}
+      <div className="text-xs text-secondary-500">
+        Tip: Click “View” to see registrations for a form.
+      </div>
 
       <VerifyActionModal
         isOpen={!!deleteTarget}
