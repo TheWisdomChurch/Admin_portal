@@ -95,6 +95,15 @@ const pickNumber = (value: unknown): number | null => {
   return null;
 };
 
+const toArray = <T,>(value: unknown): T[] => {
+  if (Array.isArray(value)) return value as T[];
+  if (value && typeof value === 'object' && 'data' in value) {
+    const data = (value as { data?: unknown }).data;
+    if (Array.isArray(data)) return data as T[];
+  }
+  return [];
+};
+
 const getStatNumber = (stats: Record<string, unknown> | null, keys: string[]): number | null => {
   if (!stats) return null;
   for (const key of keys) {
@@ -227,7 +236,7 @@ export default function AdministrationPage() {
       }
 
       if (todayResult.status === 'fulfilled') {
-        setBirthdaysToday(todayResult.value);
+        setBirthdaysToday(toArray<WorkforceMember>(todayResult.value));
       } else {
         setBirthdaysToday([]);
       }
@@ -245,7 +254,7 @@ export default function AdministrationPage() {
     setBirthdayMonthLoading(true);
     try {
       const results = await apiClient.getWorkforceBirthdaysByMonth(month);
-      setBirthdaysByMonth(results);
+      setBirthdaysByMonth(toArray<WorkforceMember>(results));
     } catch (error) {
       console.error('Failed to load birthday month list:', error);
       toast.error('Birthday list unavailable');

@@ -4,7 +4,7 @@
 import React, { Suspense, useMemo, useState } from 'react';
 import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Lock, Mail, ArrowRight, AlertTriangle, UserPlus } from 'lucide-react';
+import { Lock, Mail, ArrowRight } from 'lucide-react';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
@@ -14,9 +14,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Footer } from '@/components/Footer';
-import { OtpModal } from '@/ui/OtpModal';
 import { apiClient } from '@/lib/api';
-import { AlertModal } from '@/ui/AlertModal';
 import type { ApiError } from '@/lib/api';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 
@@ -46,21 +44,7 @@ function LoginInner() {
   const [forgotConfirm, setForgotConfirm] = useState('');
   const [forgotStep, setForgotStep] = useState<'email' | 'otp' | 'reset'>('email');
   const [forgotLoading, setForgotLoading] = useState(false);
-
-  const [otpOpen, setOtpOpen] = useState(false);
-  const [otpStep, setOtpStep] = useState<'email' | 'otp'>('email');
-  const [otpEmail, setOtpEmail] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [otpLoading, setOtpLoading] = useState(false);
-  const [pendingLogin, setPendingLogin] = useState<LoginFormData | null>(null);
-  const [challengePurpose, setChallengePurpose] = useState<string>('');
-
-  const [errorModal, setErrorModal] = useState<{
-    open: boolean;
-    title: string;
-    description: string;
-    mode: 'bad_password' | 'not_found' | 'generic';
-  }>({ open: false, title: '', description: '', mode: 'generic' });
+  const [loginLoading, setLoginLoading] = useState(false);
 
   const redirectPath = useMemo(() => safeRedirect(searchParams.get('redirect')), [searchParams]);
 
@@ -70,6 +54,7 @@ function LoginInner() {
     handleSubmit,
     clearErrors,
     setError,
+    getValues,
     formState: { errors },
   } = useForm<LoginFormData>({
     defaultValues: {
@@ -81,152 +66,55 @@ function LoginInner() {
   });
 
   const onSubmit: SubmitHandler<LoginFormData> = async (data) => {
-  clearErrors();
-  setServerError('');
+    clearErrors();
+    setServerError('');
 
-  try {
-    setPendingLogin(data);
-    setOtpEmail(data.email.trim().toLowerCase());
-    setOtpLoading(true);
+    try {
+      setLoginLoading(true);
 
-    const result = await apiClient.login({
-      ...data,
-      email: data.email.trim().toLowerCase(),
-    });
-
-    if ('otp_required' in result && result.otp_required) {
-      setChallengePurpose(result.purpose || 'login');
-      setOtpStep('otp');
-      setOtpOpen(true);
-      toast.success('A verification code was sent to your email');
-      return;
-    }
-
-    // If login returned user without OTP, session cookie should already be set.
-    await checkAuth();
-    toast.success('Login successful!');
-    router.replace(redirectPath);
-  } catch (err) {
-    const apiErr = err as ApiError;
-    const status = apiErr.statusCode ?? 0;
-
-    if (status === 400 || status === 422) {
-      const fieldErrors = extractServerFieldErrors(apiErr);
-      let applied = false;
-
-      (Object.entries(fieldErrors) as Array<[keyof LoginFormData, string]>).forEach(([field, message]) => {
-        if (field in data) {
-          applied = true;
-          setError(field, { type: 'server', message });
-        }
+      const result = await apiClient.login({
+        ...data,
+        email: data.email.trim().toLowerCase(),
       });
 
-      if (!applied) setServerError(getServerErrorMessage(apiErr, 'Unable to sign in right now.'));
-      return;
+      if ('otp_required' in result && result.otp_required) {
+        setServerError('Two-factor login is disabled for this portal. Please contact an administrator.');
+        return;
+      }
+
+      // If login returned user without OTP, session cookie should already be set.
+      await checkAuth();
+      toast.success('Login successful!');
+      router.replace(redirectPath);
+    } catch (err) {
+      const apiErr = err as ApiError;
+      const status = apiErr.statusCode ?? 0;
+
+      if (status === 400 || status === 422) {
+        const fieldErrors = extractServerFieldErrors(apiErr);
+        let applied = false;
+
+        (Object.entries(fieldErrors) as Array<[keyof LoginFormData, string]>).forEach(([field, message]) => {
+          if (field in data) {
+            applied = true;
+            setError(field, { type: 'server', message });
+          }
+        });
+
+        if (!applied) setServerError(getServerErrorMessage(apiErr, 'Unable to sign in right now.'));
+        return;
+      }
+
+      if (status === 401 || status === 404) {
+        setServerError('Invalid email or password.');
+        return;
+      }
+
+      setServerError(getServerErrorMessage(apiErr, 'Unable to sign in right now.'));
+    } finally {
+      setLoginLoading(false);
     }
-
-    if (status === 404) {
-      setErrorModal({
-        open: true,
-        title: 'Account not found',
-        description:
-          'No account exists for that email. You can register for access. Admin signups require super-admin approval.',
-        mode: 'not_found',
-      });
-    } else if (status === 401) {
-      setErrorModal({
-        open: true,
-        title: 'Incorrect password',
-        description: 'The email exists, but the password is incorrect. You can retry or reset your password.',
-        mode: 'bad_password',
-      });
-    } else {
-      setErrorModal({
-        open: true,
-        title: 'Login failed',
-        description: apiErr?.message || 'Unable to sign in right now.',
-        mode: 'generic',
-      });
-    }
-  } finally {
-    setOtpLoading(false);
-  }
-};
-
-const requestOtp = async () => {
-  if (!pendingLogin) {
-    toast.error('Please submit your email and password first.');
-    return;
-  }
-
-  try {
-    setOtpLoading(true);
-
-    // Re-hit login to resend OTP (your backend likely does this)
-    const result = await apiClient.login({
-      ...pendingLogin,
-      email: otpEmail.trim().toLowerCase(),
-    });
-
-    if ('otp_required' in result && result.otp_required) {
-      setChallengePurpose(result.purpose || 'login');
-      setOtpStep('otp');
-      toast.success('Check your email for the code we just sent.');
-      return;
-    }
-
-    // If it didn't require OTP this time, you are already logged in
-    await checkAuth();
-    toast.success('Login successful!');
-    setOtpOpen(false);
-    router.replace(redirectPath);
-  } catch (err) {
-    toast.error(getServerErrorMessage(err, 'Failed to send login code'));
-  } finally {
-    setOtpLoading(false);
-  }
-};
-
-const verifyOtpAndLogin = async () => {
-  if (!pendingLogin) {
-    toast.error('Please restart the login process');
-    setOtpOpen(false);
-    return;
-  }
-
-  try {
-    setOtpLoading(true);
-
-    await apiClient.verifyLoginOtp({
-      email: otpEmail.trim().toLowerCase(),
-      code: otpCode.trim(),
-      purpose: challengePurpose || 'login',
-      rememberMe: pendingLogin.rememberMe,
-    });
-
-    // After OTP verify, backend should set auth cookie.
-    const me = await checkAuth();
-
-    if (!me) {
-      toast.error('Login verified, but session was not established. Please refresh.');
-      return;
-    }
-
-    toast.success('Login verified');
-    setOtpOpen(false);
-    setOtpCode('');
-    router.replace(redirectPath);
-  } catch (err) {
-    const fieldErrors = extractServerFieldErrors(err);
-    if (Object.keys(fieldErrors).length > 0) {
-      toast.error(getFirstServerFieldError(fieldErrors) || 'Please check the code and try again.');
-      return;
-    }
-    toast.error(getServerErrorMessage(err, 'Verification failed'));
-  } finally {
-    setOtpLoading(false);
-  }
-};
+  };
 
   const resetForgotState = () => {
     setForgotEmail('');
@@ -281,6 +169,8 @@ const verifyOtpAndLogin = async () => {
     }
   };
 
+  const isSubmitting = isLoading || loginLoading;
+
   return (
     <div className="auth-shell">
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
@@ -330,7 +220,7 @@ const verifyOtpAndLogin = async () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate autoComplete="off">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate autoComplete="on">
             <div>
               <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
                 Email Address
@@ -348,9 +238,9 @@ const verifyOtpAndLogin = async () => {
                     },
                   })}
                   error={errors.email?.message}
-                  disabled={isLoading}
+                  disabled={isSubmitting}
                   autoFocus
-                  autoComplete="off"
+                  autoComplete="email"
                   inputMode="email"
                   autoCapitalize="none"
                   spellCheck={false}
@@ -375,8 +265,8 @@ const verifyOtpAndLogin = async () => {
                     },
                   })}
                   error={errors.password?.message}
-                  disabled={isLoading}
-                  autoComplete="new-password"
+                  disabled={isSubmitting}
+                  autoComplete="current-password"
                   autoCapitalize="none"
                   spellCheck={false}
                 />
@@ -390,7 +280,7 @@ const verifyOtpAndLogin = async () => {
                 render={({ field }) => (
                   <Checkbox
                     label="Remember me"
-                    disabled={isLoading}
+                    disabled={isSubmitting}
                     checked={!!field.value}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       setServerError('');
@@ -405,6 +295,8 @@ const verifyOtpAndLogin = async () => {
                 href="#"
                 onClick={(e) => {
                   e.preventDefault();
+                  resetForgotState();
+                  setForgotEmail((getValues('email') || '').trim());
                   setShowForgot(true);
                 }}
                 className="text-sm text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)]"
@@ -413,9 +305,9 @@ const verifyOtpAndLogin = async () => {
               </Link>
             </div>
 
-            <Button type="submit" variant="primary" className="w-full" disabled={isLoading} loading={isLoading}>
-              {isLoading ? 'Signing in...' : 'Sign In'}
-              {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
+            <Button type="submit" variant="primary" className="w-full" disabled={isSubmitting} loading={isSubmitting}>
+              {isSubmitting ? 'Signing in...' : 'Sign In'}
+              {!isSubmitting && <ArrowRight className="ml-2 h-4 w-4" />}
             </Button>
           </form>
 
@@ -514,55 +406,6 @@ const verifyOtpAndLogin = async () => {
           </Card>
         </div>
       )}
-
-      <OtpModal
-        open={otpOpen}
-        step={otpStep}
-        email={otpEmail}
-        code={otpCode}
-        onEmailChange={setOtpEmail}
-        onCodeChange={setOtpCode}
-        onRequestOtp={requestOtp}
-        onVerifyOtp={verifyOtpAndLogin}
-        onClose={() => {
-          setOtpOpen(false);
-          setOtpCode('');
-          setOtpStep('email');
-        }}
-        loading={otpLoading || isLoading}
-        title="Two-factor login"
-        subtitle={otpStep === 'email' ? 'Confirm your email to receive a one-time code.' : `Enter the code we sent to ${otpEmail}.`}
-        confirmText="Verify & sign in"
-        requestText="Send login code"
-      />
-
-      <AlertModal
-        open={errorModal.open}
-        title={errorModal.title}
-        description={errorModal.description}
-        icon={
-          errorModal.mode === 'not_found' ? <UserPlus className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />
-        }
-        onClose={() => setErrorModal({ ...errorModal, open: false })}
-        secondaryAction={{
-          label: 'Try again',
-          variant: 'outline',
-          onClick: () => setErrorModal({ ...errorModal, open: false }),
-        }}
-        primaryAction={{
-          label: errorModal.mode === 'not_found' ? 'Register' : errorModal.mode === 'bad_password' ? 'Reset password' : 'Try again',
-          onClick: () => {
-            setErrorModal({ ...errorModal, open: false });
-            if (errorModal.mode === 'not_found') {
-              router.push('/register');
-            } else if (errorModal.mode === 'bad_password') {
-              setForgotEmail(otpEmail || pendingLogin?.email || '');
-              setShowForgot(true);
-              setForgotStep('email');
-            }
-          },
-        }}
-      />
     </div>
   );
 }

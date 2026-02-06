@@ -699,11 +699,17 @@ export const apiClient = {
     return apiFetch(`/admin/forms/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
 
-  async publishAdminForm(id: string): Promise<{ slug: string }> {
-    const res = await apiFetch<{ data: { slug: string } }>(`/admin/forms/${encodeURIComponent(id)}/publish`, {
+  async publishAdminForm(id: string): Promise<{ slug: string; publicUrl?: string; publishedAt?: string; status?: string }> {
+    const res = await apiFetch<{ data: { slug: string; publicUrl?: string; publishedAt?: string; status?: string } }>(
+      `/admin/forms/${encodeURIComponent(id)}/publish`,
+      {
       method: 'POST',
-    });
-    return unwrapData<{ slug: string }>(res, 'Invalid publish payload');
+      }
+    );
+    return unwrapData<{ slug: string; publicUrl?: string; publishedAt?: string; status?: string }>(
+      res,
+      'Invalid publish payload'
+    );
   },
 
   async getFormSubmissions(id: string, params?: Record<string, unknown>): Promise<SimplePaginatedResponse<FormSubmission>> {
