@@ -388,6 +388,68 @@ function unwrapData<T>(res: unknown, errorMessage: string): T {
   throw createApiError(errorMessage, 400, res);
 }
 
+function unwrapSimplePaginated<T>(
+  res: unknown,
+  errorMessage: string
+): SimplePaginatedResponse<T> {
+  const toNumber = (v: unknown): number | undefined => {
+    if (typeof v === 'number') return v;
+    if (typeof v === 'string') {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : undefined;
+    }
+    return undefined;
+  };
+
+  const build = (record: Record<string, unknown>): SimplePaginatedResponse<T> | null => {
+    const data = Array.isArray(record.data) ? (record.data as T[]) : undefined;
+    const meta = isRecord(record.meta) ? (record.meta as Record<string, unknown>) : undefined;
+
+    const total =
+      toNumber(record.total) ??
+      toNumber(record.total_items) ??
+      toNumber(record.count) ??
+      (meta ? toNumber(meta.total) ?? toNumber(meta.total_items) ?? toNumber(meta.count) : undefined);
+
+    const page = toNumber(record.page) ?? (meta ? toNumber(meta.page) : undefined);
+    const limit =
+      toNumber(record.limit) ??
+      toNumber(record.per_page) ??
+      (meta ? toNumber(meta.limit) ?? toNumber(meta.per_page) : undefined);
+
+    const totalPages =
+      toNumber(record.totalPages) ??
+      toNumber(record.total_pages) ??
+      (meta ? toNumber(meta.totalPages) ?? toNumber(meta.total_pages) : undefined);
+
+    if (!data || total === undefined) return null;
+
+    const safeLimit = limit ?? Math.max(data.length, 1);
+    const safePage = page ?? 1;
+    const safeTotalPages = totalPages ?? Math.max(1, Math.ceil(total / safeLimit));
+
+    return {
+      data,
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages: safeTotalPages,
+    };
+  };
+
+  if (isRecord(res)) {
+    const direct = build(res as Record<string, unknown>);
+    if (direct) return direct;
+
+    if ('data' in res && isRecord((res as Record<string, unknown>).data)) {
+      const inner = build((res as Record<string, unknown>).data as Record<string, unknown>);
+      if (inner) return inner;
+    }
+  }
+
+  throw createApiError(errorMessage, 400, res);
+}
+
 function extractLoginResult(res: unknown): LoginResult {
   const data =
     isRecord(res) && 'data' in res ? (res as { data?: unknown }).data : res;
@@ -601,7 +663,8 @@ export const apiClient = {
 
   async getEvents(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<EventData>> {
     const qs = toQueryString(params);
-    return apiFetch(`/admin/events${qs}`, { method: 'GET' });
+    const res = await apiFetch(`/admin/events${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<EventData>(res, 'Invalid events payload');
   },
 
   async getEvent(id: string): Promise<EventData> {
@@ -672,7 +735,8 @@ export const apiClient = {
 
   async getAdminForms(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<AdminForm>> {
     const qs = toQueryString(params);
-    return apiFetch(`/admin/forms${qs}`, { method: 'GET' });
+    const res = await apiFetch(`/admin/forms${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<AdminForm>(res, 'Invalid forms payload');
   },
 
   async getAdminForm(id: string): Promise<AdminForm> {
@@ -719,7 +783,8 @@ export const apiClient = {
 
   async getFormSubmissions(id: string, params?: Record<string, unknown>): Promise<SimplePaginatedResponse<FormSubmission>> {
     const qs = toQueryString(params);
-    return apiFetch(`/admin/forms/${encodeURIComponent(id)}/submissions${qs}`, { method: 'GET' });
+    const res = await apiFetch(`/admin/forms/${encodeURIComponent(id)}/submissions${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<FormSubmission>(res, 'Invalid submissions payload');
   },
 
   async getFormStats(params?: Record<string, unknown>): Promise<FormStatsResponse> {
@@ -844,18 +909,26 @@ export const apiClient = {
   },
 
   async getWorkforceBirthdaysByMonth(month: number): Promise<WorkforceMember[]> {
-    const res = await apiFetch<ApiResponse<WorkforceMember[]>>(
+    const res = await apiFetch<ApiResponse<unknown> | WorkforceMember[]>(
       `/admin/workforce/birthdays/month/${encodeURIComponent(String(month))}`,
       { method: 'GET' }
     );
-    return unwrapData<WorkforceMember[]>(res, 'Invalid birthdays by month payload');
+    if (Array.isArray(res)) return res;
+    const payload = unwrapData<unknown>(res, 'Invalid birthdays by month payload');
+    if (Array.isArray(payload)) return payload as WorkforceMember[];
+    if (isRecord(payload) && Array.isArray(payload.data)) return payload.data as WorkforceMember[];
+    return [];
   },
 
   async getWorkforceBirthdaysToday(): Promise<WorkforceMember[]> {
-    const res = await apiFetch<ApiResponse<WorkforceMember[]>>('/admin/workforce/birthdays/today', {
+    const res = await apiFetch<ApiResponse<unknown> | WorkforceMember[]>('/admin/workforce/birthdays/today', {
       method: 'GET',
     });
-    return unwrapData<WorkforceMember[]>(res, 'Invalid birthdays today payload');
+    if (Array.isArray(res)) return res;
+    const payload = unwrapData<unknown>(res, 'Invalid birthdays today payload');
+    if (Array.isArray(payload)) return payload as WorkforceMember[];
+    if (isRecord(payload) && Array.isArray(payload.data)) return payload.data as WorkforceMember[];
+    return [];
   },
 
   async sendWorkforceBirthdaysToday(): Promise<Record<string, number>> {
