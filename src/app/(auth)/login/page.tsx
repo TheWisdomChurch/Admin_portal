@@ -42,9 +42,7 @@ function LoginInner() {
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotOtp, setForgotOtp] = useState('');
-  const [forgotPassword, setForgotPassword] = useState('');
-  const [forgotConfirm, setForgotConfirm] = useState('');
-  const [forgotStep, setForgotStep] = useState<'email' | 'otp' | 'reset'>('email');
+  const [forgotStep, setForgotStep] = useState<'email' | 'otp'>('email');
   const [forgotLoading, setForgotLoading] = useState(false);
 
   const [otpOpen, setOtpOpen] = useState(false);
@@ -231,8 +229,6 @@ const verifyOtpAndLogin = async () => {
   const resetForgotState = () => {
     setForgotEmail('');
     setForgotOtp('');
-    setForgotPassword('');
-    setForgotConfirm('');
     setForgotStep('email');
   };
 
@@ -253,21 +249,17 @@ const verifyOtpAndLogin = async () => {
           code: forgotOtp.trim(),
           purpose: 'password_reset',
         });
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('reset_email', forgotEmail.trim().toLowerCase());
+          sessionStorage.setItem('reset_otp', forgotOtp.trim());
+          sessionStorage.setItem('reset_purpose', 'password_reset');
+        }
         toast.success('Code verified. Set a new password.');
-        setForgotStep('reset');
+        setShowForgot(false);
+        resetForgotState();
+        router.push('/passwordreset');
         return;
       }
-
-      await apiClient.confirmPasswordReset({
-        email: forgotEmail.trim(),
-        code: forgotOtp.trim(),
-        purpose: 'password_reset',
-        newPassword: forgotPassword,
-        confirmPassword: forgotConfirm,
-      });
-      toast.success('Password reset successfully. You can sign in now.');
-      setShowForgot(false);
-      resetForgotState();
     } catch (err) {
       const fieldErrors = extractServerFieldErrors(err);
       if (Object.keys(fieldErrors).length > 0) {
@@ -454,7 +446,6 @@ const verifyOtpAndLogin = async () => {
             <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">
               {forgotStep === 'email' && 'Enter your email address to receive an OTP.'}
               {forgotStep === 'otp' && 'Enter the OTP code sent to your email.'}
-              {forgotStep === 'reset' && 'Set a new password for your account.'}
             </p>
             <div className="mt-4 space-y-4">
               {forgotStep === 'email' && (
@@ -475,24 +466,6 @@ const verifyOtpAndLogin = async () => {
                   disabled={forgotLoading}
                 />
               )}
-              {forgotStep === 'reset' && (
-                <>
-                  <Input
-                    type="password"
-                    placeholder="New password"
-                    value={forgotPassword}
-                    onChange={(e) => setForgotPassword(e.target.value)}
-                    disabled={forgotLoading}
-                  />
-                  <Input
-                    type="password"
-                    placeholder="Confirm password"
-                    value={forgotConfirm}
-                    onChange={(e) => setForgotConfirm(e.target.value)}
-                    disabled={forgotLoading}
-                  />
-                </>
-              )}
               <div className="flex items-center justify-end gap-2">
                 <Button
                   variant="outline"
@@ -507,7 +480,6 @@ const verifyOtpAndLogin = async () => {
                 <Button onClick={handleForgotPassword} loading={forgotLoading} disabled={forgotLoading}>
                   {forgotStep === 'email' && 'Send OTP'}
                   {forgotStep === 'otp' && 'Verify OTP'}
-                  {forgotStep === 'reset' && 'Update Password'}
                 </Button>
               </div>
             </div>
