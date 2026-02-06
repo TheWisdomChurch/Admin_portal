@@ -391,17 +391,61 @@ function unwrapSimplePaginated<T>(
   res: unknown,
   errorMessage: string
 ): SimplePaginatedResponse<T> {
-  if (isRecord(res)) {
-    if (Array.isArray(res.data) && typeof res.total === 'number') {
-      return res as SimplePaginatedResponse<T>;
+  const toNumber = (v: unknown): number | undefined => {
+    if (typeof v === 'number') return v;
+    if (typeof v === 'string') {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : undefined;
     }
-    if ('data' in res) {
-      const inner = (res as Record<string, unknown>).data;
-      if (isRecord(inner) && Array.isArray(inner.data) && typeof inner.total === 'number') {
-        return inner as SimplePaginatedResponse<T>;
-      }
+    return undefined;
+  };
+
+  const build = (record: Record<string, unknown>): SimplePaginatedResponse<T> | null => {
+    const data = Array.isArray(record.data) ? (record.data as T[]) : undefined;
+    const meta = isRecord(record.meta) ? (record.meta as Record<string, unknown>) : undefined;
+
+    const total =
+      toNumber(record.total) ??
+      toNumber(record.total_items) ??
+      toNumber(record.count) ??
+      (meta ? toNumber(meta.total) ?? toNumber(meta.total_items) ?? toNumber(meta.count) : undefined);
+
+    const page = toNumber(record.page) ?? (meta ? toNumber(meta.page) : undefined);
+    const limit =
+      toNumber(record.limit) ??
+      toNumber(record.per_page) ??
+      (meta ? toNumber(meta.limit) ?? toNumber(meta.per_page) : undefined);
+
+    const totalPages =
+      toNumber(record.totalPages) ??
+      toNumber(record.total_pages) ??
+      (meta ? toNumber(meta.totalPages) ?? toNumber(meta.total_pages) : undefined);
+
+    if (!data || total === undefined) return null;
+
+    const safeLimit = limit ?? Math.max(data.length, 1);
+    const safePage = page ?? 1;
+    const safeTotalPages = totalPages ?? Math.max(1, Math.ceil(total / safeLimit));
+
+    return {
+      data,
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages: safeTotalPages,
+    };
+  };
+
+  if (isRecord(res)) {
+    const direct = build(res as Record<string, unknown>);
+    if (direct) return direct;
+
+    if ('data' in res && isRecord((res as Record<string, unknown>).data)) {
+      const inner = build((res as Record<string, unknown>).data as Record<string, unknown>);
+      if (inner) return inner;
     }
   }
+
   throw createApiError(errorMessage, 400, res);
 }
 
