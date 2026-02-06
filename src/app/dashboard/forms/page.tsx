@@ -591,7 +591,7 @@ export default withAuth(function FormsPage() {
   };
 
   // ---------- Form actions ----------
-  const handlePublish = async (form: AdminForm) => {
+  const handlePublish = useCallback(async (form: AdminForm) => {
     try {
       const res = await apiClient.publishAdminForm(form.id);
       toast.success('Form published');
@@ -625,7 +625,7 @@ export default withAuth(function FormsPage() {
       const message = err instanceof Error ? err.message : 'Failed to publish form';
       toast.error(message);
     }
-  };
+  }, [load]);
 
   const handleCopyLink = useCallback(async (form: AdminForm) => {
     const link = buildPublicUrl(form.slug, form.publicUrl);
