@@ -14,7 +14,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Footer } from '@/components/Footer';
-import { OtpModal } from '@/ui/OtpModal';
 import { apiClient } from '@/lib/api';
 import { AlertModal } from '@/ui/AlertModal';
 import type { ApiError } from '@/lib/api';
@@ -44,14 +43,8 @@ function LoginInner() {
   const [forgotOtp, setForgotOtp] = useState('');
   const [forgotStep, setForgotStep] = useState<'email' | 'otp'>('email');
   const [forgotLoading, setForgotLoading] = useState(false);
-
-  const [otpOpen, setOtpOpen] = useState(false);
-  const [otpStep, setOtpStep] = useState<'email' | 'otp'>('email');
-  const [otpEmail, setOtpEmail] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [otpLoading, setOtpLoading] = useState(false);
-  const [pendingLogin, setPendingLogin] = useState<LoginFormData | null>(null);
-  const [challengePurpose, setChallengePurpose] = useState<string>('');
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [lastLoginEmail, setLastLoginEmail] = useState('');
 
   const [errorModal, setErrorModal] = useState<{
     open: boolean;
@@ -61,6 +54,7 @@ function LoginInner() {
   }>({ open: false, title: '', description: '', mode: 'generic' });
 
   const redirectPath = useMemo(() => safeRedirect(searchParams.get('redirect')), [searchParams]);
+  const busy = loginLoading || isLoading;
 
   const {
     register,
@@ -79,152 +73,86 @@ function LoginInner() {
   });
 
   const onSubmit: SubmitHandler<LoginFormData> = async (data) => {
-  clearErrors();
-  setServerError('');
+    clearErrors();
+    setServerError('');
+    setLoginLoading(true);
 
-  try {
-    setPendingLogin(data);
-    setOtpEmail(data.email.trim().toLowerCase());
-    setOtpLoading(true);
+    const normalizedEmail = data.email.trim().toLowerCase();
+    setLastLoginEmail(normalizedEmail);
 
-    const result = await apiClient.login({
-      ...data,
-      email: data.email.trim().toLowerCase(),
-    });
-
-    if ('otp_required' in result && result.otp_required) {
-      setChallengePurpose(result.purpose || 'login');
-      setOtpStep('otp');
-      setOtpOpen(true);
-      toast.success('A verification code was sent to your email');
-      return;
-    }
-
-    // If login returned user without OTP, session cookie should already be set.
-    await checkAuth();
-    toast.success('Login successful!');
-    router.replace(redirectPath);
-  } catch (err) {
-    const apiErr = err as ApiError;
-    const status = apiErr.statusCode ?? 0;
-
-    if (status === 400 || status === 422) {
-      const fieldErrors = extractServerFieldErrors(apiErr);
-      let applied = false;
-
-      (Object.entries(fieldErrors) as Array<[keyof LoginFormData, string]>).forEach(([field, message]) => {
-        if (field in data) {
-          applied = true;
-          setError(field, { type: 'server', message });
-        }
+    try {
+      const result = await apiClient.login({
+        ...data,
+        email: normalizedEmail,
       });
 
-      if (!applied) setServerError(getServerErrorMessage(apiErr, 'Unable to sign in right now.'));
-      return;
+      if ('otp_required' in result && result.otp_required) {
+        setErrorModal({
+          open: true,
+          title: 'Two-factor disabled',
+          description:
+            'This portal no longer requires OTP on sign-in. Please contact support if this keeps happening.',
+          mode: 'generic',
+        });
+        return;
+      }
+
+      await checkAuth();
+      toast.success('Login successful!');
+      router.replace(redirectPath);
+    } catch (err) {
+      const apiErr = err as ApiError;
+      const status = apiErr.statusCode ?? 0;
+
+      if (status === 400 || status === 422) {
+        const fieldErrors = extractServerFieldErrors(apiErr);
+        let applied = false;
+
+        (Object.entries(fieldErrors) as Array<[keyof LoginFormData, string]>).forEach(([field, message]) => {
+          if (field in data) {
+            applied = true;
+            setError(field, { type: 'server', message });
+          }
+        });
+
+        if (!applied) setServerError(getServerErrorMessage(apiErr, 'Unable to sign in right now.'));
+        return;
+      }
+
+      if (status === 404) {
+        setErrorModal({
+          open: true,
+          title: 'Account not found',
+          description:
+            'No account exists for that email. You can register for access. Admin signups require super-admin approval.',
+          mode: 'not_found',
+        });
+      } else if (status === 401) {
+        setErrorModal({
+          open: true,
+          title: 'Incorrect password',
+          description: 'The email exists, but the password is incorrect. You can retry or reset your password.',
+          mode: 'bad_password',
+        });
+      } else if (status === 403) {
+        setErrorModal({
+          open: true,
+          title: 'Approval required',
+          description: 'Your admin account is pending super-admin approval.',
+          mode: 'generic',
+        });
+      } else {
+        setErrorModal({
+          open: true,
+          title: 'Login failed',
+          description: apiErr?.message || 'Unable to sign in right now.',
+          mode: 'generic',
+        });
+      }
+    } finally {
+      setLoginLoading(false);
     }
-
-    if (status === 404) {
-      setErrorModal({
-        open: true,
-        title: 'Account not found',
-        description:
-          'No account exists for that email. You can register for access. Admin signups require super-admin approval.',
-        mode: 'not_found',
-      });
-    } else if (status === 401) {
-      setErrorModal({
-        open: true,
-        title: 'Incorrect password',
-        description: 'The email exists, but the password is incorrect. You can retry or reset your password.',
-        mode: 'bad_password',
-      });
-    } else {
-      setErrorModal({
-        open: true,
-        title: 'Login failed',
-        description: apiErr?.message || 'Unable to sign in right now.',
-        mode: 'generic',
-      });
-    }
-  } finally {
-    setOtpLoading(false);
-  }
-};
-
-const requestOtp = async () => {
-  if (!pendingLogin) {
-    toast.error('Please submit your email and password first.');
-    return;
-  }
-
-  try {
-    setOtpLoading(true);
-
-    // Re-hit login to resend OTP (your backend likely does this)
-    const result = await apiClient.login({
-      ...pendingLogin,
-      email: otpEmail.trim().toLowerCase(),
-    });
-
-    if ('otp_required' in result && result.otp_required) {
-      setChallengePurpose(result.purpose || 'login');
-      setOtpStep('otp');
-      toast.success('Check your email for the code we just sent.');
-      return;
-    }
-
-    // If it didn't require OTP this time, you are already logged in
-    await checkAuth();
-    toast.success('Login successful!');
-    setOtpOpen(false);
-    router.replace(redirectPath);
-  } catch (err) {
-    toast.error(getServerErrorMessage(err, 'Failed to send login code'));
-  } finally {
-    setOtpLoading(false);
-  }
-};
-
-const verifyOtpAndLogin = async () => {
-  if (!pendingLogin) {
-    toast.error('Please restart the login process');
-    setOtpOpen(false);
-    return;
-  }
-
-  try {
-    setOtpLoading(true);
-
-    await apiClient.verifyLoginOtp({
-      email: otpEmail.trim().toLowerCase(),
-      code: otpCode.trim(),
-      purpose: challengePurpose || 'login',
-      rememberMe: pendingLogin.rememberMe,
-    });
-
-    // After OTP verify, backend should set auth cookie.
-    const me = await checkAuth();
-
-    if (!me) {
-      toast.error('Login verified, but session was not established. Please refresh.');
-      return;
-    }
-
-    toast.success('Login verified');
-    setOtpOpen(false);
-    setOtpCode('');
-    router.replace(redirectPath);
-  } catch (err) {
-    const fieldErrors = extractServerFieldErrors(err);
-    if (Object.keys(fieldErrors).length > 0) {
-      toast.error(getFirstServerFieldError(fieldErrors) || 'Please check the code and try again.');
-      return;
-    }
-    toast.error(getServerErrorMessage(err, 'Verification failed'));
-  } finally {
-    setOtpLoading(false);
-  }
-};
+  };
 
   const resetForgotState = () => {
     setForgotEmail('');
@@ -340,9 +268,9 @@ const verifyOtpAndLogin = async () => {
                     },
                   })}
                   error={errors.email?.message}
-                  disabled={isLoading}
+                  disabled={busy}
                   autoFocus
-                  autoComplete="off"
+                  autoComplete="email"
                   inputMode="email"
                   autoCapitalize="none"
                   spellCheck={false}
@@ -367,8 +295,8 @@ const verifyOtpAndLogin = async () => {
                     },
                   })}
                   error={errors.password?.message}
-                  disabled={isLoading}
-                  autoComplete="new-password"
+                  disabled={busy}
+                  autoComplete="current-password"
                   autoCapitalize="none"
                   spellCheck={false}
                 />
@@ -382,7 +310,7 @@ const verifyOtpAndLogin = async () => {
                 render={({ field }) => (
                   <Checkbox
                     label="Remember me"
-                    disabled={isLoading}
+                    disabled={busy}
                     checked={!!field.value}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       setServerError('');
@@ -405,9 +333,9 @@ const verifyOtpAndLogin = async () => {
               </Link>
             </div>
 
-            <Button type="submit" variant="primary" className="w-full" disabled={isLoading} loading={isLoading}>
-              {isLoading ? 'Signing in...' : 'Sign In'}
-              {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
+            <Button type="submit" variant="primary" className="w-full" disabled={busy} loading={busy}>
+              {busy ? 'Signing in...' : 'Sign In'}
+              {!busy && <ArrowRight className="ml-2 h-4 w-4" />}
             </Button>
           </form>
 
@@ -487,27 +415,6 @@ const verifyOtpAndLogin = async () => {
         </div>
       )}
 
-      <OtpModal
-        open={otpOpen}
-        step={otpStep}
-        email={otpEmail}
-        code={otpCode}
-        onEmailChange={setOtpEmail}
-        onCodeChange={setOtpCode}
-        onRequestOtp={requestOtp}
-        onVerifyOtp={verifyOtpAndLogin}
-        onClose={() => {
-          setOtpOpen(false);
-          setOtpCode('');
-          setOtpStep('email');
-        }}
-        loading={otpLoading || isLoading}
-        title="Two-factor login"
-        subtitle={otpStep === 'email' ? 'Confirm your email to receive a one-time code.' : `Enter the code we sent to ${otpEmail}.`}
-        confirmText="Verify & sign in"
-        requestText="Send login code"
-      />
-
       <AlertModal
         open={errorModal.open}
         title={errorModal.title}
@@ -528,7 +435,7 @@ const verifyOtpAndLogin = async () => {
             if (errorModal.mode === 'not_found') {
               router.push('/register');
             } else if (errorModal.mode === 'bad_password') {
-              setForgotEmail(otpEmail || pendingLogin?.email || '');
+              setForgotEmail(lastLoginEmail || '');
               setShowForgot(true);
               setForgotStep('email');
             }

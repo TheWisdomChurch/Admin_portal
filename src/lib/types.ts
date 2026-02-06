@@ -145,6 +145,11 @@ export interface EventData {
   category: EventCategory;
   status: EventStatus;
   isFeatured: boolean;
+  isApproved?: boolean;
+  approvedById?: string;
+  approvedByName?: string;
+  approvedByEmail?: string;
+  approvedAt?: string;
   tags: string[];
 
   registerLink?: string;
@@ -170,6 +175,7 @@ export interface EventPayload {
   status: EventStatus;
   isFeatured: boolean;
   tags: string[];
+  isApproved?: boolean;
   registerLink?: string;
   speaker?: string;
   contactPhone?: string;
@@ -214,6 +220,10 @@ export interface Testimonial {
   testimony: string;
   isAnonymous: boolean;
   isApproved: boolean;
+  approvedById?: string;
+  approvedByName?: string;
+  approvedByEmail?: string;
+  approvedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -437,6 +447,7 @@ export interface FormSubmission {
   email?: string;
   contactNumber?: string;
   contactAddress?: string;
+  registrationCode?: string;
   values: Record<string, string | boolean | number>;
   createdAt: string;
   updatedAt: string;
@@ -456,6 +467,7 @@ export interface FormSubmissionWithForm {
   email?: string;
   contactNumber?: string;
   contactAddress?: string;
+  registrationCode?: string;
   values: Record<string, string | boolean | number>;
   createdAt: string;
 }
