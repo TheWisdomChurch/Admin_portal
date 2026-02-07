@@ -3,6 +3,7 @@
 
 import React, { Suspense, useMemo, useState } from 'react';
 import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Lock, Mail, ArrowRight, UserPlus, AlertTriangle } from 'lucide-react';
 import { Button } from '@/ui/Button';
@@ -17,14 +18,11 @@ import { Footer } from '@/components/Footer';
 import { apiClient } from '@/lib/api';
 import type { ApiError } from '@/lib/api';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
+import { loginSchema, type LoginFormSchema } from '@/lib/validation/auth';
 import { OtpModal } from '@/ui/OtpModal';
 import { AlertModal } from '@/ui/AlertModal';
 
-type LoginFormData = {
-  email: string;
-  password: string;
-  rememberMe: boolean;
-};
+type LoginFormData = LoginFormSchema;
 
 function safeRedirect(raw: string | null): string {
   if (!raw) return '/dashboard';
@@ -77,6 +75,7 @@ function LoginInner() {
       rememberMe: false,
     },
     mode: 'onSubmit',
+    resolver: zodResolver(loginSchema),
   });
 
   const onSubmit: SubmitHandler<LoginFormData> = async (data) => {

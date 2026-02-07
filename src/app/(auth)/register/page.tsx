@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useForm, Controller, useWatch, type SubmitHandler } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { registerSchema, type RegisterFormSchema } from '@/lib/validation/auth';
 import { ArrowLeft, UserPlus, CheckCircle, Mail, Lock, User } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -20,30 +20,7 @@ import { PasswordStrengthMeter } from '@/ui/PasswordStrengthMeter';
 import apiClient from '@/lib/api';
 import { extractServerFieldErrors, getServerErrorMessage } from '@/lib/serverValidation';
 
-type RegisterFormData = {
-  first_name: string;
-  last_name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-  role: 'admin' | 'super_admin';
-  rememberMe: boolean;
-};
-
-const schema = yup
-  .object({
-    first_name: yup.string().required('First name is required').trim(),
-    last_name: yup.string().required('Last name is required').trim(),
-    email: yup.string().email('Invalid email format').required('Email is required').trim(),
-    password: yup.string().min(8, 'Password must be at least 8 characters').required('Password is required'),
-    confirmPassword: yup
-      .string()
-      .oneOf([yup.ref('password')], 'Passwords must match')
-      .required('Confirm password is required'),
-    role: yup.string().oneOf(['admin', 'super_admin'], 'Select a role').required('Role is required'),
-    rememberMe: yup.boolean().required(),
-  })
-  .required();
+type RegisterFormData = RegisterFormSchema;
 
 function humanizeServerError(err: unknown): string {
   const fieldErrors = extractServerFieldErrors(err);
@@ -133,7 +110,7 @@ export default function RegisterPage() {
       rememberMe: false,
     },
     mode: 'onSubmit',
-    resolver: yupResolver(schema),
+    resolver: zodResolver(registerSchema),
   });
 
   const password = useWatch({ control, name: 'password' });

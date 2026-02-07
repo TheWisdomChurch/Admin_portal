@@ -16,6 +16,7 @@ import { VerifyActionModal } from '@/ui/VerifyActionModal';
 import { apiClient, mapValidationErrors } from '@/lib/api';
 import type { AdminForm, CreateFormRequest, EventData, FormFieldType, FormSettings, FormStatsResponse, FormStatus, FormSubmission } from '@/lib/types';
 import { buildPublicFormUrl } from '@/lib/utils';
+import { createFormSchema } from '@/lib/validation/forms';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
@@ -722,6 +723,13 @@ export default withAuth(function FormsPage() {
         formHeaderNote,
       },
     };
+
+    const parsed = createFormSchema.safeParse(payload);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      toast.error(issue?.message || 'Please fix validation errors before saving.');
+      return;
+    }
 
     try {
       setSaving(true);

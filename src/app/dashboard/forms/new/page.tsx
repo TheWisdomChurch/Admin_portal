@@ -15,6 +15,7 @@ import { Input } from '@/ui/input';
 
 import { apiClient } from '@/lib/api';
 import { buildPublicFormUrl } from '@/lib/utils';
+import { createFormSchema } from '@/lib/validation/forms';
 import type { CreateFormRequest, EventData, FormFieldType } from '@/lib/types';
 
 import { withAuth } from '@/providers/withAuth';
@@ -175,6 +176,13 @@ export default withAuth(function NewFormPage() {
         formHeaderNote,
       },
     };
+
+    const parsed = createFormSchema.safeParse(payload);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      toast.error(issue?.message || 'Please fix validation errors before saving.');
+      return;
+    }
 
     try {
       setSaving(true);
