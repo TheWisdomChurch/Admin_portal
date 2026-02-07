@@ -58,6 +58,8 @@ export function formatFileSize(bytes: number) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
+export const normalizeEmail = (value: string): string => value.trim().toLowerCase();
+
 const PUBLIC_BASE_URL = (process.env.NEXT_PUBLIC_PUBLIC_URL ?? process.env.NEXT_PUBLIC_FRONTEND_URL ?? '').replace(/\/+$/, '');
 const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL ?? '').replace(/\/+$/, '');
 
