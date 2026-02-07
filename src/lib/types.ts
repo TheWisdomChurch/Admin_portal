@@ -388,6 +388,8 @@ export interface FormSettings {
   capacity?: number;
   closesAt?: string;
   expiresAt?: string;
+  successTitle?: string;
+  successSubtitle?: string;
   successMessage?: string;
 
   // UI extras you added:
