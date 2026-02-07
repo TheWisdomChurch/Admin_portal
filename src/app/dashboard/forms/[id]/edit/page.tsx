@@ -184,6 +184,73 @@ function EditFormPage() {
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             placeholder="Optional description for this form"
           />
+          <Input
+            label="Header image URL (optional)"
+            value={form.settings?.design?.coverImageUrl || ''}
+            onChange={(e) => {
+              const nextValue = e.target.value;
+              setForm({
+                ...form,
+                settings: {
+                  ...form.settings,
+                  design: {
+                    ...form.settings?.design,
+                    coverImageUrl: nextValue || undefined,
+                  },
+                },
+              });
+            }}
+            helperText="Shown at the top of the public form."
+          />
+          <Input
+            label="Success modal title (optional)"
+            value={form.settings?.successTitle || ''}
+            onChange={(e) => {
+              const nextValue = e.target.value;
+              setForm({
+                ...form,
+                settings: {
+                  ...form.settings,
+                  successTitle: nextValue || undefined,
+                },
+              });
+            }}
+            placeholder="Thank you for registering"
+          />
+          <Input
+            label="Success modal subtitle (optional)"
+            value={form.settings?.successSubtitle || ''}
+            onChange={(e) => {
+              const nextValue = e.target.value;
+              setForm({
+                ...form,
+                settings: {
+                  ...form.settings,
+                  successSubtitle: nextValue || undefined,
+                },
+              });
+            }}
+            placeholder="for {{formTitle}}"
+          />
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Success modal message</label>
+            <textarea
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+              rows={2}
+              value={form.settings?.successMessage || ''}
+              onChange={(e) => {
+                const nextValue = e.target.value;
+                setForm({
+                  ...form,
+                  settings: {
+                    ...form.settings,
+                    successMessage: nextValue || undefined,
+                  },
+                });
+              }}
+              placeholder="We would love to see you."
+            />
+          </div>
         </div>
       </Card>
 

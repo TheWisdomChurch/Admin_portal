@@ -85,6 +85,10 @@ export default withAuth(function NewFormPage() {
   const [submitButtonTextColor, setSubmitButtonTextColor] = useState('#111827');
   const [submitButtonIcon, setSubmitButtonIcon] = useState<SubmitButtonIcon>('check');
   const [formHeaderNote, setFormHeaderNote] = useState('Please ensure details are accurate before submitting.');
+  const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [successTitle, setSuccessTitle] = useState('');
+  const [successSubtitle, setSuccessSubtitle] = useState('');
+  const [successMessage, setSuccessMessage] = useState('We would love to see you.');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const clearFieldError = (key: string) =>
@@ -159,7 +163,9 @@ export default withAuth(function NewFormPage() {
         capacity: capacity ? Number(capacity) : undefined,
         closesAt: toIso(closesAt),
         expiresAt: toIso(expiresAt),
-        successMessage: 'Thanks! Your registration has been received.',
+        successTitle: successTitle.trim() || undefined,
+        successSubtitle: successSubtitle.trim() || undefined,
+        successMessage: successMessage.trim() || undefined,
         introTitle,
         introSubtitle,
         introBullets: introBullets.split('\n').filter(Boolean),
@@ -174,6 +180,9 @@ export default withAuth(function NewFormPage() {
         submitButtonTextColor,
         submitButtonIcon,
         formHeaderNote,
+        design: coverImageUrl.trim()
+          ? { coverImageUrl: coverImageUrl.trim() }
+          : undefined,
       },
     };
 
@@ -284,6 +293,40 @@ export default withAuth(function NewFormPage() {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional short intro"
             />
+          </div>
+
+          <div className="md:col-span-2 grid gap-3 md:grid-cols-2">
+            <Input
+              label="Header image URL (optional)"
+              value={coverImageUrl}
+              onChange={(e) => setCoverImageUrl(e.target.value)}
+              placeholder="https://..."
+              helperText="Shown at the top of the public form."
+            />
+            <Input
+              label="Success modal title (optional)"
+              value={successTitle}
+              onChange={(e) => setSuccessTitle(e.target.value)}
+              placeholder="Thank you for registering"
+              helperText="Supports tokens like {{formTitle}} and {{name}}."
+            />
+            <Input
+              label="Success modal subtitle (optional)"
+              value={successSubtitle}
+              onChange={(e) => setSuccessSubtitle(e.target.value)}
+              placeholder="for {{formTitle}}"
+              helperText="Use {{eventDate}} or {{eventLocation}} if relevant."
+            />
+            <div className="space-y-2 md:col-span-2">
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Success modal message</label>
+              <textarea
+                className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                rows={2}
+                value={successMessage}
+                onChange={(e) => setSuccessMessage(e.target.value)}
+                placeholder="We would love to see you."
+              />
+            </div>
           </div>
 
           <div className="md:col-span-2 grid gap-3 md:grid-cols-3">

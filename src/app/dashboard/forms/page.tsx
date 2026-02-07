@@ -192,6 +192,10 @@ export default withAuth(function FormsPage() {
   const submitButtonIcon: FormSettings['submitButtonIcon'] = 'check';
 
   const [formHeaderNote, setFormHeaderNote] = useState('Please ensure details are accurate before submitting.');
+  const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [successTitle, setSuccessTitle] = useState('');
+  const [successSubtitle, setSuccessSubtitle] = useState('');
+  const [successMessage, setSuccessMessage] = useState('We would love to see you.');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const clearFieldError = (key: string) =>
@@ -694,7 +698,9 @@ export default withAuth(function FormsPage() {
         capacity: capacity ? Number(capacity) : undefined,
         closesAt: toIso(closesAt),
         expiresAt: toIso(expiresAt),
-        successMessage: 'Thanks! Your registration has been received.',
+        successTitle: successTitle.trim() || undefined,
+        successSubtitle: successSubtitle.trim() || undefined,
+        successMessage: successMessage.trim() || undefined,
         introTitle,
         introSubtitle,
    
@@ -721,6 +727,9 @@ export default withAuth(function FormsPage() {
         submitButtonIcon,
      
         formHeaderNote,
+        design: coverImageUrl.trim()
+          ? { coverImageUrl: coverImageUrl.trim() }
+          : undefined,
       },
     };
 
@@ -785,99 +794,87 @@ export default withAuth(function FormsPage() {
     router.push(`/dashboard/forms/${form.id}/edit`);
   };
 
-  const columns = useMemo<Column<AdminForm>[]>(
-    () => [
-      {
-        key: 'title' as keyof AdminForm,
-        header: 'Title',
-        cell: (f: AdminForm) => (
-          <div className="space-y-1">
-            <div className="font-medium text-secondary-900">{f.title}</div>
-            <div className="text-xs text-secondary-500">{f.description ? f.description : 'No description'}</div>
-          </div>
-        ),
-      },
-      {
-        key: 'id' as keyof AdminForm,
-        header: 'ID',
-        cell: (f: AdminForm) => (
-          <span className="text-xs text-secondary-600 font-mono truncate max-w-[140px] inline-block">
-            {f.id}
-          </span>
-        ),
-      },
-      {
-        key: 'id' as keyof AdminForm,
-        header: 'Registrations',
-        cell: (f: AdminForm) => (
-          <span className="text-sm text-secondary-700">
-            {formCounts[f.id] ?? 0}
-          </span>
-        ),
-      },
-      {
-        key: 'slug' as keyof AdminForm,
-        header: 'Link',
-        cell: (f: AdminForm) => {
-          const status = getFormStatus(f);
-          return (
-            <div className="flex items-center gap-2">
-              {status === 'invalid' ? (
-                <span className="text-xs text-red-500">Expired</span>
-              ) : status !== 'published' ? (
-                <button
-                  type="button"
-                  onClick={() => handlePublish(f)}
-                  className="inline-flex items-center gap-1 rounded-md border border-secondary-200 bg-white px-2 py-1 text-xs text-secondary-700 hover:bg-secondary-50"
-                >
-                  Publish
-                </button>
-              ) : (
-                <>
-                  <span className="text-xs text-secondary-600 truncate max-w-[220px]">
-                    {buildPublicUrl(f.slug, f.publicUrl) || `/forms/${f.slug}`}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyLink(f)}
-                    className="inline-flex items-center gap-1 rounded-md border border-secondary-200 bg-white px-2 py-1 text-xs text-secondary-700 hover:bg-secondary-50"
-                  >
-                    <LinkIcon className="h-3.5 w-3.5" />
-                    Copy
-                  </button>
-                </>
-              )}
-            </div>
-          );
-        },
-      },
-      {
-        key: 'publishedAt' as keyof AdminForm,
-        header: 'Published',
-        cell: (f: AdminForm) => (
-          <span className="text-xs text-secondary-600">{formatDateTime(f.publishedAt)}</span>
-        ),
-      },
-      {
-        key: 'settings' as keyof AdminForm,
-        header: 'Active Until',
-        cell: (f: AdminForm) => (
-          <div className="text-xs text-secondary-600">
-            <div>{formatDateTime(f.settings?.closesAt)}</div>
-            <div className="text-[0.7rem] text-secondary-400">{formatRemaining(f.settings?.closesAt)}</div>
-          </div>
-        ),
-      },
-      {
-        key: 'updatedAt' as keyof AdminForm,
-        header: 'Updated',
-        cell: (f: AdminForm) => (
-          <span className="text-sm text-secondary-600">{f.updatedAt ? new Date(f.updatedAt).toLocaleString() : '-'}</span>
-        ),
-      },
-    ],
-    [handleCopyLink, handlePublish, formCounts]
-  );
+ const columns = useMemo<Column<AdminForm>[]>(() => [
+  {
+    key: 'title' as keyof AdminForm,
+    header: 'Title',
+    cell: (f: AdminForm) => (
+      <div className="font-medium text-secondary-900">{f.title}</div>
+    ),
+  },
+  {
+    key: 'id' as keyof AdminForm,
+    header: 'Registrations',
+    cell: (f: AdminForm) => (
+      <span className="text-sm text-secondary-700">
+        {formCounts[f.id] ?? 0}
+      </span>
+    ),
+  },
+  {
+    key: 'slug' as keyof AdminForm,
+    header: 'Link',
+    cell: (f: AdminForm) => {
+      const status = getFormStatus(f);
+      return (
+        <div className="flex items-center gap-2">
+          {status === 'invalid' ? (
+            <span className="text-xs text-red-500">Expired</span>
+          ) : status !== 'published' ? (
+            <button
+              type="button"
+              onClick={() => handlePublish(f)}
+              className="inline-flex items-center gap-1 rounded-md border border-secondary-200 bg-white px-2 py-1 text-xs text-secondary-700 hover:bg-secondary-50"
+            >
+              Publish
+            </button>
+          ) : (
+            <>
+              <span className="text-xs text-secondary-600 truncate max-w-[220px]">
+                {buildPublicUrl(f.slug, f.publicUrl) || `/forms/${f.slug}`}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleCopyLink(f)}
+                className="inline-flex items-center gap-1 rounded-md border border-secondary-200 bg-white px-2 py-1 text-xs text-secondary-700 hover:bg-secondary-50"
+              >
+                <LinkIcon className="h-3.5 w-3.5" />
+                Copy
+              </button>
+            </>
+          )}
+        </div>
+      );
+    },
+  },
+  {
+    key: 'publishedAt' as keyof AdminForm,
+    header: 'Published',
+    cell: (f: AdminForm) => (
+      <span className="text-xs text-secondary-600">{formatDateTime(f.publishedAt)}</span>
+    ),
+  },
+  {
+    key: 'settings' as keyof AdminForm,
+    header: 'Active Until',
+    cell: (f: AdminForm) => (
+      <div className="text-xs text-secondary-600">
+        <div>{formatDateTime(f.settings?.closesAt)}</div>
+        <div className="text-[0.7rem] text-secondary-400">{formatRemaining(f.settings?.closesAt)}</div>
+      </div>
+    ),
+  },
+  {
+    key: 'updatedAt' as keyof AdminForm,
+    header: 'Updated',
+    cell: (f: AdminForm) => (
+      <span className="text-sm text-secondary-600">
+        {f.updatedAt ? new Date(f.updatedAt).toLocaleString() : '-'}
+      </span>
+    ),
+  },
+], [handleCopyLink, handlePublish, formCounts]);
+
 
   const submissionColumns = useMemo<Column<FormSubmission>[]>(
     () => [
@@ -1244,6 +1241,40 @@ export default withAuth(function FormsPage() {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Optional short intro"
                 />
+              </div>
+
+              <div className="md:col-span-2 grid gap-3 md:grid-cols-2">
+                <Input
+                  label="Header image URL (optional)"
+                  value={coverImageUrl}
+                  onChange={(e) => setCoverImageUrl(e.target.value)}
+                  placeholder="https://..."
+                  helperText="Shown at the top of the public form."
+                />
+                <Input
+                  label="Success modal title (optional)"
+                  value={successTitle}
+                  onChange={(e) => setSuccessTitle(e.target.value)}
+                  placeholder="Thank you for registering"
+                  helperText="Supports tokens like {{formTitle}} and {{name}}."
+                />
+                <Input
+                  label="Success modal subtitle (optional)"
+                  value={successSubtitle}
+                  onChange={(e) => setSuccessSubtitle(e.target.value)}
+                  placeholder="for {{formTitle}}"
+                  helperText="Use {{eventDate}} or {{eventLocation}} if relevant."
+                />
+                <div className="space-y-2 md:col-span-2">
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Success modal message</label>
+                  <textarea
+                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                    rows={2}
+                    value={successMessage}
+                    onChange={(e) => setSuccessMessage(e.target.value)}
+                    placeholder="We would love to see you."
+                  />
+                </div>
               </div>
 
               <div className="md:col-span-2 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">

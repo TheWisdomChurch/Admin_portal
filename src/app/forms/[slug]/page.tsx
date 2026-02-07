@@ -9,10 +9,12 @@ import { apiClient } from '@/lib/api';
 import type { PublicFormPayload, FormField } from '@/lib/types';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
+import { SuccessModal } from '@/ui/SuccessModal';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 
 type FieldValue = string | boolean | string[] | File | null;
 type ValuesState = Record<string, FieldValue>;
+type SuccessDetail = { label: string; value: string };
 
 const MAX_IMAGE_MB = 5;
 const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
@@ -211,6 +213,9 @@ export default function PublicFormPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
   const [formError, setFormError] = useState('');
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [successDetails, setSuccessDetails] = useState<SuccessDetail[]>([]);
+  const [successTokens, setSuccessTokens] = useState<Record<string, string>>({});
 
   const fields = payload?.form?.fields ?? [];
   const settings = payload?.form?.settings;
@@ -243,6 +248,101 @@ export default function PublicFormPage() {
       setFormError('');
     }
   };
+
+  const resetFormState = (formFields: FormField[] = fields) => {
+    setValues(buildInitialValues(formFields));
+    setFieldErrors({});
+    setTouchedFields({});
+    setFormError('');
+  };
+
+  const valueToString = (value: FieldValue): string => {
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'boolean') return value ? 'Yes' : '';
+    if (Array.isArray(value)) return value.join(', ');
+    if (value instanceof File) return value.name;
+    return '';
+  };
+
+  const fieldMatches = (field: FormField, keywords: string[]) => {
+    const hay = `${field.key} ${field.label}`.toLowerCase();
+    return keywords.some((keyword) => hay.includes(keyword));
+  };
+
+  const findValueByKeywords = (keywords: string[], sourceValues: ValuesState) => {
+    const match = fields.find((field) => {
+      if (!fieldMatches(field, keywords)) return false;
+      const val = valueToString(sourceValues[field.key]);
+      return Boolean(val);
+    });
+    return match ? valueToString(sourceValues[match.key]) : '';
+  };
+
+  const formatEventDate = (value?: string) => {
+    if (!value) return '';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString();
+  };
+
+  const buildSuccessTokens = (sourceValues: ValuesState) => {
+    const formTitle = payload?.form?.title ?? '';
+    const eventTitle = payload?.event?.title ?? formTitle;
+    const eventDate = formatEventDate(payload?.event?.date);
+    const eventTime = payload?.event?.time ?? '';
+    const eventLocation = payload?.event?.location ?? '';
+    const name = findValueByKeywords(['full name', 'name'], sourceValues);
+    const email = findValueByKeywords(['email'], sourceValues);
+    const phone = findValueByKeywords(['phone', 'mobile', 'tel', 'contact'], sourceValues);
+
+    return {
+      formTitle,
+      eventTitle,
+      eventDate,
+      eventTime,
+      eventLocation,
+      name,
+      email,
+      phone,
+    };
+  };
+
+  const buildSuccessDetails = (sourceValues: ValuesState): SuccessDetail[] => {
+    const details: SuccessDetail[] = [];
+    const eventDetails: SuccessDetail[] = [];
+    const preferred: SuccessDetail[] = [];
+    const others: SuccessDetail[] = [];
+
+    if (payload?.event?.date) {
+      const formatted = formatEventDate(payload.event.date);
+      if (formatted) eventDetails.push({ label: 'Event Date', value: formatted });
+    }
+    if (payload?.event?.time) {
+      eventDetails.push({ label: 'Event Time', value: payload.event.time });
+    }
+    if (payload?.event?.location) {
+      eventDetails.push({ label: 'Location', value: payload.event.location });
+    }
+
+    fields
+      .slice()
+      .sort((a, b) => a.order - b.order)
+      .forEach((field) => {
+        const value = valueToString(sourceValues[field.key]);
+        if (!value) return;
+        const detail = { label: field.label || field.key, value };
+        if (fieldMatches(field, ['name', 'email', 'phone', 'contact', 'address'])) {
+          preferred.push(detail);
+        } else {
+          others.push(detail);
+        }
+      });
+
+    details.push(...eventDetails, ...preferred, ...others);
+    return details.slice(0, 4);
+  };
+
+  const applyTemplate = (template: string, tokens: Record<string, string>) =>
+    template.replace(/{{\s*([\w.-]+)\s*}}/g, (_, key: string) => tokens[key] ?? '').replace(/\s{2,}/g, ' ').trim();
 
   const validateImageFile = (file: File): string | null => {
     const typeOk = ACCEPTED_IMAGE_TYPES.includes(file.type);
@@ -346,11 +446,10 @@ export default function PublicFormPage() {
         if (!alive) return;
 
         setPayload(res);
-
-        // init values
-        setValues(buildInitialValues(res.form.fields ?? []));
-        setFieldErrors({});
-        setTouchedFields({});
+        resetFormState(res.form.fields ?? []);
+        setSuccessOpen(false);
+        setSuccessDetails([]);
+        setSuccessTokens({});
       } catch (err) {
         console.error(err);
         const message = err instanceof Error ? err.message : 'Failed to load registration form';
@@ -368,10 +467,20 @@ export default function PublicFormPage() {
   const eventTitle = payload?.event?.title ?? payload?.form?.title ?? 'Event Registration';
   const eventSubtitle = payload?.event?.shortDescription ?? payload?.form?.description ?? 'Secure your spot by registering below.';
   const bannerUrl =
+    settings?.design?.coverImageUrl ||
     payload?.event?.bannerImage ||
     payload?.event?.image ||
-    settings?.design?.coverImageUrl ||
     undefined;
+  const fallbackTokens = buildSuccessTokens(values);
+  const tokenSource = Object.keys(successTokens).length > 0 ? successTokens : fallbackTokens;
+
+  const successTitleTemplate = settings?.successTitle || 'Thank you for registering';
+  const successSubtitleTemplate = settings?.successSubtitle || 'for {{formTitle}}';
+  const successDescriptionTemplate = settings?.successMessage || 'We would love to see you.';
+
+  const successTitle = applyTemplate(successTitleTemplate, tokenSource);
+  const successSubtitle = applyTemplate(successSubtitleTemplate, tokenSource);
+  const successDescription = applyTemplate(successDescriptionTemplate, tokenSource);
 
   const parseDate = (value?: string) => {
     if (!value) return null;
@@ -483,11 +592,10 @@ export default function PublicFormPage() {
       })() : { values: valuesPayload };
 
       await apiClient.submitPublicForm(slug, payloadToSend);
-      setFieldErrors({});
-      setTouchedFields({});
-      toast.success(payload.form.settings?.successMessage || 'Registration submitted successfully!');
-      // Optionally clear:
-      setValues(buildInitialValues(fields));
+      setSuccessTokens(buildSuccessTokens(values));
+      setSuccessDetails(buildSuccessDetails(values));
+      resetFormState();
+      setSuccessOpen(true);
     } catch (err) {
       console.error(err);
       const fieldErrors = extractServerFieldErrors(err);
@@ -671,6 +779,27 @@ export default function PublicFormPage() {
           Powered by Wisdom House Registration
         </div>
       </div>
+
+      <SuccessModal
+        open={successOpen}
+        title={successTitle}
+        subtitle={successSubtitle}
+        description={successDescription}
+        details={successDetails}
+        onClose={() => setSuccessOpen(false)}
+        primaryAction={{
+          label: 'Done',
+          onClick: () => setSuccessOpen(false),
+        }}
+        secondaryAction={{
+          label: 'Submit another response',
+          onClick: () => {
+            setSuccessOpen(false);
+            resetFormState();
+          },
+          variant: 'outline',
+        }}
+      />
     </div>
   );
 }
