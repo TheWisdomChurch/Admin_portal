@@ -7,6 +7,7 @@ import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
+import { buildPublicFormUrl } from '@/lib/utils';
 import type { AdminForm, FormField, FormFieldType, UpdateFormRequest } from '@/lib/types';
 import { withAuth } from '@/providers/withAuth';
 import toast from 'react-hot-toast';
@@ -129,7 +130,7 @@ function EditFormPage() {
       toast.error('Publish the form to get a link');
       return;
     }
-    const url = `${window.location.origin}/forms/${encodeURIComponent(slug)}`;
+    const url = buildPublicFormUrl(slug, form?.publicUrl) ?? `/forms/${encodeURIComponent(slug)}`;
     await navigator.clipboard.writeText(url);
     toast.success('Link copied');
   };

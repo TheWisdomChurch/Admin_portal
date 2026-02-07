@@ -14,6 +14,7 @@ import { PageHeader } from '@/layouts';
 import { Input } from '@/ui/input';
 
 import { apiClient } from '@/lib/api';
+import { buildPublicFormUrl } from '@/lib/utils';
 import type { CreateFormRequest, EventData, FormFieldType } from '@/lib/types';
 
 import { withAuth } from '@/providers/withAuth';
@@ -180,19 +181,21 @@ export default withAuth(function NewFormPage() {
       const created = await apiClient.createAdminForm(payload);
       let slugToUse = created.slug || normalizedSlug;
       let publishedOk = false;
+      let publishError: string | null = null;
       try {
         const published = await apiClient.publishAdminForm(created.id);
         slugToUse = published?.slug || slugToUse;
         publishedOk = true;
-      } catch {
+      } catch (err) {
         publishedOk = false;
+        publishError = getServerErrorMessage(err, 'Publish failed. Form saved as draft.');
       }
       setPublishedSlug(publishedOk ? slugToUse : null);
       if (publishedOk) {
         toast.success('Form created and link ready');
       } else {
         toast.success('Form created');
-        toast.error('Publish the form to get a live link.');
+        toast.error(publishError || 'Publish the form to get a live link.');
       }
       router.push(`/dashboard/forms/${created.id}/edit`);
     } catch (err) {
@@ -621,7 +624,7 @@ export default withAuth(function NewFormPage() {
       <Card title="Form Link">
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-[var(--color-text-secondary)]">
-            {publishedSlug ? `/forms/${publishedSlug}` : 'Create & publish to generate link'}
+            {publishedSlug ? (buildPublicFormUrl(publishedSlug) ?? `/forms/${publishedSlug}`) : 'Create & publish to generate link'}
           </p>
           <Button
             variant="outline"
@@ -631,7 +634,8 @@ export default withAuth(function NewFormPage() {
                 toast.error('Publish first to copy link');
                 return;
               }
-              await navigator.clipboard.writeText(`${window.location.origin}/forms/${encodeURIComponent(publishedSlug)}`);
+              const url = buildPublicFormUrl(publishedSlug) ?? `/forms/${encodeURIComponent(publishedSlug)}`;
+              await navigator.clipboard.writeText(url);
               toast.success('Link copied');
             }}
             icon={<Copy className="h-4 w-4" />}
