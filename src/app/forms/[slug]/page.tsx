@@ -11,7 +11,25 @@ import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 
-type ValuesState = Record<string, string | boolean | string[]>;
+type FieldValue = string | boolean | string[] | File | null;
+type ValuesState = Record<string, FieldValue>;
+
+const MAX_IMAGE_MB = 5;
+const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ACCEPTED_IMAGE_ACCEPT = ACCEPTED_IMAGE_TYPES.join(',');
+
+const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const phoneRe = /^[0-9()+\-\s]{6,}$/;
+
+const normalizeFieldType = (value?: string) => (value || '').toLowerCase();
+const isTextareaType = (value: string) => value === 'textarea' || value === 'text_area' || value === 'multiline';
+const isSelectType = (value: string) => value === 'select' || value === 'dropdown';
+const isRadioType = (value: string) =>
+  value === 'radio' || value === 'radio_group' || value === 'radio_button' || value === 'radio_buttons';
+const isCheckboxType = (value: string) =>
+  value === 'checkbox' || value === 'checkboxes' || value === 'check_box' || value === 'multi_select';
+const isImageType = (value: string) => value === 'image' || value === 'file' || value === 'upload';
 
 function FieldInput({
   field,
@@ -19,14 +37,25 @@ function FieldInput({
   onChange,
 }: {
   field: FormField;
-  value: string | boolean | string[] | undefined;
-  onChange: (next: string | boolean | string[]) => void;
+  value: FieldValue | undefined;
+  onChange: (next: FieldValue) => void;
 }) {
   const common =
     'w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent';
-  const options = field.options ?? [];
+  const options = Array.isArray(field.options) ? field.options : [];
+  const normalizedType = normalizeFieldType(field.type);
+  const showAsTextarea = isTextareaType(normalizedType);
+  const showAsSelect = isSelectType(normalizedType);
+  const showAsRadio = isRadioType(normalizedType);
+  const showAsCheckbox = isCheckboxType(normalizedType);
+  const showAsImage = isImageType(normalizedType);
 
-  if (field.type === 'textarea') {
+  const checkboxClass =
+    'h-4 w-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500 appearance-auto accent-[var(--color-accent-primary)]';
+  const radioClass =
+    'h-4 w-4 rounded-full border-secondary-300 text-primary-600 focus:ring-primary-500 appearance-auto accent-[var(--color-accent-primary)]';
+
+  if (showAsTextarea) {
     return (
       <textarea
         className={common}
@@ -39,7 +68,7 @@ function FieldInput({
     );
   }
 
-  if (field.type === 'select') {
+  if (showAsSelect) {
     return (
       <select
         className={common}
@@ -57,7 +86,7 @@ function FieldInput({
     );
   }
 
-  if (field.type === 'radio') {
+  if (showAsRadio) {
     return (
       <div className="space-y-2">
         {options.map((opt) => (
@@ -68,7 +97,7 @@ function FieldInput({
               value={opt.value}
               checked={value === opt.value}
               onChange={(e) => onChange(e.target.value)}
-              className="h-4 w-4 border-secondary-300 text-primary-600 focus:ring-primary-500"
+              className={radioClass}
             />
             <span>{opt.label}</span>
           </label>
@@ -77,7 +106,7 @@ function FieldInput({
     );
   }
 
-  if (field.type === 'checkbox' && options.length > 0) {
+  if (showAsCheckbox && options.length > 0) {
     const selected = Array.isArray(value) ? value : [];
     return (
       <div className="space-y-2">
@@ -95,7 +124,7 @@ function FieldInput({
                     onChange(selected.filter((v) => v !== opt.value));
                   }
                 }}
-                className="h-4 w-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500"
+                className={checkboxClass}
               />
               <span>{opt.label}</span>
             </label>
@@ -105,25 +134,50 @@ function FieldInput({
     );
   }
 
-  if (field.type === 'checkbox') {
+  if (showAsCheckbox) {
     return (
       <label className="flex items-center gap-2 text-sm text-secondary-700">
         <input
           type="checkbox"
           checked={Boolean(value)}
           onChange={(e) => onChange(e.target.checked)}
-          className="h-4 w-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500"
+          className={checkboxClass}
         />
         <span>{field.label}</span>
       </label>
     );
   }
 
+  if (showAsImage) {
+    const selected = value instanceof File ? value : null;
+    const fileKey = selected ? `${selected.name}-${selected.lastModified}` : 'empty';
+    return (
+      <div className="space-y-2">
+        <input
+          key={fileKey}
+          type="file"
+          accept={ACCEPTED_IMAGE_ACCEPT}
+          className={common}
+          onChange={(e) => onChange(e.target.files?.[0] || null)}
+          required={field.required}
+        />
+        <div className="text-xs text-secondary-500">
+          Accepted formats: JPEG, PNG, WebP (max {MAX_IMAGE_MB}MB)
+        </div>
+        {selected ? (
+          <div className="text-xs text-secondary-700">
+            Selected: {selected.name} ({Math.round(selected.size / 1024)} KB)
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   const inputType =
-    field.type === 'email' ? 'email' :
-    field.type === 'tel' ? 'tel' :
-    field.type === 'number' ? 'number' :
-    field.type === 'date' ? 'date' :
+    normalizedType === 'email' ? 'email' :
+    normalizedType === 'tel' ? 'tel' :
+    normalizedType === 'number' ? 'number' :
+    normalizedType === 'date' ? 'date' :
     'text';
 
     return (
@@ -155,6 +209,7 @@ export default function PublicFormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [values, setValues] = useState<ValuesState>({});
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
   const [formError, setFormError] = useState('');
 
   const fields = payload?.form?.fields ?? [];
@@ -163,28 +218,119 @@ export default function PublicFormPage() {
   const buildInitialValues = (formFields: FormField[]): ValuesState => {
     const init: ValuesState = {};
     formFields.forEach((f) => {
-      if (f.type === 'checkbox' && (f.options?.length ?? 0) > 0) {
-        init[f.key] = [];
-      } else if (f.type === 'checkbox') {
-        init[f.key] = false;
-      } else {
-        init[f.key] = '';
+      const fieldType = normalizeFieldType(f.type);
+      const hasOptions = Array.isArray(f.options) && f.options.length > 0;
+      if (isImageType(fieldType)) {
+        init[f.key] = null;
+        return;
       }
+      if (isCheckboxType(fieldType) && hasOptions) {
+        init[f.key] = [];
+        return;
+      }
+      if (isCheckboxType(fieldType)) {
+        init[f.key] = false;
+        return;
+      }
+      init[f.key] = '';
     });
     return init;
   };
 
-  const updateValue = (key: string, next: string | boolean | string[]) => {
+  const updateValue = (key: string, next: FieldValue) => {
     setValues((prev) => ({ ...prev, [key]: next }));
     if (formError) {
       setFormError('');
     }
+  };
+
+  const validateImageFile = (file: File): string | null => {
+    const typeOk = ACCEPTED_IMAGE_TYPES.includes(file.type);
+    if (!typeOk) {
+      const ext = file.name.toLowerCase().split('.').pop();
+      const extOk = ext ? ['jpg', 'jpeg', 'png', 'webp'].includes(ext) : false;
+      if (!extOk) {
+        return 'Unsupported file type. Use JPEG, PNG, or WebP.';
+      }
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      return `Image must be ${MAX_IMAGE_MB}MB or smaller.`;
+    }
+    return null;
+  };
+
+  const validateFieldValue = (field: FormField, next: FieldValue): string | null => {
+    const fieldType = normalizeFieldType(field.type);
+    const label = field.label || 'This field';
+    const hasOptions = Array.isArray(field.options) && field.options.length > 0;
+
+    if (isImageType(fieldType)) {
+      if (next instanceof File) {
+        return validateImageFile(next);
+      }
+      return field.required ? `${label} is required.` : null;
+    }
+
+    if (isCheckboxType(fieldType) && hasOptions) {
+      const list = Array.isArray(next) ? next : [];
+      if (field.required && list.length === 0) return `${label} is required.`;
+      return null;
+    }
+
+    if (isCheckboxType(fieldType)) {
+      if (field.required && next !== true) return `${label} is required.`;
+      return null;
+    }
+
+    const raw = typeof next === 'string' ? next.trim() : '';
+    if (!raw) return field.required ? `${label} is required.` : null;
+
+    if (fieldType === 'email' && !emailRe.test(raw)) {
+      return 'Please enter a valid email address.';
+    }
+
+    if (fieldType === 'tel' && !phoneRe.test(raw)) {
+      return 'Please enter a valid phone number.';
+    }
+
+    if (fieldType === 'number' && Number.isNaN(Number(raw))) {
+      return 'Please enter a valid number.';
+    }
+
+    if (fieldType === 'date' && Number.isNaN(new Date(raw).getTime())) {
+      return 'Please enter a valid date.';
+    }
+
+    return null;
+  };
+
+  const updateFieldValue = (field: FormField, next: FieldValue) => {
+    const fieldType = normalizeFieldType(field.type);
+    setTouchedFields((prev) => (prev[field.key] ? prev : { ...prev, [field.key]: true }));
+
+    if (isImageType(fieldType)) {
+      if (next instanceof File) {
+        const error = validateImageFile(next);
+        if (error) {
+          setValues((prev) => ({ ...prev, [field.key]: null }));
+          setFieldErrors((prev) => ({ ...prev, [field.key]: error }));
+          return;
+        }
+      }
+    }
+
+    const error = validateFieldValue(field, next);
     setFieldErrors((prev) => {
-      if (!prev[key]) return prev;
-      const copy = { ...prev };
-      delete copy[key];
-      return copy;
+      if (!error && !prev[field.key]) return prev;
+      const nextErrors = { ...prev };
+      if (error) {
+        nextErrors[field.key] = error;
+      } else {
+        delete nextErrors[field.key];
+      }
+      return nextErrors;
     });
+    updateValue(field.key, next);
   };
 
   // Fetch
@@ -204,6 +350,7 @@ export default function PublicFormPage() {
         // init values
         setValues(buildInitialValues(res.form.fields ?? []));
         setFieldErrors({});
+        setTouchedFields({});
       } catch (err) {
         console.error(err);
         const message = err instanceof Error ? err.message : 'Failed to load registration form';
@@ -249,67 +396,39 @@ export default function PublicFormPage() {
     const nextErrors: Record<string, string> = {};
     let anyFilled = false;
 
-    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const phoneRe = /^[0-9()+\-\s]{6,}$/;
-
     fields.forEach((f) => {
       const v = values[f.key];
+      const fieldType = normalizeFieldType(f.type);
+      const hasOptions = Array.isArray(f.options) && f.options.length > 0;
 
       const markFilled = () => {
         anyFilled = true;
       };
 
-      if (f.type === 'checkbox' && (f.options?.length ?? 0) > 0) {
+      if (isImageType(fieldType)) {
+        const file = v instanceof File ? v : null;
+        if (file) markFilled();
+      } else if (isCheckboxType(fieldType) && hasOptions) {
         const list = Array.isArray(v) ? v : [];
-        if (list.length === 0) {
-          if (f.required) {
-            nextErrors[f.key] = `${f.label} is required.`;
-          }
-        } else {
-          markFilled();
-        }
-        return;
-      }
-
-      if (f.type === 'checkbox') {
-        if (v === true) {
-          markFilled();
-        } else if (f.required) {
-          nextErrors[f.key] = `${f.label} is required.`;
-        }
-        return;
-      }
-
-      if (typeof v !== 'string' || v.trim() === '') {
-        if (f.required) {
-          nextErrors[f.key] = `${f.label} is required.`;
-        }
-        return;
-      }
-
-      const trimmed = v.trim();
-      if (trimmed !== '') {
+        if (list.length > 0) markFilled();
+      } else if (isCheckboxType(fieldType)) {
+        if (v === true) markFilled();
+      } else if (typeof v === 'string' && v.trim() !== '') {
         markFilled();
       }
 
-      if (f.type === 'email' && !emailRe.test(trimmed)) {
-        nextErrors[f.key] = 'Please enter a valid email address.';
-        return;
+      const error = validateFieldValue(f, v);
+      if (error) {
+        nextErrors[f.key] = error;
       }
+    });
 
-      if (f.type === 'tel' && !phoneRe.test(trimmed)) {
-        nextErrors[f.key] = 'Please enter a valid phone number.';
-        return;
-      }
-
-      if (f.type === 'number' && Number.isNaN(Number(trimmed))) {
-        nextErrors[f.key] = 'Please enter a valid number.';
-        return;
-      }
-
-      if (f.type === 'date' && Number.isNaN(new Date(trimmed).getTime())) {
-        nextErrors[f.key] = 'Please enter a valid date.';
-      }
+    setTouchedFields((prev) => {
+      const next = { ...prev };
+      fields.forEach((f) => {
+        next[f.key] = true;
+      });
+      return next;
     });
 
     setFieldErrors(nextErrors);
@@ -335,8 +454,37 @@ export default function PublicFormPage() {
         return;
       }
       setSubmitting(true);
-      await apiClient.submitPublicForm(slug, { values });
+      const valuesPayload: Record<string, string | boolean | number | string[]> = {};
+      const formData = new FormData();
+      let hasFiles = false;
+
+      fields.forEach((f) => {
+        const fieldType = normalizeFieldType(f.type);
+        const v = values[f.key];
+
+        if (isImageType(fieldType)) {
+          if (v instanceof File) {
+            hasFiles = true;
+            formData.append(f.key, v);
+            valuesPayload[f.key] = v.name;
+          }
+          return;
+        }
+
+        if (typeof v === 'string' || typeof v === 'boolean' || typeof v === 'number' || Array.isArray(v)) {
+          valuesPayload[f.key] = v;
+        }
+      });
+
+      // When files are present, send multipart with a JSON "values" payload + file parts keyed by field key.
+      const payloadToSend = hasFiles ? (() => {
+        formData.append('values', JSON.stringify(valuesPayload));
+        return formData;
+      })() : { values: valuesPayload };
+
+      await apiClient.submitPublicForm(slug, payloadToSend);
       setFieldErrors({});
+      setTouchedFields({});
       toast.success(payload.form.settings?.successMessage || 'Registration submitted successfully!');
       // Optionally clear:
       setValues(buildInitialValues(fields));
@@ -345,6 +493,13 @@ export default function PublicFormPage() {
       const fieldErrors = extractServerFieldErrors(err);
       if (Object.keys(fieldErrors).length > 0) {
         setFieldErrors(fieldErrors);
+        setTouchedFields((prev) => {
+          const next = { ...prev };
+          Object.keys(fieldErrors).forEach((key) => {
+            next[key] = true;
+          });
+          return next;
+        });
         toast.error(getFirstServerFieldError(fieldErrors) || 'Please review the highlighted fields.');
         return;
       }
@@ -471,8 +626,10 @@ export default function PublicFormPage() {
                   .slice()
                   .sort((a, b) => a.order - b.order)
                   .map((field) => {
-                    const checkboxWithOptions = field.type === 'checkbox' && (field.options?.length ?? 0) > 0;
-                    const showLabel = field.type !== 'checkbox' || checkboxWithOptions;
+                    const fieldType = normalizeFieldType(field.type);
+                    const checkboxWithOptions =
+                      isCheckboxType(fieldType) && Array.isArray(field.options) && field.options.length > 0;
+                    const showLabel = !isCheckboxType(fieldType) || checkboxWithOptions;
                     return (
                     <div key={field.key} className="space-y-1.5">
                       {showLabel ? (
@@ -484,9 +641,9 @@ export default function PublicFormPage() {
                       <FieldInput
                         field={field}
                         value={values[field.key]}
-                        onChange={(next) => updateValue(field.key, next)}
+                        onChange={(next) => updateFieldValue(field, next)}
                       />
-                      {fieldErrors[field.key] && (
+                      {fieldErrors[field.key] && touchedFields[field.key] && (
                         <p className="text-xs text-red-600">{fieldErrors[field.key]}</p>
                       )}
                     </div>

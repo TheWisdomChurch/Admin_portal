@@ -350,7 +350,8 @@ export type FormFieldType =
   | 'checkbox'
   | 'radio'
   | 'number'
-  | 'date';
+  | 'date'
+  | 'image';
 
 export interface FormFieldOption {
   label: string;
@@ -443,7 +444,7 @@ export interface CreateFormRequest {
 export type UpdateFormRequest = Partial<CreateFormRequest>;
 
 export interface SubmitFormRequest {
-  values: Record<string, string | boolean | number | string[]>;
+  values: Record<string, string | boolean | number | string[] | File | null>;
 }
 
 export interface FormSubmission {
@@ -454,7 +455,7 @@ export interface FormSubmission {
   contactNumber?: string;
   contactAddress?: string;
   registrationCode?: string;
-  values: Record<string, string | boolean | number | string[]>;
+  values: Record<string, string | boolean | number | string[] | null>;
   createdAt: string;
   updatedAt: string;
 }
@@ -462,6 +463,11 @@ export interface FormSubmission {
 export interface FormSubmissionCount {
   formId: string;
   formTitle: string;
+  count: number;
+}
+
+export interface FormSubmissionDailyStat {
+  date: string;
   count: number;
 }
 
@@ -474,7 +480,7 @@ export interface FormSubmissionWithForm {
   contactNumber?: string;
   contactAddress?: string;
   registrationCode?: string;
-  values: Record<string, string | boolean | number | string[]>;
+  values: Record<string, string | boolean | number | string[] | null>;
   createdAt: string;
 }
 

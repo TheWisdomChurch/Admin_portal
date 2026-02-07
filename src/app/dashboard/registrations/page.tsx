@@ -19,7 +19,7 @@ import { Input } from '@/ui/input';
 import { DataTable } from '@/components/DateTable';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
-import type { AdminForm, FormSubmission } from '@/lib/types';
+import type { AdminForm, FormSubmission, FormSubmissionDailyStat } from '@/lib/types';
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
 
@@ -31,13 +31,19 @@ type Column<T> = {
   cell?: (item: T) => ReactNode;
 };
 
-type SubmissionValues = Record<string, string | boolean | number | string[]>;
+type SubmissionValues = Record<string, string | boolean | number | string[] | null>;
 
 function formatDateTime(value?: string): string {
   if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString();
+}
+
+function formatShortDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 function readValue(values: SubmissionValues | undefined, key: string): string | undefined {
@@ -92,6 +98,8 @@ function RegistrationsPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [dailyStats, setDailyStats] = useState<FormSubmissionDailyStat[]>([]);
+  const [statsLoading, setStatsLoading] = useState(false);
   const [filterText, setFilterText] = useState('');
   const [filterStart, setFilterStart] = useState('');
   const [filterEnd, setFilterEnd] = useState('');
@@ -140,10 +148,30 @@ function RegistrationsPage() {
     }
   }, [selectedFormId, page, limit]);
 
+  const loadDailyStats = useCallback(async () => {
+    if (!selectedFormId) {
+      setDailyStats([]);
+      return;
+    }
+
+    try {
+      setStatsLoading(true);
+      const stats = await apiClient.getFormSubmissionStats(selectedFormId);
+      setDailyStats(Array.isArray(stats) ? stats : []);
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to load daily registration stats');
+      setDailyStats([]);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [selectedFormId]);
+
   const handleRefresh = useCallback(async () => {
     await loadForms();
     await loadSubmissions();
-  }, [loadForms, loadSubmissions]);
+    await loadDailyStats();
+  }, [loadForms, loadSubmissions, loadDailyStats]);
 
   useEffect(() => {
     if (authBlocked) return;
@@ -160,6 +188,11 @@ function RegistrationsPage() {
     if (authBlocked) return;
     loadSubmissions();
   }, [authBlocked, loadSubmissions]);
+
+  useEffect(() => {
+    if (authBlocked) return;
+    loadDailyStats();
+  }, [authBlocked, loadDailyStats]);
 
   const filteredSubmissions = useMemo(() => {
     const term = filterText.trim().toLowerCase();
@@ -191,48 +224,48 @@ function RegistrationsPage() {
   const hasFilters = Boolean(filterText.trim() || filterStart || filterEnd);
   const filteredTotal = hasFilters ? filteredSubmissions.length : submissionsTotal;
 
-  const trendBuckets = useMemo(() => {
-    const days = 14;
-    const today = new Date();
-    const buckets = Array.from({ length: days }, (_, index) => {
-      const date = new Date(today);
-      date.setDate(today.getDate() - (days - 1 - index));
-      return {
-        key: date.toISOString().slice(0, 10),
-        label: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-        count: 0,
-      };
+  const sortedDailyStats = useMemo(() => {
+    return [...dailyStats].sort((a, b) => {
+      const aTime = new Date(a.date).getTime();
+      const bTime = new Date(b.date).getTime();
+      if (Number.isNaN(aTime) && Number.isNaN(bTime)) return a.date.localeCompare(b.date);
+      if (Number.isNaN(aTime)) return 1;
+      if (Number.isNaN(bTime)) return -1;
+      return aTime - bTime;
     });
+  }, [dailyStats]);
 
-    const bucketMap = new Map(buckets.map((bucket) => [bucket.key, bucket]));
+  const filteredDailyStats = useMemo(() => {
+    if (!filterStart && !filterEnd) return sortedDailyStats;
+    const start = filterStart ? new Date(filterStart) : null;
+    const end = filterEnd ? new Date(filterEnd) : null;
+    if (end) end.setHours(23, 59, 59, 999);
 
-    filteredSubmissions.forEach((submission) => {
-      const created = new Date(submission.createdAt);
-      if (Number.isNaN(created.getTime())) return;
-      const key = created.toISOString().slice(0, 10);
-      const bucket = bucketMap.get(key);
-      if (bucket) bucket.count += 1;
+    return sortedDailyStats.filter((item) => {
+      const date = new Date(item.date);
+      if (Number.isNaN(date.getTime())) return false;
+      if (start && date < start) return false;
+      if (end && date > end) return false;
+      return true;
     });
+  }, [sortedDailyStats, filterStart, filterEnd]);
 
-    return buckets;
-  }, [filteredSubmissions]);
-
-  const hasTrendData = trendBuckets.some((bucket) => bucket.count > 0);
+  const hasTrendData = filteredDailyStats.length > 0;
 
   const trendChartData = useMemo(() => {
     return {
-      labels: trendBuckets.map((bucket) => bucket.label),
+      labels: filteredDailyStats.map((entry) => formatShortDate(entry.date)),
       datasets: [
         {
           label: 'Registrations',
-          data: trendBuckets.map((bucket) => bucket.count),
+          data: filteredDailyStats.map((entry) => entry.count),
           backgroundColor: '#3b82f6',
           borderRadius: 6,
           maxBarThickness: 32,
         },
       ],
     };
-  }, [trendBuckets]);
+  }, [filteredDailyStats]);
 
   const trendChartOptions = useMemo(
     () => ({
@@ -246,7 +279,7 @@ function RegistrationsPage() {
       scales: {
         x: {
           grid: { display: false },
-          ticks: { color: '#6b7280', font: { size: 11 } },
+          ticks: { color: '#6b7280', font: { size: 11 }, maxTicksLimit: 8 },
         },
         y: {
           beginAtZero: true,
@@ -372,19 +405,21 @@ function RegistrationsPage() {
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <Card title="Registration Trend (last 14 days)">
-          {hasTrendData ? (
+        <Card title="Daily registrations (selected link)">
+          {statsLoading ? (
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading daily stats...</p>
+          ) : hasTrendData ? (
             <div>
               <div className="h-60">
                 <Bar data={trendChartData} options={trendChartOptions} />
               </div>
               <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">
-                Chart reflects the current filters and page size.
+                Daily counts from the stats endpoint. Date filters apply.
               </p>
             </div>
           ) : (
             <p className="text-sm text-[var(--color-text-tertiary)]">
-              No registration data yet for the selected link.
+              No daily stats yet for the selected link.
             </p>
           )}
         </Card>

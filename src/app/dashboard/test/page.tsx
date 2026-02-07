@@ -336,6 +336,7 @@ export default withAuth(function TestPage() {
                     <option value="select">Dropdown</option>
                     <option value="checkbox">Checkbox</option>
                     <option value="radio">Radio</option>
+                    <option value="image">Image Upload</option>
                   </select>
                   <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
                     <input
@@ -459,10 +460,20 @@ export default withAuth(function TestPage() {
                     <p className="text-xs text-[var(--color-text-tertiary)]">{field.label}</p>
                     {(field.options || []).map((opt) => (
                       <label key={opt.value} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                        <input type="radio" disabled className="h-4 w-4 border-[var(--color-border-primary)]" />
+                        <input type="radio" disabled className="h-4 w-4 rounded-full border-[var(--color-border-primary)]" />
                         {opt.label}
                       </label>
                     ))}
+                  </div>
+                ) : field.type === 'image' ? (
+                  <div className="space-y-1">
+                    <input
+                      disabled
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                    />
+                    <p className="text-[11px] text-[var(--color-text-tertiary)]">JPEG, PNG, WebP up to 5MB</p>
                   </div>
                 ) : field.type === 'date' ? (
                   <input

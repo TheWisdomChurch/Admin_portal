@@ -179,14 +179,21 @@ export default withAuth(function NewFormPage() {
       setSaving(true);
       const created = await apiClient.createAdminForm(payload);
       let slugToUse = created.slug || normalizedSlug;
+      let publishedOk = false;
       try {
         const published = await apiClient.publishAdminForm(created.id);
         slugToUse = published?.slug || slugToUse;
+        publishedOk = true;
       } catch {
-        // optional publish failure tolerated
+        publishedOk = false;
       }
-      setPublishedSlug(slugToUse);
-      toast.success('Form created and link ready');
+      setPublishedSlug(publishedOk ? slugToUse : null);
+      if (publishedOk) {
+        toast.success('Form created and link ready');
+      } else {
+        toast.success('Form created');
+        toast.error('Publish the form to get a live link.');
+      }
       router.push(`/dashboard/forms/${created.id}/edit`);
     } catch (err) {
       console.error(err);
@@ -424,6 +431,7 @@ export default withAuth(function NewFormPage() {
                     <option value="select">Dropdown</option>
                     <option value="checkbox">Checkbox</option>
                     <option value="radio">Radio</option>
+                    <option value="image">Image Upload</option>
                   </select>
                   <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
                     <input
@@ -547,10 +555,20 @@ export default withAuth(function NewFormPage() {
                     <p className="text-xs text-[var(--color-text-tertiary)]">{field.label}</p>
                     {(field.options || []).map((opt) => (
                       <label key={opt.value} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                        <input type="radio" disabled className="h-4 w-4 border-[var(--color-border-primary)]" />
+                        <input type="radio" disabled className="h-4 w-4 rounded-full border-[var(--color-border-primary)]" />
                         {opt.label}
                       </label>
                     ))}
+                  </div>
+                ) : field.type === 'image' ? (
+                  <div className="space-y-1">
+                    <input
+                      disabled
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                    />
+                    <p className="text-[11px] text-[var(--color-text-tertiary)]">JPEG, PNG, WebP up to 5MB</p>
                   </div>
                 ) : field.type === 'date' ? (
                   <input
@@ -613,7 +631,7 @@ export default withAuth(function NewFormPage() {
                 toast.error('Publish first to copy link');
                 return;
               }
-              await navigator.clipboard.writeText(`${window.location.origin}/forms/${publishedSlug}`);
+              await navigator.clipboard.writeText(`${window.location.origin}/forms/${encodeURIComponent(publishedSlug)}`);
               toast.success('Link copied');
             }}
             icon={<Copy className="h-4 w-4" />}
