@@ -22,6 +22,7 @@ import type {
   FormSubmission,
   FormStatsResponse,
   FormStatus,
+  FormSubmissionDailyStat,
   Subscriber,
   SubscribeRequest,
   UnsubscribeRequest,
@@ -195,6 +196,47 @@ function getErrorMessage(err: unknown): string {
     if (message) return message;
   }
   return 'Network error';
+}
+
+function normalizeDailyStats(payload: unknown): FormSubmissionDailyStat[] {
+  const extractArray = (value: unknown): unknown[] => {
+    if (Array.isArray(value)) return value;
+    if (!isRecord(value)) return [];
+    const maybe = value.data ?? value.daily ?? value.stats ?? value.results;
+    if (Array.isArray(maybe)) return maybe;
+    if (isRecord(maybe)) {
+      const nested = maybe.data ?? maybe.daily ?? maybe.stats ?? maybe.results;
+      if (Array.isArray(nested)) return nested;
+    }
+    return [];
+  };
+
+  const rows = extractArray(payload);
+  const normalized: FormSubmissionDailyStat[] = [];
+
+  rows.forEach((row) => {
+    if (!isRecord(row)) return;
+    const dateRaw =
+      (row.date as unknown) ??
+      (row.day as unknown) ??
+      (row.label as unknown) ??
+      (row.createdAt as unknown) ??
+      (row.created_at as unknown);
+    const countRaw =
+      (row.count as unknown) ??
+      (row.total as unknown) ??
+      (row.value as unknown) ??
+      (row.registrations as unknown) ??
+      (row.submissions as unknown);
+
+    const date = typeof dateRaw === 'string' ? dateRaw : dateRaw ? String(dateRaw) : '';
+    const count = typeof countRaw === 'number' ? countRaw : Number(countRaw);
+
+    if (!date || Number.isNaN(count)) return;
+    normalized.push({ date, count });
+  });
+
+  return normalized;
 }
 
 /* ============================================================================
@@ -787,6 +829,11 @@ export const apiClient = {
     return unwrapSimplePaginated<FormSubmission>(res, 'Invalid submissions payload');
   },
 
+  async getFormSubmissionStats(id: string): Promise<FormSubmissionDailyStat[]> {
+    const res = await apiFetch<unknown>(`/admin/forms/${encodeURIComponent(id)}/submissions/stats`, { method: 'GET' });
+    return normalizeDailyStats(res);
+  },
+
   async getFormStats(params?: Record<string, unknown>): Promise<FormStatsResponse> {
     const qs = toQueryString(params);
     const res = await apiFetch<ApiResponse<FormStatsResponse>>(`/admin/forms/stats${qs}`, { method: 'GET' });
@@ -800,10 +847,11 @@ export const apiClient = {
     return unwrapData<PublicFormPayload>(res, 'Invalid public form payload');
   },
 
-  async submitPublicForm(slug: string, payload: SubmitFormRequest): Promise<MessageResponse> {
+  async submitPublicForm(slug: string, payload: SubmitFormRequest | FormData): Promise<MessageResponse> {
+    const body = payload instanceof FormData ? payload : JSON.stringify(payload);
     return apiFetch(`/forms/${encodeURIComponent(slug)}/submissions`, {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body,
     });
   },
 

@@ -129,7 +129,7 @@ function EditFormPage() {
       toast.error('Publish the form to get a link');
       return;
     }
-    const url = `${window.location.origin}/forms/${slug}`;
+    const url = `${window.location.origin}/forms/${encodeURIComponent(slug)}`;
     await navigator.clipboard.writeText(url);
     toast.success('Link copied');
   };
@@ -213,6 +213,8 @@ function EditFormPage() {
                     <option value="date">Date</option>
                     <option value="select">Dropdown</option>
                     <option value="checkbox">Checkbox</option>
+                    <option value="radio">Radio</option>
+                    <option value="image">Image Upload</option>
                   </select>
                   <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
                     <input
@@ -228,7 +230,7 @@ function EditFormPage() {
                 </div>
               </div>
 
-              {field.type === 'select' && (
+              {(field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') && (
                 <div className="mt-3 space-y-2">
                   <p className="text-xs text-[var(--color-text-tertiary)]">Options (comma separated)</p>
                   <input

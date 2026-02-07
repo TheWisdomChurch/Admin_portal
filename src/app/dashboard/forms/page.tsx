@@ -105,10 +105,19 @@ function isExpiredForm(form: AdminForm): boolean {
 const PUBLIC_BASE_URL = (process.env.NEXT_PUBLIC_PUBLIC_URL ?? process.env.NEXT_PUBLIC_FRONTEND_URL ?? '').replace(/\/+$/, '');
 
 function buildPublicUrl(slug?: string, publicUrl?: string): string | null {
-  if (publicUrl) return publicUrl;
-  if (slug && PUBLIC_BASE_URL) return `${PUBLIC_BASE_URL}/forms/${slug}`;
-  if (slug) return `/forms/${slug}`;
-  return null;
+  if (publicUrl) {
+    if (publicUrl.startsWith('/') && typeof window !== 'undefined' && window.location?.origin) {
+      return `${window.location.origin}${publicUrl}`;
+    }
+    return publicUrl;
+  }
+  if (!slug) return null;
+  const safeSlug = encodeURIComponent(slug);
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}/forms/${safeSlug}`;
+  }
+  if (PUBLIC_BASE_URL) return `${PUBLIC_BASE_URL}/forms/${safeSlug}`;
+  return `/forms/${safeSlug}`;
 }
 
 function formatDateTime(value?: string): string {
@@ -628,13 +637,18 @@ export default withAuth(function FormsPage() {
   }, [load]);
 
   const handleCopyLink = useCallback(async (form: AdminForm) => {
-    const link = buildPublicUrl(form.slug, form.publicUrl);
-    if (!link) {
+    const status = getFormStatus(form);
+    if (status === 'invalid') {
+      toast.error('This form has expired and is no longer available.');
+      return;
+    }
+    if (status !== 'published') {
       toast.error('This form is not published yet');
       return;
     }
-    if (isExpiredForm(form)) {
-      toast.error('This form has expired and is no longer available.');
+    const link = buildPublicUrl(form.slug, form.publicUrl);
+    if (!link) {
+      toast.error('This form is not published yet');
       return;
     }
     try {
@@ -731,16 +745,23 @@ export default withAuth(function FormsPage() {
       let publicUrlToUse: string | null = created.publicUrl
         ? buildPublicUrl(created.slug, created.publicUrl)
         : buildPublicUrl(slugToUse);
+      let publishedOk = false;
       try {
         const published = await apiClient.publishAdminForm(created.id);
+        publishedOk = true;
         slugToUse = published?.slug || slugToUse;
         publicUrlToUse = buildPublicUrl(slugToUse, published?.publicUrl || publicUrlToUse || undefined);
       } catch {
-        // publish optional
+        publishedOk = false;
       }
 
-      setPublishedPublicUrl(publicUrlToUse);
-      toast.success('Form created and link ready');
+      setPublishedPublicUrl(publishedOk ? publicUrlToUse : null);
+      if (publishedOk) {
+        toast.success('Form created and link ready');
+      } else {
+        toast.success('Form created');
+        toast.error('Publish the form to get a live link.');
+      }
       setShowBuilder(false);
       load();
     } catch (err) {
@@ -801,35 +822,38 @@ export default withAuth(function FormsPage() {
       {
         key: 'slug' as keyof AdminForm,
         header: 'Link',
-        cell: (f: AdminForm) => (
-          <div className="flex items-center gap-2">
-            {isExpiredForm(f) ? (
-              <span className="text-xs text-red-500">Expired</span>
-            ) : f.slug ? (
-              <>
-                <span className="text-xs text-secondary-600 truncate max-w-[220px]">
-                  {buildPublicUrl(f.slug, f.publicUrl) || `/forms/${f.slug}`}
-                </span>
+        cell: (f: AdminForm) => {
+          const status = getFormStatus(f);
+          return (
+            <div className="flex items-center gap-2">
+              {status === 'invalid' ? (
+                <span className="text-xs text-red-500">Expired</span>
+              ) : status !== 'published' ? (
                 <button
                   type="button"
-                  onClick={() => handleCopyLink(f)}
+                  onClick={() => handlePublish(f)}
                   className="inline-flex items-center gap-1 rounded-md border border-secondary-200 bg-white px-2 py-1 text-xs text-secondary-700 hover:bg-secondary-50"
                 >
-                  <LinkIcon className="h-3.5 w-3.5" />
-                  Copy
+                  Publish
                 </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => handlePublish(f)}
-                className="inline-flex items-center gap-1 rounded-md border border-secondary-200 bg-white px-2 py-1 text-xs text-secondary-700 hover:bg-secondary-50"
-              >
-                Publish
-              </button>
-            )}
-          </div>
-        ),
+              ) : (
+                <>
+                  <span className="text-xs text-secondary-600 truncate max-w-[220px]">
+                    {buildPublicUrl(f.slug, f.publicUrl) || `/forms/${f.slug}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyLink(f)}
+                    className="inline-flex items-center gap-1 rounded-md border border-secondary-200 bg-white px-2 py-1 text-xs text-secondary-700 hover:bg-secondary-50"
+                  >
+                    <LinkIcon className="h-3.5 w-3.5" />
+                    Copy
+                  </button>
+                </>
+              )}
+            </div>
+          );
+        },
       },
       {
         key: 'publishedAt' as keyof AdminForm,
@@ -1374,6 +1398,7 @@ export default withAuth(function FormsPage() {
                           <option value="select">Dropdown</option>
                           <option value="checkbox">Checkbox</option>
                           <option value="radio">Radio</option>
+                          <option value="image">Image Upload</option>
                         </select>
 
                         <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
