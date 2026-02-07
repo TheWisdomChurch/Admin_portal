@@ -15,6 +15,7 @@ import { VerifyActionModal } from '@/ui/VerifyActionModal';
 
 import { apiClient, mapValidationErrors } from '@/lib/api';
 import type { AdminForm, CreateFormRequest, EventData, FormFieldType, FormSettings, FormStatsResponse, FormStatus, FormSubmission } from '@/lib/types';
+import { buildPublicFormUrl } from '@/lib/utils';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
@@ -102,23 +103,7 @@ function isExpiredForm(form: AdminForm): boolean {
   return date.getTime() < Date.now();
 }
 
-const PUBLIC_BASE_URL = (process.env.NEXT_PUBLIC_PUBLIC_URL ?? process.env.NEXT_PUBLIC_FRONTEND_URL ?? '').replace(/\/+$/, '');
-
-function buildPublicUrl(slug?: string, publicUrl?: string): string | null {
-  if (publicUrl) {
-    if (publicUrl.startsWith('/') && typeof window !== 'undefined' && window.location?.origin) {
-      return `${window.location.origin}${publicUrl}`;
-    }
-    return publicUrl;
-  }
-  if (!slug) return null;
-  const safeSlug = encodeURIComponent(slug);
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}/forms/${safeSlug}`;
-  }
-  if (PUBLIC_BASE_URL) return `${PUBLIC_BASE_URL}/forms/${safeSlug}`;
-  return `/forms/${safeSlug}`;
-}
+const buildPublicUrl = buildPublicFormUrl;
 
 function formatDateTime(value?: string): string {
   if (!value) return '—';
@@ -605,7 +590,8 @@ export default withAuth(function FormsPage() {
       const res = await apiClient.publishAdminForm(form.id);
       toast.success('Form published');
 
-      const nextSlug = res?.slug || form.slug || '';
+      let nextSlug = res?.slug || form.slug || '';
+      if (!nextSlug && form.title) nextSlug = normalizeSlug(form.title);
       const nextPublicUrl = buildPublicUrl(nextSlug, res?.publicUrl || form.publicUrl || undefined);
       if (nextPublicUrl) setPublishedPublicUrl(nextPublicUrl);
 
@@ -631,7 +617,7 @@ export default withAuth(function FormsPage() {
       load();
     } catch (err) {
       console.error(err);
-      const message = err instanceof Error ? err.message : 'Failed to publish form';
+      const message = getServerErrorMessage(err, 'Failed to publish form');
       toast.error(message);
     }
   }, [load]);
@@ -746,13 +732,15 @@ export default withAuth(function FormsPage() {
         ? buildPublicUrl(created.slug, created.publicUrl)
         : buildPublicUrl(slugToUse);
       let publishedOk = false;
+      let publishError: string | null = null;
       try {
         const published = await apiClient.publishAdminForm(created.id);
         publishedOk = true;
         slugToUse = published?.slug || slugToUse;
         publicUrlToUse = buildPublicUrl(slugToUse, published?.publicUrl || publicUrlToUse || undefined);
-      } catch {
+      } catch (err) {
         publishedOk = false;
+        publishError = getServerErrorMessage(err, 'Publish failed. Form saved as draft.');
       }
 
       setPublishedPublicUrl(publishedOk ? publicUrlToUse : null);
@@ -760,7 +748,7 @@ export default withAuth(function FormsPage() {
         toast.success('Form created and link ready');
       } else {
         toast.success('Form created');
-        toast.error('Publish the form to get a live link.');
+        toast.error(publishError || 'Publish the form to get a live link.');
       }
       setShowBuilder(false);
       load();

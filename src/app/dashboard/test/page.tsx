@@ -11,6 +11,7 @@ import { PageHeader } from '@/layouts';
 import { Input } from '@/ui/input';
 
 import { apiClient } from '@/lib/api';
+import { buildPublicFormUrl } from '@/lib/utils';
 import type { CreateFormRequest, FormFieldType } from '@/lib/types';
 
 import { withAuth } from '@/providers/withAuth';
@@ -536,7 +537,8 @@ export default withAuth(function TestPage() {
                 toast.error('Publish first to copy link');
                 return;
               }
-              await navigator.clipboard.writeText(`${window.location.origin}/forms/${publishedSlug}`);
+              const url = buildPublicFormUrl(publishedSlug) ?? `/forms/${encodeURIComponent(publishedSlug)}`;
+              await navigator.clipboard.writeText(url);
               toast.success('Link copied');
             }}
             icon={<Copy className="h-4 w-4" />}
