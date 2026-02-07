@@ -406,7 +406,11 @@ function RegistrationsPage() {
 
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <Card title="Daily registrations (selected link)">
-          {statsLoading ? (
+          {!selectedFormId ? (
+            <p className="text-sm text-[var(--color-text-tertiary)]">
+              Select a registration link to view daily stats.
+            </p>
+          ) : statsLoading ? (
             <p className="text-sm text-[var(--color-text-tertiary)]">Loading daily stats...</p>
           ) : hasTrendData ? (
             <div>
