@@ -8,6 +8,7 @@ import { Navbar } from '@/components/Navbar';
 import { Container } from '@/layouts/Container';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { useTheme } from '@/providers/ThemeProviders';
+import { SessionTimeout } from '@/components/SessionTimeout';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -44,6 +45,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <Sidebar />
       <div className="dashboard-shell">
         <Navbar />
+        <SessionTimeout />
         <main className="pb-8 pt-4">
           <Container size="full">{children}</Container>
         </main>
