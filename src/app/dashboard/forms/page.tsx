@@ -14,13 +14,26 @@ import { Input } from '@/ui/input';
 import { VerifyActionModal } from '@/ui/VerifyActionModal';
 
 import { apiClient, mapValidationErrors } from '@/lib/api';
-import type { AdminForm, CreateFormRequest, EventData, FormFieldType, FormSettings, FormStatsResponse, FormStatus, FormSubmission } from '@/lib/types';
+import type {
+  AdminForm,
+  CreateFormRequest,
+  EventData,
+  FormFieldType,
+  FormSettings,
+  FormStatsResponse,
+  FormStatus,
+  FormSubmission,
+} from '@/lib/types';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { createFormSchema } from '@/lib/validation/forms';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
-import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
+import {
+  extractServerFieldErrors,
+  getFirstServerFieldError,
+  getServerErrorMessage,
+} from '@/lib/serverValidation';
 
 type FieldDraft = {
   key: string;
@@ -93,8 +106,6 @@ function normalizeFormStatus(status?: string): FormStatus | undefined {
   return undefined;
 }
 
-
-
 function isExpiredForm(form: AdminForm): boolean {
   if (form.status === 'invalid') return true;
   const closesAt = form.settings?.closesAt;
@@ -161,6 +172,9 @@ export default withAuth(function FormsPage() {
   const [filterEnd, setFilterEnd] = useState('');
   const [liveUpdates, setLiveUpdates] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+
+  // ✅ PDF export loading state
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   // Builder state
   const [showBuilder, setShowBuilder] = useState(false);
@@ -462,65 +476,73 @@ export default withAuth(function FormsPage() {
     return hasFilters ? filteredSubmissions.length : submissionsTotal;
   }, [filterText, filterStart, filterEnd, filteredSubmissions.length, submissionsTotal]);
 
-  const exportSubmissions = useCallback(() => {
+  // ✅ REPLACED: export CSV -> export PDF (server-generated)
+  const exportSubmissions = useCallback(async () => {
+    if (!selectedFormId) {
+      toast.error('Select a form first');
+      return;
+    }
     if (filteredSubmissions.length === 0) {
       toast.error('No submissions to export');
       return;
     }
 
-    const valueKeys = Array.from(
-      new Set(
-        filteredSubmissions.flatMap((item) => Object.keys(item.values || {}))
-      )
-    );
+    try {
+      setExportingPdf(true);
 
-    const headers = [
-      'id',
-      'formId',
-      'name',
-      'email',
-      'contactNumber',
-      'contactAddress',
-      'createdAt',
-      ...valueKeys,
-    ];
+      // Env-aware base URL normalization:
+      const rawBase =
+        (process.env.NEXT_PUBLIC_API_URL ||
+          (process.env as unknown as { NEXT_PUBLIC_API_BASE_URL?: string }).NEXT_PUBLIC_API_BASE_URL ||
+          '').trim();
 
-    const escapeCsv = (value: unknown) => {
-      const raw = value === undefined || value === null ? '' : String(value);
-      if (raw.includes('"') || raw.includes(',') || raw.includes('\n')) {
-        return `"${raw.replace(/"/g, '""')}"`;
-      }
-      return raw;
-    };
+      let base = rawBase.replace(/\/+$/, '');
+      if (!base) base = 'http://localhost:8080';
 
-    const rows = filteredSubmissions.map((item) => {
-      const base = [
-        item.id,
-        item.formId,
-        item.name ?? '',
-        item.email ?? '',
-        item.contactNumber ?? '',
-        item.contactAddress ?? '',
-        item.createdAt ?? '',
-      ];
+      // If mistakenly set to https://domain.com/api/v1, normalize to origin
+      if (base.endsWith('/api/v1')) base = base.slice(0, -'/api/v1'.length);
 
-      const values = valueKeys.map((key) => {
-        const v = item.values?.[key as keyof typeof item.values];
-        return v !== undefined && v !== null ? String(v) : '';
+      // Optional query params (backend may ignore, safe to send)
+      const params = new URLSearchParams();
+      if (filterText.trim()) params.set('q', filterText.trim());
+      if (filterStart.trim()) params.set('from', filterStart.trim());
+      if (filterEnd.trim()) params.set('to', filterEnd.trim());
+
+      const url = `${base}/api/v1/admin/forms/${selectedFormId}/submissions/export.pdf${
+        params.toString() ? `?${params.toString()}` : ''
+      }`;
+
+      const res = await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { Accept: 'application/pdf' },
       });
 
-      return [...base, ...values].map(escapeCsv).join(',');
-    });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || `Export failed (${res.status})`);
+      }
 
-    const csv = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `form-submissions-${selectedFormId || 'all'}-${new Date().toISOString().slice(0, 10)}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }, [filteredSubmissions, selectedFormId]);
+      const blob = await res.blob();
+      const dlUrl = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = dlUrl;
+      a.download = `form-submissions-${selectedFormId}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      URL.revokeObjectURL(dlUrl);
+
+      toast.success('PDF exported. Password is your login email.');
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Failed to export PDF');
+    } finally {
+      setExportingPdf(false);
+    }
+  }, [filteredSubmissions.length, selectedFormId, filterText, filterStart, filterEnd]);
 
   // ---------- Field builder actions ----------
   const addField = () => {
@@ -703,29 +725,29 @@ export default withAuth(function FormsPage() {
         successMessage: successMessage.trim() || undefined,
         introTitle,
         introSubtitle,
-   
+
         introBullets: introBullets.split('\n').filter(Boolean),
- 
+
         introBulletSubtexts: introBulletSubs.split('\n').filter(Boolean),
-  
+
         layoutMode,
-     
+
         dateFormat,
-       
+
         footerText,
-   
+
         footerBg,
-      
+
         footerTextColor,
-        
+
         submitButtonText,
- 
+
         submitButtonBg,
-     
+
         submitButtonTextColor,
-       
+
         submitButtonIcon,
-     
+
         formHeaderNote,
         design: coverImageUrl.trim()
           ? { coverImageUrl: coverImageUrl.trim() }
@@ -874,7 +896,6 @@ export default withAuth(function FormsPage() {
     ),
   },
 ], [handleCopyLink, handlePublish, formCounts]);
-
 
   const submissionColumns = useMemo<Column<FormSubmission>[]>(
     () => [
@@ -1152,13 +1173,16 @@ export default withAuth(function FormsPage() {
               <Button variant="outline" onClick={loadSubmissions} className="whitespace-nowrap">
                 Refresh
               </Button>
+
+              {/* ✅ CHANGED: Export CSV -> Export PDF (server-generated) */}
               <Button
                 variant="outline"
                 onClick={exportSubmissions}
-                disabled={filteredSubmissions.length === 0}
+                loading={exportingPdf}
+                disabled={exportingPdf || filteredSubmissions.length === 0 || !selectedFormId}
                 className="whitespace-nowrap"
               >
-                Export CSV
+                Export PDF
               </Button>
             </div>
 
@@ -1365,20 +1389,20 @@ export default withAuth(function FormsPage() {
                   <div className="flex flex-wrap gap-2 sm:flex-nowrap">
                     <select
                       value={layoutMode}
-                  onChange={(e) => setLayoutMode(e.target.value === 'split' ? 'split' : 'stack')}
-                  className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                >
+                      onChange={(e) => setLayoutMode(e.target.value === 'split' ? 'split' : 'stack')}
+                      className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                    >
                       <option value="split">Two column layout</option>
                       <option value="stack">Single column layout</option>
                     </select>
                     <select
                       value={dateFormat}
-                  onChange={(e) => {
-                    const next = e.target.value as DateFormat;
-                    if (dateFormats.includes(next)) setDateFormat(next);
-                  }}
-                  className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                >
+                      onChange={(e) => {
+                        const next = e.target.value as DateFormat;
+                        if (dateFormats.includes(next)) setDateFormat(next);
+                      }}
+                      className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                    >
                       <option value="yyyy-mm-dd">YYYY-MM-DD</option>
                       <option value="mm/dd/yyyy">MM/DD/YYYY</option>
                       <option value="dd/mm/yyyy">DD/MM/YYYY</option>
