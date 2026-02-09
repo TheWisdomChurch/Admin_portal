@@ -1,7 +1,7 @@
 // src/app/forms/[slug]/page.tsx
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
@@ -22,7 +22,9 @@ const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const ACCEPTED_IMAGE_ACCEPT = ACCEPTED_IMAGE_TYPES.join(',');
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const phoneRe = /^[0-9()+\-\s]{6,}$/;
+
+// E.164: + plus 8-15 digits (basic)
+const e164Re = /^\+[1-9]\d{7,14}$/;
 
 const normalizeFieldType = (value?: string) => (value || '').toLowerCase();
 const isTextareaType = (value: string) => value === 'textarea' || value === 'text_area' || value === 'multiline';
@@ -32,6 +34,119 @@ const isRadioType = (value: string) =>
 const isCheckboxType = (value: string) =>
   value === 'checkbox' || value === 'checkboxes' || value === 'check_box' || value === 'multi_select';
 const isImageType = (value: string) => value === 'image' || value === 'file' || value === 'upload';
+
+const isPhoneType = (value: string) => value === 'tel' || value === 'phone' || value === 'mobile' || value === 'contact';
+
+// Keep the list manageable; add more as you like.
+const COUNTRY_PHONE_CODES = [
+  { iso: 'NG', name: 'Nigeria', dial: '+234' },
+  { iso: 'GH', name: 'Ghana', dial: '+233' },
+  { iso: 'KE', name: 'Kenya', dial: '+254' },
+  { iso: 'ZA', name: 'South Africa', dial: '+27' },
+  { iso: 'US', name: 'United States', dial: '+1' },
+  { iso: 'CA', name: 'Canada', dial: '+1' },
+  { iso: 'GB', name: 'United Kingdom', dial: '+44' },
+  { iso: 'FR', name: 'France', dial: '+33' },
+  { iso: 'DE', name: 'Germany', dial: '+49' },
+  { iso: 'ES', name: 'Spain', dial: '+34' },
+] as const;
+
+function onlyDigits(value: string) {
+  return value.replace(/\D/g, '');
+}
+
+function splitE164(value: string): { dial: string; national: string } | null {
+  if (!value || typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('+')) return null;
+
+  // Find the best matching dial code from our list (longest match wins)
+  const candidates = COUNTRY_PHONE_CODES
+    .map((c) => c.dial)
+    .sort((a, b) => b.length - a.length);
+
+  const dial = candidates.find((d) => trimmed.startsWith(d));
+  if (!dial) return null;
+
+  const rest = trimmed.slice(dial.length);
+  return { dial, national: rest.replace(/\D/g, '') };
+}
+
+function formatPrettyPhone(e164: string): string {
+  // Basic pretty format: "+234 801 234 5678" grouping; not perfect but readable.
+  if (!e164 || typeof e164 !== 'string') return '';
+  const s = e164.trim();
+  if (!s.startsWith('+')) return s;
+  const parsed = splitE164(s);
+  if (!parsed) return s;
+  const digits = parsed.national;
+  const groups: string[] = [];
+  for (let i = 0; i < digits.length; i += 3) {
+    groups.push(digits.slice(i, i + 3));
+  }
+  return `${parsed.dial} ${groups.join(' ')}`.trim();
+}
+
+function PhoneNumberInput({
+  label,
+  required,
+  value,
+  onChange,
+}: {
+  label: string;
+  required?: boolean;
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const common =
+    'w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent';
+
+  const parsed = splitE164(value);
+  const currentDial = parsed?.dial ?? COUNTRY_PHONE_CODES[0].dial;
+  const currentNational = parsed?.national ?? (value.startsWith('+') ? onlyDigits(value) : onlyDigits(value));
+
+  const dialOptions = COUNTRY_PHONE_CODES;
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-2">
+        <select
+          className={common}
+          value={currentDial}
+          onChange={(e) => {
+            const nextDial = e.target.value;
+            const next = `${nextDial}${onlyDigits(currentNational)}`;
+            onChange(next);
+          }}
+          aria-label={`${label} country code`}
+        >
+          {dialOptions.map((c) => (
+            <option key={c.iso} value={c.dial}>
+              {c.name} ({c.dial})
+            </option>
+          ))}
+        </select>
+
+        <input
+          className={common}
+          inputMode="tel"
+          placeholder="Phone number"
+          value={currentNational}
+          onChange={(e) => {
+            const national = onlyDigits(e.target.value);
+            const next = `${currentDial}${national}`;
+            onChange(next);
+          }}
+          required={required}
+        />
+      </div>
+
+      <div className="text-[11px] text-secondary-500">
+        Stored as international format (E.164), e.g. <span className="font-medium">+2348012345678</span>
+      </div>
+    </div>
+  );
+}
 
 function FieldInput({
   field,
@@ -46,11 +161,13 @@ function FieldInput({
     'w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent';
   const options = Array.isArray(field.options) ? field.options : [];
   const normalizedType = normalizeFieldType(field.type);
+
   const showAsTextarea = isTextareaType(normalizedType);
   const showAsSelect = isSelectType(normalizedType);
   const showAsRadio = isRadioType(normalizedType);
   const showAsCheckbox = isCheckboxType(normalizedType);
   const showAsImage = isImageType(normalizedType);
+  const showAsPhone = isPhoneType(normalizedType);
 
   const checkboxClass =
     'h-4 w-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500 appearance-auto accent-[var(--color-accent-primary)]';
@@ -120,11 +237,8 @@ function FieldInput({
                 type="checkbox"
                 checked={checked}
                 onChange={(e) => {
-                  if (e.target.checked) {
-                    onChange([...selected, opt.value]);
-                  } else {
-                    onChange(selected.filter((v) => v !== opt.value));
-                  }
+                  if (e.target.checked) onChange([...selected, opt.value]);
+                  else onChange(selected.filter((v) => v !== opt.value));
                 }}
                 className={checkboxClass}
               />
@@ -163,9 +277,7 @@ function FieldInput({
           onChange={(e) => onChange(e.target.files?.[0] || null)}
           required={field.required}
         />
-        <div className="text-xs text-secondary-500">
-          Accepted formats: JPEG, PNG, WebP (max {MAX_IMAGE_MB}MB)
-        </div>
+        <div className="text-xs text-secondary-500">Accepted formats: JPEG, PNG, WebP (max {MAX_IMAGE_MB}MB)</div>
         {selected ? (
           <div className="text-xs text-secondary-700">
             Selected: {selected.name} ({Math.round(selected.size / 1024)} KB)
@@ -175,24 +287,38 @@ function FieldInput({
     );
   }
 
-  const inputType =
-    normalizedType === 'email' ? 'email' :
-    normalizedType === 'tel' ? 'tel' :
-    normalizedType === 'number' ? 'number' :
-    normalizedType === 'date' ? 'date' :
-    'text';
-
+  // ✅ Professional phone input with country dial code
+  if (showAsPhone) {
     return (
-      <input
-        type={inputType}
-        className={common}
-        value={typeof value === 'string' ? value : ''}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={field.label}
+      <PhoneNumberInput
+        label={field.label || 'Phone'}
         required={field.required}
+        value={typeof value === 'string' ? value : ''}
+        onChange={(next) => onChange(next)}
       />
     );
   }
+
+  const inputType =
+    normalizedType === 'email'
+      ? 'email'
+      : normalizedType === 'number'
+      ? 'number'
+      : normalizedType === 'date'
+      ? 'date'
+      : 'text';
+
+  return (
+    <input
+      type={inputType}
+      className={common}
+      value={typeof value === 'string' ? value : ''}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={field.label}
+      required={field.required}
+    />
+  );
+}
 
 export default function PublicFormPage() {
   const params = useParams();
@@ -220,11 +346,12 @@ export default function PublicFormPage() {
   const fields = payload?.form?.fields ?? [];
   const settings = payload?.form?.settings;
 
-  const buildInitialValues = (formFields: FormField[]): ValuesState => {
+  const buildInitialValues = useCallback((formFields: FormField[]): ValuesState => {
     const init: ValuesState = {};
     formFields.forEach((f) => {
       const fieldType = normalizeFieldType(f.type);
       const hasOptions = Array.isArray(f.options) && f.options.length > 0;
+
       if (isImageType(fieldType)) {
         init[f.key] = null;
         return;
@@ -240,21 +367,23 @@ export default function PublicFormPage() {
       init[f.key] = '';
     });
     return init;
-  };
+  }, []);
 
   const updateValue = (key: string, next: FieldValue) => {
     setValues((prev) => ({ ...prev, [key]: next }));
-    if (formError) {
-      setFormError('');
-    }
+    if (formError) setFormError('');
   };
 
-  const resetFormState = (formFields: FormField[] = fields) => {
-    setValues(buildInitialValues(formFields));
-    setFieldErrors({});
-    setTouchedFields({});
-    setFormError('');
-  };
+  const resetFormState = useCallback(
+    (formFields?: FormField[]) => {
+      const nextFields = formFields ?? fields;
+      setValues(buildInitialValues(nextFields));
+      setFieldErrors({});
+      setTouchedFields({});
+      setFormError('');
+    },
+    [buildInitialValues, fields]
+  );
 
   const valueToString = (value: FieldValue): string => {
     if (typeof value === 'string') return value.trim();
@@ -270,6 +399,7 @@ export default function PublicFormPage() {
   };
 
   const findValueByKeywords = (keywords: string[], sourceValues: ValuesState) => {
+    // Prefer matching field key/label keywords; then only accept non-empty values
     const match = fields.find((field) => {
       if (!fieldMatches(field, keywords)) return false;
       const val = valueToString(sourceValues[field.key]);
@@ -290,24 +420,19 @@ export default function PublicFormPage() {
     const eventDate = formatEventDate(payload?.event?.date);
     const eventTime = payload?.event?.time ?? '';
     const eventLocation = payload?.event?.location ?? '';
+
     const name = findValueByKeywords(['full name', 'name'], sourceValues);
     const email = findValueByKeywords(['email'], sourceValues);
-    const phone = findValueByKeywords(['phone', 'mobile', 'tel', 'contact'], sourceValues);
 
-    return {
-      formTitle,
-      eventTitle,
-      eventDate,
-      eventTime,
-      eventLocation,
-      name,
-      email,
-      phone,
-    };
+    // ✅ Better phone detection + formatting
+    const phoneRaw = findValueByKeywords(['phone', 'mobile', 'tel', 'contact', 'contactnumber'], sourceValues);
+    const phone = phoneRaw ? formatPrettyPhone(phoneRaw) : '';
+
+    return { formTitle, eventTitle, eventDate, eventTime, eventLocation, name, email, phone };
   };
 
   const buildSuccessDetails = (sourceValues: ValuesState): SuccessDetail[] => {
-    const details: SuccessDetail[] = [];
+    // ✅ FIX: prioritize user identity details FIRST so phone never gets sliced out
     const eventDetails: SuccessDetail[] = [];
     const preferred: SuccessDetail[] = [];
     const others: SuccessDetail[] = [];
@@ -316,46 +441,52 @@ export default function PublicFormPage() {
       const formatted = formatEventDate(payload.event.date);
       if (formatted) eventDetails.push({ label: 'Event Date', value: formatted });
     }
-    if (payload?.event?.time) {
-      eventDetails.push({ label: 'Event Time', value: payload.event.time });
-    }
-    if (payload?.event?.location) {
-      eventDetails.push({ label: 'Location', value: payload.event.location });
-    }
+    if (payload?.event?.time) eventDetails.push({ label: 'Event Time', value: payload.event.time });
+    if (payload?.event?.location) eventDetails.push({ label: 'Location', value: payload.event.location });
 
     fields
       .slice()
       .sort((a, b) => a.order - b.order)
       .forEach((field) => {
-        const value = valueToString(sourceValues[field.key]);
+        let value = valueToString(sourceValues[field.key]);
         if (!value) return;
+
+        const normalizedType = normalizeFieldType(field.type);
+        if (isPhoneType(normalizedType) || fieldMatches(field, ['phone', 'mobile', 'tel', 'contact'])) {
+          // ✅ pretty format for phone
+          value = formatPrettyPhone(value);
+        }
+
         const detail = { label: field.label || field.key, value };
-        if (fieldMatches(field, ['name', 'email', 'phone', 'contact', 'address'])) {
+
+        if (fieldMatches(field, ['full name', 'name', 'email', 'phone', 'mobile', 'tel', 'contact', 'address'])) {
           preferred.push(detail);
         } else {
           others.push(detail);
         }
       });
 
-    details.push(...eventDetails, ...preferred, ...others);
-    return details.slice(0, 4);
+    // ✅ Put preferred first, then event details, then others.
+    const details = [...preferred, ...eventDetails, ...others];
+
+    // ✅ Show more than 4 so phone doesn't get cut off; keep it clean.
+    return details.slice(0, 8);
   };
 
   const applyTemplate = (template: string, tokens: Record<string, string>) =>
-    template.replace(/{{\s*([\w.-]+)\s*}}/g, (_, key: string) => tokens[key] ?? '').replace(/\s{2,}/g, ' ').trim();
+    template
+      .replace(/{{\s*([\w.-]+)\s*}}/g, (_, key: string) => tokens[key] ?? '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
 
   const validateImageFile = (file: File): string | null => {
     const typeOk = ACCEPTED_IMAGE_TYPES.includes(file.type);
     if (!typeOk) {
       const ext = file.name.toLowerCase().split('.').pop();
       const extOk = ext ? ['jpg', 'jpeg', 'png', 'webp'].includes(ext) : false;
-      if (!extOk) {
-        return 'Unsupported file type. Use JPEG, PNG, or WebP.';
-      }
+      if (!extOk) return 'Unsupported file type. Use JPEG, PNG, or WebP.';
     }
-    if (file.size > MAX_IMAGE_BYTES) {
-      return `Image must be ${MAX_IMAGE_MB}MB or smaller.`;
-    }
+    if (file.size > MAX_IMAGE_BYTES) return `Image must be ${MAX_IMAGE_MB}MB or smaller.`;
     return null;
   };
 
@@ -365,9 +496,7 @@ export default function PublicFormPage() {
     const hasOptions = Array.isArray(field.options) && field.options.length > 0;
 
     if (isImageType(fieldType)) {
-      if (next instanceof File) {
-        return validateImageFile(next);
-      }
+      if (next instanceof File) return validateImageFile(next);
       return field.required ? `${label} is required.` : null;
     }
 
@@ -385,21 +514,15 @@ export default function PublicFormPage() {
     const raw = typeof next === 'string' ? next.trim() : '';
     if (!raw) return field.required ? `${label} is required.` : null;
 
-    if (fieldType === 'email' && !emailRe.test(raw)) {
-      return 'Please enter a valid email address.';
+    if (fieldType === 'email' && !emailRe.test(raw)) return 'Please enter a valid email address.';
+
+    // ✅ Stronger phone validation (E.164) for tel/phone types
+    if (isPhoneType(fieldType)) {
+      if (!e164Re.test(raw)) return 'Please enter a valid phone number (include country code), e.g. +2348012345678.';
     }
 
-    if (fieldType === 'tel' && !phoneRe.test(raw)) {
-      return 'Please enter a valid phone number.';
-    }
-
-    if (fieldType === 'number' && Number.isNaN(Number(raw))) {
-      return 'Please enter a valid number.';
-    }
-
-    if (fieldType === 'date' && Number.isNaN(new Date(raw).getTime())) {
-      return 'Please enter a valid date.';
-    }
+    if (fieldType === 'number' && Number.isNaN(Number(raw))) return 'Please enter a valid number.';
+    if (fieldType === 'date' && Number.isNaN(new Date(raw).getTime())) return 'Please enter a valid date.';
 
     return null;
   };
@@ -408,14 +531,12 @@ export default function PublicFormPage() {
     const fieldType = normalizeFieldType(field.type);
     setTouchedFields((prev) => (prev[field.key] ? prev : { ...prev, [field.key]: true }));
 
-    if (isImageType(fieldType)) {
-      if (next instanceof File) {
-        const error = validateImageFile(next);
-        if (error) {
-          setValues((prev) => ({ ...prev, [field.key]: null }));
-          setFieldErrors((prev) => ({ ...prev, [field.key]: error }));
-          return;
-        }
+    if (isImageType(fieldType) && next instanceof File) {
+      const error = validateImageFile(next);
+      if (error) {
+        setValues((prev) => ({ ...prev, [field.key]: null }));
+        setFieldErrors((prev) => ({ ...prev, [field.key]: error }));
+        return;
       }
     }
 
@@ -423,13 +544,11 @@ export default function PublicFormPage() {
     setFieldErrors((prev) => {
       if (!error && !prev[field.key]) return prev;
       const nextErrors = { ...prev };
-      if (error) {
-        nextErrors[field.key] = error;
-      } else {
-        delete nextErrors[field.key];
-      }
+      if (error) nextErrors[field.key] = error;
+      else delete nextErrors[field.key];
       return nextErrors;
     });
+
     updateValue(field.key, next);
   };
 
@@ -462,15 +581,13 @@ export default function PublicFormPage() {
     return () => {
       alive = false;
     };
-  }, [slug]);
+  }, [slug, resetFormState]);
 
   const eventTitle = payload?.event?.title ?? payload?.form?.title ?? 'Event Registration';
-  const eventSubtitle = payload?.event?.shortDescription ?? payload?.form?.description ?? 'Secure your spot by registering below.';
-  const bannerUrl =
-    settings?.design?.coverImageUrl ||
-    payload?.event?.bannerImage ||
-    payload?.event?.image ||
-    undefined;
+  const eventSubtitle =
+    payload?.event?.shortDescription ?? payload?.form?.description ?? 'Secure your spot by registering below.';
+  const bannerUrl = settings?.design?.coverImageUrl || payload?.event?.bannerImage || payload?.event?.image || undefined;
+
   const fallbackTokens = buildSuccessTokens(values);
   const tokenSource = Object.keys(successTokens).length > 0 ? successTokens : fallbackTokens;
 
@@ -493,8 +610,6 @@ export default function PublicFormPage() {
   const now = new Date();
   const isClosed = Boolean((closesAt && now > closesAt) || (expiresAt && now > expiresAt));
 
-  // “What to Expect” list:
-  // For now we derive it from event tags OR you can store it in form.settings later
   const whatToExpect = useMemo(() => {
     const tags = payload?.event?.tags ?? [];
     if (tags.length > 0) return tags.slice(0, 5);
@@ -515,8 +630,7 @@ export default function PublicFormPage() {
       };
 
       if (isImageType(fieldType)) {
-        const file = v instanceof File ? v : null;
-        if (file) markFilled();
+        if (v instanceof File) markFilled();
       } else if (isCheckboxType(fieldType) && hasOptions) {
         const list = Array.isArray(v) ? v : [];
         if (list.length > 0) markFilled();
@@ -527,9 +641,7 @@ export default function PublicFormPage() {
       }
 
       const error = validateFieldValue(f, v);
-      if (error) {
-        nextErrors[f.key] = error;
-      }
+      if (error) nextErrors[f.key] = error;
     });
 
     setTouchedFields((prev) => {
@@ -541,10 +653,12 @@ export default function PublicFormPage() {
     });
 
     setFieldErrors(nextErrors);
+
     if (!anyFilled) {
       setFormError('Please enter at least one field before submitting.');
       return false;
     }
+
     setFormError('');
     return Object.keys(nextErrors).length === 0;
   };
@@ -557,12 +671,15 @@ export default function PublicFormPage() {
         toast.error('This registration is closed.');
         return;
       }
+
       setFormError('');
       if (!validateClient()) {
         toast.error('Please complete the required fields.');
         return;
       }
+
       setSubmitting(true);
+
       const valuesPayload: Record<string, string | boolean | number | string[]> = {};
       const formData = new FormData();
       let hasFiles = false;
@@ -585,30 +702,32 @@ export default function PublicFormPage() {
         }
       });
 
-      // When files are present, send multipart with a JSON "values" payload + file parts keyed by field key.
-      const payloadToSend = hasFiles ? (() => {
-        formData.append('values', JSON.stringify(valuesPayload));
-        return formData;
-      })() : { values: valuesPayload };
+      const payloadToSend = hasFiles
+        ? (() => {
+            formData.append('values', JSON.stringify(valuesPayload));
+            return formData;
+          })()
+        : { values: valuesPayload };
 
       await apiClient.submitPublicForm(slug, payloadToSend);
+
       setSuccessTokens(buildSuccessTokens(values));
       setSuccessDetails(buildSuccessDetails(values));
       resetFormState();
       setSuccessOpen(true);
     } catch (err) {
       console.error(err);
-      const fieldErrors = extractServerFieldErrors(err);
-      if (Object.keys(fieldErrors).length > 0) {
-        setFieldErrors(fieldErrors);
+      const serverFieldErrors = extractServerFieldErrors(err);
+      if (Object.keys(serverFieldErrors).length > 0) {
+        setFieldErrors(serverFieldErrors);
         setTouchedFields((prev) => {
           const next = { ...prev };
-          Object.keys(fieldErrors).forEach((key) => {
+          Object.keys(serverFieldErrors).forEach((key) => {
             next[key] = true;
           });
           return next;
         });
-        toast.error(getFirstServerFieldError(fieldErrors) || 'Please review the highlighted fields.');
+        toast.error(getFirstServerFieldError(serverFieldErrors) || 'Please review the highlighted fields.');
         return;
       }
       const message = getServerErrorMessage(err, 'Failed to submit registration');
@@ -638,13 +757,17 @@ export default function PublicFormPage() {
   }
 
   return (
-    <div ref={rootRef} className="min-h-screen bg-gradient-to-b from-white via-secondary-50 to-white transition-opacity duration-500">
+    <div
+      ref={rootRef}
+      className="min-h-screen bg-gradient-to-b from-white via-secondary-50 to-white transition-opacity duration-500"
+    >
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         {/* Hero */}
         <div className="mb-8">
           <div className="inline-flex items-center rounded-full border border-secondary-200 bg-white px-3 py-1 text-xs text-secondary-600 shadow-sm">
             Registration
           </div>
+
           {bannerUrl ? (
             <div className="mt-4 overflow-hidden rounded-2xl border border-secondary-200 bg-white shadow-sm">
               <div className="relative h-48 sm:h-64">
@@ -659,10 +782,10 @@ export default function PublicFormPage() {
               </div>
             </div>
           ) : null}
-          <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight text-secondary-900">
-            {eventTitle}
-          </h1>
+
+          <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight text-secondary-900">{eventTitle}</h1>
           <p className="mt-2 text-secondary-600 max-w-2xl">{eventSubtitle}</p>
+
           {isClosed ? (
             <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               Registration is closed for this form.
@@ -676,9 +799,7 @@ export default function PublicFormPage() {
           <div ref={leftRef} className="space-y-6">
             <Card className="p-6">
               <h2 className="text-lg font-semibold text-secondary-900">What to Expect</h2>
-              <p className="text-sm text-secondary-600 mt-1">
-                Here’s a quick overview of what your experience will look like.
-              </p>
+              <p className="text-sm text-secondary-600 mt-1">Here’s a quick overview of what your experience will look like.</p>
 
               <ul ref={listRef} className="mt-4 space-y-3">
                 {whatToExpect.map((item, idx) => (
@@ -720,9 +841,9 @@ export default function PublicFormPage() {
           <div ref={rightRef}>
             <Card className="p-6 md:p-7 shadow-lg">
               <h2 className="text-xl font-semibold text-secondary-900">{payload.form.title}</h2>
-              {payload.form.description ? (
-                <p className="mt-2 text-sm text-secondary-600">{payload.form.description}</p>
-              ) : null}
+
+              {payload.form.description ? <p className="mt-2 text-sm text-secondary-600">{payload.form.description}</p> : null}
+
               {settings?.formHeaderNote ? (
                 <p className="mt-3 rounded-lg border border-secondary-100 bg-secondary-50 px-3 py-2 text-xs text-secondary-600">
                   {settings.formHeaderNote}
@@ -738,30 +859,32 @@ export default function PublicFormPage() {
                     const checkboxWithOptions =
                       isCheckboxType(fieldType) && Array.isArray(field.options) && field.options.length > 0;
                     const showLabel = !isCheckboxType(fieldType) || checkboxWithOptions;
-                    return (
-                    <div key={field.key} className="space-y-1.5">
-                      {showLabel ? (
-                        <label className="block text-sm font-medium text-secondary-700">
-                          {field.label} {field.required ? <span className="text-red-500">*</span> : null}
-                        </label>
-                      ) : null}
 
-                      <FieldInput
-                        field={field}
-                        value={values[field.key]}
-                        onChange={(next) => updateFieldValue(field, next)}
-                      />
-                      {fieldErrors[field.key] && touchedFields[field.key] && (
-                        <p className="text-xs text-red-600">{fieldErrors[field.key]}</p>
-                      )}
-                    </div>
-                  )})}
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {showLabel ? (
+                          <label className="block text-sm font-medium text-secondary-700">
+                            {field.label} {field.required ? <span className="text-red-500">*</span> : null}
+                          </label>
+                        ) : null}
+
+                        <FieldInput
+                          field={field}
+                          value={values[field.key]}
+                          onChange={(next) => updateFieldValue(field, next)}
+                        />
+
+                        {fieldErrors[field.key] && touchedFields[field.key] ? (
+                          <p className="text-xs text-red-600">{fieldErrors[field.key]}</p>
+                        ) : null}
+                      </div>
+                    );
+                  })}
               </div>
 
               <div className="mt-6">
-                {formError && (
-                  <p className="mb-3 text-xs text-red-600">{formError}</p>
-                )}
+                {formError ? <p className="mb-3 text-xs text-red-600">{formError}</p> : null}
+
                 <Button className="w-full" loading={submitting} disabled={submitting || isClosed} onClick={submit}>
                   Submit Registration
                 </Button>
@@ -775,9 +898,7 @@ export default function PublicFormPage() {
         </div>
 
         {/* Footer note */}
-        <div className="mt-10 text-center text-xs text-secondary-500">
-          Powered by Wisdom House Registration
-        </div>
+        <div className="mt-10 text-center text-xs text-secondary-500">Powered by support@wisdomchurchhq</div>
       </div>
 
       <SuccessModal
