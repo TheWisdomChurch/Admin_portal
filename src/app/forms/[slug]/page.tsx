@@ -34,10 +34,8 @@ const isRadioType = (value: string) =>
 const isCheckboxType = (value: string) =>
   value === 'checkbox' || value === 'checkboxes' || value === 'check_box' || value === 'multi_select';
 const isImageType = (value: string) => value === 'image' || value === 'file' || value === 'upload';
-
 const isPhoneType = (value: string) => value === 'tel' || value === 'phone' || value === 'mobile' || value === 'contact';
 
-// Keep the list manageable; add more as you like.
 const COUNTRY_PHONE_CODES = [
   { iso: 'NG', name: 'Nigeria', dial: '+234' },
   { iso: 'GH', name: 'Ghana', dial: '+233' },
@@ -60,11 +58,7 @@ function splitE164(value: string): { dial: string; national: string } | null {
   const trimmed = value.trim();
   if (!trimmed.startsWith('+')) return null;
 
-  // Find the best matching dial code from our list (longest match wins)
-  const candidates = COUNTRY_PHONE_CODES
-    .map((c) => c.dial)
-    .sort((a, b) => b.length - a.length);
-
+  const candidates = COUNTRY_PHONE_CODES.map((c) => c.dial).sort((a, b) => b.length - a.length);
   const dial = candidates.find((d) => trimmed.startsWith(d));
   if (!dial) return null;
 
@@ -73,17 +67,16 @@ function splitE164(value: string): { dial: string; national: string } | null {
 }
 
 function formatPrettyPhone(e164: string): string {
-  // Basic pretty format: "+234 801 234 5678" grouping; not perfect but readable.
   if (!e164 || typeof e164 !== 'string') return '';
   const s = e164.trim();
   if (!s.startsWith('+')) return s;
+
   const parsed = splitE164(s);
   if (!parsed) return s;
+
   const digits = parsed.national;
   const groups: string[] = [];
-  for (let i = 0; i < digits.length; i += 3) {
-    groups.push(digits.slice(i, i + 3));
-  }
+  for (let i = 0; i < digits.length; i += 3) groups.push(digits.slice(i, i + 3));
   return `${parsed.dial} ${groups.join(' ')}`.trim();
 }
 
@@ -105,8 +98,6 @@ function PhoneNumberInput({
   const currentDial = parsed?.dial ?? COUNTRY_PHONE_CODES[0].dial;
   const currentNational = parsed?.national ?? (value.startsWith('+') ? onlyDigits(value) : onlyDigits(value));
 
-  const dialOptions = COUNTRY_PHONE_CODES;
-
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-2">
@@ -120,7 +111,7 @@ function PhoneNumberInput({
           }}
           aria-label={`${label} country code`}
         >
-          {dialOptions.map((c) => (
+          {COUNTRY_PHONE_CODES.map((c) => (
             <option key={c.iso} value={c.dial}>
               {c.name} ({c.dial})
             </option>
@@ -287,7 +278,6 @@ function FieldInput({
     );
   }
 
-  // ✅ Professional phone input with country dial code
   if (showAsPhone) {
     return (
       <PhoneNumberInput
@@ -343,7 +333,11 @@ export default function PublicFormPage() {
   const [successDetails, setSuccessDetails] = useState<SuccessDetail[]>([]);
   const [successTokens, setSuccessTokens] = useState<Record<string, string>>({});
 
-  const fields = payload?.form?.fields ?? [];
+  // ✅ FIX: memoize fields so it doesn't become a new [] every render
+  const fields = useMemo<FormField[]>(() => {
+    return payload?.form?.fields ?? [];
+  }, [payload]);
+
   const settings = payload?.form?.settings;
 
   const buildInitialValues = useCallback((formFields: FormField[]): ValuesState => {
@@ -374,6 +368,7 @@ export default function PublicFormPage() {
     if (formError) setFormError('');
   };
 
+  // ✅ Now this is stable because `fields` is stable via useMemo
   const resetFormState = useCallback(
     (formFields?: FormField[]) => {
       const nextFields = formFields ?? fields;
@@ -399,7 +394,6 @@ export default function PublicFormPage() {
   };
 
   const findValueByKeywords = (keywords: string[], sourceValues: ValuesState) => {
-    // Prefer matching field key/label keywords; then only accept non-empty values
     const match = fields.find((field) => {
       if (!fieldMatches(field, keywords)) return false;
       const val = valueToString(sourceValues[field.key]);
@@ -420,11 +414,9 @@ export default function PublicFormPage() {
     const eventDate = formatEventDate(payload?.event?.date);
     const eventTime = payload?.event?.time ?? '';
     const eventLocation = payload?.event?.location ?? '';
-
     const name = findValueByKeywords(['full name', 'name'], sourceValues);
     const email = findValueByKeywords(['email'], sourceValues);
 
-    // ✅ Better phone detection + formatting
     const phoneRaw = findValueByKeywords(['phone', 'mobile', 'tel', 'contact', 'contactnumber'], sourceValues);
     const phone = phoneRaw ? formatPrettyPhone(phoneRaw) : '';
 
@@ -432,7 +424,6 @@ export default function PublicFormPage() {
   };
 
   const buildSuccessDetails = (sourceValues: ValuesState): SuccessDetail[] => {
-    // ✅ FIX: prioritize user identity details FIRST so phone never gets sliced out
     const eventDetails: SuccessDetail[] = [];
     const preferred: SuccessDetail[] = [];
     const others: SuccessDetail[] = [];
@@ -453,7 +444,6 @@ export default function PublicFormPage() {
 
         const normalizedType = normalizeFieldType(field.type);
         if (isPhoneType(normalizedType) || fieldMatches(field, ['phone', 'mobile', 'tel', 'contact'])) {
-          // ✅ pretty format for phone
           value = formatPrettyPhone(value);
         }
 
@@ -466,10 +456,7 @@ export default function PublicFormPage() {
         }
       });
 
-    // ✅ Put preferred first, then event details, then others.
     const details = [...preferred, ...eventDetails, ...others];
-
-    // ✅ Show more than 4 so phone doesn't get cut off; keep it clean.
     return details.slice(0, 8);
   };
 
@@ -516,7 +503,6 @@ export default function PublicFormPage() {
 
     if (fieldType === 'email' && !emailRe.test(raw)) return 'Please enter a valid email address.';
 
-    // ✅ Stronger phone validation (E.164) for tel/phone types
     if (isPhoneType(fieldType)) {
       if (!e164Re.test(raw)) return 'Please enter a valid phone number (include country code), e.g. +2348012345678.';
     }
@@ -793,9 +779,7 @@ export default function PublicFormPage() {
           ) : null}
         </div>
 
-        {/* 1 col on mobile, 2 cols on tablet+ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
-          {/* Left: event details */}
           <div ref={leftRef} className="space-y-6">
             <Card className="p-6">
               <h2 className="text-lg font-semibold text-secondary-900">What to Expect</h2>
@@ -820,9 +804,7 @@ export default function PublicFormPage() {
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="rounded-xl border border-secondary-100 bg-white p-4">
                     <div className="text-secondary-500">Date</div>
-                    <div className="mt-1 font-medium text-secondary-900">
-                      {new Date(payload.event.date).toLocaleDateString()}
-                    </div>
+                    <div className="mt-1 font-medium text-secondary-900">{new Date(payload.event.date).toLocaleDateString()}</div>
                   </div>
                   <div className="rounded-xl border border-secondary-100 bg-white p-4">
                     <div className="text-secondary-500">Time</div>
@@ -837,11 +819,9 @@ export default function PublicFormPage() {
             ) : null}
           </div>
 
-          {/* Right: the form */}
           <div ref={rightRef}>
             <Card className="p-6 md:p-7 shadow-lg">
               <h2 className="text-xl font-semibold text-secondary-900">{payload.form.title}</h2>
-
               {payload.form.description ? <p className="mt-2 text-sm text-secondary-600">{payload.form.description}</p> : null}
 
               {settings?.formHeaderNote ? (
@@ -889,15 +869,12 @@ export default function PublicFormPage() {
                   Submit Registration
                 </Button>
 
-                <p className="mt-3 text-xs text-secondary-500 text-center">
-                  By submitting, you confirm your details are accurate.
-                </p>
+                <p className="mt-3 text-xs text-secondary-500 text-center">By submitting, you confirm your details are accurate.</p>
               </div>
             </Card>
           </div>
         </div>
 
-        {/* Footer note */}
         <div className="mt-10 text-center text-xs text-secondary-500">Powered by support@wisdomchurchhq</div>
       </div>
 
@@ -908,10 +885,7 @@ export default function PublicFormPage() {
         description={successDescription}
         details={successDetails}
         onClose={() => setSuccessOpen(false)}
-        primaryAction={{
-          label: 'Done',
-          onClick: () => setSuccessOpen(false),
-        }}
+        primaryAction={{ label: 'Done', onClick: () => setSuccessOpen(false) }}
         secondaryAction={{
           label: 'Submit another response',
           onClick: () => {
