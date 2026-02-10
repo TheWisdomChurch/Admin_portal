@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
@@ -13,8 +14,13 @@ import { withAuth } from '@/providers/withAuth';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, Copy, Save, Globe } from 'lucide-react';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
+import { AlertModal } from '@/ui/AlertModal';
 
 type FieldDraft = Omit<FormField, 'id'>;
+
+const MAX_BANNER_MB = 5;
+const MAX_BANNER_BYTES = MAX_BANNER_MB * 1024 * 1024;
+const ACCEPTED_BANNER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 function EditFormPage() {
   const params = useParams();
@@ -30,6 +36,10 @@ function EditFormPage() {
   const [publishing, setPublishing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const [removeFieldIndex, setRemoveFieldIndex] = useState<number | null>(null);
 
   const clearFieldError = (key: string) =>
     setFieldErrors((prev) => {
@@ -38,6 +48,39 @@ function EditFormPage() {
       delete next[key];
       return next;
     });
+
+  const validateBannerFile = (file: File): string | null => {
+    if (!ACCEPTED_BANNER_TYPES.includes(file.type)) {
+      return 'Banner must be JPEG, PNG, or WebP.';
+    }
+    if (file.size > MAX_BANNER_BYTES) {
+      return `Banner must be ${MAX_BANNER_MB}MB or smaller.`;
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    return () => {
+      if (bannerPreview) URL.revokeObjectURL(bannerPreview);
+    };
+  }, [bannerPreview]);
+
+  const handleBannerFile = (file?: File) => {
+    if (!file) {
+      setBannerFile(null);
+      setBannerPreview(null);
+      return;
+    }
+    const error = validateBannerFile(file);
+    if (error) {
+      toast.error(error);
+      setBannerFile(null);
+      setBannerPreview(null);
+      return;
+    }
+    setBannerFile(file);
+    setBannerPreview(URL.createObjectURL(file));
+  };
 
   useEffect(() => {
     if (!formId) return;
@@ -68,8 +111,32 @@ function EditFormPage() {
     ]);
   };
 
-  const removeField = (index: number) => {
-    setFields((prev) => prev.filter((_, i) => i !== index));
+  const requestRemoveField = (index: number) => {
+    setRemoveFieldIndex(index);
+  };
+
+  const confirmRemoveField = () => {
+    if (removeFieldIndex === null) return;
+    setFields((prev) => prev.filter((_, i) => i !== removeFieldIndex));
+    setRemoveFieldIndex(null);
+  };
+
+  const uploadBanner = async () => {
+    if (!form || !bannerFile) return;
+    try {
+      setBannerUploading(true);
+      const updated = await apiClient.uploadFormBanner(form.id, bannerFile);
+      setForm(updated);
+      setBannerFile(null);
+      setBannerPreview(null);
+      toast.success('Banner uploaded');
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'Banner upload failed';
+      toast.error(message);
+    } finally {
+      setBannerUploading(false);
+    }
   };
 
   const saveForm = async () => {
@@ -107,6 +174,8 @@ function EditFormPage() {
       setSaving(false);
     }
   };
+
+  const pendingField = removeFieldIndex !== null ? fields[removeFieldIndex] : null;
 
   const publishForm = async () => {
     if (!form) return;
@@ -202,6 +271,35 @@ function EditFormPage() {
             }}
             helperText="Shown at the top of the public form."
           />
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input
+              label="Or upload header image"
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleBannerFile(e.target.files?.[0])}
+              helperText="Uploads to S3 and replaces the URL above."
+            />
+            <div className="flex items-end">
+              <Button
+                variant="outline"
+                onClick={uploadBanner}
+                loading={bannerUploading}
+                disabled={!bannerFile || bannerUploading}
+              >
+                Upload Banner
+              </Button>
+            </div>
+          </div>
+          {(bannerPreview || form.settings?.design?.coverImageUrl) && (
+            <Image
+              src={bannerPreview || form.settings?.design?.coverImageUrl || ''}
+              alt="Banner preview"
+              width={1200}
+              height={400}
+              className="w-full max-h-64 rounded-[var(--radius-card)] object-cover border border-[var(--color-border-secondary)]"
+              unoptimized
+            />
+          )}
           <Input
             label="Success modal title (optional)"
             value={form.settings?.successTitle || ''}
@@ -292,7 +390,7 @@ function EditFormPage() {
                     />
                     Required
                   </label>
-                  <Button variant="outline" size="sm" onClick={() => removeField(index)} icon={<Trash2 className="h-4 w-4" />}>
+                  <Button variant="outline" size="sm" onClick={() => requestRemoveField(index)} icon={<Trash2 className="h-4 w-4" />}>
                     Remove
                   </Button>
                 </div>
@@ -336,6 +434,15 @@ function EditFormPage() {
           </Button>
         </div>
       </Card>
+
+      <AlertModal
+        open={removeFieldIndex !== null}
+        onClose={() => setRemoveFieldIndex(null)}
+        title="Remove Field"
+        description={`Remove "${pendingField?.label || 'this field'}"? This will delete it from the form.`}
+        primaryAction={{ label: 'Remove', onClick: confirmRemoveField, variant: 'danger' }}
+        secondaryAction={{ label: 'Cancel', onClick: () => setRemoveFieldIndex(null), variant: 'outline' }}
+      />
     </div>
   );
 }

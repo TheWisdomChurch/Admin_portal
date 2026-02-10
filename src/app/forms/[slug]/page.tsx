@@ -2,9 +2,11 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
+import { Calendar, Check, MousePointer2, Send } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import type { PublicFormPayload, FormField } from '@/lib/types';
 import { Card } from '@/ui/Card';
@@ -27,6 +29,7 @@ const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const e164Re = /^\+[1-9]\d{7,14}$/;
 
 const normalizeFieldType = (value?: string) => (value || '').toLowerCase();
+const normalizeTypeToken = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
 const isTextareaType = (value: string) => value === 'textarea' || value === 'text_area' || value === 'multiline';
 const isSelectType = (value: string) => value === 'select' || value === 'dropdown';
 const isRadioType = (value: string) =>
@@ -34,7 +37,50 @@ const isRadioType = (value: string) =>
 const isCheckboxType = (value: string) =>
   value === 'checkbox' || value === 'checkboxes' || value === 'check_box' || value === 'multi_select';
 const isImageType = (value: string) => value === 'image' || value === 'file' || value === 'upload';
-const isPhoneType = (value: string) => value === 'tel' || value === 'phone' || value === 'mobile' || value === 'contact';
+const phoneTypeTokens = new Set([
+  'tel',
+  'phone',
+  'mobile',
+  'contact',
+  'phonenumber',
+  'contactnumber',
+  'mobilenumber',
+  'telephonenumber',
+  'telnumber',
+  'telephone',
+]);
+const isPhoneType = (value: string) => {
+  const normalized = normalizeFieldType(value);
+  if (!normalized) return false;
+  if (normalized === 'tel' || normalized === 'phone' || normalized === 'mobile' || normalized === 'contact') return true;
+  return phoneTypeTokens.has(normalizeTypeToken(normalized));
+};
+const isPhoneLikeField = (field: FormField) => {
+  const hay = `${field.key} ${field.label}`.toLowerCase();
+  return /(phone|mobile|tel|telephone|contact[-_\s]?number)/.test(hay);
+};
+
+const pad2 = (value: number) => value.toString().padStart(2, '0');
+const formatDate = (value?: string, format?: string) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const day = pad2(date.getDate());
+  const month = pad2(date.getMonth() + 1);
+  const year = date.getFullYear();
+
+  switch (format) {
+    case 'mm/dd/yyyy':
+      return `${month}/${day}/${year}`;
+    case 'dd/mm/yyyy':
+      return `${day}/${month}/${year}`;
+    case 'dd/mm':
+      return `${day}/${month}`;
+    case 'yyyy-mm-dd':
+    default:
+      return `${year}-${month}-${day}`;
+  }
+};
 
 const COUNTRY_PHONE_CODES = [
   { iso: 'NG', name: 'Nigeria', dial: '+234' },
@@ -158,7 +204,9 @@ function FieldInput({
   const showAsRadio = isRadioType(normalizedType);
   const showAsCheckbox = isCheckboxType(normalizedType);
   const showAsImage = isImageType(normalizedType);
-  const showAsPhone = isPhoneType(normalizedType);
+  const inferredPhone =
+    isPhoneLikeField(field) && !showAsTextarea && !showAsSelect && !showAsRadio && !showAsCheckbox && !showAsImage;
+  const showAsPhone = isPhoneType(normalizedType) || inferredPhone;
 
   const checkboxClass =
     'h-4 w-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500 appearance-auto accent-[var(--color-accent-primary)]';
@@ -402,11 +450,7 @@ export default function PublicFormPage() {
     return match ? valueToString(sourceValues[match.key]) : '';
   };
 
-  const formatEventDate = (value?: string) => {
-    if (!value) return '';
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString();
-  };
+  const formatEventDate = (value?: string) => formatDate(value, settings?.dateFormat);
 
   const buildSuccessTokens = (sourceValues: ValuesState) => {
     const formTitle = payload?.form?.title ?? '';
@@ -481,6 +525,7 @@ export default function PublicFormPage() {
     const fieldType = normalizeFieldType(field.type);
     const label = field.label || 'This field';
     const hasOptions = Array.isArray(field.options) && field.options.length > 0;
+    const isPhoneField = isPhoneType(fieldType) || isPhoneLikeField(field);
 
     if (isImageType(fieldType)) {
       if (next instanceof File) return validateImageFile(next);
@@ -503,7 +548,7 @@ export default function PublicFormPage() {
 
     if (fieldType === 'email' && !emailRe.test(raw)) return 'Please enter a valid email address.';
 
-    if (isPhoneType(fieldType)) {
+    if (isPhoneField) {
       if (!e164Re.test(raw)) return 'Please enter a valid phone number (include country code), e.g. +2348012345678.';
     }
 
@@ -572,7 +617,81 @@ export default function PublicFormPage() {
   const eventTitle = payload?.event?.title ?? payload?.form?.title ?? 'Event Registration';
   const eventSubtitle =
     payload?.event?.shortDescription ?? payload?.form?.description ?? 'Secure your spot by registering below.';
+  const heroTitle = settings?.design?.heroTitle?.trim() || settings?.introTitle?.trim() || eventTitle;
+  const heroSubtitle = settings?.design?.heroSubtitle?.trim() || settings?.introSubtitle?.trim() || eventSubtitle;
+  const formTitle = payload?.form?.title?.trim() || 'Registration Form';
+  const normalizedHeroTitle = heroTitle.trim().toLowerCase();
+  const normalizedFormTitle = formTitle.toLowerCase();
+  const displayFormTitle =
+    normalizedFormTitle && normalizedFormTitle !== normalizedHeroTitle ? formTitle : 'Registration Form';
+  const formDescription = payload?.form?.description?.trim() || '';
+  const showFormDescription = Boolean(formDescription) && heroSubtitle.trim() === '';
   const bannerUrl = settings?.design?.coverImageUrl || payload?.event?.bannerImage || payload?.event?.image || undefined;
+
+  const layoutMode = useMemo(() => {
+    if (settings?.layoutMode === 'split' || settings?.layoutMode === 'stack') return settings.layoutMode;
+    if (settings?.design?.layout === 'split') return 'split';
+    if (settings?.design?.layout === 'stacked' || settings?.design?.layout === 'inline') return 'stack';
+    return 'split';
+  }, [settings]);
+
+  const introBullets = useMemo(() => {
+    if (Array.isArray(settings?.introBullets)) {
+      return settings.introBullets.map((item) => item.trim()).filter(Boolean);
+    }
+    const tags = payload?.event?.tags ?? [];
+    if (tags.length > 0) return tags.slice(0, 5);
+    return ['Smooth check-in', 'Engaging sessions', 'Friendly community', 'Practical takeaways'];
+  }, [payload, settings]);
+
+  const introBulletSubs = useMemo(() => {
+    return Array.isArray(settings?.introBulletSubtexts)
+      ? settings?.introBulletSubtexts.map((item) => item.trim())
+      : [];
+  }, [settings]);
+
+  const submitButtonLabel =
+    settings?.submitButtonText?.trim() || settings?.design?.ctaButtonLabel?.trim() || 'Submit Registration';
+  const privacyCopy = settings?.design?.privacyCopy ?? 'By submitting, you confirm your details are accurate.';
+  const footerText = settings?.footerText?.trim() || settings?.design?.footerNote?.trim() || 'Powered by support@wisdomchurchhq';
+  const footerStyle =
+    settings?.footerBg || settings?.footerTextColor
+      ? { backgroundColor: settings?.footerBg, color: settings?.footerTextColor }
+      : undefined;
+
+  const themeStyle = useMemo<React.CSSProperties | undefined>(() => {
+    const accent =
+      settings?.submitButtonBg || settings?.design?.accentColor || settings?.design?.primaryColor || undefined;
+    const textOnPrimary = settings?.submitButtonTextColor || undefined;
+    if (!accent && !textOnPrimary) return undefined;
+    return {
+      ...(accent
+        ? {
+            ['--color-accent-primary' as string]: accent,
+            ['--color-accent-primaryhover' as string]: accent,
+            ['--color-accent-primaryactive' as string]: accent,
+          }
+        : {}),
+      ...(textOnPrimary ? { ['--color-text-onprimary' as string]: textOnPrimary } : {}),
+    };
+  }, [settings]);
+
+  const submitButtonIcon = useMemo(() => {
+    switch (settings?.submitButtonIcon) {
+      case 'check':
+        return <Check className="h-4 w-4" />;
+      case 'send':
+        return <Send className="h-4 w-4" />;
+      case 'calendar':
+        return <Calendar className="h-4 w-4" />;
+      case 'cursor':
+        return <MousePointer2 className="h-4 w-4" />;
+      default:
+        return undefined;
+    }
+  }, [settings?.submitButtonIcon]);
+
+  const hasLeftColumn = introBullets.length > 0 || Boolean(payload?.event);
 
   const fallbackTokens = buildSuccessTokens(values);
   const tokenSource = Object.keys(successTokens).length > 0 ? successTokens : fallbackTokens;
@@ -595,12 +714,6 @@ export default function PublicFormPage() {
   const expiresAt = parseDate(settings?.expiresAt);
   const now = new Date();
   const isClosed = Boolean((closesAt && now > closesAt) || (expiresAt && now > expiresAt));
-
-  const whatToExpect = useMemo(() => {
-    const tags = payload?.event?.tags ?? [];
-    if (tags.length > 0) return tags.slice(0, 5);
-    return ['Smooth check-in', 'Engaging sessions', 'Friendly community', 'Practical takeaways'];
-  }, [payload]);
 
   const validateClient = () => {
     const nextErrors: Record<string, string> = {};
@@ -735,7 +848,7 @@ export default function PublicFormPage() {
     return (
       <div className="min-h-[60vh] flex items-center justify-center p-6">
         <Card className="p-6 max-w-lg w-full">
-          <h1 className="text-xl font-semibold text-secondary-900">Form not available</h1>
+          <h1 className="text-xl font-medium text-secondary-900">Form not available</h1>
           <p className="text-secondary-600 mt-2">This registration link is invalid or has expired.</p>
         </Card>
       </div>
@@ -746,7 +859,39 @@ export default function PublicFormPage() {
     <div
       ref={rootRef}
       className="min-h-screen bg-gradient-to-b from-white via-secondary-50 to-white transition-opacity duration-500"
+      style={themeStyle}
     >
+      <header className="border-b border-secondary-100 bg-white/90 backdrop-blur">
+        <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Link href="/" className="flex items-center gap-3" aria-label="Wisdom Church home">
+            <span className="relative h-10 w-10 overflow-hidden rounded-full border border-secondary-200 bg-white">
+              <Image src="/OIP.webp" alt="Wisdom Church logo" fill className="object-cover" sizes="40px" />
+            </span>
+            <div className="leading-tight">
+              <div className="text-sm font-medium text-secondary-900">Wisdom Church</div>
+              <div className="text-xs text-secondary-500">Registration</div>
+            </div>
+          </Link>
+          <nav className="flex flex-wrap items-center gap-3 text-xs text-secondary-500">
+            <Link
+              href="/"
+              className="rounded-full px-3 py-1 hover:text-secondary-900 hover:bg-secondary-50 transition-colors"
+            >
+              Home
+            </Link>
+            <a
+              href="mailto:support@wisdomchurchhq"
+              className="rounded-full px-3 py-1 hover:text-secondary-900 hover:bg-secondary-50 transition-colors"
+            >
+              Contact
+            </a>
+            <span className="inline-flex items-center rounded-full border border-secondary-200 bg-white px-3 py-1 shadow-sm">
+              Secure form
+            </span>
+          </nav>
+        </div>
+      </header>
+
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         {/* Hero */}
         <div className="mb-8">
@@ -769,8 +914,8 @@ export default function PublicFormPage() {
             </div>
           ) : null}
 
-          <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight text-secondary-900">{eventTitle}</h1>
-          <p className="mt-2 text-secondary-600 max-w-2xl">{eventSubtitle}</p>
+          <h1 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight text-secondary-900">{heroTitle}</h1>
+          <p className="mt-2 text-secondary-600 max-w-2xl">{heroSubtitle}</p>
 
           {isClosed ? (
             <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -779,50 +924,68 @@ export default function PublicFormPage() {
           ) : null}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
-          <div ref={leftRef} className="space-y-6">
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold text-secondary-900">What to Expect</h2>
-              <p className="text-sm text-secondary-600 mt-1">Here’s a quick overview of what your experience will look like.</p>
+        <div
+          className={`grid grid-cols-1 gap-6 md:gap-8 items-start ${
+            layoutMode === 'split' && hasLeftColumn ? 'lg:grid-cols-[1.1fr_1fr]' : ''
+          }`}
+        >
+          {hasLeftColumn ? (
+            <div ref={leftRef} className="space-y-6">
+              {introBullets.length > 0 ? (
+                <Card className="p-6 transition-shadow duration-300 hover:shadow-md">
+                  <h2 className="text-lg font-medium text-secondary-900">What to Expect</h2>
+                  <p className="text-sm text-secondary-600 mt-1">
+                    Here’s a quick overview of what your experience will look like.
+                  </p>
 
-              <ul ref={listRef} className="mt-4 space-y-3">
-                {whatToExpect.map((item, idx) => (
-                  <li
-                    key={`${item}-${idx}`}
-                    className="flex items-start gap-3 rounded-xl border border-secondary-100 bg-white px-4 py-3 shadow-sm"
-                  >
-                    <div className="mt-1 h-2.5 w-2.5 rounded-full bg-primary-600" />
-                    <div className="text-sm text-secondary-800">{item}</div>
-                  </li>
-                ))}
-              </ul>
-            </Card>
+                  <ul ref={listRef} className="mt-4 space-y-3">
+                    {introBullets.map((item, idx) => {
+                      const sub = introBulletSubs[idx];
+                      return (
+                        <li
+                          key={`${item}-${idx}`}
+                          className="flex items-start gap-3 rounded-xl border border-secondary-100 bg-white px-4 py-3 shadow-sm"
+                        >
+                          <div className="mt-1 h-2.5 w-2.5 rounded-full bg-primary-600" />
+                          <div className="text-sm text-secondary-800">
+                            <div className="font-medium text-secondary-900">{item}</div>
+                            {sub ? <div className="mt-1 text-xs text-secondary-500">{sub}</div> : null}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </Card>
+              ) : null}
 
-            {payload.event ? (
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold text-secondary-900">Event Details</h3>
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                  <div className="rounded-xl border border-secondary-100 bg-white p-4">
-                    <div className="text-secondary-500">Date</div>
-                    <div className="mt-1 font-medium text-secondary-900">{new Date(payload.event.date).toLocaleDateString()}</div>
+              {payload.event ? (
+                <Card className="p-6 transition-shadow duration-300 hover:shadow-md">
+                  <h3 className="text-lg font-medium text-secondary-900">Event Details</h3>
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                    <div className="rounded-xl border border-secondary-100 bg-white p-4">
+                      <div className="text-secondary-500">Date</div>
+                      <div className="mt-1 font-medium text-secondary-900">
+                        {formatEventDate(payload.event.date) || payload.event.date}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-secondary-100 bg-white p-4">
+                      <div className="text-secondary-500">Time</div>
+                      <div className="mt-1 font-medium text-secondary-900">{payload.event.time}</div>
+                    </div>
+                    <div className="rounded-xl border border-secondary-100 bg-white p-4 sm:col-span-2">
+                      <div className="text-secondary-500">Location</div>
+                      <div className="mt-1 font-medium text-secondary-900">{payload.event.location}</div>
+                    </div>
                   </div>
-                  <div className="rounded-xl border border-secondary-100 bg-white p-4">
-                    <div className="text-secondary-500">Time</div>
-                    <div className="mt-1 font-medium text-secondary-900">{payload.event.time}</div>
-                  </div>
-                  <div className="rounded-xl border border-secondary-100 bg-white p-4 sm:col-span-2">
-                    <div className="text-secondary-500">Location</div>
-                    <div className="mt-1 font-medium text-secondary-900">{payload.event.location}</div>
-                  </div>
-                </div>
-              </Card>
-            ) : null}
-          </div>
+                </Card>
+              ) : null}
+            </div>
+          ) : null}
 
           <div ref={rightRef}>
-            <Card className="p-6 md:p-7 shadow-lg">
-              <h2 className="text-xl font-semibold text-secondary-900">{payload.form.title}</h2>
-              {payload.form.description ? <p className="mt-2 text-sm text-secondary-600">{payload.form.description}</p> : null}
+            <Card className="p-6 md:p-7 shadow-md transition-shadow duration-300 hover:shadow-lg">
+              <h2 className="text-xl font-medium text-secondary-900">{displayFormTitle}</h2>
+              {showFormDescription ? <p className="mt-2 text-sm text-secondary-600">{formDescription}</p> : null}
 
               {settings?.formHeaderNote ? (
                 <p className="mt-3 rounded-lg border border-secondary-100 bg-secondary-50 px-3 py-2 text-xs text-secondary-600">
@@ -865,17 +1028,62 @@ export default function PublicFormPage() {
               <div className="mt-6">
                 {formError ? <p className="mb-3 text-xs text-red-600">{formError}</p> : null}
 
-                <Button className="w-full" loading={submitting} disabled={submitting || isClosed} onClick={submit}>
-                  Submit Registration
+                <Button
+                  className="w-full"
+                  loading={submitting}
+                  disabled={submitting || isClosed}
+                  onClick={submit}
+                  icon={submitButtonIcon}
+                >
+                  {submitButtonLabel}
                 </Button>
 
-                <p className="mt-3 text-xs text-secondary-500 text-center">By submitting, you confirm your details are accurate.</p>
+                <p className="mt-3 text-xs text-secondary-500 text-center">{privacyCopy}</p>
               </div>
             </Card>
           </div>
         </div>
 
-        <div className="mt-10 text-center text-xs text-secondary-500">Powered by support@wisdomchurchhq</div>
+        <footer className="mt-14 border-t border-secondary-100 pt-10" style={footerStyle}>
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-secondary-900">Wisdom Church</div>
+              <p className="text-xs text-secondary-600">
+                We are committed to creating welcoming, well-organized experiences that honor your time and keep you
+                informed from registration to check-in.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-secondary-900">Contact</div>
+              <ul className="space-y-1 text-xs text-secondary-600">
+                <li>support@wisdomchurchhq</li>
+                <li>Available Mon–Fri, 9:00am–5:00pm</li>
+                <li>Response time: within 24 hours</li>
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-secondary-900">Resources</div>
+              <ul className="space-y-1 text-xs text-secondary-600">
+                <li>Registration guidelines</li>
+                <li>Event policies</li>
+                <li>FAQs</li>
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-secondary-900">Privacy & Security</div>
+              <ul className="space-y-1 text-xs text-secondary-600">
+                <li>Your data is handled securely</li>
+                <li>Access is limited to authorized staff</li>
+                <li>Updates shared only when necessary</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-col gap-2 border-t border-secondary-100 pt-4 text-xs text-secondary-500 sm:flex-row sm:items-center sm:justify-between">
+            <span>{footerText}</span>
+            <span>© {new Date().getFullYear()} Wisdom Church. All rights reserved.</span>
+          </div>
+        </footer>
       </div>
 
       <SuccessModal

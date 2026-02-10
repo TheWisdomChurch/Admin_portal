@@ -4,6 +4,7 @@
 // so admins can create new forms from the canonical /dashboard/forms/new route.
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Save, Plus, Trash2, Copy } from 'lucide-react';
@@ -12,6 +13,7 @@ import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/layouts';
 import { Input } from '@/ui/input';
+import { AlertModal } from '@/ui/AlertModal';
 
 import { apiClient } from '@/lib/api';
 import { buildPublicFormUrl } from '@/lib/utils';
@@ -39,6 +41,10 @@ type DateFormat = (typeof dateFormats)[number];
 
 const submitButtonIcons = ['check', 'send', 'calendar', 'cursor', 'none'] as const;
 type SubmitButtonIcon = (typeof submitButtonIcons)[number];
+
+const MAX_BANNER_MB = 5;
+const MAX_BANNER_BYTES = MAX_BANNER_MB * 1024 * 1024;
+const ACCEPTED_BANNER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 const normalizeSlug = (value: string) =>
   value
@@ -86,10 +92,13 @@ export default withAuth(function NewFormPage() {
   const [submitButtonIcon, setSubmitButtonIcon] = useState<SubmitButtonIcon>('check');
   const [formHeaderNote, setFormHeaderNote] = useState('Please ensure details are accurate before submitting.');
   const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [successTitle, setSuccessTitle] = useState('');
   const [successSubtitle, setSuccessSubtitle] = useState('');
   const [successMessage, setSuccessMessage] = useState('We would love to see you.');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [removeFieldIndex, setRemoveFieldIndex] = useState<number | null>(null);
 
   const clearFieldError = (key: string) =>
     setFieldErrors((prev) => {
@@ -104,6 +113,39 @@ export default withAuth(function NewFormPage() {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return undefined;
     return d.toISOString();
+  };
+
+  const validateBannerFile = (file: File): string | null => {
+    if (!ACCEPTED_BANNER_TYPES.includes(file.type)) {
+      return 'Banner must be JPEG, PNG, or WebP.';
+    }
+    if (file.size > MAX_BANNER_BYTES) {
+      return `Banner must be ${MAX_BANNER_MB}MB or smaller.`;
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    return () => {
+      if (bannerPreview) URL.revokeObjectURL(bannerPreview);
+    };
+  }, [bannerPreview]);
+
+  const handleBannerFile = (file?: File) => {
+    if (!file) {
+      setBannerFile(null);
+      setBannerPreview(null);
+      return;
+    }
+    const error = validateBannerFile(file);
+    if (error) {
+      toast.error(error);
+      setBannerFile(null);
+      setBannerPreview(null);
+      return;
+    }
+    setBannerFile(file);
+    setBannerPreview(URL.createObjectURL(file));
   };
 
   useEffect(() => {
@@ -138,8 +180,14 @@ export default withAuth(function NewFormPage() {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, ...updates } : f)));
   };
 
-  const removeField = (index: number) => {
-    setFields((prev) => prev.filter((_, i) => i !== index));
+  const requestRemoveField = (index: number) => {
+    setRemoveFieldIndex(index);
+  };
+
+  const confirmRemoveField = () => {
+    if (removeFieldIndex === null) return;
+    setFields((prev) => prev.filter((_, i) => i !== removeFieldIndex));
+    setRemoveFieldIndex(null);
   };
 
   const save = async () => {
@@ -195,7 +243,15 @@ export default withAuth(function NewFormPage() {
 
     try {
       setSaving(true);
-      const created = await apiClient.createAdminForm(payload);
+      let created = await apiClient.createAdminForm(payload);
+      if (bannerFile) {
+        try {
+          created = await apiClient.uploadFormBanner(created.id, bannerFile);
+        } catch (uploadErr) {
+          console.error('Banner upload failed:', uploadErr);
+          toast.error('Form saved, but banner upload failed.');
+        }
+      }
       let slugToUse = created.slug || normalizedSlug;
       let publishedOk = false;
       let publishError: string | null = null;
@@ -229,6 +285,8 @@ export default withAuth(function NewFormPage() {
       setSaving(false);
     }
   };
+
+  const pendingField = removeFieldIndex !== null ? fields[removeFieldIndex] : null;
 
   if (authBlocked) {
     return (
@@ -304,6 +362,13 @@ export default withAuth(function NewFormPage() {
               helperText="Shown at the top of the public form."
             />
             <Input
+              label="Or upload header image"
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleBannerFile(e.target.files?.[0])}
+              helperText="Uploads to S3 and replaces the URL above."
+            />
+            <Input
               label="Success modal title (optional)"
               value={successTitle}
               onChange={(e) => setSuccessTitle(e.target.value)}
@@ -327,6 +392,18 @@ export default withAuth(function NewFormPage() {
                 placeholder="We would love to see you."
               />
             </div>
+            {(bannerPreview || coverImageUrl.trim()) && (
+              <div className="md:col-span-2">
+                <Image
+                  src={bannerPreview || coverImageUrl.trim()}
+                  alt="Banner preview"
+                  width={1200}
+                  height={400}
+                  className="w-full max-h-64 rounded-[var(--radius-card)] object-cover border border-[var(--color-border-secondary)]"
+                  unoptimized
+                />
+              </div>
+            )}
           </div>
 
           <div className="md:col-span-2 grid gap-3 md:grid-cols-3">
@@ -495,7 +572,7 @@ export default withAuth(function NewFormPage() {
                     />
                     Required
                   </label>
-                  <Button variant="outline" size="sm" onClick={() => removeField(index)} icon={<Trash2 className="h-4 w-4" />}>
+                  <Button variant="outline" size="sm" onClick={() => requestRemoveField(index)} icon={<Trash2 className="h-4 w-4" />}>
                     Remove
                   </Button>
                 </div>
@@ -765,6 +842,15 @@ export default withAuth(function NewFormPage() {
           </div>
         </div>
       </Card>
+
+      <AlertModal
+        open={removeFieldIndex !== null}
+        onClose={() => setRemoveFieldIndex(null)}
+        title="Remove Field"
+        description={`Remove "${pendingField?.label || 'this field'}"? This will delete it from the form.`}
+        primaryAction={{ label: 'Remove', onClick: confirmRemoveField, variant: 'danger' }}
+        secondaryAction={{ label: 'Cancel', onClick: () => setRemoveFieldIndex(null), variant: 'outline' }}
+      />
     </div>
   );
 }, { requiredRole: 'admin' });

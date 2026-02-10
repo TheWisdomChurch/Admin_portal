@@ -208,6 +208,24 @@ export interface CreateReelData {
 }
 
 /* =========================
+   UPLOADS
+========================= */
+
+export interface UploadPresignRequest {
+  filename: string;
+  contentType: string;
+  size: number;
+  folder?: string;
+}
+
+export interface UploadPresignResponse {
+  uploadUrl: string;
+  publicUrl: string;
+  key?: string;
+  expiresAt?: string;
+}
+
+/* =========================
    TESTIMONIALS
 ========================= */
 
