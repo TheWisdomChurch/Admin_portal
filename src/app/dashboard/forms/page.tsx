@@ -2,6 +2,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Plus, Link as LinkIcon, Save, Copy, Trash2 } from 'lucide-react';
@@ -12,6 +13,7 @@ import { DataTable } from '@/components/DateTable';
 import { PageHeader } from '@/layouts';
 import { Input } from '@/ui/input';
 import { VerifyActionModal } from '@/ui/VerifyActionModal';
+import { AlertModal } from '@/ui/AlertModal';
 
 import { apiClient, mapValidationErrors } from '@/lib/api';
 import type {
@@ -46,6 +48,10 @@ type FieldDraft = {
 
 const dateFormats = ['yyyy-mm-dd', 'mm/dd/yyyy', 'dd/mm/yyyy', 'dd/mm'] as const;
 type DateFormat = (typeof dateFormats)[number];
+
+const MAX_BANNER_MB = 5;
+const MAX_BANNER_BYTES = MAX_BANNER_MB * 1024 * 1024;
+const ACCEPTED_BANNER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 type Column<T> = {
   key: keyof T;
@@ -207,10 +213,13 @@ export default withAuth(function FormsPage() {
 
   const [formHeaderNote, setFormHeaderNote] = useState('Please ensure details are accurate before submitting.');
   const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [successTitle, setSuccessTitle] = useState('');
   const [successSubtitle, setSuccessSubtitle] = useState('');
   const [successMessage, setSuccessMessage] = useState('We would love to see you.');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [removeFieldIndex, setRemoveFieldIndex] = useState<number | null>(null);
 
   const clearFieldError = (key: string) =>
     setFieldErrors((prev) => {
@@ -225,6 +234,39 @@ export default withAuth(function FormsPage() {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return undefined;
     return d.toISOString();
+  };
+
+  const validateBannerFile = (file: File): string | null => {
+    if (!ACCEPTED_BANNER_TYPES.includes(file.type)) {
+      return 'Banner must be JPEG, PNG, or WebP.';
+    }
+    if (file.size > MAX_BANNER_BYTES) {
+      return `Banner must be ${MAX_BANNER_MB}MB or smaller.`;
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    return () => {
+      if (bannerPreview) URL.revokeObjectURL(bannerPreview);
+    };
+  }, [bannerPreview]);
+
+  const handleBannerFile = (file?: File) => {
+    if (!file) {
+      setBannerFile(null);
+      setBannerPreview(null);
+      return;
+    }
+    const error = validateBannerFile(file);
+    if (error) {
+      toast.error(error);
+      setBannerFile(null);
+      setBannerPreview(null);
+      return;
+    }
+    setBannerFile(file);
+    setBannerPreview(URL.createObjectURL(file));
   };
 
   const [fields, setFields] = useState<FieldDraft[]>([
@@ -570,8 +612,16 @@ export default withAuth(function FormsPage() {
     );
   };
 
-  const removeField = (index: number) => {
-    setFields((prev) => prev.filter((_, i) => i !== index).map((f, idx) => ({ ...f, order: idx + 1 })));
+  const requestRemoveField = (index: number) => {
+    setRemoveFieldIndex(index);
+  };
+
+  const confirmRemoveField = () => {
+    if (removeFieldIndex === null) return;
+    setFields((prev) =>
+      prev.filter((_, i) => i !== removeFieldIndex).map((f, idx) => ({ ...f, order: idx + 1 }))
+    );
+    setRemoveFieldIndex(null);
   };
 
   const addOption = (fieldIndex: number) => {
@@ -676,6 +726,8 @@ export default withAuth(function FormsPage() {
     ? `DELETE ${deleteTarget.title || deleteTarget.id}`
     : 'DELETE';
 
+  const pendingField = removeFieldIndex !== null ? fields[removeFieldIndex] : null;
+
   const save = async () => {
     setFieldErrors({});
     const normalizedTitle = title.trim();
@@ -764,7 +816,16 @@ export default withAuth(function FormsPage() {
 
     try {
       setSaving(true);
-      const created = await apiClient.createAdminForm(payload);
+      let created = await apiClient.createAdminForm(payload);
+
+      if (bannerFile) {
+        try {
+          created = await apiClient.uploadFormBanner(created.id, bannerFile);
+        } catch (uploadErr) {
+          console.error('Banner upload failed:', uploadErr);
+          toast.error('Form saved, but banner upload failed.');
+        }
+      }
 
       let slugToUse = created.slug || normalizedSlug;
       let publicUrlToUse: string | null = created.publicUrl
@@ -789,6 +850,8 @@ export default withAuth(function FormsPage() {
         toast.success('Form created');
         toast.error(publishError || 'Publish the form to get a live link.');
       }
+      setBannerFile(null);
+      setBannerPreview(null);
       setShowBuilder(false);
       load();
     } catch (err) {
@@ -1276,6 +1339,13 @@ export default withAuth(function FormsPage() {
                   helperText="Shown at the top of the public form."
                 />
                 <Input
+                  label="Or upload header image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleBannerFile(e.target.files?.[0])}
+                  helperText="Uploads to S3 and replaces the URL above."
+                />
+                <Input
                   label="Success modal title (optional)"
                   value={successTitle}
                   onChange={(e) => setSuccessTitle(e.target.value)}
@@ -1299,6 +1369,18 @@ export default withAuth(function FormsPage() {
                     placeholder="We would love to see you."
                   />
                 </div>
+                {(bannerPreview || coverImageUrl.trim()) && (
+                  <div className="md:col-span-2">
+                    <Image
+                      src={bannerPreview || coverImageUrl.trim()}
+                      alt="Banner preview"
+                      width={1200}
+                      height={400}
+                      className="w-full max-h-64 rounded-[var(--radius-card)] object-cover border border-[var(--color-border-secondary)]"
+                      unoptimized
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="md:col-span-2 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
@@ -1464,7 +1546,7 @@ export default withAuth(function FormsPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => removeField(index)}
+                          onClick={() => requestRemoveField(index)}
                           icon={<Trash2 className="h-4 w-4" />}
                         >
                           Remove
@@ -1578,6 +1660,15 @@ export default withAuth(function FormsPage() {
       <div className="text-xs text-secondary-500">
         Tip: Click “View” to see registrations for a form.
       </div>
+
+      <AlertModal
+        open={removeFieldIndex !== null}
+        onClose={() => setRemoveFieldIndex(null)}
+        title="Remove Field"
+        description={`Remove "${pendingField?.label || 'this field'}"? This will delete it from the form.`}
+        primaryAction={{ label: 'Remove', onClick: confirmRemoveField, variant: 'danger' }}
+        secondaryAction={{ label: 'Cancel', onClick: () => setRemoveFieldIndex(null), variant: 'outline' }}
+      />
 
       <VerifyActionModal
         isOpen={!!deleteTarget}

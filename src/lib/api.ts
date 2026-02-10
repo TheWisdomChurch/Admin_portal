@@ -42,6 +42,8 @@ import type {
   LoginChallenge,
   ChangePasswordData,
   HealthCheckResponse,
+  UploadPresignRequest,
+  UploadPresignResponse,
 } from './types';
 
 /* ============================================================================
@@ -773,6 +775,14 @@ export const apiClient = {
     return apiFetch(`/admin/reels/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
 
+  async createUploadPresign(payload: UploadPresignRequest): Promise<UploadPresignResponse> {
+    const res = await apiFetch<{ data: UploadPresignResponse }>('/admin/uploads/presign', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<UploadPresignResponse>(res, 'Invalid upload presign payload');
+  },
+
   /* ===================== FORMS (ADMIN) ===================== */
 
   async getAdminForms(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<AdminForm>> {
@@ -800,6 +810,16 @@ export const apiClient = {
       body: JSON.stringify(payload),
     });
     return unwrapData<AdminForm>(res, 'Invalid form payload');
+  },
+
+  async uploadFormBanner(id: string, file: File): Promise<AdminForm> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await uploadFetch<{ data: AdminForm }>(`/admin/forms/${encodeURIComponent(id)}/banner`, {
+      method: 'POST',
+      body: form,
+    });
+    return unwrapData<AdminForm>(res, 'Invalid upload banner payload');
   },
 
   async deleteAdminForm(id: string): Promise<MessageResponse> {

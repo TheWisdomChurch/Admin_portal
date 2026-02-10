@@ -9,6 +9,7 @@ import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/layouts';
 import { Input } from '@/ui/input';
+import { AlertModal } from '@/ui/AlertModal';
 
 import { apiClient } from '@/lib/api';
 import { buildPublicFormUrl } from '@/lib/utils';
@@ -62,6 +63,7 @@ export default withAuth(function TestPage() {
   const [submitButtonIcon, setSubmitButtonIcon] = useState<SubmitButtonIcon>('check');
   const [formHeaderNote, setFormHeaderNote] = useState('Please ensure details are accurate before submitting.');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [removeFieldIndex, setRemoveFieldIndex] = useState<number | null>(null);
 
   const clearFieldError = (key: string) =>
     setFieldErrors((prev) => {
@@ -97,8 +99,14 @@ export default withAuth(function TestPage() {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, ...updates } : f)));
   };
 
-  const removeField = (index: number) => {
-    setFields((prev) => prev.filter((_, i) => i !== index));
+  const requestRemoveField = (index: number) => {
+    setRemoveFieldIndex(index);
+  };
+
+  const confirmRemoveField = () => {
+    if (removeFieldIndex === null) return;
+    setFields((prev) => prev.filter((_, i) => i !== removeFieldIndex));
+    setRemoveFieldIndex(null);
   };
 
   const save = async () => {
@@ -163,6 +171,8 @@ export default withAuth(function TestPage() {
       setSaving(false);
     }
   };
+
+  const pendingField = removeFieldIndex !== null ? fields[removeFieldIndex] : null;
 
   if (authBlocked) {
     return (
@@ -347,7 +357,7 @@ export default withAuth(function TestPage() {
                     />
                     Required
                   </label>
-                  <Button variant="outline" size="sm" onClick={() => removeField(index)} icon={<Trash2 className="h-4 w-4" />}>
+                  <Button variant="outline" size="sm" onClick={() => requestRemoveField(index)} icon={<Trash2 className="h-4 w-4" />}>
                     Remove
                   </Button>
                 </div>
@@ -617,6 +627,15 @@ export default withAuth(function TestPage() {
           </div>
         </div>
       </Card>
+
+      <AlertModal
+        open={removeFieldIndex !== null}
+        onClose={() => setRemoveFieldIndex(null)}
+        title="Remove Field"
+        description={`Remove "${pendingField?.label || 'this field'}"? This will delete it from the form.`}
+        primaryAction={{ label: 'Remove', onClick: confirmRemoveField, variant: 'danger' }}
+        secondaryAction={{ label: 'Cancel', onClick: () => setRemoveFieldIndex(null), variant: 'outline' }}
+      />
     </div>
   );
 }, { requiredRole: 'admin' });

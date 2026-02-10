@@ -12,11 +12,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', loading, icon, children, disabled, ...props }, ref) => {
-    const baseStyles = 'inline-flex items-center justify-center rounded-[var(--radius-button)] font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+    const baseStyles = 'inline-flex items-center justify-center rounded-[var(--radius-button)] font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
     
     // Use basic Tailwind colors that work without custom config
     const variants = {
-      primary: 'bg-[var(--color-accent-primary)] text-[var(--color-text-onprimary)] hover:bg-[var(--color-accent-primaryhover)] focus-visible:ring-[var(--color-accent-primary)] shadow-sm hover:-translate-y-0.5',
+      primary: 'bg-[var(--color-accent-primary)] text-[var(--color-text-onprimary)] hover:bg-[var(--color-accent-primaryhover)] focus-visible:ring-[var(--color-accent-primary)] shadow-sm',
       secondary: 'bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)] hover:bg-[var(--color-background-hover)] focus-visible:ring-[var(--color-border-focus)]',
       warning: 'bg-amber-500 text-white hover:bg-amber-600 focus-visible:ring-amber-500',
       danger: 'bg-[var(--color-accent-danger)] text-white hover:opacity-90 focus-visible:ring-[var(--color-accent-danger)]',
