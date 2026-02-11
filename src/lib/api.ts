@@ -20,6 +20,7 @@ import type {
   PublicFormPayload,
   SubmitFormRequest,
   FormSubmission,
+  FormSubmissionDailyCount,
   FormStatsResponse,
   FormStatus,
   FormSubmissionDailyStat,
@@ -36,6 +37,9 @@ import type {
   CreateWorkforceRequest,
   UpdateWorkforceRequest,
   WorkforceStatsResponse,
+  Member,
+  CreateMemberRequest,
+  UpdateMemberRequest,
   PasswordResetRequestPayload,
   PasswordResetConfirmPayload,
   LoginResult,
@@ -965,6 +969,33 @@ export const apiClient = {
   async getWorkforceStats(): Promise<WorkforceStatsResponse> {
     const res = await apiFetch<ApiResponse<WorkforceStatsResponse>>('/admin/workforce/stats', { method: 'GET' });
     return unwrapData<WorkforceStatsResponse>(res, 'Invalid workforce stats payload');
+  },
+
+  /* ===================== MEMBERS ===================== */
+
+  async listMembers(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<Member>> {
+    const qs = toQueryString(params);
+    return apiFetch(`/admin/members${qs}`, { method: 'GET' });
+  },
+
+  async createMember(payload: CreateMemberRequest): Promise<Member> {
+    const res = await apiFetch<ApiResponse<Member>>('/admin/members', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<Member>(res, 'Invalid member payload');
+  },
+
+  async updateMember(id: string, payload: UpdateMemberRequest): Promise<Member> {
+    const res = await apiFetch<ApiResponse<Member>>(`/admin/members/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<Member>(res, 'Invalid member payload');
+  },
+
+  async deleteMember(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/members/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
 
   /* ===================== WORKFORCE (BIRTHDAYS) ===================== */

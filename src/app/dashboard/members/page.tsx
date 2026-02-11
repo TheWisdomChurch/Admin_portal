@@ -1,57 +1,42 @@
 'use client';
 
-import { useState } from 'react';
-import { Users, UserPlus, Search, Mail, Phone, MapPin } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Users, UserPlus, Search, Mail, Phone } from 'lucide-react';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
 import { Input } from '@/ui/input';
 import { GridLayout, PageHeader } from '@/layouts';
-
-const members = [
-  {
-    id: '1',
-    name: 'Grace Daniels',
-    role: 'Member',
-    email: 'grace@wisdomchurch.org',
-    phone: '+1 234 555 1122',
-    location: 'Lagos, NG',
-    status: 'Active',
-  },
-  {
-    id: '2',
-    name: 'Samuel Okoro',
-    role: 'Volunteer',
-    email: 'samuel@wisdomchurch.org',
-    phone: '+1 234 555 4412',
-    location: 'Abuja, NG',
-    status: 'Active',
-  },
-  {
-    id: '3',
-    name: 'Naomi Boateng',
-    role: 'Member',
-    email: 'naomi@wisdomchurch.org',
-    phone: '+1 234 555 9911',
-    location: 'Accra, GH',
-    status: 'Pending',
-  },
-  {
-    id: '4',
-    name: 'Ethan Brooks',
-    role: 'Member',
-    email: 'ethan@wisdomchurch.org',
-    phone: '+1 234 555 7721',
-    location: 'Nairobi, KE',
-    status: 'Active',
-  },
-];
+import { apiClient } from '@/lib/api';
+import type { Member } from '@/lib/types';
 
 export default function MembersPage() {
   const [query, setQuery] = useState('');
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = members.filter((member) =>
-    member.name.toLowerCase().includes(query.toLowerCase())
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        const res = await apiClient.listMembers({ page: 1, limit: 200 });
+        const data = Array.isArray(res) ? res : (res as { data?: Member[] }).data;
+        setMembers(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Failed to load members:', error);
+        setMembers([]);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const filtered = useMemo(
+    () =>
+      members.filter((member) =>
+        `${member.firstName} ${member.lastName}`.toLowerCase().includes(query.toLowerCase())
+      ),
+    [members, query]
   );
 
   return (
@@ -90,39 +75,47 @@ export default function MembersPage() {
       </Card>
 
       <GridLayout columns="grid-cols-1 md:grid-cols-2 xl:grid-cols-3" gap="lg">
-        {filtered.map((member) => (
-          <Card key={member.id} className="h-full">
-            <div className="space-y-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="font-display text-lg font-semibold text-[var(--color-text-primary)]">
-                    {member.name}
-                  </p>
-                  <p className="text-sm text-[var(--color-text-tertiary)]">{member.role}</p>
-                </div>
-                <Badge variant={member.status === 'Active' ? 'success' : 'warning'}>{member.status}</Badge>
-              </div>
-              <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                <p className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                  {member.email}
-                </p>
-                <p className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                  {member.phone}
-                </p>
-                <p className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                  {member.location}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline">View</Button>
-                <Button size="sm" variant="secondary">Message</Button>
-              </div>
-            </div>
+        {loading ? (
+          <Card>
+            <div className="text-sm text-[var(--color-text-tertiary)]">Loading members...</div>
           </Card>
-        ))}
+        ) : filtered.length === 0 ? (
+          <Card>
+            <div className="text-sm text-[var(--color-text-tertiary)]">No members found.</div>
+          </Card>
+        ) : (
+          filtered.map((member) => (
+            <Card key={member.id} className="h-full">
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-display text-lg font-semibold text-[var(--color-text-primary)]">
+                      {member.firstName} {member.lastName}
+                    </p>
+                    <p className="text-sm text-[var(--color-text-tertiary)]">Member</p>
+                  </div>
+                  <Badge variant={member.isActive ? 'success' : 'warning'}>
+                    {member.isActive ? 'Active' : 'Inactive'}
+                  </Badge>
+                </div>
+                <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
+                  <p className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                    {member.email}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                    {member.phone || '—'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline">View</Button>
+                  <Button size="sm" variant="secondary">Message</Button>
+                </div>
+              </div>
+            </Card>
+          ))
+        )}
       </GridLayout>
     </div>
   );
