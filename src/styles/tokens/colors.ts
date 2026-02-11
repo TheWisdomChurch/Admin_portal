@@ -1,18 +1,18 @@
 
 export const colorTokens = {
-  // Primary Colors (Calm Blue)
+  // Primary Colors (Yellow)
   primary: {
-    50: '#eff6ff',
-    100: '#dbeafe',
-    200: '#bfdbfe',
-    300: '#93c5fd',
-    400: '#60a5fa',
-    500: '#3b82f6',
-    600: '#2563eb',
-    700: '#1d4ed8',
-    800: '#1e40af',
-    900: '#1e3a8a',
-    950: '#172554',
+    50: '#fefce8',
+    100: '#fef9c3',
+    200: '#fef08a',
+    300: '#fde047',
+    400: '#facc15',
+    500: '#eab308',
+    600: '#ca8a04',
+    700: '#a16207',
+    800: '#854d0e',
+    900: '#713f12',
+    950: '#422006',
   },
   // Secondary Colors (Black)
   secondary: {
@@ -45,9 +45,9 @@ export const colorTokens = {
   // Surface/Background Colors
   surface: {
     white: '#ffffff',
-    light: '#f7f9fc',
-    muted: '#eef2f7',
-    dark: '#0b1220',
+    light: '#f8fafc',
+    muted: '#f1f5f9',
+    dark: '#0b0b0b',
     black: '#000000',
   },
   // Success (Green - kept for functional use)
