@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "precommit": "npm run lint && npm run typecheck",
+    "prepare": "test -d .git && git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -31,7 +34,8 @@
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.12.0",
     "tailwind-merge": "^3.4.0",
-    "zod": "^4.3.5"
+    "yup": "^1.7.1",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

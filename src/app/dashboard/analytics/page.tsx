@@ -290,7 +290,7 @@ function AnalyticsPage() {
                 <Calendar className="h-5 w-5 text-primary-600" />
               </div>
               <div>
-                <p className="font-medium text-secondary-900">New event created: "Annual Youth Summit"</p>
+                <p className="font-medium text-secondary-900">New event created: &quot;Annual Youth Summit&quot;</p>
                 <p className="text-sm text-secondary-500">2 hours ago</p>
               </div>
             </div>
@@ -302,7 +302,7 @@ function AnalyticsPage() {
                 <Users className="h-5 w-5 text-green-600" />
               </div>
               <div>
-                <p className="font-medium text-secondary-900">25 new registrations for "Prayer Night"</p>
+                <p className="font-medium text-secondary-900">25 new registrations for &quot;Prayer Night&quot;</p>
                 <p className="text-sm text-secondary-500">5 hours ago</p>
               </div>
             </div>

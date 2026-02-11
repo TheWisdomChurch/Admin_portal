@@ -1,10 +1,8 @@
 // src/app/(auth)/login/page.tsx
 'use client';
 
-import { useMemo, useState } from 'react';
+import React, { Suspense, useMemo, useState } from 'react';
 import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Lock, Mail, ArrowRight, AlertTriangle, UserPlus } from 'lucide-react';
 import { Button } from '@/ui/Button';
@@ -16,21 +14,16 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Footer } from '@/components/Footer';
-import { OtpModal } from '@/ui/OtpModal';
 import { apiClient } from '@/lib/api';
 import { AlertModal } from '@/ui/AlertModal';
 import type { ApiError } from '@/lib/api';
+import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 
-const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-
-  // IMPORTANT: keep it REQUIRED to satisfy RHF resolver typing
-  // default behavior is handled by useForm defaultValues
-  rememberMe: z.boolean(),
-});
-
-type LoginFormData = z.infer<typeof loginSchema>;
+type LoginFormData = {
+  email: string;
+  password: string;
+  rememberMe: boolean;
+};
 
 function safeRedirect(raw: string | null): string {
   if (!raw) return '/dashboard';
@@ -39,25 +32,20 @@ function safeRedirect(raw: string | null): string {
   return raw;
 }
 
-export default function LoginPage() {
+function LoginInner() {
   const { checkAuth, isLoading } = useAuthContext();
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const [serverError, setServerError] = useState('');
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotOtp, setForgotOtp] = useState('');
-  const [forgotPassword, setForgotPassword] = useState('');
-  const [forgotConfirm, setForgotConfirm] = useState('');
-  const [forgotStep, setForgotStep] = useState<'email' | 'otp' | 'reset'>('email');
+  const [forgotStep, setForgotStep] = useState<'email' | 'otp'>('email');
   const [forgotLoading, setForgotLoading] = useState(false);
-  const [otpOpen, setOtpOpen] = useState(false);
-  const [otpStep, setOtpStep] = useState<'email' | 'otp'>('email');
-  const [otpEmail, setOtpEmail] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [otpLoading, setOtpLoading] = useState(false);
-  const [pendingLogin, setPendingLogin] = useState<LoginFormData | null>(null);
-  const [challengePurpose, setChallengePurpose] = useState<string>('');
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [lastLoginEmail, setLastLoginEmail] = useState('');
+
   const [errorModal, setErrorModal] = useState<{
     open: boolean;
     title: string;
@@ -65,18 +53,17 @@ export default function LoginPage() {
     mode: 'bad_password' | 'not_found' | 'generic';
   }>({ open: false, title: '', description: '', mode: 'generic' });
 
-  const redirectPath = useMemo(
-    () => safeRedirect(searchParams.get('redirect')),
-    [searchParams]
-  );
+  const redirectPath = useMemo(() => safeRedirect(searchParams.get('redirect')), [searchParams]);
+  const busy = loginLoading || isLoading;
 
   const {
     register,
     control,
     handleSubmit,
+    clearErrors,
+    setError,
     formState: { errors },
   } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
     defaultValues: {
       email: '',
       password: '',
@@ -86,31 +73,40 @@ export default function LoginPage() {
   });
 
   const onSubmit: SubmitHandler<LoginFormData> = async (data) => {
+    clearErrors();
     setServerError('');
+    setLoginLoading(true);
+
+    const normalizedEmail = data.email.trim().toLowerCase();
+    setLastLoginEmail(normalizedEmail);
 
     try {
-      setPendingLogin(data);
-      setOtpEmail(data.email);
-      setOtpLoading(true);
+      const result = await apiClient.login({
+        ...data,
+        email: normalizedEmail,
+      });
 
-      const result = await apiClient.login(data);
-
-      // If backend says OTP required
-      if ((result as any)?.otp_required) {
-        setChallengePurpose((result as any).purpose || 'login');
-        setOtpStep('otp');
-        setOtpOpen(true);
-        toast.success('A verification code was sent to your email');
-        return;
-      }
-
-      // Otherwise we are authenticated
       await checkAuth();
       toast.success('Login successful!');
       router.replace(redirectPath);
-    } catch (err: any) {
+    } catch (err) {
       const apiErr = err as ApiError;
       const status = apiErr.statusCode ?? 0;
+
+      if (status === 400 || status === 422) {
+        const fieldErrors = extractServerFieldErrors(apiErr);
+        let applied = false;
+
+        (Object.entries(fieldErrors) as Array<[keyof LoginFormData, string]>).forEach(([field, message]) => {
+          if (field in data) {
+            applied = true;
+            setError(field, { type: 'server', message });
+          }
+        });
+
+        if (!applied) setServerError(getServerErrorMessage(apiErr, 'Unable to sign in right now.'));
+        return;
+      }
 
       if (status === 404) {
         setErrorModal({
@@ -127,135 +123,68 @@ export default function LoginPage() {
           description: 'The email exists, but the password is incorrect. You can retry or reset your password.',
           mode: 'bad_password',
         });
+      } else if (status === 403) {
+        setErrorModal({
+          open: true,
+          title: 'Approval required',
+          description: 'Your admin account is pending super-admin approval.',
+          mode: 'generic',
+        });
       } else {
-        const message = apiErr?.message || 'Unable to sign in right now.';
         setErrorModal({
           open: true,
           title: 'Login failed',
-          description: message,
+          description: apiErr?.message || 'Unable to sign in right now.',
           mode: 'generic',
         });
       }
     } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  const requestOtp = async () => {
-    // For login challenges, OTP was already sent by backend on /auth/login.
-    toast.success('Check your email for the code we just sent.');
-    setOtpStep('otp');
-  };
-
-  const verifyOtpAndLogin = async () => {
-    if (!otpCode.trim() || otpCode.trim().length < 4) {
-      toast.error('Enter the code we sent to your email');
-      return;
-    }
-
-    if (!pendingLogin) {
-      toast.error('Please restart the login process');
-      setOtpOpen(false);
-      return;
-    }
-
-    try {
-      setOtpLoading(true);
-      await apiClient.verifyLoginOtp({
-        email: otpEmail.trim(),
-        code: otpCode.trim(),
-        purpose: challengePurpose || 'login',
-        rememberMe: pendingLogin.rememberMe,
-      });
-
-      await checkAuth();
-      toast.success('Login verified');
-      setOtpOpen(false);
-      setOtpCode('');
-      router.replace(redirectPath);
-    } catch (err: any) {
-      const apiErr = err as ApiError;
-      const status = apiErr.statusCode ?? 0;
-      if (status === 404) {
-        setErrorModal({
-          open: true,
-          title: 'Account not found',
-          description:
-            'We couldn’t find a user with that email. You can register for access. Admin signups require super-admin approval.',
-          mode: 'not_found',
-        });
-      } else if (status === 401) {
-        setErrorModal({
-          open: true,
-          title: 'Incorrect password',
-          description: 'The email exists, but the password is incorrect. You can retry or reset your password.',
-          mode: 'bad_password',
-        });
-      } else {
-        const message = apiErr?.message || 'Verification failed';
-        setErrorModal({
-          open: true,
-          title: 'Unable to sign in',
-          description: message,
-          mode: 'generic',
-        });
-      }
-    } finally {
-      setOtpLoading(false);
+      setLoginLoading(false);
     }
   };
 
   const resetForgotState = () => {
     setForgotEmail('');
     setForgotOtp('');
-    setForgotPassword('');
-    setForgotConfirm('');
     setForgotStep('email');
   };
 
   const handleForgotPassword = async () => {
-    if (forgotStep === 'email') {
-      if (!forgotEmail.trim()) {
-        toast.error('Please enter your email address');
-        return;
-      }
-      try {
-        setForgotLoading(true);
-        toast.success('Password reset link sent. Check your email.');
-        setForgotStep('otp');
-      } catch (err: any) {
-        toast.error(err?.message || 'Failed to send OTP');
-      } finally {
-        setForgotLoading(false);
-      }
-      return;
-    }
-
-    if (forgotStep === 'otp') {
-      if (!forgotOtp.trim()) {
-        toast.error('Please enter the OTP code');
-        return;
-      }
-      setForgotStep('reset');
-      return;
-    }
-
-    if (!forgotPassword.trim() || !forgotConfirm.trim()) {
-      toast.error('Please enter and confirm your new password');
-      return;
-    }
-    if (forgotPassword !== forgotConfirm) {
-      toast.error('Passwords do not match');
-      return;
-    }
-
     try {
       setForgotLoading(true);
-      toast.success('If that email exists, a reset link has been sent.');
-      setShowForgot(false);
-      resetForgotState();
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to update password');
+
+      if (forgotStep === 'email') {
+        await apiClient.requestPasswordReset({ email: forgotEmail.trim() });
+        toast.success('Password reset code sent. Check your email.');
+        setForgotStep('otp');
+        return;
+      }
+
+      if (forgotStep === 'otp') {
+        await apiClient.verifyOtp({
+          email: forgotEmail.trim(),
+          code: forgotOtp.trim(),
+          purpose: 'password_reset',
+        });
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('reset_email', forgotEmail.trim().toLowerCase());
+          sessionStorage.setItem('reset_otp', forgotOtp.trim());
+          sessionStorage.setItem('reset_purpose', 'password_reset');
+        }
+        toast.success('Code verified. Set a new password.');
+        setShowForgot(false);
+        resetForgotState();
+        router.push('/passwordreset');
+        return;
+      }
+    } catch (err) {
+      const fieldErrors = extractServerFieldErrors(err);
+      if (Object.keys(fieldErrors).length > 0) {
+        toast.error(getFirstServerFieldError(fieldErrors) || 'Please review the highlighted fields.');
+        return;
+      }
+      const message = getServerErrorMessage(err, 'Failed to update password');
+      toast.error(message);
     } finally {
       setForgotLoading(false);
     }
@@ -310,104 +239,105 @@ export default function LoginPage() {
             </div>
           )}
 
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="space-y-5"
-          noValidate
-          autoComplete="off"
-        >
-          <div>
-            <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
-              Email Address
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-text-tertiary)]" />
-              <Input
-                type="email"
-                placeholder="you@example.com"
-                className="pl-10"
-                {...register('email')}
-                error={errors.email?.message}
-                disabled={isLoading}
-                autoFocus
-                autoComplete="off"
-                inputMode="email"
-                autoCapitalize="none"
-                spellCheck={false}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
-              Password
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-text-tertiary)]" />
-              <Input
-                type="password"
-                placeholder="••••••••"
-                className="pl-10"
-                {...register('password')}
-                error={errors.password?.message}
-                disabled={isLoading}
-                autoComplete="new-password"
-                autoCapitalize="none"
-                spellCheck={false}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <Controller
-              name="rememberMe"
-              control={control}
-              render={({ field }) => (
-                <Checkbox
-                  label="Remember me"
-                  disabled={isLoading}
-                  checked={!!field.value}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    field.onChange(e.target.checked)
-                  }
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate autoComplete="off">
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-text-tertiary)]" />
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  className="pl-10"
+                  {...register('email', {
+                    onChange: () => {
+                      setServerError('');
+                      clearErrors('email');
+                    },
+                  })}
+                  error={errors.email?.message}
+                  disabled={busy}
+                  autoFocus
+                  autoComplete="email"
+                  inputMode="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
                 />
-              )}
-            />
+              </div>
+            </div>
 
-            <Link
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowForgot(true);
-              }}
-              className="text-sm text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)]"
-            >
-              Forgot password?
-            </Link>
-          </div>
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-text-tertiary)]" />
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  className="pl-10"
+                  {...register('password', {
+                    onChange: () => {
+                      setServerError('');
+                      clearErrors('password');
+                    },
+                  })}
+                  error={errors.password?.message}
+                  disabled={busy}
+                  autoComplete="current-password"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                />
+              </div>
+            </div>
 
-          <Button
-            type="submit"
-            variant="primary"
-            className="w-full"
-            disabled={isLoading}
-            loading={isLoading}
-          >
-            {isLoading ? 'Signing in...' : 'Sign In'}
-            {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
-          </Button>
-        </form>
+            <div className="flex items-center justify-between">
+              <Controller
+                name="rememberMe"
+                control={control}
+                render={({ field }) => (
+                  <Checkbox
+                    label="Remember me"
+                    disabled={busy}
+                    checked={!!field.value}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      setServerError('');
+                      clearErrors('rememberMe');
+                      field.onChange(e.target.checked);
+                    }}
+                  />
+                )}
+              />
+
+              <Link
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowForgot(true);
+                }}
+                className="text-sm text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)]"
+              >
+                Forgot password?
+              </Link>
+            </div>
+
+            <Button type="submit" variant="primary" className="w-full" disabled={busy} loading={busy}>
+              {busy ? 'Signing in...' : 'Sign In'}
+              {!busy && <ArrowRight className="ml-2 h-4 w-4" />}
+            </Button>
+          </form>
 
           <div className="mt-8 pt-6 border-t border-[var(--color-border-secondary)]">
             <p className="text-center text-sm text-[var(--color-text-tertiary)]">
-            Don&apos;t have an account?{' '}
-            <Link
-              href="/register"
-              className="text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)] font-medium"
-            >
-              Create one
-            </Link>
-          </p>
+              Don&apos;t have an account?{' '}
+              <Link
+                href="/register"
+                className="text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)] font-medium"
+              >
+                Create one
+              </Link>
+            </p>
           </div>
         </Card>
       </main>
@@ -433,7 +363,6 @@ export default function LoginPage() {
             <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">
               {forgotStep === 'email' && 'Enter your email address to receive an OTP.'}
               {forgotStep === 'otp' && 'Enter the OTP code sent to your email.'}
-              {forgotStep === 'reset' && 'Set a new password for your account.'}
             </p>
             <div className="mt-4 space-y-4">
               {forgotStep === 'email' && (
@@ -454,24 +383,6 @@ export default function LoginPage() {
                   disabled={forgotLoading}
                 />
               )}
-              {forgotStep === 'reset' && (
-                <>
-                  <Input
-                    type="password"
-                    placeholder="New password"
-                    value={forgotPassword}
-                    onChange={(e) => setForgotPassword(e.target.value)}
-                    disabled={forgotLoading}
-                  />
-                  <Input
-                    type="password"
-                    placeholder="Confirm password"
-                    value={forgotConfirm}
-                    onChange={(e) => setForgotConfirm(e.target.value)}
-                    disabled={forgotLoading}
-                  />
-                </>
-              )}
               <div className="flex items-center justify-end gap-2">
                 <Button
                   variant="outline"
@@ -486,7 +397,6 @@ export default function LoginPage() {
                 <Button onClick={handleForgotPassword} loading={forgotLoading} disabled={forgotLoading}>
                   {forgotStep === 'email' && 'Send OTP'}
                   {forgotStep === 'otp' && 'Verify OTP'}
-                  {forgotStep === 'reset' && 'Update Password'}
                 </Button>
               </div>
             </div>
@@ -494,37 +404,12 @@ export default function LoginPage() {
         </div>
       )}
 
-      <OtpModal
-        open={otpOpen}
-        step={otpStep}
-        email={otpEmail}
-        code={otpCode}
-        onEmailChange={setOtpEmail}
-        onCodeChange={setOtpCode}
-        onRequestOtp={requestOtp}
-        onVerifyOtp={verifyOtpAndLogin}
-        onClose={() => {
-          setOtpOpen(false);
-          setOtpCode('');
-          setOtpStep('email');
-        }}
-        loading={otpLoading || isLoading}
-        title="Two-factor login"
-        subtitle={otpStep === 'email' ? 'Confirm your email to receive a one-time code.' : `Enter the code we sent to ${otpEmail}.`}
-        confirmText="Verify & sign in"
-        requestText="Send login code"
-      />
-
       <AlertModal
         open={errorModal.open}
         title={errorModal.title}
         description={errorModal.description}
         icon={
-          errorModal.mode === 'not_found' ? (
-            <UserPlus className="h-5 w-5" />
-          ) : (
-            <AlertTriangle className="h-5 w-5" />
-          )
+          errorModal.mode === 'not_found' ? <UserPlus className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />
         }
         onClose={() => setErrorModal({ ...errorModal, open: false })}
         secondaryAction={{
@@ -533,18 +418,13 @@ export default function LoginPage() {
           onClick: () => setErrorModal({ ...errorModal, open: false }),
         }}
         primaryAction={{
-          label:
-            errorModal.mode === 'not_found'
-              ? 'Register'
-              : errorModal.mode === 'bad_password'
-                ? 'Reset password'
-                : 'Try again',
+          label: errorModal.mode === 'not_found' ? 'Register' : errorModal.mode === 'bad_password' ? 'Reset password' : 'Try again',
           onClick: () => {
             setErrorModal({ ...errorModal, open: false });
             if (errorModal.mode === 'not_found') {
               router.push('/register');
             } else if (errorModal.mode === 'bad_password') {
-              setForgotEmail(otpEmail || pendingLogin?.email || '');
+              setForgotEmail(lastLoginEmail || '');
               setShowForgot(true);
               setForgotStep('email');
             }
@@ -552,5 +432,14 @@ export default function LoginPage() {
         }}
       />
     </div>
+  );
+}
+
+export default function LoginPage() {
+  // ✅ Required by Next when using useSearchParams()
+  return (
+    <Suspense fallback={null}>
+      <LoginInner />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   Users,
   Shield,
@@ -8,39 +8,20 @@ import {
   UserPlus,
   Mail,
   Phone,
-  MapPin,
   ChevronDown,
   ChevronUp,
   Award,
   Calendar,
-  Briefcase,
   Heart,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/input';
 import { Badge } from '@/ui/Badge';
 import { PageHeader } from '@/layouts';
-
-type WorkforceRow = {
-  id: string;
-  name: string;
-  department: string;
-  status: 'serving' | 'not_serving' | 'new';
-  email: string;
-  phone: string;
-  dob: string;
-  address?: string;
-};
-
-type MemberRow = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  address: string;
-};
+import { apiClient } from '@/lib/api';
+import type { WorkforceMember, Member } from '@/lib/types';
 
 type LeaderRow = {
   id: string;
@@ -51,21 +32,75 @@ type LeaderRow = {
   email: string;
 };
 
-const defaultWorkforce: WorkforceRow[] = [
-  { id: 'wf-1', name: 'Ruth Aligbeh', department: 'Media Team', status: 'serving', email: 'ruth@wisdomchurch.org', phone: '+234 801 222 3333', dob: '04/12', address: 'Lagos' },
-  { id: 'wf-2', name: 'Cherish Aigbeh', department: 'Media Team', status: 'new', email: 'cherish@wisdomchurch.org', phone: '+234 809 555 1212', dob: '08/22', address: 'Abuja' },
-  { id: 'wf-3', name: 'Favour ', department: 'Media', status: 'not_serving', email: 'naomi@wisdomchurch.org', phone: '+233 55 991 2299', dob: '01/08', address: 'Accra' },
+type BirthdayMember = WorkforceMember & Record<string, unknown>;
+
+const monthLabels = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
-const defaultMembers: MemberRow[] = [
-  { id: 'm-1', firstName: 'Paul', lastName: 'Samuel', email: 'ethan@wisdomchurch.org', phone: '+234 801 777 8822', address: 'Nairobi, KE' },
-  { id: 'm-2', firstName: 'Chisom', lastName: 'Adebayo', email: 'chisom@wisdomchurch.org', phone: '+234 809 111 2277', address: 'Lagos, NG' },
-];
+const pickNumber = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+};
 
-const defaultLeaders: LeaderRow[] = [
-  { id: 'l-1', name: 'Bishop Gabriel Ayilara', title: 'Senior Pastor', dob: '03/28', anniversary: '10/12', email: 'david@wisdomchurch.org' },
-  { id: 'l-2', name: 'Rev. Victor Jimba', title: 'Associate Pastor', dob: '07/04', anniversary: '12/20', email: 'sarah@wisdomchurch.org' },
-];
+const getStatNumber = (stats: Record<string, unknown> | null, keys: string[]): number | null => {
+  if (!stats) return null;
+  for (const key of keys) {
+    if (key in stats) {
+      const value = pickNumber(stats[key]);
+      if (value !== null) return value;
+    }
+  }
+  return null;
+};
+
+const getBirthdayLabel = (member: BirthdayMember): string => {
+  const raw = member as Record<string, unknown>;
+  const candidate =
+    raw.birthday ??
+    raw.birthDate ??
+    raw.birth_date ??
+    raw.date_of_birth ??
+    raw.dob ??
+    raw.dateOfBirth;
+
+  if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+  if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+    const timestampMs = candidate > 1e12 ? candidate : candidate * 1000;
+    const date = new Date(timestampMs);
+    if (!Number.isNaN(date.getTime())) return date.toLocaleDateString();
+  }
+  return '—';
+};
+
+const getMemberName = (member: BirthdayMember): string => {
+  const raw = member as Record<string, unknown>;
+  const firstName =
+    member.firstName ||
+    (typeof raw.first_name === 'string' ? raw.first_name : '');
+  const lastName =
+    member.lastName ||
+    (typeof raw.last_name === 'string' ? raw.last_name : '');
+  const fullName = `${firstName} ${lastName}`.trim();
+  if (fullName) return fullName;
+  if (typeof raw.name === 'string' && raw.name.trim()) return raw.name.trim();
+  return 'Workforce Member';
+};
 
 function AccordionRow({
   title,
@@ -99,19 +134,30 @@ function AccordionRow({
 
 export default function AdministrationPage() {
   const [activeTab, setActiveTab] = useState<'workforce' | 'members' | 'leadership'>('workforce');
-  const [workforce, setWorkforce] = useState<WorkforceRow[]>(defaultWorkforce);
-  const [members, setMembers] = useState<MemberRow[]>(defaultMembers);
-  const [leaders, setLeaders] = useState<LeaderRow[]>(defaultLeaders);
+  const [workforce, setWorkforce] = useState<WorkforceMember[]>([]);
+  const [workforceLoading, setWorkforceLoading] = useState(false);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [leaders, setLeaders] = useState<LeaderRow[]>([]);
   const [memberModalOpen, setMemberModalOpen] = useState(false);
   const [leaderModalOpen, setLeaderModalOpen] = useState(false);
+  const [birthdayStats, setBirthdayStats] = useState<Record<string, unknown> | null>(null);
+  const [birthdaysToday, setBirthdaysToday] = useState<WorkforceMember[]>([]);
+  const [birthdaysByMonth, setBirthdaysByMonth] = useState<WorkforceMember[]>([]);
+  const [birthdayMonth, setBirthdayMonth] = useState(() => new Date().getMonth() + 1);
+  const [birthdayLoading, setBirthdayLoading] = useState(false);
+  const [birthdayMonthLoading, setBirthdayMonthLoading] = useState(false);
+  const [birthdaySending, setBirthdaySending] = useState(false);
 
-  const [memberForm, setMemberForm] = useState<MemberRow>({
+  const [memberForm, setMemberForm] = useState<Member>({
     id: '',
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
-    address: '',
+    isActive: true,
+    createdAt: '',
+    updatedAt: '',
   });
 
   const [leaderForm, setLeaderForm] = useState<LeaderRow>({
@@ -133,17 +179,139 @@ export default function AdministrationPage() {
     );
   }, [workforce]);
 
-  const handleAddMember = () => {
-    if (!memberForm.firstName || !memberForm.lastName || !memberForm.email || !memberForm.phone) return;
-    setMembers((prev) => [
-      {
-        ...memberForm,
-        id: `m-${Date.now()}`,
-      },
-      ...prev,
-    ]);
-    setMemberForm({ id: '', firstName: '', lastName: '', email: '', phone: '', address: '' });
-    setMemberModalOpen(false);
+  const loadWorkforce = useCallback(async () => {
+    setWorkforceLoading(true);
+    try {
+      const res = await apiClient.listWorkforce({ page: 1, limit: 200 });
+      const data = Array.isArray(res) ? res : (res as { data?: WorkforceMember[] }).data;
+      setWorkforce(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to load workforce:', error);
+      toast.error('Unable to load workforce');
+      setWorkforce([]);
+    } finally {
+      setWorkforceLoading(false);
+    }
+  }, []);
+
+  const loadMembers = useCallback(async () => {
+    setMembersLoading(true);
+    try {
+      const res = await apiClient.listMembers({ page: 1, limit: 200 });
+      const data = Array.isArray(res) ? res : (res as { data?: Member[] }).data;
+      setMembers(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to load members:', error);
+      toast.error('Unable to load members');
+      setMembers([]);
+    } finally {
+      setMembersLoading(false);
+    }
+  }, []);
+
+  const loadBirthdayOverview = useCallback(async () => {
+    setBirthdayLoading(true);
+    try {
+      const [statsResult, todayResult] = await Promise.allSettled([
+        apiClient.getWorkforceBirthdayStats(),
+        apiClient.getWorkforceBirthdaysToday(),
+      ]);
+
+      if (statsResult.status === 'fulfilled') {
+        setBirthdayStats(statsResult.value);
+      } else {
+        setBirthdayStats(null);
+      }
+
+      if (todayResult.status === 'fulfilled') {
+        setBirthdaysToday(todayResult.value);
+      } else {
+        setBirthdaysToday([]);
+      }
+    } catch (error) {
+      console.error('Failed to load birthday overview:', error);
+      toast.error('Birthday overview unavailable');
+      setBirthdayStats(null);
+      setBirthdaysToday([]);
+    } finally {
+      setBirthdayLoading(false);
+    }
+  }, []);
+
+  const loadBirthdaysByMonth = useCallback(async (month: number) => {
+    setBirthdayMonthLoading(true);
+    try {
+      const results = await apiClient.getWorkforceBirthdaysByMonth(month);
+      setBirthdaysByMonth(results);
+    } catch (error) {
+      console.error('Failed to load birthday month list:', error);
+      toast.error('Birthday list unavailable');
+      setBirthdaysByMonth([]);
+    } finally {
+      setBirthdayMonthLoading(false);
+    }
+  }, []);
+
+  const handleSendBirthdaysToday = useCallback(async () => {
+    if (!confirm('Send birthday greetings for today?')) return;
+    setBirthdaySending(true);
+    try {
+      const result = await apiClient.sendWorkforceBirthdaysToday();
+      const targeted = getStatNumber(result, ['targeted', 'Targeted', 'total']);
+      const sent = getStatNumber(result, ['sent', 'Sent']);
+      const skipped = getStatNumber(result, ['skipped', 'Skipped']);
+
+      if (targeted !== null || sent !== null || skipped !== null) {
+        toast.success(
+          `Birthday greetings queued: targeted ${targeted ?? 0}, sent ${sent ?? 0}, skipped ${skipped ?? 0}`
+        );
+      } else {
+        toast.success('Birthday greetings queued');
+      }
+
+      loadBirthdayOverview();
+    } catch (error) {
+      console.error('Failed to send birthday greetings:', error);
+      toast.error('Unable to send birthday greetings');
+    } finally {
+      setBirthdaySending(false);
+    }
+  }, [loadBirthdayOverview]);
+
+  useEffect(() => {
+    loadBirthdayOverview();
+  }, [loadBirthdayOverview]);
+
+  useEffect(() => {
+    loadBirthdaysByMonth(birthdayMonth);
+  }, [birthdayMonth, loadBirthdaysByMonth]);
+
+  useEffect(() => {
+    loadWorkforce();
+    loadMembers();
+  }, [loadWorkforce, loadMembers]);
+
+  const handleAddMember = async () => {
+    if (!memberForm.firstName || !memberForm.lastName || !memberForm.email) {
+      toast.error('First name, last name, and email are required.');
+      return;
+    }
+    try {
+      await apiClient.createMember({
+        firstName: memberForm.firstName,
+        lastName: memberForm.lastName,
+        email: memberForm.email,
+        phone: memberForm.phone || undefined,
+        isActive: memberForm.isActive ?? true,
+      });
+      toast.success('Member added');
+      setMemberForm({ id: '', firstName: '', lastName: '', email: '', phone: '', isActive: true, createdAt: '', updatedAt: '' });
+      setMemberModalOpen(false);
+      loadMembers();
+    } catch (error) {
+      console.error('Failed to add member:', error);
+      toast.error('Failed to add member');
+    }
   };
 
   const handleAddLeader = () => {
@@ -213,99 +381,250 @@ export default function AdministrationPage() {
             </Card>
             <Card>
               <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">New / Onboard</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">{workforceCounts['new'] || 0}</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">
+                {(workforceCounts['new'] || 0) + (workforceCounts['pending'] || 0)}
+              </p>
             </Card>
           </div>
 
-          <div className="space-y-3">
-            {workforce.map((row) => (
-              <AccordionRow
-                key={row.id}
-                title={row.name}
-                subtitle={`${row.department} • DOB ${row.dob}`}
-                badge={
-                  <Badge variant={row.status === 'serving' ? 'success' : row.status === 'new' ? 'primary' : 'warning'} size="sm">
-                    {row.status === 'serving' ? 'Serving' : row.status === 'new' ? 'Pending' : 'Not serving'}
-                  </Badge>
-                }
-              >
-                <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                    {row.email}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                    {row.phone}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                    {row.address || '—'}
-                  </div>
-                  <p className="text-xs text-[var(--color-text-tertiary)] mt-2">
-                    Birthdays auto-email: enabled (connect backend notifications).
+          <Card>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">Birthday scheduler</p>
+                  <p className="text-xs text-[var(--color-text-tertiary)]">
+                    Track birthdays for the workforce and send today&apos;s greetings.
                   </p>
                 </div>
-              </AccordionRow>
-            ))}
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="ghost" onClick={loadBirthdayOverview} disabled={birthdayLoading}>
+                    Refresh
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={handleSendBirthdaysToday}
+                    loading={birthdaySending}
+                    disabled={birthdaySending || birthdayLoading}
+                  >
+                    Send today&apos;s greetings
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                  <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Today</p>
+                  <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">
+                    {birthdayLoading ? '—' : (getStatNumber(birthdayStats, ['today', 'todayCount', 'birthdaysToday']) ?? birthdaysToday.length)}
+                  </p>
+                </div>
+                <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                  <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">This month</p>
+                  <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">
+                    {birthdayMonthLoading ? '—' : (getStatNumber(birthdayStats, ['month', 'monthCount', 'birthdaysThisMonth']) ?? birthdaysByMonth.length)}
+                  </p>
+                </div>
+                <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                  <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Total tracked</p>
+                  <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">
+                    {getStatNumber(birthdayStats, ['total', 'totalMembers', 'totalWorkforce', 'count']) ?? '—'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
+                <label className="flex flex-col gap-1 text-sm text-[var(--color-text-secondary)]">
+                  Month
+                  <select
+                    className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-border-focus)]"
+                    value={birthdayMonth}
+                    onChange={(e) => setBirthdayMonth(Number(e.target.value))}
+                  >
+                    {monthLabels.map((label, index) => (
+                      <option key={label} value={index + 1}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">Today&apos;s birthdays</p>
+                    {birthdaysToday.length === 0 ? (
+                      <p className="text-xs text-[var(--color-text-tertiary)]">No birthdays today.</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {birthdaysToday.map((member) => {
+                          const record = member as BirthdayMember;
+                          const name = getMemberName(record);
+                          const department = member.department || (record.department as string | undefined);
+                          const email = member.email || (record.email as string | undefined);
+                          return (
+                            <li
+                              key={member.id}
+                              className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3"
+                            >
+                              <div>
+                                <p className="text-sm font-semibold text-[var(--color-text-primary)]">{name}</p>
+                                <p className="text-xs text-[var(--color-text-tertiary)]">
+                                  {[department, email].filter(Boolean).join(' • ') || 'Workforce member'}
+                                </p>
+                              </div>
+                              <Badge variant="secondary" size="sm">{getBirthdayLabel(record)}</Badge>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                      {monthLabels[birthdayMonth - 1]} birthdays
+                    </p>
+                    {birthdaysByMonth.length === 0 ? (
+                      <p className="text-xs text-[var(--color-text-tertiary)]">
+                        {birthdayMonthLoading ? 'Loading birthdays...' : 'No birthdays recorded for this month.'}
+                      </p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {birthdaysByMonth.map((member) => {
+                          const record = member as BirthdayMember;
+                          const name = getMemberName(record);
+                          const department = member.department || (record.department as string | undefined);
+                          const email = member.email || (record.email as string | undefined);
+                          return (
+                            <li
+                              key={member.id}
+                              className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3"
+                            >
+                              <div>
+                                <p className="text-sm font-semibold text-[var(--color-text-primary)]">{name}</p>
+                                <p className="text-xs text-[var(--color-text-tertiary)]">
+                                  {[department, email].filter(Boolean).join(' • ') || 'Workforce member'}
+                                </p>
+                              </div>
+                              <Badge variant="secondary" size="sm">{getBirthdayLabel(record)}</Badge>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <div className="space-y-3">
+            {workforceLoading ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">Loading workforce...</p>
+            ) : workforce.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">No workforce records yet.</p>
+            ) : (
+              workforce.map((row) => {
+                const name = `${row.firstName} ${row.lastName}`.trim() || 'Workforce member';
+                const dob = row.birthdayMonth && row.birthdayDay ? `${row.birthdayMonth}/${row.birthdayDay}` : '—';
+                const statusLabel =
+                  row.status === 'serving'
+                    ? 'Serving'
+                    : row.status === 'not_serving'
+                      ? 'Not serving'
+                      : 'Pending';
+                const badgeVariant = row.status === 'serving' ? 'success' : row.status === 'not_serving' ? 'warning' : 'primary';
+                return (
+                  <AccordionRow
+                    key={row.id}
+                    title={name}
+                    subtitle={`${row.department} • DOB ${dob}`}
+                    badge={
+                      <Badge variant={badgeVariant} size="sm">
+                        {statusLabel}
+                      </Badge>
+                    }
+                  >
+                    <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                        {row.email || '—'}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                        {row.phone || '—'}
+                      </div>
+                      <p className="text-xs text-[var(--color-text-tertiary)] mt-2">
+                        Birthdays auto-email: enabled (connect backend notifications).
+                      </p>
+                    </div>
+                  </AccordionRow>
+                );
+              })
+            )}
           </div>
         </div>
       )}
 
       {activeTab === 'members' && (
         <div className="space-y-3">
-          {members.map((row) => (
-            <AccordionRow
-              key={row.id}
-              title={`${row.firstName} ${row.lastName}`}
-              subtitle={row.email}
-              badge={<Badge variant="secondary" size="sm">Member</Badge>}
-            >
-              <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                  {row.phone}
+          {membersLoading ? (
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading members...</p>
+          ) : members.length === 0 ? (
+            <p className="text-sm text-[var(--color-text-tertiary)]">No members found.</p>
+          ) : (
+            members.map((row) => (
+              <AccordionRow
+                key={row.id}
+                title={`${row.firstName} ${row.lastName}`}
+                subtitle={row.email}
+                badge={<Badge variant={row.isActive ? 'secondary' : 'warning'} size="sm">{row.isActive ? 'Active' : 'Inactive'}</Badge>}
+              >
+                <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                    {row.phone || '—'}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                  {row.address}
-                </div>
-              </div>
-            </AccordionRow>
-          ))}
+              </AccordionRow>
+            ))
+          )}
         </div>
       )}
 
       {activeTab === 'leadership' && (
         <div className="space-y-3">
-          {leaders.map((row) => (
-            <AccordionRow
-              key={row.id}
-              title={row.name}
-              subtitle={row.title}
-              badge={<Badge variant="primary" size="sm">{row.title}</Badge>}
-            >
-              <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                  Birthday: {row.dob}
-                </div>
-                {row.anniversary && (
+          {leaders.length === 0 ? (
+            <p className="text-sm text-[var(--color-text-tertiary)]">No leadership records yet.</p>
+          ) : (
+            leaders.map((row) => (
+              <AccordionRow
+                key={row.id}
+                title={row.name}
+                subtitle={row.title}
+                badge={<Badge variant="primary" size="sm">{row.title}</Badge>}
+              >
+                <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
                   <div className="flex items-center gap-2">
-                    <Heart className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                    Anniversary: {row.anniversary}
+                    <Calendar className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                    Birthday: {row.dob}
                   </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                  {row.email || 'No email'}
+                  {row.anniversary && (
+                    <div className="flex items-center gap-2">
+                      <Heart className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                      Anniversary: {row.anniversary}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                    {row.email || 'No email'}
+                  </div>
+                  <p className="text-xs text-[var(--color-text-tertiary)] mt-2">
+                    Automated greetings: configure email templates in notifications.
+                  </p>
                 </div>
-                <p className="text-xs text-[var(--color-text-tertiary)] mt-2">
-                  Automated greetings: configure email templates in notifications.
-                </p>
-              </div>
-            </AccordionRow>
-          ))}
+              </AccordionRow>
+            ))
+          )}
         </div>
       )}
 
@@ -329,7 +648,6 @@ export default function AdministrationPage() {
               </div>
               <Input label="Email address" value={memberForm.email} onChange={(e) => setMemberForm({ ...memberForm, email: e.target.value })} />
               <Input label="Contact number" value={memberForm.phone} onChange={(e) => setMemberForm({ ...memberForm, phone: e.target.value })} />
-              <Input label="Contact address" value={memberForm.address} onChange={(e) => setMemberForm({ ...memberForm, address: e.target.value })} />
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <Button variant="ghost" onClick={() => setMemberModalOpen(false)}>Cancel</Button>

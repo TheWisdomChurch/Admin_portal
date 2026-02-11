@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Save, Plus, Trash2, Globe, Copy } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Copy } from 'lucide-react';
 
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
@@ -15,6 +15,7 @@ import type { CreateFormRequest, FormFieldType } from '@/lib/types';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
+import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 
 type FieldDraft = {
   key: string;
@@ -24,6 +25,12 @@ type FieldDraft = {
   order: number;
   options?: { label: string; value: string }[];
 };
+
+const dateFormats = ['yyyy-mm-dd', 'mm/dd/yyyy', 'dd/mm/yyyy', 'dd/mm'] as const;
+type DateFormat = (typeof dateFormats)[number];
+
+const submitButtonIcons = ['check', 'send', 'calendar', 'cursor', 'none'] as const;
+type SubmitButtonIcon = (typeof submitButtonIcons)[number];
 
 export default withAuth(function TestPage() {
   const router = useRouter();
@@ -44,15 +51,24 @@ export default withAuth(function TestPage() {
   const [introBullets, setIntroBullets] = useState('Smooth check-in\nEngaging sessions\nFriendly community');
   const [introBulletSubs, setIntroBulletSubs] = useState('Arrive early for badges\nShort, powerful sessions\nMeet friendly stewards');
   const [layoutMode, setLayoutMode] = useState<'split' | 'stack'>('split');
-  const [dateFormat, setDateFormat] = useState<'yyyy-mm-dd' | 'mm/dd/yyyy' | 'dd/mm/yyyy' | 'dd/mm'>('yyyy-mm-dd');
+  const [dateFormat, setDateFormat] = useState<DateFormat>('yyyy-mm-dd');
   const [footerText, setFooterText] = useState('Powered by Wisdom House Registration');
   const [footerBg, setFooterBg] = useState('#f5c400'); // brand yellow
   const [footerTextColor, setFooterTextColor] = useState('#111827');
   const [submitButtonText, setSubmitButtonText] = useState('Submit Registration');
   const [submitButtonBg, setSubmitButtonBg] = useState('#f59e0b');
   const [submitButtonTextColor, setSubmitButtonTextColor] = useState('#111827');
-  const [submitButtonIcon, setSubmitButtonIcon] = useState<'check' | 'send' | 'calendar' | 'cursor' | 'none'>('check');
+  const [submitButtonIcon, setSubmitButtonIcon] = useState<SubmitButtonIcon>('check');
   const [formHeaderNote, setFormHeaderNote] = useState('Please ensure details are accurate before submitting.');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const clearFieldError = (key: string) =>
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
 
   // minimal v1: create a draft with at least one field
   const [fields, setFields] = useState<FieldDraft[]>([
@@ -85,21 +101,8 @@ export default withAuth(function TestPage() {
   };
 
   const save = async () => {
-    if (!title.trim()) {
-      toast.error('Title is required');
-      return;
-    }
-
-    if (!slug.trim()) {
-      toast.error('Form link name is required');
-      return;
-    }
-
+    setFieldErrors({});
     const normalizedSlug = normalizeSlug(slug);
-    if (!normalizedSlug) {
-      toast.error('Form link name must contain letters or numbers');
-      return;
-    }
 
     const payload: CreateFormRequest = {
       title: title.trim(),
@@ -145,9 +148,16 @@ export default withAuth(function TestPage() {
       setPublishedSlug(slugToUse);
       toast.success('Form created and link ready');
       router.push(`/dashboard/forms/${created.id}/edit`);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err?.message || 'Failed to create form');
+      const fieldErrors = extractServerFieldErrors(err);
+      if (Object.keys(fieldErrors).length > 0) {
+        setFieldErrors(fieldErrors);
+        toast.error(getFirstServerFieldError(fieldErrors) || 'Please review the highlighted fields.');
+        return;
+      }
+      const message = getServerErrorMessage(err, 'Failed to create form');
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -179,17 +189,25 @@ export default withAuth(function TestPage() {
           <Input
             label="Title *"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              clearFieldError('title');
+              setTitle(e.target.value);
+            }}
             placeholder="e.g., Youth Summit Registration"
+            error={fieldErrors.title}
           />
 
           <div className="space-y-2">
             <Input
               label="Form Link Name *"
               value={slug}
-              onChange={(e) => setSlug(e.target.value)}
+              onChange={(e) => {
+                clearFieldError('slug');
+                setSlug(e.target.value);
+              }}
               onBlur={() => setSlug((current) => normalizeSlug(current))}
               placeholder="e.g., wpc"
+              error={fieldErrors.slug}
             />
             <p className="text-xs text-[var(--color-text-tertiary)]">
               Public link preview:{' '}
@@ -270,7 +288,10 @@ export default withAuth(function TestPage() {
                 </select>
                 <select
                   value={dateFormat}
-                  onChange={(e) => setDateFormat(e.target.value as any)}
+                  onChange={(e) => {
+                    const next = e.target.value as DateFormat;
+                    if (dateFormats.includes(next)) setDateFormat(next);
+                  }}
                   className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                 >
                   <option value="yyyy-mm-dd">YYYY-MM-DD</option>
@@ -548,7 +569,10 @@ export default withAuth(function TestPage() {
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Submit icon</label>
                 <select
                   value={submitButtonIcon}
-                  onChange={(e) => setSubmitButtonIcon(e.target.value as any)}
+                  onChange={(e) => {
+                    const next = e.target.value as SubmitButtonIcon;
+                    if (submitButtonIcons.includes(next)) setSubmitButtonIcon(next);
+                  }}
                   className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                 >
                   <option value="check">Check</option>

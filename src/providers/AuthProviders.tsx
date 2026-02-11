@@ -1,57 +1,60 @@
 'use client';
 
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  ReactNode,
-  useRef,
-} from 'react';
-
+import React, { createContext, useContext, useEffect, useCallback, useRef, useState } from 'react';
 import { apiClient, getAuthUser, setAuthUser, clearAuthStorage } from '@/lib/api';
-import type { User, LoginCredentials, RegisterData, MessageResponse } from '@/lib/types';
+import type { User, MessageResponse } from '@/lib/types';
 
 export type AuthContextType = {
   user: User | null;
   isAuthenticated: boolean;
-  isLoading: boolean;       // ✅ required
-  isInitialized: boolean;   // ✅ required
+  isLoading: boolean;
+  isInitialized: boolean;
   error: string | null;
 
-  login: (credentials: LoginCredentials) => Promise<User>;
-  register: (data: RegisterData) => Promise<User>;
-  logout: () => Promise<void>;
   checkAuth: () => Promise<User | null>;
+  logout: () => Promise<void>;
   clearData: () => Promise<MessageResponse>;
   updateProfile: (userData: Partial<User>) => Promise<User>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function getStatus(e: any): number | undefined {
-  return e?.status ?? e?.response?.status ?? e?.cause?.status;
+function getStatus(e: unknown): number | undefined {
+  if (!e || typeof e !== 'object') return undefined;
+  const candidate = e as { status?: unknown; response?: { status?: unknown }; cause?: { status?: unknown } };
+  const status = candidate.status ?? candidate.response?.status ?? candidate.cause?.status;
+  return typeof status === 'number' ? status : undefined;
 }
 
-function unwrapUser(payload: any): User {
-  if (!payload) throw new Error('Empty response');
-
-  if (payload?.id && payload?.email) return payload as User;
-  if (payload?.user?.id && payload?.user?.email) return payload.user as User;
-  if (payload?.data?.id && payload?.data?.email) return payload.data as User;
-  if (payload?.data?.user?.id && payload?.data?.user?.email) return payload.data.user as User;
-
-  throw new Error('Unexpected auth payload shape');
-}
-
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const initRef = useRef(false);
+
+  const checkAuth = useCallback(async (): Promise<User | null> => {
+    try {
+      const me = await apiClient.getCurrentUser(); // expects User from extractUser
+      setUser(me);
+
+      // store profile only; cookie is the real session
+      const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
+      setAuthUser(me, remembered);
+
+      return me;
+    } catch (e) {
+      const status = getStatus(e);
+      if (status === 401 || status === 403) {
+        clearAuthStorage();
+        setUser(null);
+        return null;
+      }
+      // non-auth error: keep existing user state
+      return user;
+    }
+  }, [user]);
 
   const initializeAuth = useCallback(async () => {
     if (initRef.current) return;
@@ -60,71 +63,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
 
+    // optimistic cache
     const cached = getAuthUser();
     if (cached) setUser(cached);
 
     try {
-      const verifiedRaw = await apiClient.getCurrentUser();
-      const verified = unwrapUser(verifiedRaw);
-
-      setUser(verified);
-
-      const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
-      setAuthUser(verified, remembered);
-    } catch (e: any) {
-      const status = getStatus(e);
-      if (status === 401 || status === 403) {
-        clearAuthStorage();
-        setUser(null);
-      } else {
-        setError('Session check failed. Please refresh.');
-      }
+      await checkAuth();
+    } catch {
+      setError('Session check failed. Please refresh.');
     } finally {
       setIsInitialized(true);
       setIsLoading(false);
     }
-  }, []);
+  }, [checkAuth]);
 
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
 
-  const login = useCallback(async (credentials: LoginCredentials): Promise<User> => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const loginRaw = await apiClient.login(credentials);
-
-      if ((loginRaw as any)?.otp_required) {
-        throw new Error('OTP required. Please verify to continue.');
-      }
-
-      const u = unwrapUser(loginRaw);
-      setUser(u);
-      setAuthUser(u, !!credentials.rememberMe);
-      return u;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const register = useCallback(async (data: RegisterData): Promise<User> => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const createdRaw = await apiClient.register(data);
-      return unwrapUser(createdRaw);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
   const logout = useCallback(async (): Promise<void> => {
     setIsLoading(true);
     setError(null);
-
     try {
       await apiClient.logout();
     } finally {
@@ -135,28 +94,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const checkAuth = useCallback(async (): Promise<User | null> => {
-    try {
-      const meRaw = await apiClient.getCurrentUser();
-      const me = unwrapUser(meRaw);
-
-      setUser(me);
-
-      const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
-      setAuthUser(me, remembered);
-
-      return me;
-    } catch (e: any) {
-      const status = getStatus(e);
-      if (status === 401 || status === 403) {
-        clearAuthStorage();
-        setUser(null);
-        return null;
-      }
-      return user;
-    }
-  }, [user]);
-
   const clearData = useCallback(async (): Promise<MessageResponse> => {
     const res = await apiClient.clearUserData();
     await checkAuth();
@@ -164,9 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [checkAuth]);
 
   const updateProfile = useCallback(async (userData: Partial<User>): Promise<User> => {
-    const updatedRaw = await apiClient.updateProfile(userData);
-    const updated = unwrapUser(updatedRaw);
-
+    const updated = await apiClient.updateProfile(userData);
     setUser(updated);
 
     const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
@@ -183,10 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isInitialized,
         error,
-        login,
-        register,
-        logout,
         checkAuth,
+        logout,
         clearData,
         updateProfile,
       }}

@@ -1,8 +1,8 @@
 // src/app/(dashboard)/settings/page.tsx
 'use client';
 
-import { useState, useEffect, type FormEvent } from 'react';
-import { Save, Bell, Lock, User, Globe, Trash2 } from 'lucide-react';
+import { useState, useEffect, type ChangeEvent, type FormEvent } from 'react';
+import { Save, Bell, Lock, User, Trash2 } from 'lucide-react';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/input';
 import { Card } from '@/ui/Card';
@@ -10,9 +10,11 @@ import { useAuthContext } from '@/providers/AuthProviders';
 import { apiClient } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { withAuth } from '@/providers/withAuth';
-import { ConfirmationModal } from '@/ui/ConfirmationModal';
+import { VerifyActionModal } from '@/ui/VerifyActionModal';
 import { PageHeader } from '@/layouts';
 import { OtpModal } from '@/ui/OtpModal';
+import { PasswordStrengthMeter } from '@/ui/PasswordStrengthMeter';
+import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 
 
 interface ProfileFormData {
@@ -28,7 +30,6 @@ interface PasswordFormData {
 
 function SettingsPage() {
   const auth = useAuthContext();
-  const [loading, setLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [clearDataLoading, setClearDataLoading] = useState(false);
@@ -42,17 +43,22 @@ function SettingsPage() {
   
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showClearDataModal, setShowClearDataModal] = useState(false);
+
+  const deletePhrase = 'DELETE MY ACCOUNT';
+  const clearDataPhrase = 'CLEAR ALL DATA';
   
   const [profileFormData, setProfileFormData] = useState<ProfileFormData>({
     username: '',
     email: '',
   });
+  const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
 
   const [passwordFormData, setPasswordFormData] = useState<PasswordFormData>({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
 
   // Initialize form data with user info
   useEffect(() => {
@@ -67,6 +73,7 @@ function SettingsPage() {
 
   const handleProfileSubmit = (e: FormEvent) => {
     e.preventDefault();
+    setProfileErrors({});
     setPendingAction('profile');
     setOtpStep('email');
     setOtpCode('');
@@ -90,8 +97,19 @@ function SettingsPage() {
         username: updatedUser.first_name || '',
         email: updatedUser.email || '',
       });
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update profile');
+      setProfileErrors({});
+    } catch (error) {
+      const fieldErrors = extractServerFieldErrors(error);
+      if (Object.keys(fieldErrors).length > 0) {
+        const mappedErrors: Record<string, string> = {};
+        if (fieldErrors.first_name) mappedErrors.username = fieldErrors.first_name;
+        if (fieldErrors.email) mappedErrors.email = fieldErrors.email;
+        setProfileErrors(Object.keys(mappedErrors).length > 0 ? mappedErrors : fieldErrors);
+        toast.error(getFirstServerFieldError(fieldErrors) || 'Please review your profile details.');
+        return;
+      }
+      const message = getServerErrorMessage(error, 'Failed to update profile');
+      toast.error(message);
     } finally {
       setProfileLoading(false);
     }
@@ -99,16 +117,7 @@ function SettingsPage() {
 
   const handlePasswordSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // Validate passwords
-    if (passwordFormData.newPassword !== passwordFormData.confirmPassword) {
-      toast.error('New passwords do not match');
-      return;
-    }
-    
-    if (passwordFormData.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters');
-      return;
-    }
+    setPasswordErrors({});
     setPendingAction('password');
     setOtpStep('email');
     setOtpCode('');
@@ -121,7 +130,12 @@ function SettingsPage() {
     try {
       await apiClient.changePassword(
         passwordFormData.currentPassword,
-        passwordFormData.newPassword
+        passwordFormData.newPassword,
+        {
+          currentPassword: passwordFormData.currentPassword,
+          newPassword: passwordFormData.newPassword,
+          confirmPassword: passwordFormData.confirmPassword,
+        }
       );
 
       toast.success('Password changed successfully');
@@ -130,8 +144,20 @@ function SettingsPage() {
         newPassword: '',
         confirmPassword: '',
       });
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to change password');
+      setPasswordErrors({});
+    } catch (error) {
+      const fieldErrors = extractServerFieldErrors(error);
+      if (Object.keys(fieldErrors).length > 0) {
+        const mappedErrors: Record<string, string> = {};
+        if (fieldErrors.current_password) mappedErrors.currentPassword = fieldErrors.current_password;
+        if (fieldErrors.new_password) mappedErrors.newPassword = fieldErrors.new_password;
+        if (fieldErrors.confirm_password) mappedErrors.confirmPassword = fieldErrors.confirm_password;
+        setPasswordErrors(Object.keys(mappedErrors).length > 0 ? mappedErrors : fieldErrors);
+        toast.error(getFirstServerFieldError(fieldErrors) || 'Please review your password details.');
+        return;
+      }
+      const message = getServerErrorMessage(error, 'Failed to change password');
+      toast.error(message);
     } finally {
       setPasswordLoading(false);
     }
@@ -141,10 +167,6 @@ function SettingsPage() {
     const targetEmail = otpEmail.trim() || auth.user?.email || '';
     if (!pendingAction) {
       toast.error('Select an action to verify');
-      return;
-    }
-    if (!targetEmail) {
-      toast.error('Email address is required for verification');
       return;
     }
 
@@ -157,8 +179,9 @@ function SettingsPage() {
       toast.success('Verification code sent');
       setOtpStep('otp');
       setOtpEmail(targetEmail);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to send code');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to send code';
+      toast.error(message);
     } finally {
       setOtpLoading(false);
     }
@@ -167,10 +190,6 @@ function SettingsPage() {
   const verifyOtpAndRun = async () => {
     if (!pendingAction) {
       toast.error('No pending action to verify');
-      return;
-    }
-    if (!otpCode.trim()) {
-      toast.error('Enter the code we sent to your email');
       return;
     }
     const purpose = pendingAction === 'password' ? 'password_change' : 'profile_update';
@@ -190,25 +209,40 @@ function SettingsPage() {
       setOtpCode('');
       setOtpStep('email');
       setPendingAction(null);
-    } catch (error: any) {
-      toast.error(error.message || 'Verification failed');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Verification failed';
+      toast.error(message);
     } finally {
       setOtpLoading(false);
     }
   };
 
-  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfileChange = (e: ChangeEvent<HTMLInputElement>) => {
     setProfileFormData({
       ...profileFormData,
       [e.target.name]: e.target.value,
     });
+    if (profileErrors[e.target.name]) {
+      setProfileErrors((prev) => {
+        const next = { ...prev };
+        delete next[e.target.name];
+        return next;
+      });
+    }
   };
 
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>) => {
     setPasswordFormData({
       ...passwordFormData,
       [e.target.name]: e.target.value,
     });
+    if (passwordErrors[e.target.name]) {
+      setPasswordErrors((prev) => {
+        const next = { ...prev };
+        delete next[e.target.name];
+        return next;
+      });
+    }
   };
 
   const handleClearData = async () => {
@@ -219,8 +253,9 @@ function SettingsPage() {
       
       // Refresh auth context to get updated user data
       auth.checkAuth();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to clear data');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to clear data';
+      toast.error(message);
     } finally {
       setClearDataLoading(false);
       setShowClearDataModal(false);
@@ -237,8 +272,9 @@ function SettingsPage() {
       setTimeout(() => {
         auth.logout();
       }, 1000);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to delete account');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete account';
+      toast.error(message);
     } finally {
       setDeleteAccountLoading(false);
       setShowDeleteModal(false);
@@ -300,6 +336,7 @@ function SettingsPage() {
                     onChange={handleProfileChange}
                     placeholder="Enter display name"
                     helperText="This name will be displayed to other users"
+                    error={profileErrors.username}
                   />
                   
                   <Input
@@ -309,7 +346,7 @@ function SettingsPage() {
                     value={profileFormData.email}
                     onChange={handleProfileChange}
                     placeholder="Enter your email"
-                    required
+                    error={profileErrors.email}
                   />
                   
                   <div className="pt-4">
@@ -343,7 +380,7 @@ function SettingsPage() {
                     value={passwordFormData.currentPassword}
                     onChange={handlePasswordChange}
                     placeholder="Enter current password"
-                    required
+                    error={passwordErrors.currentPassword}
                   />
                   
                   <Input
@@ -353,9 +390,9 @@ function SettingsPage() {
                     value={passwordFormData.newPassword}
                     onChange={handlePasswordChange}
                     placeholder="Enter new password (min. 6 characters)"
-                    required
-                    minLength={6}
+                    error={passwordErrors.newPassword}
                   />
+                  <PasswordStrengthMeter password={passwordFormData.newPassword} />
                   
                   <Input
                     label="Confirm New Password"
@@ -364,8 +401,7 @@ function SettingsPage() {
                     value={passwordFormData.confirmPassword}
                     onChange={handlePasswordChange}
                     placeholder="Confirm new password"
-                    required
-                    minLength={6}
+                    error={passwordErrors.confirmPassword}
                   />
                   
                   <div className="pt-4">
@@ -547,7 +583,7 @@ function SettingsPage() {
       />
 
       {/* Delete Account Confirmation Modal */}
-      <ConfirmationModal
+      <VerifyActionModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={handleDeleteAccount}
@@ -557,6 +593,7 @@ function SettingsPage() {
         cancelText="Cancel"
         variant="danger"
         loading={deleteAccountLoading}
+        verifyText={deletePhrase}
       >
         <div className="mt-4 p-3 bg-red-50 rounded-md">
           <ul className="text-xs text-red-700 list-disc pl-4 space-y-1">
@@ -566,10 +603,10 @@ function SettingsPage() {
             <li>This action cannot be reversed</li>
           </ul>
         </div>
-      </ConfirmationModal>
+      </VerifyActionModal>
 
       {/* Clear Data Confirmation Modal */}
-      <ConfirmationModal
+      <VerifyActionModal
         isOpen={showClearDataModal}
         onClose={() => setShowClearDataModal(false)}
         onConfirm={handleClearData}
@@ -579,6 +616,7 @@ function SettingsPage() {
         cancelText="Cancel"
         variant="warning"
         loading={clearDataLoading}
+        verifyText={clearDataPhrase}
       >
         <div className="mt-4 p-3 bg-amber-50 rounded-md">
           <ul className="text-xs text-amber-700 list-disc pl-4 space-y-1">
@@ -588,7 +626,7 @@ function SettingsPage() {
             <li>You may need to reconfigure your settings</li>
           </ul>
         </div>
-      </ConfirmationModal>
+      </VerifyActionModal>
     </>
   );
 }

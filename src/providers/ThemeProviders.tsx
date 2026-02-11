@@ -1,8 +1,8 @@
 // src/providers/ThemeProvider.tsx
 'use client';
 
-import { semanticColors } from "@/styles/tokens/semantic";
-import { useEffect, useState, createContext, useContext } from "react";
+import { semanticColors } from '@/styles/tokens/semantic';
+import React, { useEffect, useState, createContext, useContext } from 'react';
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -35,7 +35,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
 }) => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
     if (typeof window === 'undefined') return defaultTheme;
-    const saved = localStorage.getItem('theme') as ThemeMode;
+    const saved = localStorage.getItem('theme') as ThemeMode | null;
     return saved || defaultTheme;
   });
 
@@ -44,31 +44,36 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   // Apply CSS variables to document root
   const applyCSSVariables = (themeType: 'light' | 'dark') => {
     if (typeof document === 'undefined') return;
-    
+
     const root = document.documentElement;
     const colors = semanticColors[themeType];
-    
+
     // Clear existing variables
-    const existingVars = Array.from(root.style).filter(prop => prop.startsWith('--color-'));
-    existingVars.forEach(varName => root.style.removeProperty(varName));
-    
-    // Function to flatten nested objects into CSS variables
-    const flattenObject = (obj: any, prefix = ''): Record<string, string> => {
+    const existingVars = Array.from(root.style).filter((prop) => prop.startsWith('--color-'));
+    existingVars.forEach((varName) => root.style.removeProperty(varName));
+
+    // ✅ Type guard: is this a plain object record?
+    const isRecord = (v: unknown): v is Record<string, unknown> =>
+      typeof v === 'object' && v !== null && !Array.isArray(v);
+
+    // ✅ Flatten nested objects into CSS variables (type-safe)
+    const flattenObject = (obj: unknown, prefix = ''): Record<string, string> => {
       const result: Record<string, string> = {};
-      
+      if (!isRecord(obj)) return result;
+
       for (const [key, value] of Object.entries(obj)) {
         const newKey = prefix ? `${prefix}-${key}` : key;
-        
-        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+
+        if (isRecord(value)) {
           Object.assign(result, flattenObject(value, newKey));
         } else if (typeof value === 'string') {
           result[newKey] = value;
         }
       }
-      
+
       return result;
     };
-    
+
     // Apply all colors as CSS variables
     const flatColors = flattenObject(colors, 'color');
     Object.entries(flatColors).forEach(([key, value]) => {
@@ -87,14 +92,14 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     const updateResolvedTheme = () => {
       const newResolvedTheme = theme === 'system' ? getSystemTheme() : theme;
       setResolvedTheme(newResolvedTheme);
-      
+
       // Update document class
       document.documentElement.classList.remove('light', 'dark');
       document.documentElement.classList.add(newResolvedTheme);
-      
+
       // Apply CSS variables
       applyCSSVariables(newResolvedTheme);
-      
+
       // Store preference
       localStorage.setItem('theme', theme);
     };
@@ -110,23 +115,13 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     }
   }, [theme]);
 
-  // Load saved theme on mount (client-side only)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    const savedTheme = localStorage.getItem('theme') as ThemeMode;
-    if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
-      setTheme(savedTheme);
-    }
-  }, []);
-
   const toggleTheme = () => {
-    setTheme(current => current === 'light' ? 'dark' : 'light');
+    setTheme((current) => (current === 'light' ? 'dark' : 'light'));
   };
 
   const colors = semanticColors[resolvedTheme];
 
-  const value = {
+  const value: ThemeContextType = {
     theme,
     resolvedTheme,
     setTheme,
@@ -134,9 +129,5 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     colors,
   };
 
-  return (
-    <ThemeContext.Provider value={value}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };

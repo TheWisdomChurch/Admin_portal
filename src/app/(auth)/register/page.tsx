@@ -1,64 +1,68 @@
-// src/app/(auth)/register/page.tsx
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
+import { useForm, Controller, useWatch, type SubmitHandler } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
 import { ArrowLeft, UserPlus, CheckCircle, Mail, Lock, User } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
-import { Footer } from '@/components/Footer';
 
+import { Footer } from '@/components/Footer';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
 import { Checkbox } from '@/ui/Checkbox';
-import { useAuthContext } from '@/providers/AuthProviders';
+import { PasswordStrengthMeter } from '@/ui/PasswordStrengthMeter';
 
-// Keep rememberMe REQUIRED to avoid resolver typing mismatch
-const registerSchema = z
+import apiClient from '@/lib/api';
+import { extractServerFieldErrors, getServerErrorMessage } from '@/lib/serverValidation';
+
+type RegisterFormData = {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  role: 'admin' | 'super_admin';
+  rememberMe: boolean;
+};
+
+const schema = yup
   .object({
-    first_name: z.string().min(1, 'First name is required').max(50, 'First name cannot exceed 50 characters'),
-    last_name: z.string().min(1, 'Last name is required').max(50, 'Last name cannot exceed 50 characters'),
-    email: z.string().email('Invalid email address').max(100, 'Email cannot exceed 100 characters'),
-    password: z.string().min(6, 'Password must be at least 6 characters').max(100, 'Password cannot exceed 100 characters'),
-    confirmPassword: z.string().min(1, 'Please confirm your password'),
-    role: z.enum(['admin', 'super_admin']),
-    rememberMe: z.boolean(),
+    first_name: yup.string().required('First name is required').trim(),
+    last_name: yup.string().required('Last name is required').trim(),
+    email: yup.string().email('Invalid email format').required('Email is required').trim(),
+    password: yup.string().min(8, 'Password must be at least 8 characters').required('Password is required'),
+    confirmPassword: yup
+      .string()
+      .oneOf([yup.ref('password')], 'Passwords must match')
+      .required('Confirm password is required'),
+    role: yup.string().oneOf(['admin', 'super_admin'], 'Select a role').required('Role is required'),
+    rememberMe: yup.boolean().required(),
   })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ['confirmPassword'],
-  });
+  .required();
 
-type RegisterFormData = z.infer<typeof registerSchema>;
-
-function humanizeServerError(err: any): string {
-  // Your backend shape can vary; keep it defensive
-  const payload = err?.details || err?.response?.data || err;
-
-  if (payload?.errors && typeof payload.errors === 'object') {
+function humanizeServerError(err: unknown): string {
+  const fieldErrors = extractServerFieldErrors(err);
+  if (Object.keys(fieldErrors).length > 0) {
     const fieldMap: Record<string, string> = {
       first_name: 'First Name',
       last_name: 'Last Name',
       email: 'Email',
       password: 'Password',
-    role: 'Role',
+      confirmPassword: 'Confirm Password',
+      role: 'Role',
     };
 
-    return Object.entries(payload.errors)
-      .map(([field, messages]) => {
-        const name = fieldMap[field] || field;
-        const text = Array.isArray(messages) ? messages.join(', ') : String(messages);
-        return `${name}: ${text}`;
-      })
+    return Object.entries(fieldErrors)
+      .map(([field, message]) => `${fieldMap[field] || field}: ${message}`)
       .join('\n');
   }
 
-  return payload?.message || err?.message || 'Registration failed. Please try again.';
+  return getServerErrorMessage(err, 'Registration failed. Please try again.');
 }
 
 function SuccessModal({
@@ -71,21 +75,15 @@ function SuccessModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
       <div className="relative w-full max-w-md rounded-[var(--radius-card)] bg-[var(--color-background-primary)] p-8 shadow-2xl">
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-background-tertiary)]">
             <CheckCircle className="h-8 w-8 text-[var(--color-accent-success)]" />
           </div>
           <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">Registration successful</h2>
-          <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">
-            Your account has been created. Please sign in to continue.
-          </p>
+          <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">Your account has been created. Please sign in to continue.</p>
 
           <div className="mt-5 rounded-[var(--radius-button)] bg-[var(--color-background-tertiary)] p-4 text-left">
             <p className="text-xs font-medium text-[var(--color-text-tertiary)]">Registered email</p>
@@ -111,7 +109,6 @@ function SuccessModal({
 }
 
 export default function RegisterPage() {
-  const { register: registerUser } = useAuthContext();
   const router = useRouter();
 
   const [serverError, setServerError] = useState('');
@@ -121,33 +118,29 @@ export default function RegisterPage() {
     register,
     control,
     handleSubmit,
-    watch,
     reset,
+    clearErrors,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
     defaultValues: {
       first_name: '',
       last_name: '',
       email: '',
       password: '',
       confirmPassword: '',
-    role: 'admin',
+      role: 'admin',
       rememberMe: false,
     },
     mode: 'onSubmit',
+    resolver: yupResolver(schema),
   });
 
-  const password = watch('password');
-  const passwordHint = useMemo(() => {
-    if (!password) return null;
-    if (password.length < 6) return { ok: false, text: 'Use at least 6 characters' };
-    if (password.length < 10) return { ok: true, text: 'Good — consider adding more length' };
-    return { ok: true, text: 'Strong length' };
-  }, [password]);
+  const password = useWatch({ control, name: 'password' });
 
   const onSubmit: SubmitHandler<RegisterFormData> = async (formData) => {
     try {
+      clearErrors();
       setServerError('');
 
       const payload = {
@@ -159,17 +152,39 @@ export default function RegisterPage() {
         rememberMe: formData.rememberMe,
       };
 
-      await registerUser(payload);
+      await apiClient.register(payload);
 
       reset();
       setSuccessEmail(payload.email);
       toast.success('Account created successfully');
 
-      // Optional: auto-route after short delay (still allows user to click button)
       setTimeout(() => {
         router.replace('/login');
       }, 1200);
-    } catch (err: any) {
+    } catch (err) {
+      const fieldErrors = extractServerFieldErrors(err);
+      const fieldMap: Record<string, keyof RegisterFormData> = {
+        confirm_password: 'confirmPassword',
+        confirmPassword: 'confirmPassword',
+      };
+
+      const allowedFields: Array<keyof RegisterFormData> = [
+        'first_name',
+        'last_name',
+        'email',
+        'password',
+        'confirmPassword',
+        'role',
+        'rememberMe',
+      ];
+
+      Object.entries(fieldErrors).forEach(([field, message]) => {
+        const target = fieldMap[field] ?? (field as keyof RegisterFormData);
+        if (allowedFields.includes(target)) {
+          setError(target, { type: 'server', message });
+        }
+      });
+
       const msg = humanizeServerError(err);
       setServerError(msg);
       toast.error(msg.split('\n')[0] || 'Registration failed');
@@ -181,13 +196,7 @@ export default function RegisterPage() {
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full border-2 border-white bg-black shadow-sm">
-            <Image
-              src="/OIP.webp"
-              alt="Wisdom Church logo"
-              width={40}
-              height={40}
-              className="rounded-full object-cover"
-            />
+            <Image src="/OIP.webp" alt="Wisdom Church logo" width={40} height={40} className="rounded-full object-cover" />
           </div>
           <div className="leading-tight">
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">The Wisdom Church</p>
@@ -201,44 +210,18 @@ export default function RegisterPage() {
 
       <main className="mx-auto w-full max-w-6xl px-4 pb-12 pt-6 sm:px-6 lg:px-8">
         <div className="grid w-full grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Left: marketing / info panel */}
           <div className="hidden lg:block">
             <div className="auth-glass h-full rounded-3xl p-10 shadow-sm">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)]">
                 <UserPlus className="h-7 w-7 text-[var(--color-accent-primary)]" />
               </div>
-              <h1 className="mt-6 text-3xl font-semibold text-[var(--color-text-primary)]">
-                Create your Wisdom House account
-              </h1>
+              <h1 className="mt-6 text-3xl font-semibold text-[var(--color-text-primary)]">Create your Wisdom House account</h1>
               <p className="mt-3 text-[var(--color-text-secondary)]">
                 Register to submit testimonials and access church resources. Admin accounts can manage events and content.
               </p>
-
-              <div className="mt-8 space-y-4">
-                <div className="rounded-2xl bg-[var(--color-background-primary)] p-5 shadow-sm">
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">Admin access</p>
-                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                    Manage testimonials, events, and site content.
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-[var(--color-background-primary)] p-5 shadow-sm">
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">Super admin access</p>
-                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                    Approve submissions and review analytics.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-10 text-sm text-[var(--color-text-tertiary)]">
-                Already have an account?{' '}
-                <Link href="/login" className="font-semibold text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)]">
-                  Sign in
-                </Link>
-              </div>
             </div>
           </div>
 
-          {/* Right: form */}
           <Card className="auth-glass w-full rounded-3xl p-8 shadow-lg">
             <div className="text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)]">
@@ -254,23 +237,25 @@ export default function RegisterPage() {
               </div>
             )}
 
-            <form
-              onSubmit={handleSubmit(onSubmit)}
-              className="mt-6 space-y-4"
-              noValidate
-              autoComplete="off"
-            >
-              {/* Name row */}
+            <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate autoComplete="off">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">First name</label>
+                  <label htmlFor="first_name" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">
+                    First name
+                  </label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input
+                      id="first_name"
                       type="text"
                       placeholder="John"
                       className="pl-10"
-                      {...register('first_name')}
+                      {...register('first_name', {
+                        onChange: () => {
+                          setServerError('');
+                          clearErrors('first_name');
+                        },
+                      })}
                       error={errors.first_name?.message}
                       disabled={isSubmitting}
                       autoComplete="off"
@@ -280,14 +265,22 @@ export default function RegisterPage() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Last name</label>
+                  <label htmlFor="last_name" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">
+                    Last name
+                  </label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input
+                      id="last_name"
                       type="text"
                       placeholder="Doe"
                       className="pl-10"
-                      {...register('last_name')}
+                      {...register('last_name', {
+                        onChange: () => {
+                          setServerError('');
+                          clearErrors('last_name');
+                        },
+                      })}
                       error={errors.last_name?.message}
                       disabled={isSubmitting}
                       autoComplete="off"
@@ -297,16 +290,23 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              {/* Email */}
               <div>
-                <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Email</label>
+                <label htmlFor="email" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">
+                  Email
+                </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                   <Input
+                    id="email"
                     type="email"
                     placeholder="your.email@example.com"
                     className="pl-10"
-                    {...register('email')}
+                    {...register('email', {
+                      onChange: () => {
+                        setServerError('');
+                        clearErrors('email');
+                      },
+                    })}
                     error={errors.email?.message}
                     disabled={isSubmitting}
                     autoComplete="off"
@@ -317,17 +317,24 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              {/* Password row */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Password</label>
+                  <label htmlFor="password" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">
+                    Password
+                  </label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input
+                      id="password"
                       type="password"
                       placeholder="••••••••"
                       className="pl-10"
-                      {...register('password')}
+                      {...register('password', {
+                        onChange: () => {
+                          setServerError('');
+                          clearErrors('password');
+                        },
+                      })}
                       error={errors.password?.message}
                       disabled={isSubmitting}
                       autoComplete="new-password"
@@ -335,22 +342,26 @@ export default function RegisterPage() {
                       spellCheck={false}
                     />
                   </div>
-                  {passwordHint && !errors.password?.message && (
-                    <p className={`mt-1 text-xs ${passwordHint.ok ? 'text-green-700' : 'text-[var(--color-text-tertiary)]'}`}>
-                      {passwordHint.text}
-                    </p>
-                  )}
+                  <PasswordStrengthMeter password={password || ''} />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Confirm password</label>
+                  <label htmlFor="confirmPassword" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">
+                    Confirm password
+                  </label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input
+                      id="confirmPassword"
                       type="password"
                       placeholder="••••••••"
                       className="pl-10"
-                      {...register('confirmPassword')}
+                      {...register('confirmPassword', {
+                        onChange: () => {
+                          setServerError('');
+                          clearErrors('confirmPassword');
+                        },
+                      })}
                       error={errors.confirmPassword?.message}
                       disabled={isSubmitting}
                       autoComplete="new-password"
@@ -361,7 +372,6 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              {/* Role */}
               <div className="pt-2">
                 <label className="mb-2 block text-sm font-medium text-[var(--color-text-secondary)]">Register as</label>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -370,7 +380,12 @@ export default function RegisterPage() {
                       type="radio"
                       value="admin"
                       className="mt-1"
-                      {...register('role')}
+                      {...register('role', {
+                        onChange: () => {
+                          setServerError('');
+                          clearErrors('role');
+                        },
+                      })}
                       disabled={isSubmitting}
                     />
                     <span>
@@ -384,7 +399,12 @@ export default function RegisterPage() {
                       type="radio"
                       value="super_admin"
                       className="mt-1"
-                      {...register('role')}
+                      {...register('role', {
+                        onChange: () => {
+                          setServerError('');
+                          clearErrors('role');
+                        },
+                      })}
                       disabled={isSubmitting}
                     />
                     <span>
@@ -393,9 +413,9 @@ export default function RegisterPage() {
                     </span>
                   </label>
                 </div>
+                {errors.role?.message && <p className="mt-2 text-xs text-red-600">{errors.role.message}</p>}
               </div>
 
-              {/* Remember me */}
               <div className="pt-1">
                 <Controller
                   name="rememberMe"
@@ -405,37 +425,28 @@ export default function RegisterPage() {
                       label="Remember me on this device"
                       disabled={isSubmitting}
                       checked={!!field.value}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        field.onChange(e.target.checked)
-                      }
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                        setServerError('');
+                        clearErrors('rememberMe');
+                        field.onChange(e.target.checked);
+                      }}
                     />
                   )}
                 />
               </div>
 
-              {/* Submit */}
-              <Button
-                type="submit"
-                variant="primary"
-                className="w-full mt-2"
-                disabled={isSubmitting}
-                loading={isSubmitting}
-              >
+              <Button type="submit" variant="primary" className="w-full mt-2" disabled={isSubmitting} loading={isSubmitting}>
                 {isSubmitting ? 'Creating Account...' : 'Create Account'}
               </Button>
 
-              {/* Footer links */}
               <div className="mt-3 flex items-center justify-between border-t border-[var(--color-border-secondary)] pt-5 text-sm">
-                <Link
-                  href="/login"
-                  className="inline-flex items-center text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
-                >
+                <Link href="/login" className="inline-flex items-center text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Already have an account?
                 </Link>
 
                 <Link href="/" className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
-                  Back to Home
+                  Back to Home.
                 </Link>
               </div>
             </form>
@@ -446,11 +457,7 @@ export default function RegisterPage() {
       <Footer />
 
       {successEmail && (
-        <SuccessModal
-          email={successEmail}
-          onClose={() => setSuccessEmail(null)}
-          onGoToLogin={() => router.replace('/login')}
-        />
+        <SuccessModal email={successEmail} onClose={() => setSuccessEmail(null)} onGoToLogin={() => router.replace('/login')} />
       )}
     </div>
   );
