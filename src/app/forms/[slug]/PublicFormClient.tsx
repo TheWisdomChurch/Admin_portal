@@ -411,17 +411,32 @@ async function fetchPublicFormClient(
 }
 
 export default function PublicFormClient({ slug, initialPayload, fallbackApiOrigin }: PublicFormClientProps) {
-  const [payload, setPayload] = useState<PublicFormPayload | null>(initialPayload);
+  const loadCachedPayload = (): PublicFormPayload | null => {
+    if (typeof window === 'undefined' || !slug) return null;
+    try {
+      const raw = sessionStorage.getItem(`public-form:${slug}`);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as PublicFormPayload;
+      return parsed?.form ? parsed : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const initialCached = loadCachedPayload();
+  const initialData = initialPayload ?? initialCached;
+
+  const [payload, setPayload] = useState<PublicFormPayload | null>(initialData);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const leftRef = useRef<HTMLDivElement | null>(null);
   const rightRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
 
-  const [loading, setLoading] = useState(!initialPayload);
+  const [loading, setLoading] = useState(!initialData);
   const [submitting, setSubmitting] = useState(false);
   const [values, setValues] = useState<ValuesState>(() =>
-    buildInitialValues(initialPayload?.form?.fields ?? [])
+    buildInitialValues(initialData?.form?.fields ?? [])
   );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
@@ -455,6 +470,15 @@ export default function PublicFormClient({ slug, initialPayload, fallbackApiOrig
   );
 
   useEffect(() => {
+    if (!payload || typeof window === 'undefined' || !slug) return;
+    try {
+      sessionStorage.setItem(`public-form:${slug}`, JSON.stringify(payload));
+    } catch {
+      // ignore storage errors
+    }
+  }, [payload, slug]);
+
+  useEffect(() => {
     if (!slug || payload) return;
     let alive = true;
 
@@ -468,6 +492,13 @@ export default function PublicFormClient({ slug, initialPayload, fallbackApiOrig
           return;
         }
         setPayload(res);
+        try {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem(`public-form:${slug}`, JSON.stringify(res));
+          }
+        } catch {
+          // ignore storage errors
+        }
         resetFormState(res.form.fields ?? []);
         setSuccessOpen(false);
         setSuccessDetails([]);
