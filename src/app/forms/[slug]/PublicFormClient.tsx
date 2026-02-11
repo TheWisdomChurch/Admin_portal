@@ -25,6 +25,9 @@ const MAX_IMAGE_MB = 5;
 const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const ACCEPTED_IMAGE_ACCEPT = ACCEPTED_IMAGE_TYPES.join(',');
+const FETCH_TIMEOUT_MS = 12000; // give backend time; avoid false negatives
+const RETRY_BASE_MS = 1200;
+const RETRY_MAX_MS = 6000;
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -397,7 +400,7 @@ async function fetchPublicFormClient(slug: string): Promise<PublicFormPayload | 
   for (const url of candidates) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
       const res = await fetch(url, { method: 'GET', credentials: 'include', signal: controller.signal });
       clearTimeout(timeoutId);
       if (!res.ok) continue;
@@ -430,6 +433,8 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const initialData = initialCached;
 
   const [payload, setPayload] = useState<PublicFormPayload | null>(initialData);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const leftRef = useRef<HTMLDivElement | null>(null);
@@ -486,36 +491,50 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
       setLoading(false);
       return;
     }
-    let alive = true;
 
-    (async () => {
+    let alive = true;
+    let attempt = 0;
+
+    const fetchWithRetry = async () => {
+      if (!alive) return;
+      attempt += 1;
+      setLoading(true);
+      setRetrying(attempt > 1);
+      setLoadError(null);
+
       try {
-        setLoading(true);
         const res = await fetchPublicFormClient(slug);
         if (!alive) return;
-        if (!res) {
-          toast.error('Form is not available right now.');
+        if (res) {
+          setPayload(res);
+          if (typeof window !== 'undefined') {
+            try {
+              sessionStorage.setItem(`public-form:${slug}`, JSON.stringify(res));
+            } catch {
+              // ignore storage errors
+            }
+          }
+          resetFormState(res.form.fields ?? []);
+          setSuccessOpen(false);
+          setSuccessDetails([]);
+          setSuccessTokens({});
+          setLoading(false);
+          setRetrying(false);
           return;
         }
-        setPayload(res);
-        try {
-          if (typeof window !== 'undefined') {
-            sessionStorage.setItem(`public-form:${slug}`, JSON.stringify(res));
-          }
-        } catch {
-          // ignore storage errors
-        }
-        resetFormState(res.form.fields ?? []);
-        setSuccessOpen(false);
-        setSuccessDetails([]);
-        setSuccessTokens({});
+        // failed -> schedule retry
+        const delay = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * attempt);
+        setLoadError('Connecting... retrying automatically');
+        setTimeout(fetchWithRetry, delay);
       } catch (err) {
         console.error(err);
-        toast.error('Failed to load registration form');
-      } finally {
-        if (alive) setLoading(false);
+        const delay = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * attempt);
+        setLoadError('Network issue, retrying...');
+        setTimeout(fetchWithRetry, delay);
       }
-    })();
+    };
+
+    fetchWithRetry();
 
     return () => {
       alive = false;
@@ -900,22 +919,13 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     }
   };
 
-  if (loading) {
+  if (loading || !payload) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center p-6">
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center space-y-3">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-yellow-600 border-r-transparent" />
-        <div className="sr-only">Loading form…</div>
-      </div>
-    );
-  }
-
-  if (!payload) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center p-6">
-        <Card className="p-6 max-w-lg w-full bg-white border-gray-200">
-          <h1 className="text-lg font-medium text-black">Form not available</h1>
-          <p className="text-sm text-gray-600 mt-2">This registration link is invalid or has expired.</p>
-        </Card>
+        <div className="text-sm text-gray-600">
+          {loadError || (retrying ? 'Connecting… retrying automatically' : 'Loading form…')}
+        </div>
       </div>
     );
   }
