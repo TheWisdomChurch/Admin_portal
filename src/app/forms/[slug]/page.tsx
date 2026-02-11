@@ -1,8 +1,7 @@
-import { unstable_cache } from 'next/cache';
 import type { PublicFormPayload } from '@/lib/types';
 import PublicFormClient from './PublicFormClient';
 
-export const revalidate = 300;
+export const revalidate = 60;
 
 function normalizeOrigin(raw?: string | null): string {
   let base = (raw || '').trim().replace(/\/+$/, '');
@@ -29,32 +28,38 @@ function resolveEnvOrigin(): string | null {
 
 async function fetchPublicFormFromApi(slug: string): Promise<PublicFormPayload | null> {
   try {
+    const candidates: string[] = [];
     const envOrigin = resolveEnvOrigin();
+    const hardcodedOrigin = 'https://api.wisdomchurchhq.org';
+    if (process.env.NEXT_PUBLIC_API_PROXY === 'true') {
+      candidates.push(`/api/v1/forms/${encodeURIComponent(slug)}`);
+    }
+    if (envOrigin) {
+      candidates.push(`${envOrigin}/api/v1/forms/${encodeURIComponent(slug)}`);
+    }
+    candidates.push(`${hardcodedOrigin}/api/v1/forms/${encodeURIComponent(slug)}`);
 
-    if (!envOrigin) return null;
+    for (const url of candidates) {
+      const res = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+      });
 
-    const url = `${envOrigin}/api/v1/forms/${encodeURIComponent(slug)}`;
-    const res = await fetch(url, {
-      method: 'GET',
-      next: { revalidate },
-      cache: 'force-cache',
-    });
+      if (!res.ok) continue;
 
-    if (!res.ok) return null;
+      const json = (await res.json()) as { data?: PublicFormPayload } | PublicFormPayload;
+      const payload = 'data' in json ? json.data ?? null : (json as PublicFormPayload);
 
-    const json = (await res.json()) as { data?: PublicFormPayload } | PublicFormPayload;
-    const payload = 'data' in json ? json.data ?? null : (json as PublicFormPayload);
+      if (!payload || !payload.form) continue;
+      return payload;
+    }
 
-    if (!payload || !payload.form) return null;
-    return payload;
+    return null;
   } catch (err) {
     console.error('[public-form] fetch failed', err);
     return null;
   }
 }
-
-const getPublicFormCached = (slug: string) =>
-  unstable_cache(() => fetchPublicFormFromApi(slug), ['public-form', slug], { revalidate })();
 
 export default async function PublicFormPage({
   params,
@@ -62,7 +67,7 @@ export default async function PublicFormPage({
   params: { slug?: string };
 }) {
   const slug = params?.slug ?? '';
-  const payload = slug ? await getPublicFormCached(slug) : null;
+  const payload = slug ? await fetchPublicFormFromApi(slug) : null;
   const fallbackApiOrigin = resolveEnvOrigin();
 
   return <PublicFormClient slug={slug} initialPayload={payload} fallbackApiOrigin={fallbackApiOrigin} />;
