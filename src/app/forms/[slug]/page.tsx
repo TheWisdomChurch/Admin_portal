@@ -138,7 +138,7 @@ function PhoneNumberInput({
   onChange: (next: string) => void;
 }) {
   const common =
-    'w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm bg-white text-secondary-900 placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent';
+    'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent';
 
   const parsed = splitE164(value);
   const currentDial = parsed?.dial ?? COUNTRY_PHONE_CODES[0].dial;
@@ -178,7 +178,7 @@ function PhoneNumberInput({
         />
       </div>
 
-      <div className="text-[11px] text-secondary-500">
+      <div className="text-[11px] text-gray-500">
         Stored as international format (E.164), e.g. <span className="font-medium">+2348012345678</span>
       </div>
     </div>
@@ -195,7 +195,7 @@ function FieldInput({
   onChange: (next: FieldValue) => void;
 }) {
   const common =
-    'w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm bg-white text-secondary-900 placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent';
+    'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent';
   const options = Array.isArray(field.options) ? field.options : [];
   const normalizedType = normalizeFieldType(field.type);
 
@@ -209,9 +209,9 @@ function FieldInput({
   const showAsPhone = isPhoneType(normalizedType) || inferredPhone;
 
   const checkboxClass =
-    'h-4 w-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500 appearance-auto accent-[var(--color-accent-primary)]';
+    'h-4 w-4 rounded border-gray-300 text-yellow-600 focus:ring-yellow-500 appearance-auto accent-[var(--color-accent-primary)]';
   const radioClass =
-    'h-4 w-4 rounded-full border-secondary-300 text-primary-600 focus:ring-primary-500 appearance-auto accent-[var(--color-accent-primary)]';
+    'h-4 w-4 rounded-full border-gray-300 text-yellow-600 focus:ring-yellow-500 appearance-auto accent-[var(--color-accent-primary)]';
 
   if (showAsTextarea) {
     return (
@@ -248,7 +248,7 @@ function FieldInput({
     return (
       <div className="space-y-2">
         {options.map((opt) => (
-          <label key={opt.value} className="flex items-center gap-2 text-sm text-secondary-700">
+          <label key={opt.value} className="flex items-center gap-2 text-sm text-gray-700">
             <input
               type="radio"
               name={field.key}
@@ -271,7 +271,7 @@ function FieldInput({
         {options.map((opt) => {
           const checked = selected.includes(opt.value);
           return (
-            <label key={opt.value} className="flex items-center gap-2 text-sm text-secondary-700">
+            <label key={opt.value} className="flex items-center gap-2 text-sm text-gray-700">
               <input
                 type="checkbox"
                 checked={checked}
@@ -291,7 +291,7 @@ function FieldInput({
 
   if (showAsCheckbox) {
     return (
-      <label className="flex items-center gap-2 text-sm text-secondary-700">
+      <label className="flex items-center gap-2 text-sm text-gray-700">
         <input
           type="checkbox"
           checked={Boolean(value)}
@@ -316,9 +316,9 @@ function FieldInput({
           onChange={(e) => onChange(e.target.files?.[0] || null)}
           required={field.required}
         />
-        <div className="text-xs text-secondary-500">Accepted formats: JPEG, PNG, WebP (max {MAX_IMAGE_MB}MB)</div>
+        <div className="text-xs text-gray-500">Accepted formats: JPEG, PNG, WebP (max {MAX_IMAGE_MB}MB)</div>
         {selected ? (
-          <div className="text-xs text-secondary-700">
+          <div className="text-xs text-gray-700">
             Selected: {selected.name} ({Math.round(selected.size / 1024)} KB)
           </div>
         ) : null}
@@ -654,27 +654,7 @@ export default function PublicFormPage() {
     settings?.submitButtonText?.trim() || settings?.design?.ctaButtonLabel?.trim() || 'Submit Registration';
   const privacyCopy = settings?.design?.privacyCopy ?? 'By submitting, you confirm your details are accurate.';
   const footerText = settings?.footerText?.trim() || settings?.design?.footerNote?.trim() || 'Powered by support@wisdomchurchhq';
-  const footerStyle =
-    settings?.footerBg || settings?.footerTextColor
-      ? { backgroundColor: settings?.footerBg, color: settings?.footerTextColor }
-      : undefined;
-
-  const themeStyle = useMemo<React.CSSProperties | undefined>(() => {
-    const accent =
-      settings?.submitButtonBg || settings?.design?.accentColor || settings?.design?.primaryColor || undefined;
-    const textOnPrimary = settings?.submitButtonTextColor || undefined;
-    if (!accent && !textOnPrimary) return undefined;
-    return {
-      ...(accent
-        ? {
-            ['--color-accent-primary' as string]: accent,
-            ['--color-accent-primaryhover' as string]: accent,
-            ['--color-accent-primaryactive' as string]: accent,
-          }
-        : {}),
-      ...(textOnPrimary ? { ['--color-text-onprimary' as string]: textOnPrimary } : {}),
-    };
-  }, [settings]);
+  const footerStyle = undefined;
 
   const baseThemeStyle = useMemo<React.CSSProperties>(
     () => ({
@@ -693,14 +673,7 @@ export default function PublicFormPage() {
     }),
     []
   );
-
-  const pageThemeStyle = useMemo<React.CSSProperties>(
-    () => ({
-      ...baseThemeStyle,
-      ...(themeStyle || {}),
-    }),
-    [baseThemeStyle, themeStyle]
-  );
+  const pageThemeStyle = baseThemeStyle;
 
   const submitButtonIcon = useMemo(() => {
     switch (settings?.submitButtonIcon) {
@@ -865,7 +838,7 @@ export default function PublicFormPage() {
   if (loading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center p-6">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent" />
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-yellow-600 border-r-transparent" />
       </div>
     );
   }
@@ -873,9 +846,9 @@ export default function PublicFormPage() {
   if (!payload) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center p-6">
-        <Card className="p-6 max-w-lg w-full bg-white border-secondary-200">
-          <h1 className="text-xl font-medium text-secondary-900">Form not available</h1>
-          <p className="text-secondary-600 mt-2">This registration link is invalid or has expired.</p>
+        <Card className="p-6 max-w-lg w-full bg-white border-gray-200">
+          <h1 className="text-lg font-medium text-black">Form not available</h1>
+          <p className="text-sm text-gray-600 mt-2">This registration link is invalid or has expired.</p>
         </Card>
       </div>
     );
@@ -884,34 +857,34 @@ export default function PublicFormPage() {
   return (
     <div
       ref={rootRef}
-      className="min-h-screen bg-white text-secondary-900 transition-opacity duration-500"
+      className="min-h-screen bg-white text-black transition-opacity duration-500"
       style={pageThemeStyle}
     >
-      <header className="border-b border-secondary-100 bg-white/90 backdrop-blur">
+      <header className="border-b border-gray-200 bg-white/90 backdrop-blur">
         <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Link href="/" className="flex items-center gap-3" aria-label="Wisdom Church home">
-            <span className="relative h-10 w-10 overflow-hidden rounded-full border border-secondary-200 bg-white">
+            <span className="relative h-10 w-10 overflow-hidden rounded-full border border-gray-200 bg-white">
               <Image src="/OIP.webp" alt="Wisdom Church logo" fill className="object-cover" sizes="40px" />
             </span>
             <div className="leading-tight">
-              <div className="text-sm font-medium text-secondary-900">Wisdom Church</div>
-              <div className="text-xs text-secondary-500">Registration</div>
+              <div className="text-sm font-medium text-black">Wisdom Church</div>
+              <div className="text-xs text-gray-500">Registration</div>
             </div>
           </Link>
-          <nav className="flex flex-wrap items-center gap-3 text-xs text-secondary-500">
+          <nav className="flex flex-wrap items-center gap-3 text-xs text-gray-600">
             <Link
               href="/"
-              className="rounded-full px-3 py-1 hover:text-secondary-900 hover:bg-secondary-50 transition-colors"
+              className="rounded-full px-3 py-1 hover:text-black hover:bg-gray-50 transition-colors"
             >
               Home
             </Link>
             <a
               href="mailto:support@wisdomchurchhq"
-              className="rounded-full px-3 py-1 hover:text-secondary-900 hover:bg-secondary-50 transition-colors"
+              className="rounded-full px-3 py-1 hover:text-black hover:bg-gray-50 transition-colors"
             >
               Contact
             </a>
-            <span className="inline-flex items-center rounded-full border border-secondary-200 bg-white px-3 py-1 shadow-sm">
+            <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 shadow-sm">
               Secure form
             </span>
           </nav>
@@ -921,12 +894,12 @@ export default function PublicFormPage() {
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         {/* Hero */}
         <div className="mb-8">
-          <div className="inline-flex items-center rounded-full border border-secondary-200 bg-white px-3 py-1 text-xs text-secondary-600 shadow-sm">
+          <div className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-600 shadow-sm">
             Registration
           </div>
 
           {bannerUrl ? (
-            <div className="mt-4 overflow-hidden rounded-2xl border border-secondary-200 bg-white shadow-sm">
+            <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
               <div className="relative h-48 sm:h-64">
                 <Image
                   src={bannerUrl}
@@ -934,14 +907,14 @@ export default function PublicFormPage() {
                   fill
                   className="object-cover"
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 900px"
-                  loading="lazy"
+                  priority
                 />
               </div>
             </div>
           ) : null}
 
-          <h1 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight text-secondary-900">{heroTitle}</h1>
-          <p className="mt-2 text-sm text-secondary-600 max-w-2xl">{heroSubtitle}</p>
+          <h1 className="mt-3 text-xl sm:text-2xl font-medium tracking-tight text-black">{heroTitle}</h1>
+          <p className="mt-2 text-sm text-gray-600 max-w-2xl">{heroSubtitle}</p>
 
           {isClosed ? (
             <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -958,9 +931,9 @@ export default function PublicFormPage() {
           {hasLeftColumn ? (
             <div ref={leftRef} className="space-y-6">
               {introBullets.length > 0 ? (
-                <Card className="p-6 transition-shadow duration-300 hover:shadow-md bg-white border-secondary-200">
-                  <h2 className="text-lg font-medium text-secondary-900">What to Expect</h2>
-                  <p className="text-sm text-secondary-600 mt-1">
+                <Card className="p-6 transition-shadow duration-300 hover:shadow-md bg-white border-gray-200">
+                  <h2 className="text-base font-medium text-black">What to Expect</h2>
+                  <p className="text-sm text-gray-600 mt-1">
                     Here’s a quick overview of what your experience will look like.
                   </p>
 
@@ -970,12 +943,12 @@ export default function PublicFormPage() {
                       return (
                         <li
                           key={`${item}-${idx}`}
-                          className="flex items-start gap-3 rounded-xl border border-secondary-100 bg-white px-4 py-3 shadow-sm"
+                          className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm"
                         >
-                          <div className="mt-1 h-2.5 w-2.5 rounded-full bg-primary-600" />
-                          <div className="text-sm text-secondary-800">
-                            <div className="font-medium text-secondary-900">{item}</div>
-                            {sub ? <div className="mt-1 text-xs text-secondary-500">{sub}</div> : null}
+                          <div className="mt-1 h-2.5 w-2.5 rounded-full bg-yellow-600" />
+                          <div className="text-sm text-gray-800">
+                            <div className="font-medium text-black">{item}</div>
+                            {sub ? <div className="mt-1 text-xs text-gray-500">{sub}</div> : null}
                           </div>
                         </li>
                       );
@@ -985,22 +958,22 @@ export default function PublicFormPage() {
               ) : null}
 
               {payload.event ? (
-                <Card className="p-6 transition-shadow duration-300 hover:shadow-md bg-white border-secondary-200">
-                  <h3 className="text-lg font-medium text-secondary-900">Event Details</h3>
+                <Card className="p-6 transition-shadow duration-300 hover:shadow-md bg-white border-gray-200">
+                  <h3 className="text-base font-medium text-black">Event Details</h3>
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                    <div className="rounded-xl border border-secondary-100 bg-white p-4">
-                      <div className="text-secondary-500">Date</div>
-                      <div className="mt-1 font-medium text-secondary-900">
+                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                      <div className="text-gray-500">Date</div>
+                      <div className="mt-1 font-medium text-black">
                         {formatEventDate(payload.event.date) || payload.event.date}
                       </div>
                     </div>
-                    <div className="rounded-xl border border-secondary-100 bg-white p-4">
-                      <div className="text-secondary-500">Time</div>
-                      <div className="mt-1 font-medium text-secondary-900">{payload.event.time}</div>
+                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                      <div className="text-gray-500">Time</div>
+                      <div className="mt-1 font-medium text-black">{payload.event.time}</div>
                     </div>
-                    <div className="rounded-xl border border-secondary-100 bg-white p-4 sm:col-span-2">
-                      <div className="text-secondary-500">Location</div>
-                      <div className="mt-1 font-medium text-secondary-900">{payload.event.location}</div>
+                    <div className="rounded-xl border border-gray-200 bg-white p-4 sm:col-span-2">
+                      <div className="text-gray-500">Location</div>
+                      <div className="mt-1 font-medium text-black">{payload.event.location}</div>
                     </div>
                   </div>
                 </Card>
@@ -1009,12 +982,12 @@ export default function PublicFormPage() {
           ) : null}
 
           <div ref={rightRef}>
-            <Card className="p-6 md:p-7 shadow-md transition-shadow duration-300 hover:shadow-lg bg-white border-secondary-200">
-              <h2 className="text-xl font-medium text-secondary-900">{displayFormTitle}</h2>
-              {showFormDescription ? <p className="mt-2 text-sm text-secondary-600">{formDescription}</p> : null}
+            <Card className="p-6 md:p-7 shadow-md transition-shadow duration-300 hover:shadow-lg bg-white border-gray-200">
+              <h2 className="text-lg font-medium text-black">{displayFormTitle}</h2>
+              {showFormDescription ? <p className="mt-2 text-sm text-gray-600">{formDescription}</p> : null}
 
               {settings?.formHeaderNote ? (
-                <p className="mt-3 rounded-lg border border-secondary-100 bg-secondary-50 px-3 py-2 text-xs text-secondary-600">
+                <p className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
                   {settings.formHeaderNote}
                 </p>
               ) : null}
@@ -1032,7 +1005,7 @@ export default function PublicFormPage() {
                     return (
                       <div key={field.key} className="space-y-1.5">
                         {showLabel ? (
-                          <label className="block text-sm font-medium text-secondary-700">
+                          <label className="block text-sm font-medium text-gray-800">
                             {field.label} {field.required ? <span className="text-red-500">*</span> : null}
                           </label>
                         ) : null}
@@ -1056,6 +1029,7 @@ export default function PublicFormPage() {
 
                 <Button
                   className="w-full"
+                  size="sm"
                   loading={submitting}
                   disabled={submitting || isClosed}
                   onClick={submit}
@@ -1064,40 +1038,40 @@ export default function PublicFormPage() {
                   {submitButtonLabel}
                 </Button>
 
-                <p className="mt-3 text-xs text-secondary-500 text-center">{privacyCopy}</p>
+                <p className="mt-3 text-xs text-gray-600 text-center">{privacyCopy}</p>
               </div>
             </Card>
           </div>
         </div>
 
-        <footer className="mt-14 border-t border-secondary-100 pt-10" style={footerStyle}>
+        <footer className="mt-14 border-t border-gray-200 pt-10" style={footerStyle}>
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
-              <div className="text-sm font-medium text-secondary-900">Wisdom Church</div>
-              <p className="text-xs text-secondary-600">
+              <div className="text-sm font-medium text-black">Wisdom Church</div>
+              <p className="text-xs text-gray-600">
                 We are committed to creating welcoming, well-organized experiences that honor your time and keep you
                 informed from registration to check-in.
               </p>
             </div>
             <div className="space-y-2">
-              <div className="text-sm font-medium text-secondary-900">Contact</div>
-              <ul className="space-y-1 text-xs text-secondary-600">
+              <div className="text-sm font-medium text-black">Contact</div>
+              <ul className="space-y-1 text-xs text-gray-600">
                 <li>support@wisdomchurchhq</li>
                 <li>Available Mon–Fri, 9:00am–5:00pm</li>
                 <li>Response time: within 24 hours</li>
               </ul>
             </div>
             <div className="space-y-2">
-              <div className="text-sm font-medium text-secondary-900">Resources</div>
-              <ul className="space-y-1 text-xs text-secondary-600">
+              <div className="text-sm font-medium text-black">Resources</div>
+              <ul className="space-y-1 text-xs text-gray-600">
                 <li>Registration guidelines</li>
                 <li>Event policies</li>
                 <li>FAQs</li>
               </ul>
             </div>
             <div className="space-y-2">
-              <div className="text-sm font-medium text-secondary-900">Privacy & Security</div>
-              <ul className="space-y-1 text-xs text-secondary-600">
+              <div className="text-sm font-medium text-black">Privacy & Security</div>
+              <ul className="space-y-1 text-xs text-gray-600">
                 <li>Your data is handled securely</li>
                 <li>Access is limited to authorized staff</li>
                 <li>Updates shared only when necessary</li>
@@ -1105,7 +1079,7 @@ export default function PublicFormPage() {
             </div>
           </div>
 
-          <div className="mt-8 flex flex-col gap-2 border-t border-secondary-100 pt-4 text-xs text-secondary-500 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-8 flex flex-col gap-2 border-t border-gray-200 pt-4 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between">
             <span>{footerText}</span>
             <span>© {new Date().getFullYear()} Wisdom Church. All rights reserved.</span>
           </div>

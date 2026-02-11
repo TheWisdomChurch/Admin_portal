@@ -16,7 +16,7 @@ export const semanticColors = {
       tertiary: colorTokens.secondary[600],
       inverse: colorTokens.surface.white,
       disabled: colorTokens.secondary[400],
-      onPrimary: colorTokens.surface.white,
+      onPrimary: colorTokens.secondary[950],
     },
     border: {
       primary: colorTokens.neutral[200],
@@ -49,7 +49,7 @@ export const semanticColors = {
       tertiary: colorTokens.secondary[400],
       inverse: colorTokens.surface.black,
       disabled: colorTokens.secondary[600],
-      onPrimary: colorTokens.surface.white,
+      onPrimary: colorTokens.secondary[950],
     },
     border: {
       primary: colorTokens.neutral[700],
