@@ -1,4 +1,3 @@
-import { headers } from 'next/headers';
 import type { PublicFormPayload } from '@/lib/types';
 import PublicFormClient from './PublicFormClient';
 
@@ -8,14 +7,6 @@ function normalizeOrigin(raw?: string | null): string {
   let base = (raw || '').trim().replace(/\/+$/, '');
   if (base.endsWith('/api/v1')) base = base.slice(0, -'/api/v1'.length);
   return base;
-}
-
-async function getRequestOrigin(): Promise<string | null> {
-  const hdrs = await headers();
-  const host = hdrs.get('x-forwarded-host') ?? hdrs.get('host');
-  if (!host) return null;
-  const proto = hdrs.get('x-forwarded-proto') ?? 'https';
-  return `${proto}://${host}`;
 }
 
 function resolveEnvOrigin(): string | null {
@@ -37,31 +28,24 @@ function resolveEnvOrigin(): string | null {
 
 async function fetchPublicForm(slug: string): Promise<PublicFormPayload | null> {
   try {
-    const useProxy = process.env.NEXT_PUBLIC_API_PROXY === 'true';
-    const requestOrigin = await getRequestOrigin();
     const envOrigin = resolveEnvOrigin();
 
-    const origins: string[] = [];
-    if (useProxy && requestOrigin) origins.push(requestOrigin);
-    if (envOrigin && !origins.includes(envOrigin)) origins.push(envOrigin);
+    if (!envOrigin) return null;
 
-    for (const origin of origins) {
-      const url = `${origin}/api/v1/forms/${encodeURIComponent(slug)}`;
-      const res = await fetch(url, {
-        method: 'GET',
-        next: { revalidate },
-      });
+    const url = `${envOrigin}/api/v1/forms/${encodeURIComponent(slug)}`;
+    const res = await fetch(url, {
+      method: 'GET',
+      next: { revalidate },
+      cache: 'force-cache',
+    });
 
-      if (!res.ok) continue;
+    if (!res.ok) return null;
 
-      const json = (await res.json()) as { data?: PublicFormPayload } | PublicFormPayload;
-      const payload = 'data' in json ? json.data ?? null : (json as PublicFormPayload);
+    const json = (await res.json()) as { data?: PublicFormPayload } | PublicFormPayload;
+    const payload = 'data' in json ? json.data ?? null : (json as PublicFormPayload);
 
-      if (!payload || !payload.form) continue;
-      return payload;
-    }
-
-    return null;
+    if (!payload || !payload.form) return null;
+    return payload;
   } catch (err) {
     console.error('[public-form] fetch failed', err);
     return null;
