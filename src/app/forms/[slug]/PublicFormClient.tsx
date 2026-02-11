@@ -1,7 +1,7 @@
 // src/app/forms/[slug]/PublicFormClient.tsx
 'use client';
 
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
@@ -20,6 +20,7 @@ type SuccessDetail = { label: string; value: string };
 type PublicFormClientProps = {
   slug: string;
   initialPayload: PublicFormPayload | null;
+  fallbackApiOrigin?: string | null;
 };
 
 const MAX_IMAGE_MB = 5;
@@ -385,14 +386,39 @@ function FieldInput({
   );
 }
 
-export default function PublicFormClient({ slug, initialPayload }: PublicFormClientProps) {
-  const payload = initialPayload;
+async function fetchPublicFormClient(
+  slug: string,
+  fallbackApiOrigin?: string | null
+): Promise<PublicFormPayload | null> {
+  const candidates: string[] = [];
+  if (fallbackApiOrigin) candidates.push(`${fallbackApiOrigin}/api/v1/forms/${encodeURIComponent(slug)}`);
+  candidates.push(`/api/v1/forms/${encodeURIComponent(slug)}`);
+
+  for (const url of candidates) {
+    try {
+      const res = await fetch(url, { method: 'GET', credentials: 'include' });
+      if (!res.ok) continue;
+      const json = (await res.json()) as { data?: PublicFormPayload } | PublicFormPayload;
+      const payload = 'data' in json ? json.data ?? null : (json as PublicFormPayload);
+      if (!payload || !payload.form) continue;
+      return payload;
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+export default function PublicFormClient({ slug, initialPayload, fallbackApiOrigin }: PublicFormClientProps) {
+  const [payload, setPayload] = useState<PublicFormPayload | null>(initialPayload);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const leftRef = useRef<HTMLDivElement | null>(null);
   const rightRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
 
+  const [loading, setLoading] = useState(!initialPayload);
   const [submitting, setSubmitting] = useState(false);
   const [values, setValues] = useState<ValuesState>(() =>
     buildInitialValues(initialPayload?.form?.fields ?? [])
@@ -427,6 +453,37 @@ export default function PublicFormClient({ slug, initialPayload }: PublicFormCli
     },
     [fields]
   );
+
+  useEffect(() => {
+    if (!slug || payload) return;
+    let alive = true;
+
+    (async () => {
+      try {
+        setLoading(true);
+        const res = await fetchPublicFormClient(slug, fallbackApiOrigin);
+        if (!alive) return;
+        if (!res) {
+          toast.error('Form is not available right now.');
+          return;
+        }
+        setPayload(res);
+        resetFormState(res.form.fields ?? []);
+        setSuccessOpen(false);
+        setSuccessDetails([]);
+        setSuccessTokens({});
+      } catch (err) {
+        console.error(err);
+        toast.error('Failed to load registration form');
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [fallbackApiOrigin, payload, resetFormState, slug]);
 
   const valueToString = (value: FieldValue): string => {
     if (typeof value === 'string') return value.trim();
@@ -805,6 +862,14 @@ export default function PublicFormClient({ slug, initialPayload }: PublicFormCli
       setSubmitting(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-6">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-yellow-600 border-r-transparent" />
+      </div>
+    );
+  }
 
   if (!payload) {
     return (
