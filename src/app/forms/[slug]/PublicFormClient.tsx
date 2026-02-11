@@ -19,8 +19,6 @@ type SuccessDetail = { label: string; value: string };
 
 type PublicFormClientProps = {
   slug: string;
-  initialPayload: PublicFormPayload | null;
-  fallbackApiOrigin?: string | null;
 };
 
 const MAX_IMAGE_MB = 5;
@@ -386,18 +384,22 @@ function FieldInput({
   );
 }
 
-async function fetchPublicFormClient(
-  slug: string,
-  fallbackApiOrigin?: string | null
-): Promise<PublicFormPayload | null> {
+async function fetchPublicFormClient(slug: string): Promise<PublicFormPayload | null> {
+  const apiOrigin =
+    process.env.NEXT_PUBLIC_API_URL ??
+    process.env.NEXT_PUBLIC_BACKEND_URL ??
+    'https://api.wisdomchurchhq.org';
+
   const candidates: string[] = [];
-  if (fallbackApiOrigin) candidates.push(`${fallbackApiOrigin}/api/v1/forms/${encodeURIComponent(slug)}`);
-  candidates.push(`/api/v1/forms/${encodeURIComponent(slug)}`);
-  candidates.push(`https://api.wisdomchurchhq.org/api/v1/forms/${encodeURIComponent(slug)}`);
+  candidates.push(`/api/v1/forms/${encodeURIComponent(slug)}`); // same-origin proxy
+  candidates.push(`${apiOrigin}/api/v1/forms/${encodeURIComponent(slug)}`); // direct API
 
   for (const url of candidates) {
     try {
-      const res = await fetch(url, { method: 'GET', credentials: 'include' });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const res = await fetch(url, { method: 'GET', credentials: 'include', signal: controller.signal });
+      clearTimeout(timeoutId);
       if (!res.ok) continue;
       const json = (await res.json()) as { data?: PublicFormPayload } | PublicFormPayload;
       const payload = 'data' in json ? json.data ?? null : (json as PublicFormPayload);
@@ -411,7 +413,7 @@ async function fetchPublicFormClient(
   return null;
 }
 
-export default function PublicFormClient({ slug, initialPayload, fallbackApiOrigin }: PublicFormClientProps) {
+export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const loadCachedPayload = (): PublicFormPayload | null => {
     if (typeof window === 'undefined' || !slug) return null;
     try {
@@ -425,7 +427,7 @@ export default function PublicFormClient({ slug, initialPayload, fallbackApiOrig
   };
 
   const initialCached = loadCachedPayload();
-  const initialData = initialPayload ?? initialCached;
+  const initialData = initialCached;
 
   const [payload, setPayload] = useState<PublicFormPayload | null>(initialData);
 
@@ -480,13 +482,16 @@ export default function PublicFormClient({ slug, initialPayload, fallbackApiOrig
   }, [payload, slug]);
 
   useEffect(() => {
-    if (!slug || payload) return;
+    if (!slug || payload) {
+      setLoading(false);
+      return;
+    }
     let alive = true;
 
     (async () => {
       try {
         setLoading(true);
-        const res = await fetchPublicFormClient(slug, fallbackApiOrigin);
+        const res = await fetchPublicFormClient(slug);
         if (!alive) return;
         if (!res) {
           toast.error('Form is not available right now.');
@@ -515,7 +520,7 @@ export default function PublicFormClient({ slug, initialPayload, fallbackApiOrig
     return () => {
       alive = false;
     };
-  }, [fallbackApiOrigin, payload, resetFormState, slug]);
+  }, [payload, resetFormState, slug]);
 
   const valueToString = (value: FieldValue): string => {
     if (typeof value === 'string') return value.trim();
@@ -899,6 +904,7 @@ export default function PublicFormClient({ slug, initialPayload, fallbackApiOrig
     return (
       <div className="min-h-[60vh] flex items-center justify-center p-6">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-yellow-600 border-r-transparent" />
+        <div className="sr-only">Loading form…</div>
       </div>
     );
   }
