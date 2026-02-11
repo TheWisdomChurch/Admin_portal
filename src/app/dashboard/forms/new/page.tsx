@@ -4,6 +4,7 @@
 // so admins can create new forms from the canonical /dashboard/forms/new route.
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Save, Plus, Trash2, Copy } from 'lucide-react';
@@ -12,8 +13,11 @@ import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/layouts';
 import { Input } from '@/ui/input';
+import { AlertModal } from '@/ui/AlertModal';
 
 import { apiClient } from '@/lib/api';
+import { buildPublicFormUrl } from '@/lib/utils';
+import { createFormSchema } from '@/lib/validation/forms';
 import type { CreateFormRequest, EventData, FormFieldType } from '@/lib/types';
 
 import { withAuth } from '@/providers/withAuth';
@@ -37,6 +41,10 @@ type DateFormat = (typeof dateFormats)[number];
 
 const submitButtonIcons = ['check', 'send', 'calendar', 'cursor', 'none'] as const;
 type SubmitButtonIcon = (typeof submitButtonIcons)[number];
+
+const MAX_BANNER_MB = 5;
+const MAX_BANNER_BYTES = MAX_BANNER_MB * 1024 * 1024;
+const ACCEPTED_BANNER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 const normalizeSlug = (value: string) =>
   value
@@ -83,7 +91,14 @@ export default withAuth(function NewFormPage() {
   const [submitButtonTextColor, setSubmitButtonTextColor] = useState('#111827');
   const [submitButtonIcon, setSubmitButtonIcon] = useState<SubmitButtonIcon>('check');
   const [formHeaderNote, setFormHeaderNote] = useState('Please ensure details are accurate before submitting.');
+  const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [successTitle, setSuccessTitle] = useState('');
+  const [successSubtitle, setSuccessSubtitle] = useState('');
+  const [successMessage, setSuccessMessage] = useState('We would love to see you.');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [removeFieldIndex, setRemoveFieldIndex] = useState<number | null>(null);
 
   const clearFieldError = (key: string) =>
     setFieldErrors((prev) => {
@@ -98,6 +113,39 @@ export default withAuth(function NewFormPage() {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return undefined;
     return d.toISOString();
+  };
+
+  const validateBannerFile = (file: File): string | null => {
+    if (!ACCEPTED_BANNER_TYPES.includes(file.type)) {
+      return 'Banner must be JPEG, PNG, or WebP.';
+    }
+    if (file.size > MAX_BANNER_BYTES) {
+      return `Banner must be ${MAX_BANNER_MB}MB or smaller.`;
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    return () => {
+      if (bannerPreview) URL.revokeObjectURL(bannerPreview);
+    };
+  }, [bannerPreview]);
+
+  const handleBannerFile = (file?: File) => {
+    if (!file) {
+      setBannerFile(null);
+      setBannerPreview(null);
+      return;
+    }
+    const error = validateBannerFile(file);
+    if (error) {
+      toast.error(error);
+      setBannerFile(null);
+      setBannerPreview(null);
+      return;
+    }
+    setBannerFile(file);
+    setBannerPreview(URL.createObjectURL(file));
   };
 
   useEffect(() => {
@@ -132,8 +180,14 @@ export default withAuth(function NewFormPage() {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, ...updates } : f)));
   };
 
-  const removeField = (index: number) => {
-    setFields((prev) => prev.filter((_, i) => i !== index));
+  const requestRemoveField = (index: number) => {
+    setRemoveFieldIndex(index);
+  };
+
+  const confirmRemoveField = () => {
+    if (removeFieldIndex === null) return;
+    setFields((prev) => prev.filter((_, i) => i !== removeFieldIndex));
+    setRemoveFieldIndex(null);
   };
 
   const save = async () => {
@@ -157,7 +211,9 @@ export default withAuth(function NewFormPage() {
         capacity: capacity ? Number(capacity) : undefined,
         closesAt: toIso(closesAt),
         expiresAt: toIso(expiresAt),
-        successMessage: 'Thanks! Your registration has been received.',
+        successTitle: successTitle.trim() || undefined,
+        successSubtitle: successSubtitle.trim() || undefined,
+        successMessage: successMessage.trim() || undefined,
         introTitle,
         introSubtitle,
         introBullets: introBullets.split('\n').filter(Boolean),
@@ -172,21 +228,48 @@ export default withAuth(function NewFormPage() {
         submitButtonTextColor,
         submitButtonIcon,
         formHeaderNote,
+        design: coverImageUrl.trim()
+          ? { coverImageUrl: coverImageUrl.trim() }
+          : undefined,
       },
     };
 
+    const parsed = createFormSchema.safeParse(payload);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      toast.error(issue?.message || 'Please fix validation errors before saving.');
+      return;
+    }
+
     try {
       setSaving(true);
-      const created = await apiClient.createAdminForm(payload);
+      let created = await apiClient.createAdminForm(payload);
+      if (bannerFile) {
+        try {
+          created = await apiClient.uploadFormBanner(created.id, bannerFile);
+        } catch (uploadErr) {
+          console.error('Banner upload failed:', uploadErr);
+          toast.error('Form saved, but banner upload failed.');
+        }
+      }
       let slugToUse = created.slug || normalizedSlug;
+      let publishedOk = false;
+      let publishError: string | null = null;
       try {
         const published = await apiClient.publishAdminForm(created.id);
         slugToUse = published?.slug || slugToUse;
-      } catch {
-        // optional publish failure tolerated
+        publishedOk = true;
+      } catch (err) {
+        publishedOk = false;
+        publishError = getServerErrorMessage(err, 'Publish failed. Form saved as draft.');
       }
-      setPublishedSlug(slugToUse);
-      toast.success('Form created and link ready');
+      setPublishedSlug(publishedOk ? slugToUse : null);
+      if (publishedOk) {
+        toast.success('Form created and link ready');
+      } else {
+        toast.success('Form created');
+        toast.error(publishError || 'Publish the form to get a live link.');
+      }
       router.push(`/dashboard/forms/${created.id}/edit`);
     } catch (err) {
       console.error(err);
@@ -202,6 +285,8 @@ export default withAuth(function NewFormPage() {
       setSaving(false);
     }
   };
+
+  const pendingField = removeFieldIndex !== null ? fields[removeFieldIndex] : null;
 
   if (authBlocked) {
     return (
@@ -266,6 +351,59 @@ export default withAuth(function NewFormPage() {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional short intro"
             />
+          </div>
+
+          <div className="md:col-span-2 grid gap-3 md:grid-cols-2">
+            <Input
+              label="Header image URL (optional)"
+              value={coverImageUrl}
+              onChange={(e) => setCoverImageUrl(e.target.value)}
+              placeholder="https://..."
+              helperText="Shown at the top of the public form."
+            />
+            <Input
+              label="Or upload header image"
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleBannerFile(e.target.files?.[0])}
+              helperText="Uploads to S3 and replaces the URL above."
+            />
+            <Input
+              label="Success modal title (optional)"
+              value={successTitle}
+              onChange={(e) => setSuccessTitle(e.target.value)}
+              placeholder="Thank you for registering"
+              helperText="Supports tokens like {{formTitle}} and {{name}}."
+            />
+            <Input
+              label="Success modal subtitle (optional)"
+              value={successSubtitle}
+              onChange={(e) => setSuccessSubtitle(e.target.value)}
+              placeholder="for {{formTitle}}"
+              helperText="Use {{eventDate}} or {{eventLocation}} if relevant."
+            />
+            <div className="space-y-2 md:col-span-2">
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Success modal message</label>
+              <textarea
+                className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                rows={2}
+                value={successMessage}
+                onChange={(e) => setSuccessMessage(e.target.value)}
+                placeholder="We would love to see you."
+              />
+            </div>
+            {(bannerPreview || coverImageUrl.trim()) && (
+              <div className="md:col-span-2">
+                <Image
+                  src={bannerPreview || coverImageUrl.trim()}
+                  alt="Banner preview"
+                  width={1200}
+                  height={400}
+                  className="w-full max-h-64 rounded-[var(--radius-card)] object-cover border border-[var(--color-border-secondary)]"
+                  unoptimized
+                />
+              </div>
+            )}
           </div>
 
           <div className="md:col-span-2 grid gap-3 md:grid-cols-3">
@@ -424,6 +562,7 @@ export default withAuth(function NewFormPage() {
                     <option value="select">Dropdown</option>
                     <option value="checkbox">Checkbox</option>
                     <option value="radio">Radio</option>
+                    <option value="image">Image Upload</option>
                   </select>
                   <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
                     <input
@@ -433,7 +572,7 @@ export default withAuth(function NewFormPage() {
                     />
                     Required
                   </label>
-                  <Button variant="outline" size="sm" onClick={() => removeField(index)} icon={<Trash2 className="h-4 w-4" />}>
+                  <Button variant="outline" size="sm" onClick={() => requestRemoveField(index)} icon={<Trash2 className="h-4 w-4" />}>
                     Remove
                   </Button>
                 </div>
@@ -547,10 +686,20 @@ export default withAuth(function NewFormPage() {
                     <p className="text-xs text-[var(--color-text-tertiary)]">{field.label}</p>
                     {(field.options || []).map((opt) => (
                       <label key={opt.value} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                        <input type="radio" disabled className="h-4 w-4 border-[var(--color-border-primary)]" />
+                        <input type="radio" disabled className="h-4 w-4 rounded-full border-[var(--color-border-primary)]" />
                         {opt.label}
                       </label>
                     ))}
+                  </div>
+                ) : field.type === 'image' ? (
+                  <div className="space-y-1">
+                    <input
+                      disabled
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                    />
+                    <p className="text-[11px] text-[var(--color-text-tertiary)]">JPEG, PNG, WebP up to 5MB</p>
                   </div>
                 ) : field.type === 'date' ? (
                   <input
@@ -603,7 +752,7 @@ export default withAuth(function NewFormPage() {
       <Card title="Form Link">
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-[var(--color-text-secondary)]">
-            {publishedSlug ? `/forms/${publishedSlug}` : 'Create & publish to generate link'}
+            {publishedSlug ? (buildPublicFormUrl(publishedSlug) ?? `/forms/${publishedSlug}`) : 'Create & publish to generate link'}
           </p>
           <Button
             variant="outline"
@@ -613,7 +762,8 @@ export default withAuth(function NewFormPage() {
                 toast.error('Publish first to copy link');
                 return;
               }
-              await navigator.clipboard.writeText(`${window.location.origin}/forms/${publishedSlug}`);
+              const url = buildPublicFormUrl(publishedSlug) ?? `/forms/${encodeURIComponent(publishedSlug)}`;
+              await navigator.clipboard.writeText(url);
               toast.success('Link copied');
             }}
             icon={<Copy className="h-4 w-4" />}
@@ -692,6 +842,15 @@ export default withAuth(function NewFormPage() {
           </div>
         </div>
       </Card>
+
+      <AlertModal
+        open={removeFieldIndex !== null}
+        onClose={() => setRemoveFieldIndex(null)}
+        title="Remove Field"
+        description={`Remove "${pendingField?.label || 'this field'}"? This will delete it from the form.`}
+        primaryAction={{ label: 'Remove', onClick: confirmRemoveField, variant: 'danger' }}
+        secondaryAction={{ label: 'Cancel', onClick: () => setRemoveFieldIndex(null), variant: 'outline' }}
+      />
     </div>
   );
 }, { requiredRole: 'admin' });
