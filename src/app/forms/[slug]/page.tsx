@@ -1,7 +1,8 @@
+import { unstable_cache } from 'next/cache';
 import type { PublicFormPayload } from '@/lib/types';
 import PublicFormClient from './PublicFormClient';
 
-export const revalidate = 60;
+export const revalidate = 300;
 
 function normalizeOrigin(raw?: string | null): string {
   let base = (raw || '').trim().replace(/\/+$/, '');
@@ -26,7 +27,7 @@ function resolveEnvOrigin(): string | null {
   return normalized ? normalized : null;
 }
 
-async function fetchPublicForm(slug: string): Promise<PublicFormPayload | null> {
+async function fetchPublicFormFromApi(slug: string): Promise<PublicFormPayload | null> {
   try {
     const envOrigin = resolveEnvOrigin();
 
@@ -52,13 +53,16 @@ async function fetchPublicForm(slug: string): Promise<PublicFormPayload | null> 
   }
 }
 
+const getPublicFormCached = (slug: string) =>
+  unstable_cache(() => fetchPublicFormFromApi(slug), ['public-form', slug], { revalidate })();
+
 export default async function PublicFormPage({
   params,
 }: {
   params: { slug?: string };
 }) {
   const slug = params?.slug ?? '';
-  const payload = slug ? await fetchPublicForm(slug) : null;
+  const payload = slug ? await getPublicFormCached(slug) : null;
   const fallbackApiOrigin = resolveEnvOrigin();
 
   return <PublicFormClient slug={slug} initialPayload={payload} fallbackApiOrigin={fallbackApiOrigin} />;
