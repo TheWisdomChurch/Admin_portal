@@ -9,8 +9,10 @@ import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/layouts';
 import { Input } from '@/ui/input';
+import { AlertModal } from '@/ui/AlertModal';
 
 import { apiClient } from '@/lib/api';
+import { buildPublicFormUrl } from '@/lib/utils';
 import type { CreateFormRequest, FormFieldType } from '@/lib/types';
 
 import { withAuth } from '@/providers/withAuth';
@@ -61,6 +63,7 @@ export default withAuth(function TestPage() {
   const [submitButtonIcon, setSubmitButtonIcon] = useState<SubmitButtonIcon>('check');
   const [formHeaderNote, setFormHeaderNote] = useState('Please ensure details are accurate before submitting.');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [removeFieldIndex, setRemoveFieldIndex] = useState<number | null>(null);
 
   const clearFieldError = (key: string) =>
     setFieldErrors((prev) => {
@@ -96,8 +99,14 @@ export default withAuth(function TestPage() {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, ...updates } : f)));
   };
 
-  const removeField = (index: number) => {
-    setFields((prev) => prev.filter((_, i) => i !== index));
+  const requestRemoveField = (index: number) => {
+    setRemoveFieldIndex(index);
+  };
+
+  const confirmRemoveField = () => {
+    if (removeFieldIndex === null) return;
+    setFields((prev) => prev.filter((_, i) => i !== removeFieldIndex));
+    setRemoveFieldIndex(null);
   };
 
   const save = async () => {
@@ -162,6 +171,8 @@ export default withAuth(function TestPage() {
       setSaving(false);
     }
   };
+
+  const pendingField = removeFieldIndex !== null ? fields[removeFieldIndex] : null;
 
   if (authBlocked) {
     return (
@@ -336,6 +347,7 @@ export default withAuth(function TestPage() {
                     <option value="select">Dropdown</option>
                     <option value="checkbox">Checkbox</option>
                     <option value="radio">Radio</option>
+                    <option value="image">Image Upload</option>
                   </select>
                   <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
                     <input
@@ -345,7 +357,7 @@ export default withAuth(function TestPage() {
                     />
                     Required
                   </label>
-                  <Button variant="outline" size="sm" onClick={() => removeField(index)} icon={<Trash2 className="h-4 w-4" />}>
+                  <Button variant="outline" size="sm" onClick={() => requestRemoveField(index)} icon={<Trash2 className="h-4 w-4" />}>
                     Remove
                   </Button>
                 </div>
@@ -459,10 +471,20 @@ export default withAuth(function TestPage() {
                     <p className="text-xs text-[var(--color-text-tertiary)]">{field.label}</p>
                     {(field.options || []).map((opt) => (
                       <label key={opt.value} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                        <input type="radio" disabled className="h-4 w-4 border-[var(--color-border-primary)]" />
+                        <input type="radio" disabled className="h-4 w-4 rounded-full border-[var(--color-border-primary)]" />
                         {opt.label}
                       </label>
                     ))}
+                  </div>
+                ) : field.type === 'image' ? (
+                  <div className="space-y-1">
+                    <input
+                      disabled
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                    />
+                    <p className="text-[11px] text-[var(--color-text-tertiary)]">JPEG, PNG, WebP up to 5MB</p>
                   </div>
                 ) : field.type === 'date' ? (
                   <input
@@ -525,7 +547,8 @@ export default withAuth(function TestPage() {
                 toast.error('Publish first to copy link');
                 return;
               }
-              await navigator.clipboard.writeText(`${window.location.origin}/forms/${publishedSlug}`);
+              const url = buildPublicFormUrl(publishedSlug) ?? `/forms/${encodeURIComponent(publishedSlug)}`;
+              await navigator.clipboard.writeText(url);
               toast.success('Link copied');
             }}
             icon={<Copy className="h-4 w-4" />}
@@ -604,6 +627,15 @@ export default withAuth(function TestPage() {
           </div>
         </div>
       </Card>
+
+      <AlertModal
+        open={removeFieldIndex !== null}
+        onClose={() => setRemoveFieldIndex(null)}
+        title="Remove Field"
+        description={`Remove "${pendingField?.label || 'this field'}"? This will delete it from the form.`}
+        primaryAction={{ label: 'Remove', onClick: confirmRemoveField, variant: 'danger' }}
+        secondaryAction={{ label: 'Cancel', onClick: () => setRemoveFieldIndex(null), variant: 'outline' }}
+      />
     </div>
   );
 }, { requiredRole: 'admin' });

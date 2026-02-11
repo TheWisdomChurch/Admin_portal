@@ -13,6 +13,10 @@ import { Input } from '@/ui/input';
 import { apiClient } from '@/lib/api';
 import type { EventCategory, EventData, EventPayload, EventStatus } from '@/lib/types';
 
+const MAX_BANNER_MB = 5;
+const MAX_BANNER_BYTES = MAX_BANNER_MB * 1024 * 1024;
+const ACCEPTED_BANNER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
 const categoryOptions: EventCategory[] = [
   'Outreach',
   'Conference',
@@ -112,6 +116,14 @@ function EventPage() {
 
   const handleBannerFile = (file?: File) => {
     if (!file) return;
+    if (!ACCEPTED_BANNER_TYPES.includes(file.type)) {
+      toast.error('Banner must be JPEG, PNG, or WebP.');
+      return;
+    }
+    if (file.size > MAX_BANNER_BYTES) {
+      toast.error(`Banner must be ${MAX_BANNER_MB}MB or smaller.`);
+      return;
+    }
     setBannerFile(file);
     const preview = URL.createObjectURL(file);
     setBannerPreview(preview);
@@ -318,7 +330,11 @@ function EventPage() {
             </label>
             <label className="flex flex-col gap-1 text-sm text-[var(--color-text-secondary)] md:col-span-2">
               Or upload banner
-              <Input type="file" accept="image/*" onChange={(e) => handleBannerFile(e.target.files?.[0])} />
+              <Input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => handleBannerFile(e.target.files?.[0])}
+              />
             </label>
           </div>
 

@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 const RAW_API_ORIGIN =
   process.env.API_PROXY_ORIGIN ??
   process.env.NEXT_PUBLIC_API_URL ??
-  process.env.NEXT_PUBLIC_BACKEND_URL;
+  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  process.env.APP_PUBLIC_URL ??
+  (process.env.API_DOMAIN ? `https://${process.env.API_DOMAIN}` : undefined);
 
 function normalizeOrigin(raw?: string | null): string {
   if (!raw || !raw.trim()) {

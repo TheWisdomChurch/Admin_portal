@@ -1,19 +1,26 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
-import type { AdminForm, EventData, FormField, FormFieldType, FormSettings, UpdateFormRequest } from '@/lib/types';
+import { buildPublicFormUrl } from '@/lib/utils';
+import type { AdminForm, FormField, FormFieldType, UpdateFormRequest } from '@/lib/types';
 import { withAuth } from '@/providers/withAuth';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, Copy, Save, Globe } from 'lucide-react';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
+import { AlertModal } from '@/ui/AlertModal';
 
 type FieldDraft = Omit<FormField, 'id'>;
+
+const MAX_BANNER_MB = 5;
+const MAX_BANNER_BYTES = MAX_BANNER_MB * 1024 * 1024;
+const ACCEPTED_BANNER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 function EditFormPage() {
   const params = useParams();
@@ -29,8 +36,10 @@ function EditFormPage() {
   const [publishing, setPublishing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [events, setEvents] = useState<EventData[]>([]);
-  const [eventsLoading, setEventsLoading] = useState(false);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const [removeFieldIndex, setRemoveFieldIndex] = useState<number | null>(null);
 
   const clearFieldError = (key: string) =>
     setFieldErrors((prev) => {
@@ -40,31 +49,37 @@ function EditFormPage() {
       return next;
     });
 
-  const updateSettings = (updates: Partial<FormSettings>) => {
-    setForm((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        settings: {
-          ...(prev.settings || {}),
-          ...updates,
-        },
-      };
-    });
+  const validateBannerFile = (file: File): string | null => {
+    if (!ACCEPTED_BANNER_TYPES.includes(file.type)) {
+      return 'Banner must be JPEG, PNG, or WebP.';
+    }
+    if (file.size > MAX_BANNER_BYTES) {
+      return `Banner must be ${MAX_BANNER_MB}MB or smaller.`;
+    }
+    return null;
   };
 
-  const toLocalInput = (value?: string) => {
-    if (!value) return '';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return '';
-    return d.toISOString().slice(0, 16);
-  };
+  useEffect(() => {
+    return () => {
+      if (bannerPreview) URL.revokeObjectURL(bannerPreview);
+    };
+  }, [bannerPreview]);
 
-  const fromLocalInput = (value: string) => {
-    if (!value) return undefined;
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return undefined;
-    return d.toISOString();
+  const handleBannerFile = (file?: File) => {
+    if (!file) {
+      setBannerFile(null);
+      setBannerPreview(null);
+      return;
+    }
+    const error = validateBannerFile(file);
+    if (error) {
+      toast.error(error);
+      setBannerFile(null);
+      setBannerPreview(null);
+      return;
+    }
+    setBannerFile(file);
+    setBannerPreview(URL.createObjectURL(file));
   };
 
   useEffect(() => {
@@ -110,8 +125,32 @@ function EditFormPage() {
     ]);
   };
 
-  const removeField = (index: number) => {
-    setFields((prev) => prev.filter((_, i) => i !== index));
+  const requestRemoveField = (index: number) => {
+    setRemoveFieldIndex(index);
+  };
+
+  const confirmRemoveField = () => {
+    if (removeFieldIndex === null) return;
+    setFields((prev) => prev.filter((_, i) => i !== removeFieldIndex));
+    setRemoveFieldIndex(null);
+  };
+
+  const uploadBanner = async () => {
+    if (!form || !bannerFile) return;
+    try {
+      setBannerUploading(true);
+      const updated = await apiClient.uploadFormBanner(form.id, bannerFile);
+      setForm(updated);
+      setBannerFile(null);
+      setBannerPreview(null);
+      toast.success('Banner uploaded');
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'Banner upload failed';
+      toast.error(message);
+    } finally {
+      setBannerUploading(false);
+    }
   };
 
   const saveForm = async () => {
@@ -151,6 +190,8 @@ function EditFormPage() {
     }
   };
 
+  const pendingField = removeFieldIndex !== null ? fields[removeFieldIndex] : null;
+
   const publishForm = async () => {
     if (!form) return;
     setPublishing(true);
@@ -173,7 +214,7 @@ function EditFormPage() {
       toast.error('Publish the form to get a link');
       return;
     }
-    const url = form?.publicUrl || `${window.location.origin}/forms/${slug}`;
+    const url = buildPublicFormUrl(slug, form?.publicUrl) ?? `/forms/${encodeURIComponent(slug)}`;
     await navigator.clipboard.writeText(url);
     toast.success('Link copied');
   };
@@ -230,6 +271,102 @@ function EditFormPage() {
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             placeholder="Optional description for this form"
           />
+          <Input
+            label="Header image URL (optional)"
+            value={form.settings?.design?.coverImageUrl || ''}
+            onChange={(e) => {
+              const nextValue = e.target.value;
+              setForm({
+                ...form,
+                settings: {
+                  ...form.settings,
+                  design: {
+                    ...form.settings?.design,
+                    coverImageUrl: nextValue || undefined,
+                  },
+                },
+              });
+            }}
+            helperText="Shown at the top of the public form."
+          />
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input
+              label="Or upload header image"
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleBannerFile(e.target.files?.[0])}
+              helperText="Uploads to S3 and replaces the URL above."
+            />
+            <div className="flex items-end">
+              <Button
+                variant="outline"
+                onClick={uploadBanner}
+                loading={bannerUploading}
+                disabled={!bannerFile || bannerUploading}
+              >
+                Upload Banner
+              </Button>
+            </div>
+          </div>
+          {(bannerPreview || form.settings?.design?.coverImageUrl) && (
+            <Image
+              src={bannerPreview || form.settings?.design?.coverImageUrl || ''}
+              alt="Banner preview"
+              width={1200}
+              height={400}
+              className="w-full max-h-64 rounded-[var(--radius-card)] object-cover border border-[var(--color-border-secondary)]"
+              unoptimized
+            />
+          )}
+          <Input
+            label="Success modal title (optional)"
+            value={form.settings?.successTitle || ''}
+            onChange={(e) => {
+              const nextValue = e.target.value;
+              setForm({
+                ...form,
+                settings: {
+                  ...form.settings,
+                  successTitle: nextValue || undefined,
+                },
+              });
+            }}
+            placeholder="Thank you for registering"
+          />
+          <Input
+            label="Success modal subtitle (optional)"
+            value={form.settings?.successSubtitle || ''}
+            onChange={(e) => {
+              const nextValue = e.target.value;
+              setForm({
+                ...form,
+                settings: {
+                  ...form.settings,
+                  successSubtitle: nextValue || undefined,
+                },
+              });
+            }}
+            placeholder="for {{formTitle}}"
+          />
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Success modal message</label>
+            <textarea
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+              rows={2}
+              value={form.settings?.successMessage || ''}
+              onChange={(e) => {
+                const nextValue = e.target.value;
+                setForm({
+                  ...form,
+                  settings: {
+                    ...form.settings,
+                    successMessage: nextValue || undefined,
+                  },
+                });
+              }}
+              placeholder="We would love to see you."
+            />
+          </div>
         </div>
       </Card>
 
@@ -378,6 +515,7 @@ function EditFormPage() {
                     <option value="select">Dropdown</option>
                     <option value="checkbox">Checkbox</option>
                     <option value="radio">Radio</option>
+                    <option value="image">Image Upload</option>
                   </select>
                   <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
                     <input
@@ -387,13 +525,13 @@ function EditFormPage() {
                     />
                     Required
                   </label>
-                  <Button variant="outline" size="sm" onClick={() => removeField(index)} icon={<Trash2 className="h-4 w-4" />}>
+                  <Button variant="outline" size="sm" onClick={() => requestRemoveField(index)} icon={<Trash2 className="h-4 w-4" />}>
                     Remove
                   </Button>
                 </div>
               </div>
 
-              {(field.type === 'select' || field.type === 'radio') && (
+              {(field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') && (
                 <div className="mt-3 space-y-2">
                   <p className="text-xs text-[var(--color-text-tertiary)]">Options (comma separated)</p>
                   <input
@@ -431,6 +569,15 @@ function EditFormPage() {
           </Button>
         </div>
       </Card>
+
+      <AlertModal
+        open={removeFieldIndex !== null}
+        onClose={() => setRemoveFieldIndex(null)}
+        title="Remove Field"
+        description={`Remove "${pendingField?.label || 'this field'}"? This will delete it from the form.`}
+        primaryAction={{ label: 'Remove', onClick: confirmRemoveField, variant: 'danger' }}
+        secondaryAction={{ label: 'Cancel', onClick: () => setRemoveFieldIndex(null), variant: 'outline' }}
+      />
     </div>
   );
 }

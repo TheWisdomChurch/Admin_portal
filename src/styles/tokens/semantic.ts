@@ -16,7 +16,7 @@ export const semanticColors = {
       tertiary: colorTokens.secondary[600],
       inverse: colorTokens.surface.white,
       disabled: colorTokens.secondary[400],
-      onPrimary: colorTokens.secondary[950], // Black text on yellow
+      onPrimary: colorTokens.secondary[950],
     },
     border: {
       primary: colorTokens.neutral[200],
@@ -26,9 +26,9 @@ export const semanticColors = {
       success: colorTokens.success[500],
     },
     accent: {
-      primary: colorTokens.primary[500],
-      primaryHover: colorTokens.primary[600],
-      primaryActive: colorTokens.primary[700],
+      primary: colorTokens.primary[600],
+      primaryHover: colorTokens.primary[700],
+      primaryActive: colorTokens.primary[800],
       success: colorTokens.success[600],
       warning: colorTokens.warning[600],
       danger: colorTokens.danger[600],
@@ -49,7 +49,7 @@ export const semanticColors = {
       tertiary: colorTokens.secondary[400],
       inverse: colorTokens.surface.black,
       disabled: colorTokens.secondary[600],
-      onPrimary: colorTokens.secondary[950], // Black text on yellow
+      onPrimary: colorTokens.secondary[950],
     },
     border: {
       primary: colorTokens.neutral[700],
@@ -59,9 +59,9 @@ export const semanticColors = {
       success: colorTokens.success[400],
     },
     accent: {
-      primary: colorTokens.primary[400],
-      primaryHover: colorTokens.primary[300],
-      primaryActive: colorTokens.primary[500],
+      primary: colorTokens.primary[500],
+      primaryHover: colorTokens.primary[400],
+      primaryActive: colorTokens.primary[600],
       success: colorTokens.success[400],
       warning: colorTokens.warning[400],
       danger: colorTokens.danger[400],

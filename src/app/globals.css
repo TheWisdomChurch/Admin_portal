@@ -14,7 +14,7 @@
   --color-text-tertiary: #52525b;
   --color-text-inverse: #ffffff;
   --color-text-disabled: #a1a1aa;
-  --color-text-onprimary: #09090b;
+  --color-text-onprimary: #0b0b0b;
   
   --color-border-primary: #e4e4e7;
   --color-border-secondary: #d4d4d8;
@@ -48,7 +48,7 @@
   --color-text-tertiary: #a1a1aa;
   --color-text-inverse: #000000;
   --color-text-disabled: #52525b;
-  --color-text-onprimary: #09090b;
+  --color-text-onprimary: #0b0b0b;
   
   --color-border-primary: #3f3f46;
   --color-border-secondary: #52525b;
@@ -74,6 +74,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.3s ease, color 0.3s ease;
+  line-height: 1.6;
+}
+
+html {
+  font-size: 14px;
 }
 
 :root {
@@ -91,6 +96,11 @@ body {
 .dashboard-shell {
   margin-left: var(--sidebar-width);
   transition: margin-left 0.3s ease;
+  background-color: var(--color-background-primary);
+  background-image:
+    radial-gradient(1200px circle at 20% -10%, rgba(234, 179, 8, 0.12), transparent 55%),
+    radial-gradient(900px circle at 90% 0%, rgba(148, 163, 184, 0.12), transparent 45%);
+  background-attachment: fixed;
 }
 
 body.sidebar-collapsed {
