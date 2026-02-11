@@ -393,6 +393,7 @@ async function fetchPublicFormClient(
   const candidates: string[] = [];
   if (fallbackApiOrigin) candidates.push(`${fallbackApiOrigin}/api/v1/forms/${encodeURIComponent(slug)}`);
   candidates.push(`/api/v1/forms/${encodeURIComponent(slug)}`);
+  candidates.push(`https://api.wisdomchurchhq.org/api/v1/forms/${encodeURIComponent(slug)}`);
 
   for (const url of candidates) {
     try {
