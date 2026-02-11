@@ -386,7 +386,14 @@ export interface FormDesignSettings {
 export interface FormSettings {
   capacity?: number;
   closesAt?: string;
+  expiresAt?: string;
   successMessage?: string;
+  responseEmailEnabled?: boolean;
+  responseEmailTemplateId?: string;
+  responseEmailTemplateKey?: string;
+  responseEmailSubject?: string;
+  submissionTarget?: 'workforce' | 'member';
+  submissionDepartment?: string;
 
   // UI extras you added:
   introTitle?: string;
@@ -413,6 +420,7 @@ export interface AdminForm {
   description?: string;
   eventId?: string;
   slug?: string;
+  publicUrl?: string;
   isPublished: boolean;
   settings?: FormSettings;
   fields: FormField[];
@@ -437,7 +445,7 @@ export interface CreateFormRequest {
 export type UpdateFormRequest = Partial<CreateFormRequest>;
 
 export interface SubmitFormRequest {
-  values: Record<string, string | boolean | number>;
+  values: Record<string, string | boolean | number | string[]>;
 }
 
 export interface FormSubmission {
@@ -448,7 +456,7 @@ export interface FormSubmission {
   contactNumber?: string;
   contactAddress?: string;
   registrationCode?: string;
-  values: Record<string, string | boolean | number>;
+  values: Record<string, string | boolean | number | string[]>;
   createdAt: string;
   updatedAt: string;
 }
@@ -456,6 +464,11 @@ export interface FormSubmission {
 export interface FormSubmissionCount {
   formId: string;
   formTitle: string;
+  count: number;
+}
+
+export interface FormSubmissionDailyCount {
+  day: string;
   count: number;
 }
 
@@ -496,6 +509,8 @@ export interface WorkforceMember {
   department: string;
   status: WorkforceStatus;
   notes?: string;
+  birthdayMonth?: number;
+  birthdayDay?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -523,6 +538,48 @@ export interface UpdateWorkforceRequest {
   department?: string;
   status?: WorkforceStatus;
   notes?: string;
+  birthdayMonth?: number;
+  birthdayDay?: number;
+  birthday?: string;
+}
+
+/* =========================
+   MEMBERS
+========================= */
+
+export interface Member {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  isActive: boolean;
+  birthdayMonth?: number;
+  birthdayDay?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateMemberRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  isActive?: boolean;
+  birthdayMonth?: number;
+  birthdayDay?: number;
+  birthday?: string;
+}
+
+export interface UpdateMemberRequest {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  isActive?: boolean;
+  birthdayMonth?: number;
+  birthdayDay?: number;
+  birthday?: string;
 }
 
 export interface WorkforceBucket {
