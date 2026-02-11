@@ -53,7 +53,7 @@ export function ConfirmationModal({
           <div className="flex items-center gap-3 mt-6">
             <Button
               onClick={onConfirm}
-              // variant={variant}
+              variant={variant}
               loading={loading}
               disabled={loading}
               className="flex-1"

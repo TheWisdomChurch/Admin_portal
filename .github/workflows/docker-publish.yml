@@ -3,6 +3,7 @@ name: Build & Push (Admin Portal)
 on:
   push:
     branches: ["main"]
+    tags: ["v*"]
   workflow_dispatch:
 
 concurrency:
@@ -12,7 +13,6 @@ concurrency:
 permissions:
   contents: read
   packages: write
-  security-events: write
 
 jobs:
   build-and-push:
@@ -40,14 +40,27 @@ jobs:
           tags: |
             type=raw,value=main
             type=sha,format=short
+            type=ref,event=tag
 
-      - name: Build & Push (production target)
+      - name: Build and push (amd64)
         uses: docker/build-push-action@v6
+        env:
+          BUILDKIT_PROGRESS: plain
         with:
           context: .
+          file: ./Dockerfile
           push: true
-         
+          platforms: linux/amd64
+          target: production
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+          # ✅ Pass envs at build time (so `next build` / prerender won't crash)
+          # If secrets are not set, Dockerfile defaults below will be used.
+          build-args: |
+            NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+            APP_ADMIN_PORTAL_URL=${{ secrets.APP_ADMIN_PORTAL_URL }}
+
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -2,7 +2,8 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import Image from 'next/image';
+import { Upload, X } from 'lucide-react';
 
 interface ImageUploadProps {
   onUpload: (files: File[]) => void;
@@ -82,10 +83,13 @@ export function ImageUpload({
         <div className="grid grid-cols-2 gap-4">
           {previews.map((preview, index) => (
             <div key={index} className="relative group">
-              <img
+              <Image
                 src={preview}
                 alt={`Preview ${index + 1}`}
+                width={320}
+                height={128}
                 className="w-full h-32 object-cover rounded-lg"
+                unoptimized
               />
               <button
                 type="button"

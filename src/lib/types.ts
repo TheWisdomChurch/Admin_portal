@@ -145,6 +145,11 @@ export interface EventData {
   category: EventCategory;
   status: EventStatus;
   isFeatured: boolean;
+  isApproved?: boolean;
+  approvedById?: string;
+  approvedByName?: string;
+  approvedByEmail?: string;
+  approvedAt?: string;
   tags: string[];
 
   registerLink?: string;
@@ -170,6 +175,7 @@ export interface EventPayload {
   status: EventStatus;
   isFeatured: boolean;
   tags: string[];
+  isApproved?: boolean;
   registerLink?: string;
   speaker?: string;
   contactPhone?: string;
@@ -214,6 +220,10 @@ export interface Testimonial {
   testimony: string;
   isAnonymous: boolean;
   isApproved: boolean;
+  approvedById?: string;
+  approvedByName?: string;
+  approvedByEmail?: string;
+  approvedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -376,7 +386,14 @@ export interface FormDesignSettings {
 export interface FormSettings {
   capacity?: number;
   closesAt?: string;
+  expiresAt?: string;
   successMessage?: string;
+  responseEmailEnabled?: boolean;
+  responseEmailTemplateId?: string;
+  responseEmailTemplateKey?: string;
+  responseEmailSubject?: string;
+  submissionTarget?: 'workforce' | 'member';
+  submissionDepartment?: string;
 
   // UI extras you added:
   introTitle?: string;
@@ -403,6 +420,7 @@ export interface AdminForm {
   description?: string;
   eventId?: string;
   slug?: string;
+  publicUrl?: string;
   isPublished: boolean;
   settings?: FormSettings;
   fields: FormField[];
@@ -424,10 +442,10 @@ export interface CreateFormRequest {
   fields: Array<Omit<FormField, 'id' | 'formId' | 'createdAt' | 'updatedAt'>>;
 }
 
-export interface UpdateFormRequest extends Partial<CreateFormRequest> {}
+export type UpdateFormRequest = Partial<CreateFormRequest>;
 
 export interface SubmitFormRequest {
-  values: Record<string, string | boolean | number>;
+  values: Record<string, string | boolean | number | string[]>;
 }
 
 export interface FormSubmission {
@@ -437,7 +455,8 @@ export interface FormSubmission {
   email?: string;
   contactNumber?: string;
   contactAddress?: string;
-  values: Record<string, string | boolean | number>;
+  registrationCode?: string;
+  values: Record<string, string | boolean | number | string[]>;
   createdAt: string;
   updatedAt: string;
 }
@@ -445,6 +464,11 @@ export interface FormSubmission {
 export interface FormSubmissionCount {
   formId: string;
   formTitle: string;
+  count: number;
+}
+
+export interface FormSubmissionDailyCount {
+  day: string;
   count: number;
 }
 
@@ -456,6 +480,7 @@ export interface FormSubmissionWithForm {
   email?: string;
   contactNumber?: string;
   contactAddress?: string;
+  registrationCode?: string;
   values: Record<string, string | boolean | number>;
   createdAt: string;
 }
@@ -484,6 +509,8 @@ export interface WorkforceMember {
   department: string;
   status: WorkforceStatus;
   notes?: string;
+  birthdayMonth?: number;
+  birthdayDay?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -511,6 +538,48 @@ export interface UpdateWorkforceRequest {
   department?: string;
   status?: WorkforceStatus;
   notes?: string;
+  birthdayMonth?: number;
+  birthdayDay?: number;
+  birthday?: string;
+}
+
+/* =========================
+   MEMBERS
+========================= */
+
+export interface Member {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  isActive: boolean;
+  birthdayMonth?: number;
+  birthdayDay?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateMemberRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  isActive?: boolean;
+  birthdayMonth?: number;
+  birthdayDay?: number;
+  birthday?: string;
+}
+
+export interface UpdateMemberRequest {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  isActive?: boolean;
+  birthdayMonth?: number;
+  birthdayDay?: number;
+  birthday?: string;
 }
 
 export interface WorkforceBucket {

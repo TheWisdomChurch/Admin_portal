@@ -3,7 +3,7 @@
 // This page mirrors the rich builder experience from /dashboard/test
 // so admins can create new forms from the canonical /dashboard/forms/new route.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Save, Plus, Trash2, Copy } from 'lucide-react';
@@ -14,10 +14,11 @@ import { PageHeader } from '@/layouts';
 import { Input } from '@/ui/input';
 
 import { apiClient } from '@/lib/api';
-import type { CreateFormRequest, FormFieldType } from '@/lib/types';
+import type { CreateFormRequest, EventData, FormFieldType } from '@/lib/types';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
+import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 
 // ------------------------------------
 // Types & helpers
@@ -30,6 +31,12 @@ type FieldDraft = {
   order: number;
   options?: { label: string; value: string }[];
 };
+
+const dateFormats = ['yyyy-mm-dd', 'mm/dd/yyyy', 'dd/mm/yyyy', 'dd/mm'] as const;
+type DateFormat = (typeof dateFormats)[number];
+
+const submitButtonIcons = ['check', 'send', 'calendar', 'cursor', 'none'] as const;
+type SubmitButtonIcon = (typeof submitButtonIcons)[number];
 
 const normalizeSlug = (value: string) =>
   value
@@ -56,20 +63,56 @@ export default withAuth(function NewFormPage() {
   const [description, setDescription] = useState('');
   const [slug, setSlug] = useState('');
   const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
+  const [events, setEvents] = useState<EventData[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventId, setEventId] = useState('');
+  const [capacity, setCapacity] = useState('');
+  const [closesAt, setClosesAt] = useState('');
+  const [expiresAt, setExpiresAt] = useState('');
   const [introTitle, setIntroTitle] = useState('Event Registration');
   const [introSubtitle, setIntroSubtitle] = useState('Secure your spot by registering below.');
   const [introBullets, setIntroBullets] = useState('Smooth check-in\nEngaging sessions\nFriendly community');
   const [introBulletSubs, setIntroBulletSubs] = useState('Arrive early for badges\nShort, powerful sessions\nMeet friendly stewards');
   const [layoutMode, setLayoutMode] = useState<'split' | 'stack'>('split');
-  const [dateFormat, setDateFormat] = useState<'yyyy-mm-dd' | 'mm/dd/yyyy' | 'dd/mm/yyyy' | 'dd/mm'>('yyyy-mm-dd');
+  const [dateFormat, setDateFormat] = useState<DateFormat>('yyyy-mm-dd');
   const [footerText, setFooterText] = useState('Powered by Wisdom House Registration');
   const [footerBg, setFooterBg] = useState('#f5c400');
   const [footerTextColor, setFooterTextColor] = useState('#111827');
   const [submitButtonText, setSubmitButtonText] = useState('Submit Registration');
   const [submitButtonBg, setSubmitButtonBg] = useState('#f59e0b');
   const [submitButtonTextColor, setSubmitButtonTextColor] = useState('#111827');
-  const [submitButtonIcon, setSubmitButtonIcon] = useState<'check' | 'send' | 'calendar' | 'cursor' | 'none'>('check');
+  const [submitButtonIcon, setSubmitButtonIcon] = useState<SubmitButtonIcon>('check');
   const [formHeaderNote, setFormHeaderNote] = useState('Please ensure details are accurate before submitting.');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const clearFieldError = (key: string) =>
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+
+  const toIso = (value: string) => {
+    if (!value) return undefined;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return undefined;
+    return d.toISOString();
+  };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setEventsLoading(true);
+        const res = await apiClient.getEvents({ page: 1, limit: 200 });
+        setEvents(Array.isArray(res.data) ? res.data : []);
+      } catch {
+        setEvents([]);
+      } finally {
+        setEventsLoading(false);
+      }
+    })();
+  }, []);
 
   // field builder
   const [fields, setFields] = useState<FieldDraft[]>([
@@ -94,26 +137,14 @@ export default withAuth(function NewFormPage() {
   };
 
   const save = async () => {
-    if (!title.trim()) {
-      toast.error('Title is required');
-      return;
-    }
-
-    if (!slug.trim()) {
-      toast.error('Form link name is required');
-      return;
-    }
-
-    const normalizedSlug = normalizeSlug(slug);
-    if (!normalizedSlug) {
-      toast.error('Form link name must contain letters or numbers');
-      return;
-    }
+    setFieldErrors({});
+    const normalizedSlug = normalizeSlug(slug || title);
 
     const payload: CreateFormRequest = {
       title: title.trim(),
       description: description.trim() || undefined,
       slug: normalizedSlug,
+      eventId: eventId || undefined,
       fields: fields.map((f, idx) => ({
         key: (f.key || `field_${idx + 1}`).trim(),
         label: f.label.trim(),
@@ -123,6 +154,9 @@ export default withAuth(function NewFormPage() {
         order: idx + 1,
       })),
       settings: {
+        capacity: capacity ? Number(capacity) : undefined,
+        closesAt: toIso(closesAt),
+        expiresAt: toIso(expiresAt),
         successMessage: 'Thanks! Your registration has been received.',
         introTitle,
         introSubtitle,
@@ -154,9 +188,16 @@ export default withAuth(function NewFormPage() {
       setPublishedSlug(slugToUse);
       toast.success('Form created and link ready');
       router.push(`/dashboard/forms/${created.id}/edit`);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err?.message || 'Failed to create form');
+      const fieldErrors = extractServerFieldErrors(err);
+      if (Object.keys(fieldErrors).length > 0) {
+        setFieldErrors(fieldErrors);
+        toast.error(getFirstServerFieldError(fieldErrors) || 'Please review the highlighted fields.');
+        return;
+      }
+      const message = getServerErrorMessage(err, 'Failed to create form');
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -188,22 +229,30 @@ export default withAuth(function NewFormPage() {
           <Input
             label="Title *"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              clearFieldError('title');
+              setTitle(e.target.value);
+            }}
             placeholder="e.g., Youth Summit Registration"
+            error={fieldErrors.title}
           />
 
           <div className="space-y-2">
             <Input
               label="Form Link Name *"
               value={slug}
-              onChange={(e) => setSlug(e.target.value)}
+              onChange={(e) => {
+                clearFieldError('slug');
+                setSlug(e.target.value);
+              }}
               onBlur={() => setSlug((current) => normalizeSlug(current))}
               placeholder="e.g., wpc"
+              error={fieldErrors.slug}
             />
             <p className="text-xs text-[var(--color-text-tertiary)]">
               Public link preview:{' '}
               <span className="font-medium text-[var(--color-text-secondary)]">
-                /forms/{normalizeSlug(slug || 'your-link')}
+                /forms/{normalizeSlug(slug || title || 'your-link')}
               </span>
             </p>
           </div>
@@ -279,7 +328,10 @@ export default withAuth(function NewFormPage() {
                 </select>
                 <select
                   value={dateFormat}
-                  onChange={(e) => setDateFormat(e.target.value as any)}
+                  onChange={(e) => {
+                    const next = e.target.value as DateFormat;
+                    if (dateFormats.includes(next)) setDateFormat(next);
+                  }}
                   className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                 >
                   <option value="yyyy-mm-dd">YYYY-MM-DD</option>
@@ -293,6 +345,54 @@ export default withAuth(function NewFormPage() {
               </div>
             </div>
           </div>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Registration Settings</h3>
+        <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">
+          Control capacity and registration window for this form.
+        </p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Linked Event</label>
+            <select
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+              value={eventId}
+              onChange={(e) => setEventId(e.target.value)}
+              disabled={eventsLoading}
+            >
+              <option value="">No event (standalone form)</option>
+              {events.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <Input
+            label="Capacity (optional)"
+            type="number"
+            min={0}
+            value={capacity}
+            onChange={(e) => setCapacity(e.target.value)}
+            placeholder="e.g., 250"
+          />
+
+          <Input
+            label="Closes At (optional)"
+            type="datetime-local"
+            value={closesAt}
+            onChange={(e) => setClosesAt(e.target.value)}
+          />
+
+          <Input
+            label="Expires At (optional)"
+            type="datetime-local"
+            value={expiresAt}
+            onChange={(e) => setExpiresAt(e.target.value)}
+          />
         </div>
       </Card>
 
@@ -557,7 +657,10 @@ export default withAuth(function NewFormPage() {
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Submit icon</label>
                 <select
                   value={submitButtonIcon}
-                  onChange={(e) => setSubmitButtonIcon(e.target.value as any)}
+                  onChange={(e) => {
+                    const next = e.target.value as SubmitButtonIcon;
+                    if (submitButtonIcons.includes(next)) setSubmitButtonIcon(next);
+                  }}
                   className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                 >
                   <option value="check">Check</option>

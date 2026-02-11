@@ -48,7 +48,7 @@ export function LogoutModal({
             {/* Message */}
             <div className="text-center text-gray-600 mb-6">
               <p>Are you sure you want to logout, <span className="font-semibold">{userName}</span>?</p>
-              <p className="text-sm text-gray-500 mt-2">You'll need to log in again to access the dashboard.</p>
+              <p className="text-sm text-gray-500 mt-2">You&apos;ll need to log in again to access the dashboard.</p>
             </div>
             
             {/* Actions */}
