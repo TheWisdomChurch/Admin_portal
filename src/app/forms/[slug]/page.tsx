@@ -75,6 +75,7 @@ export default async function PublicFormPage({
 }) {
   const slug = params?.slug ?? '';
   const payload = slug ? await fetchPublicForm(slug) : null;
+  const fallbackApiOrigin = resolveEnvOrigin();
 
-  return <PublicFormClient slug={slug} initialPayload={payload} />;
+  return <PublicFormClient slug={slug} initialPayload={payload} fallbackApiOrigin={fallbackApiOrigin} />;
 }
