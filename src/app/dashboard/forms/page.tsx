@@ -416,6 +416,33 @@ export default withAuth(function FormsPage() {
     })();
   }, []);
 
+  const applyPreset = (preset: FormPreset) => {
+    setTitle(preset.title);
+    setDescription(preset.description);
+    setSlug(preset.slug);
+    setEventId('');
+    setCapacity('');
+    setClosesAt('');
+    setExpiresAt('');
+    setIntroTitle(preset.introTitle || 'Event Registration');
+    setIntroSubtitle(preset.introSubtitle || 'Secure your spot by registering below.');
+    setIntroBullets('Smooth check-in\nEngaging sessions\nFriendly community');
+    setIntroBulletSubs('Arrive early for badges\nShort, powerful sessions\nMeet friendly stewards');
+    setLayoutMode('split');
+    setDateFormat('dd/mm');
+    setFormHeaderNote('Please ensure details are accurate before submitting.');
+    setResponseEmailEnabled(true);
+    setResponseEmailTemplateKey(preset.responseEmailTemplateKey || '');
+    setResponseEmailTemplateId('');
+    setResponseEmailSubject(preset.responseEmailSubject || '');
+    setSubmissionTarget(preset.submissionTarget || '');
+    setSubmissionDepartment(preset.submissionDepartment || '');
+    setFields(preset.fields);
+    setPublishedSlug(null);
+    setPublishedUrl(null);
+    setShowBuilder(true);
+  };
+
   const requestDelete = (form: AdminForm) => {
     setDeleteTarget(form);
   };
@@ -1431,6 +1458,102 @@ export default withAuth(function FormsPage() {
                     onChange={(e) => setExpiresAt(e.target.value)}
                   />
                 </div>
+              </div>
+
+              <div className="md:col-span-2 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+                <div className="mb-3">
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">Submission Routing</p>
+                  <p className="text-xs text-[var(--color-text-tertiary)]">
+                    Route registrations into Workforce or Member records automatically.
+                  </p>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Submission Target</label>
+                    <select
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                      value={submissionTarget}
+                      onChange={(e) => {
+                        clearFieldError('submissionTarget');
+                        setSubmissionTarget(e.target.value as FormSettings['submissionTarget']);
+                      }}
+                    >
+                      <option value="">Do not route</option>
+                      <option value="workforce">Workforce</option>
+                      <option value="member">Member</option>
+                    </select>
+                    {fieldErrors.submissionTarget && (
+                      <p className="text-sm text-red-500">{fieldErrors.submissionTarget}</p>
+                    )}
+                  </div>
+                  <Input
+                    label="Department (workforce only)"
+                    value={submissionDepartment}
+                    onChange={(e) => {
+                      clearFieldError('submissionDepartment');
+                      setSubmissionDepartment(e.target.value);
+                    }}
+                    placeholder="e.g., Hospitality"
+                    disabled={submissionTarget !== 'workforce'}
+                    error={fieldErrors.submissionDepartment}
+                  />
+                </div>
+              </div>
+
+              <div className="md:col-span-2 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+                <div className="mb-3">
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">Response Email</p>
+                  <p className="text-xs text-[var(--color-text-tertiary)]">
+                    Send a confirmation email after the form is submitted.
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={responseEmailEnabled}
+                    onChange={(e) => setResponseEmailEnabled(e.target.checked)}
+                  />
+                  Enable response email
+                </label>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <Input
+                    label="Email subject"
+                    value={responseEmailSubject}
+                    onChange={(e) => {
+                      clearFieldError('responseEmailSubject');
+                      setResponseEmailSubject(e.target.value);
+                    }}
+                    placeholder="Welcome to Wisdom House Church"
+                    disabled={!responseEmailEnabled}
+                    error={fieldErrors.responseEmailSubject}
+                  />
+                  <Input
+                    label="Template key"
+                    value={responseEmailTemplateKey}
+                    onChange={(e) => {
+                      clearFieldError('responseEmailTemplateKey');
+                      setResponseEmailTemplateKey(e.target.value);
+                    }}
+                    placeholder="welcome-member"
+                    disabled={!responseEmailEnabled}
+                    error={fieldErrors.responseEmailTemplateKey}
+                  />
+                  <Input
+                    label="Template ID (optional)"
+                    value={responseEmailTemplateId}
+                    onChange={(e) => {
+                      clearFieldError('responseEmailTemplateId');
+                      setResponseEmailTemplateId(e.target.value);
+                    }}
+                    placeholder="Template UUID"
+                    disabled={!responseEmailEnabled}
+                    error={fieldErrors.responseEmailTemplateId}
+                  />
+                </div>
+                <p className="mt-3 text-xs text-[var(--color-text-tertiary)]">
+                  Template key or ID must match a template saved in the Email Templates registry. Leave blank to use the
+                  default confirmation email.
+                </p>
               </div>
 
               <div className="md:col-span-2 grid gap-3 md:grid-cols-3">

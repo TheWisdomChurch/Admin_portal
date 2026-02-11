@@ -409,6 +409,12 @@ export interface FormSettings {
   successTitle?: string;
   successSubtitle?: string;
   successMessage?: string;
+  responseEmailEnabled?: boolean;
+  responseEmailTemplateId?: string;
+  responseEmailTemplateKey?: string;
+  responseEmailSubject?: string;
+  submissionTarget?: 'workforce' | 'member';
+  submissionDepartment?: string;
 
   // UI extras you added:
   introTitle?: string;
@@ -437,6 +443,7 @@ export interface AdminForm {
   description?: string;
   eventId?: string;
   slug?: string;
+  publicUrl?: string;
   isPublished: boolean;
   status?: FormStatus;
   publishedAt?: string;
@@ -528,6 +535,8 @@ export interface WorkforceMember {
   department: string;
   status: WorkforceStatus;
   notes?: string;
+  birthdayMonth?: number;
+  birthdayDay?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -555,6 +564,48 @@ export interface UpdateWorkforceRequest {
   department?: string;
   status?: WorkforceStatus;
   notes?: string;
+  birthdayMonth?: number;
+  birthdayDay?: number;
+  birthday?: string;
+}
+
+/* =========================
+   MEMBERS
+========================= */
+
+export interface Member {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  isActive: boolean;
+  birthdayMonth?: number;
+  birthdayDay?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateMemberRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  isActive?: boolean;
+  birthdayMonth?: number;
+  birthdayDay?: number;
+  birthday?: string;
+}
+
+export interface UpdateMemberRequest {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  isActive?: boolean;
+  birthdayMonth?: number;
+  birthdayDay?: number;
+  birthday?: string;
 }
 
 export interface WorkforceBucket {

@@ -51,13 +51,7 @@ const readTotal = (value: unknown, fallback: number): number => {
 export default function DashboardPage() {
   const auth = useAuthContext();
 
-  const [stats, setStats] = useState<DashboardAnalytics>({
-    totalEvents: 0,
-    upcomingEvents: 0,
-    totalAttendees: 0,
-    eventsByCategory: {},
-    monthlyStats: [],
-  });
+  const [stats, setStats] = useState<DashboardAnalytics | null>(null);
 
   const [recentEvents, setRecentEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,15 +76,8 @@ export default function DashboardPage() {
       if (analyticsResult.status === 'fulfilled') {
         setStats(analyticsResult.value);
       } else {
-        console.warn('Analytics unavailable, using placeholder data:', analyticsResult.reason);
-        setStats({
-          totalEvents: 0,
-          upcomingEvents: 0,
-          totalAttendees: 0,
-          eventsByCategory: {},
-          monthlyStats: [],
-        });
-        toast.error('Live analytics unavailable, showing placeholder data');
+        console.warn('Analytics unavailable:', analyticsResult.reason);
+        setStats(null);
       }
 
       if (eventsResult.status === 'fulfilled') {
@@ -140,10 +127,10 @@ export default function DashboardPage() {
     );
   }
 
-  const categoryValues = Object.values(stats.eventsByCategory);
+  const categoryValues = Object.values(stats?.eventsByCategory ?? {});
   const maxCategoryValue = categoryValues.length > 0 ? Math.max(...categoryValues) : 1;
   const firstName = auth.user?.first_name || 'Admin';
-  const categoriesByCount = Object.entries(stats.eventsByCategory).sort((a, b) => b[1] - a[1]);
+  const categoriesByCount = Object.entries(stats?.eventsByCategory ?? {}).sort((a, b) => b[1] - a[1]);
   const topCategory = categoriesByCount[0];
 
   return (
@@ -186,22 +173,22 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 fade-up">
         <StatCard
           title="Total Events"
-          value={stats.totalEvents}
+          value={stats ? stats.totalEvents : '—'}
           icon={<Calendar className="h-5 w-5 text-[var(--color-text-primary)]" />}
         />
         <StatCard
           title="Upcoming Events"
-          value={stats.upcomingEvents}
+          value={stats ? stats.upcomingEvents : '—'}
           icon={<AlertCircle className="h-5 w-5 text-[var(--color-text-primary)]" />}
         />
         <StatCard
           title="Total Attendees"
-          value={stats.totalAttendees.toLocaleString()}
+          value={stats ? stats.totalAttendees.toLocaleString() : '—'}
           icon={<Users className="h-5 w-5 text-[var(--color-text-primary)]" />}
         />
         <StatCard
           title="Categories"
-          value={Object.keys(stats.eventsByCategory).length}
+          value={stats ? Object.keys(stats.eventsByCategory).length : '—'}
           icon={<Video className="h-5 w-5 text-[var(--color-text-primary)]" />}
         />
         <StatCard
@@ -325,7 +312,7 @@ export default function DashboardPage() {
                 ))
               ) : (
                 <p className="text-center text-[var(--color-text-tertiary)] py-6">
-                  No category data available
+                  {stats ? 'No category data available' : 'Analytics unavailable'}
                 </p>
               )}
             </div>
@@ -350,6 +337,49 @@ export default function DashboardPage() {
             </div>
           </Card>
         </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <Card title="Form Activity" className="fade-up">
+          {formStats?.recent?.length ? (
+            <div className="space-y-3">
+              {formStats.recent.slice(0, 6).map((item) => (
+                <div key={item.id} className="flex items-center justify-between text-sm">
+                  <div className="min-w-0">
+                    <div className="font-medium text-[var(--color-text-primary)] truncate">
+                      {item.formTitle || 'Form'}
+                    </div>
+                    <div className="text-[var(--color-text-tertiary)] truncate">
+                      {item.name || item.email || 'Anonymous'}
+                    </div>
+                  </div>
+                  <span className="text-xs text-[var(--color-text-tertiary)]">
+                    {new Date(item.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-[var(--color-text-tertiary)]">No recent submissions yet.</div>
+          )}
+        </Card>
+
+        <Card className="fade-up">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-amber-100 p-2 text-amber-700">
+              <FileText className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm text-[var(--color-text-tertiary)]">Total Form Submissions</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">
+                {formStats?.totalSubmissions ?? 0}
+              </p>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-[var(--color-text-tertiary)]">
+            Track registrations by opening a form and viewing its submissions.
+          </p>
+        </Card>
       </div>
     </div>
   );
