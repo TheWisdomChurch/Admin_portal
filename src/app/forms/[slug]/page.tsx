@@ -138,7 +138,7 @@ function PhoneNumberInput({
   onChange: (next: string) => void;
 }) {
   const common =
-    'w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent';
+    'w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm bg-white text-secondary-900 placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent';
 
   const parsed = splitE164(value);
   const currentDial = parsed?.dial ?? COUNTRY_PHONE_CODES[0].dial;
@@ -195,7 +195,7 @@ function FieldInput({
   onChange: (next: FieldValue) => void;
 }) {
   const common =
-    'w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent';
+    'w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm bg-white text-secondary-900 placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent';
   const options = Array.isArray(field.options) ? field.options : [];
   const normalizedType = normalizeFieldType(field.type);
 
@@ -676,6 +676,32 @@ export default function PublicFormPage() {
     };
   }, [settings]);
 
+  const baseThemeStyle = useMemo<React.CSSProperties>(
+    () => ({
+      ['--color-accent-primary' as string]: '#eab308',
+      ['--color-accent-primaryhover' as string]: '#ca8a04',
+      ['--color-accent-primaryactive' as string]: '#a16207',
+      ['--color-text-primary' as string]: '#0b0b0b',
+      ['--color-text-secondary' as string]: '#111827',
+      ['--color-text-tertiary' as string]: '#4b5563',
+      ['--color-text-onprimary' as string]: '#0b0b0b',
+      ['--color-background-primary' as string]: '#ffffff',
+      ['--color-background-secondary' as string]: '#f8fafc',
+      ['--color-background-tertiary' as string]: '#f1f5f9',
+      ['--color-border-primary' as string]: '#e5e7eb',
+      ['--color-border-secondary' as string]: '#d1d5db',
+    }),
+    []
+  );
+
+  const pageThemeStyle = useMemo<React.CSSProperties>(
+    () => ({
+      ...baseThemeStyle,
+      ...(themeStyle || {}),
+    }),
+    [baseThemeStyle, themeStyle]
+  );
+
   const submitButtonIcon = useMemo(() => {
     switch (settings?.submitButtonIcon) {
       case 'check':
@@ -847,7 +873,7 @@ export default function PublicFormPage() {
   if (!payload) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center p-6">
-        <Card className="p-6 max-w-lg w-full">
+        <Card className="p-6 max-w-lg w-full bg-white border-secondary-200">
           <h1 className="text-xl font-medium text-secondary-900">Form not available</h1>
           <p className="text-secondary-600 mt-2">This registration link is invalid or has expired.</p>
         </Card>
@@ -858,8 +884,8 @@ export default function PublicFormPage() {
   return (
     <div
       ref={rootRef}
-      className="min-h-screen bg-gradient-to-b from-white via-secondary-50 to-white transition-opacity duration-500"
-      style={themeStyle}
+      className="min-h-screen bg-white text-secondary-900 transition-opacity duration-500"
+      style={pageThemeStyle}
     >
       <header className="border-b border-secondary-100 bg-white/90 backdrop-blur">
         <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -907,15 +933,15 @@ export default function PublicFormPage() {
                   alt={eventTitle}
                   fill
                   className="object-cover"
-                  sizes="(max-width: 768px) 100vw, 900px"
-                  priority
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 900px"
+                  loading="lazy"
                 />
               </div>
             </div>
           ) : null}
 
-          <h1 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight text-secondary-900">{heroTitle}</h1>
-          <p className="mt-2 text-secondary-600 max-w-2xl">{heroSubtitle}</p>
+          <h1 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight text-secondary-900">{heroTitle}</h1>
+          <p className="mt-2 text-sm text-secondary-600 max-w-2xl">{heroSubtitle}</p>
 
           {isClosed ? (
             <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -926,13 +952,13 @@ export default function PublicFormPage() {
 
         <div
           className={`grid grid-cols-1 gap-6 md:gap-8 items-start ${
-            layoutMode === 'split' && hasLeftColumn ? 'lg:grid-cols-[1.1fr_1fr]' : ''
+            layoutMode === 'split' && hasLeftColumn ? 'md:grid-cols-[1.05fr_1fr]' : ''
           }`}
         >
           {hasLeftColumn ? (
             <div ref={leftRef} className="space-y-6">
               {introBullets.length > 0 ? (
-                <Card className="p-6 transition-shadow duration-300 hover:shadow-md">
+                <Card className="p-6 transition-shadow duration-300 hover:shadow-md bg-white border-secondary-200">
                   <h2 className="text-lg font-medium text-secondary-900">What to Expect</h2>
                   <p className="text-sm text-secondary-600 mt-1">
                     Here’s a quick overview of what your experience will look like.
@@ -959,7 +985,7 @@ export default function PublicFormPage() {
               ) : null}
 
               {payload.event ? (
-                <Card className="p-6 transition-shadow duration-300 hover:shadow-md">
+                <Card className="p-6 transition-shadow duration-300 hover:shadow-md bg-white border-secondary-200">
                   <h3 className="text-lg font-medium text-secondary-900">Event Details</h3>
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                     <div className="rounded-xl border border-secondary-100 bg-white p-4">
@@ -983,7 +1009,7 @@ export default function PublicFormPage() {
           ) : null}
 
           <div ref={rightRef}>
-            <Card className="p-6 md:p-7 shadow-md transition-shadow duration-300 hover:shadow-lg">
+            <Card className="p-6 md:p-7 shadow-md transition-shadow duration-300 hover:shadow-lg bg-white border-secondary-200">
               <h2 className="text-xl font-medium text-secondary-900">{displayFormTitle}</h2>
               {showFormDescription ? <p className="mt-2 text-sm text-secondary-600">{formDescription}</p> : null}
 

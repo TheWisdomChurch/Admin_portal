@@ -96,10 +96,10 @@ html {
 .dashboard-shell {
   margin-left: var(--sidebar-width);
   transition: margin-left 0.3s ease;
+  background-color: var(--color-background-primary);
   background-image:
-    radial-gradient(1200px circle at 20% -10%, rgba(59, 130, 246, 0.06), transparent 55%),
-    radial-gradient(900px circle at 90% 0%, rgba(148, 163, 184, 0.08), transparent 45%),
-    linear-gradient(180deg, rgba(248, 250, 252, 0.6) 0%, rgba(248, 250, 252, 0.9) 100%);
+    radial-gradient(1200px circle at 20% -10%, rgba(234, 179, 8, 0.12), transparent 55%),
+    radial-gradient(900px circle at 90% 0%, rgba(148, 163, 184, 0.12), transparent 45%);
   background-attachment: fixed;
 }
 
