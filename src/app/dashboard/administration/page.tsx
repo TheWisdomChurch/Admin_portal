@@ -58,6 +58,24 @@ const pickNumber = (value: unknown): number | null => {
   return null;
 };
 
+const toArray = <T,>(value: unknown): T[] => {
+  if (Array.isArray(value)) return value as T[];
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    if (Array.isArray(record.data)) return record.data as T[];
+    if (Array.isArray(record.items)) return record.items as T[];
+    const nested = record.data;
+    if (nested && typeof nested === 'object') {
+      const nestedRecord = nested as Record<string, unknown>;
+      if (Array.isArray(nestedRecord.items)) return nestedRecord.items as T[];
+      if (Array.isArray(nestedRecord.data)) return nestedRecord.data as T[];
+    }
+  }
+  return [];
+};
+
+const safeArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
+
 const getStatNumber = (stats: Record<string, unknown> | null, keys: string[]): number | null => {
   if (!stats) return null;
   for (const key of keys) {
@@ -149,7 +167,17 @@ export default function AdministrationPage() {
   const [birthdayMonthLoading, setBirthdayMonthLoading] = useState(false);
   const [birthdaySending, setBirthdaySending] = useState(false);
 
-  const [memberForm, setMemberForm] = useState<Member>({
+  const safeWorkforce = useMemo(() => safeArray<WorkforceRow>(workforce), [workforce]);
+  const safeMembers = useMemo(() => safeArray<MemberRow>(members), [members]);
+  const safeLeaders = useMemo(() => safeArray<LeaderRow>(leaders), [leaders]);
+  const safeBirthdaysToday = useMemo(() => safeArray<WorkforceMember>(birthdaysToday), [birthdaysToday]);
+  const safeBirthdaysByMonth = useMemo(
+    () => safeArray<WorkforceMember>(birthdaysByMonth),
+    [birthdaysByMonth]
+  );
+  const safeMonthLabels = useMemo(() => safeArray<string>(monthLabels), []);
+
+  const [memberForm, setMemberForm] = useState<MemberRow>({
     id: '',
     firstName: '',
     lastName: '',
@@ -170,14 +198,14 @@ export default function AdministrationPage() {
   });
 
   const workforceCounts = useMemo(() => {
-    return workforce.reduce(
+    return safeWorkforce.reduce(
       (acc, row) => {
         acc[row.status] = (acc[row.status] || 0) + 1;
         return acc;
       },
       {} as Record<string, number>
     );
-  }, [workforce]);
+  }, [safeWorkforce]);
 
   const loadWorkforce = useCallback(async () => {
     setWorkforceLoading(true);
@@ -224,7 +252,7 @@ export default function AdministrationPage() {
       }
 
       if (todayResult.status === 'fulfilled') {
-        setBirthdaysToday(todayResult.value);
+        setBirthdaysToday(toArray<WorkforceMember>(todayResult.value));
       } else {
         setBirthdaysToday([]);
       }
@@ -242,7 +270,7 @@ export default function AdministrationPage() {
     setBirthdayMonthLoading(true);
     try {
       const results = await apiClient.getWorkforceBirthdaysByMonth(month);
-      setBirthdaysByMonth(results);
+      setBirthdaysByMonth(toArray<WorkforceMember>(results));
     } catch (error) {
       console.error('Failed to load birthday month list:', error);
       toast.error('Birthday list unavailable');
@@ -415,13 +443,13 @@ export default function AdministrationPage() {
                 <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
                   <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Today</p>
                   <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">
-                    {birthdayLoading ? '—' : (getStatNumber(birthdayStats, ['today', 'todayCount', 'birthdaysToday']) ?? birthdaysToday.length)}
+                    {birthdayLoading ? '—' : (getStatNumber(birthdayStats, ['today', 'todayCount', 'birthdaysToday']) ?? safeBirthdaysToday.length)}
                   </p>
                 </div>
                 <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
                   <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">This month</p>
                   <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">
-                    {birthdayMonthLoading ? '—' : (getStatNumber(birthdayStats, ['month', 'monthCount', 'birthdaysThisMonth']) ?? birthdaysByMonth.length)}
+                    {birthdayMonthLoading ? '—' : (getStatNumber(birthdayStats, ['month', 'monthCount', 'birthdaysThisMonth']) ?? safeBirthdaysByMonth.length)}
                   </p>
                 </div>
                 <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
@@ -440,7 +468,7 @@ export default function AdministrationPage() {
                     value={birthdayMonth}
                     onChange={(e) => setBirthdayMonth(Number(e.target.value))}
                   >
-                    {monthLabels.map((label, index) => (
+                    {safeMonthLabels.map((label, index) => (
                       <option key={label} value={index + 1}>
                         {label}
                       </option>
@@ -451,11 +479,11 @@ export default function AdministrationPage() {
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-2">
                     <p className="text-sm font-semibold text-[var(--color-text-primary)]">Today&apos;s birthdays</p>
-                    {birthdaysToday.length === 0 ? (
+                    {safeBirthdaysToday.length === 0 ? (
                       <p className="text-xs text-[var(--color-text-tertiary)]">No birthdays today.</p>
                     ) : (
                       <ul className="space-y-2">
-                        {birthdaysToday.map((member) => {
+                        {safeBirthdaysToday.map((member) => {
                           const record = member as BirthdayMember;
                           const name = getMemberName(record);
                           const department = member.department || (record.department as string | undefined);
@@ -481,15 +509,15 @@ export default function AdministrationPage() {
 
                   <div className="space-y-2">
                     <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                      {monthLabels[birthdayMonth - 1]} birthdays
+                      {safeMonthLabels[birthdayMonth - 1]} birthdays
                     </p>
-                    {birthdaysByMonth.length === 0 ? (
+                    {safeBirthdaysByMonth.length === 0 ? (
                       <p className="text-xs text-[var(--color-text-tertiary)]">
                         {birthdayMonthLoading ? 'Loading birthdays...' : 'No birthdays recorded for this month.'}
                       </p>
                     ) : (
                       <ul className="space-y-2">
-                        {birthdaysByMonth.map((member) => {
+                        {safeBirthdaysByMonth.map((member) => {
                           const record = member as BirthdayMember;
                           const name = getMemberName(record);
                           const department = member.department || (record.department as string | undefined);
@@ -518,61 +546,7 @@ export default function AdministrationPage() {
           </Card>
 
           <div className="space-y-3">
-            {workforceLoading ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">Loading workforce...</p>
-            ) : workforce.length === 0 ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">No workforce records yet.</p>
-            ) : (
-              workforce.map((row) => {
-                const name = `${row.firstName} ${row.lastName}`.trim() || 'Workforce member';
-                const dob = row.birthdayMonth && row.birthdayDay ? `${row.birthdayMonth}/${row.birthdayDay}` : '—';
-                const statusLabel =
-                  row.status === 'serving'
-                    ? 'Serving'
-                    : row.status === 'not_serving'
-                      ? 'Not serving'
-                      : 'Pending';
-                const badgeVariant = row.status === 'serving' ? 'success' : row.status === 'not_serving' ? 'warning' : 'primary';
-                return (
-                  <AccordionRow
-                    key={row.id}
-                    title={name}
-                    subtitle={`${row.department} • DOB ${dob}`}
-                    badge={
-                      <Badge variant={badgeVariant} size="sm">
-                        {statusLabel}
-                      </Badge>
-                    }
-                  >
-                    <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                        {row.email || '—'}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                        {row.phone || '—'}
-                      </div>
-                      <p className="text-xs text-[var(--color-text-tertiary)] mt-2">
-                        Birthdays auto-email: enabled (connect backend notifications).
-                      </p>
-                    </div>
-                  </AccordionRow>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'members' && (
-        <div className="space-y-3">
-          {membersLoading ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">Loading members...</p>
-          ) : members.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">No members found.</p>
-          ) : (
-            members.map((row) => (
+            {safeWorkforce.map((row) => (
               <AccordionRow
                 key={row.id}
                 title={`${row.firstName} ${row.lastName}`}
@@ -586,13 +560,38 @@ export default function AdministrationPage() {
                   </div>
                 </div>
               </AccordionRow>
-            ))
-          )}
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'members' && (
+        <div className="space-y-3">
+          {safeMembers.map((row) => (
+            <AccordionRow
+              key={row.id}
+              title={`${row.firstName} ${row.lastName}`}
+              subtitle={row.email}
+              badge={<Badge variant="secondary" size="sm">Member</Badge>}
+            >
+              <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                  {row.phone}
+                </div>
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                  {row.address}
+                </div>
+              </div>
+            </AccordionRow>
+          ))}
         </div>
       )}
 
       {activeTab === 'leadership' && (
         <div className="space-y-3">
+<<<<<<< HEAD
           {leaders.length === 0 ? (
             <p className="text-sm text-[var(--color-text-tertiary)]">No leadership records yet.</p>
           ) : (
@@ -601,6 +600,38 @@ export default function AdministrationPage() {
                 <div className="flex items-center gap-2">
                   <Heart className="h-4 w-4 text-[var(--color-text-tertiary)]" />
                   Anniversary: {row.anniversary}
+=======
+          {safeLeaders.map((row) => (
+            <AccordionRow
+              key={row.id}
+              title={row.name}
+              subtitle={row.title}
+              badge={<Badge variant="primary" size="sm">{row.title}</Badge>}
+            >
+              <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                  Birthday: {row.dob}
+                </div>
+                {row.anniversary && (
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                    Birthday: {row.dob}
+                  </div>
+                  {row.anniversary && (
+                    <div className="flex items-center gap-2">
+                      <Heart className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                      Anniversary: {row.anniversary}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                    {row.email || 'No email'}
+                  </div>
+                  <p className="text-xs text-[var(--color-text-tertiary)] mt-2">
+                    Automated greetings: configure email templates in notifications.
+                  </p>
+>>>>>>> ec5962b1fadf79bd8f9b97366187a65d9aaf23f6
                 </div>
               ) : null;
 

@@ -208,6 +208,82 @@ export interface CreateReelData {
 }
 
 /* =========================
+   UPLOADS
+========================= */
+
+export interface UploadPresignRequest {
+  filename?: string;
+  contentType: string;
+  size?: number;
+  sizeBytes?: number;
+  checksum?: string;
+  ownerType?: string;
+  ownerId?: string;
+  kind?: string;
+  folder?: string;
+}
+
+export interface UploadPresignResponse {
+  assetId?: string;
+  uploadUrl: string;
+  publicUrl: string;
+  objectKey?: string;
+  key?: string;
+  expiresAt?: string;
+}
+
+export interface UploadAssetData {
+  id: string;
+  publicUrl: string;
+  objectKey: string;
+  status: string;
+  ownerType?: string | null;
+  ownerId?: string | null;
+  kind?: string | null;
+  contentType?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UploadImageResponse {
+  folder: string;
+  key: string;
+  url: string;
+}
+
+/* =========================
+   EMAIL TEMPLATES
+========================= */
+
+export type EmailTemplateStatus = 'draft' | 'active' | 'archived';
+
+export interface EmailTemplate {
+  id: string;
+  templateKey: string;
+  ownerType?: string;
+  ownerId?: string;
+  subject?: string;
+  htmlBody: string;
+  textBody?: string;
+  status: EmailTemplateStatus;
+  version: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateEmailTemplateRequest {
+  templateKey: string;
+  ownerType?: string;
+  ownerId?: string;
+  subject?: string;
+  htmlBody: string;
+  textBody?: string;
+  status?: EmailTemplateStatus;
+  activate?: boolean;
+}
+
+/* =========================
    TESTIMONIALS
 ========================= */
 
@@ -350,7 +426,8 @@ export type FormFieldType =
   | 'checkbox'
   | 'radio'
   | 'number'
-  | 'date';
+  | 'date'
+  | 'image';
 
 export interface FormFieldOption {
   label: string;
@@ -387,6 +464,8 @@ export interface FormSettings {
   capacity?: number;
   closesAt?: string;
   expiresAt?: string;
+  successTitle?: string;
+  successSubtitle?: string;
   successMessage?: string;
   responseEmailEnabled?: boolean;
   responseEmailTemplateId?: string;
@@ -414,6 +493,8 @@ export interface FormSettings {
   design?: FormDesignSettings;
 }
 
+export type FormStatus = 'draft' | 'published' | 'invalid';
+
 export interface AdminForm {
   id: string;
   title: string;
@@ -422,6 +503,9 @@ export interface AdminForm {
   slug?: string;
   publicUrl?: string;
   isPublished: boolean;
+  status?: FormStatus;
+  publishedAt?: string;
+  publicUrl?: string;
   settings?: FormSettings;
   fields: FormField[];
   createdAt: string;
@@ -445,7 +529,7 @@ export interface CreateFormRequest {
 export type UpdateFormRequest = Partial<CreateFormRequest>;
 
 export interface SubmitFormRequest {
-  values: Record<string, string | boolean | number | string[]>;
+  values: Record<string, string | boolean | number | string[] | File | null>;
 }
 
 export interface FormSubmission {
@@ -456,7 +540,7 @@ export interface FormSubmission {
   contactNumber?: string;
   contactAddress?: string;
   registrationCode?: string;
-  values: Record<string, string | boolean | number | string[]>;
+  values: Record<string, string | boolean | number | string[] | null>;
   createdAt: string;
   updatedAt: string;
 }
@@ -467,8 +551,8 @@ export interface FormSubmissionCount {
   count: number;
 }
 
-export interface FormSubmissionDailyCount {
-  day: string;
+export interface FormSubmissionDailyStat {
+  date: string;
   count: number;
 }
 
@@ -481,7 +565,7 @@ export interface FormSubmissionWithForm {
   contactNumber?: string;
   contactAddress?: string;
   registrationCode?: string;
-  values: Record<string, string | boolean | number>;
+  values: Record<string, string | boolean | number | string[] | null>;
   createdAt: string;
 }
 
