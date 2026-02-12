@@ -208,6 +208,24 @@ export interface CreateReelData {
 }
 
 /* =========================
+   UPLOADS
+========================= */
+
+export interface UploadPresignRequest {
+  filename: string;
+  contentType: string;
+  size: number;
+  folder?: string;
+}
+
+export interface UploadPresignResponse {
+  uploadUrl: string;
+  publicUrl: string;
+  key?: string;
+  expiresAt?: string;
+}
+
+/* =========================
    TESTIMONIALS
 ========================= */
 
@@ -350,7 +368,8 @@ export type FormFieldType =
   | 'checkbox'
   | 'radio'
   | 'number'
-  | 'date';
+  | 'date'
+  | 'image';
 
 export interface FormFieldOption {
   label: string;
@@ -387,6 +406,8 @@ export interface FormSettings {
   capacity?: number;
   closesAt?: string;
   expiresAt?: string;
+  successTitle?: string;
+  successSubtitle?: string;
   successMessage?: string;
   responseEmailEnabled?: boolean;
   responseEmailTemplateId?: string;
@@ -414,6 +435,8 @@ export interface FormSettings {
   design?: FormDesignSettings;
 }
 
+export type FormStatus = 'draft' | 'published' | 'invalid';
+
 export interface AdminForm {
   id: string;
   title: string;
@@ -422,6 +445,9 @@ export interface AdminForm {
   slug?: string;
   publicUrl?: string;
   isPublished: boolean;
+  status?: FormStatus;
+  publishedAt?: string;
+  publicUrl?: string;
   settings?: FormSettings;
   fields: FormField[];
   createdAt: string;
@@ -445,7 +471,7 @@ export interface CreateFormRequest {
 export type UpdateFormRequest = Partial<CreateFormRequest>;
 
 export interface SubmitFormRequest {
-  values: Record<string, string | boolean | number | string[]>;
+  values: Record<string, string | boolean | number | string[] | File | null>;
 }
 
 export interface FormSubmission {
@@ -456,7 +482,7 @@ export interface FormSubmission {
   contactNumber?: string;
   contactAddress?: string;
   registrationCode?: string;
-  values: Record<string, string | boolean | number | string[]>;
+  values: Record<string, string | boolean | number | string[] | null>;
   createdAt: string;
   updatedAt: string;
 }
@@ -467,8 +493,8 @@ export interface FormSubmissionCount {
   count: number;
 }
 
-export interface FormSubmissionDailyCount {
-  day: string;
+export interface FormSubmissionDailyStat {
+  date: string;
   count: number;
 }
 
@@ -481,7 +507,7 @@ export interface FormSubmissionWithForm {
   contactNumber?: string;
   contactAddress?: string;
   registrationCode?: string;
-  values: Record<string, string | boolean | number>;
+  values: Record<string, string | boolean | number | string[] | null>;
   createdAt: string;
 }
 

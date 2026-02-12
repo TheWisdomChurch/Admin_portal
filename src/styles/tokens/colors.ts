@@ -47,7 +47,7 @@ export const colorTokens = {
     white: '#ffffff',
     light: '#f8fafc',
     muted: '#f1f5f9',
-    dark: '#0f172a',
+    dark: '#0b0b0b',
     black: '#000000',
   },
   // Success (Green - kept for functional use)
