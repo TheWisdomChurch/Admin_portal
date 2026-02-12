@@ -6,7 +6,7 @@ import { Button } from '@/ui/Button';
 interface AlertAction {
   label: string;
   onClick: () => void;
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'warning';
   loading?: boolean;
 }
 

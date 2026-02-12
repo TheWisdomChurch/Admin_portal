@@ -22,6 +22,8 @@ import type {
   FormSubmission,
   FormSubmissionDailyCount,
   FormStatsResponse,
+  FormStatus,
+  FormSubmissionDailyStat,
   Subscriber,
   SubscribeRequest,
   UnsubscribeRequest,
@@ -44,6 +46,12 @@ import type {
   LoginChallenge,
   ChangePasswordData,
   HealthCheckResponse,
+  UploadPresignRequest,
+  UploadPresignResponse,
+  UploadAssetData,
+  UploadImageResponse,
+  EmailTemplate,
+  CreateEmailTemplateRequest,
 } from './types';
 
 /* ============================================================================
@@ -198,6 +206,47 @@ function getErrorMessage(err: unknown): string {
     if (message) return message;
   }
   return 'Network error';
+}
+
+function normalizeDailyStats(payload: unknown): FormSubmissionDailyStat[] {
+  const extractArray = (value: unknown): unknown[] => {
+    if (Array.isArray(value)) return value;
+    if (!isRecord(value)) return [];
+    const maybe = value.data ?? value.daily ?? value.stats ?? value.results;
+    if (Array.isArray(maybe)) return maybe;
+    if (isRecord(maybe)) {
+      const nested = maybe.data ?? maybe.daily ?? maybe.stats ?? maybe.results;
+      if (Array.isArray(nested)) return nested;
+    }
+    return [];
+  };
+
+  const rows = extractArray(payload);
+  const normalized: FormSubmissionDailyStat[] = [];
+
+  rows.forEach((row) => {
+    if (!isRecord(row)) return;
+    const dateRaw =
+      (row.date as unknown) ??
+      (row.day as unknown) ??
+      (row.label as unknown) ??
+      (row.createdAt as unknown) ??
+      (row.created_at as unknown);
+    const countRaw =
+      (row.count as unknown) ??
+      (row.total as unknown) ??
+      (row.value as unknown) ??
+      (row.registrations as unknown) ??
+      (row.submissions as unknown);
+
+    const date = typeof dateRaw === 'string' ? dateRaw : dateRaw ? String(dateRaw) : '';
+    const count = typeof countRaw === 'number' ? countRaw : Number(countRaw);
+
+    if (!date || Number.isNaN(count)) return;
+    normalized.push({ date, count });
+  });
+
+  return normalized;
 }
 
 /* ============================================================================
@@ -734,6 +783,45 @@ export const apiClient = {
     return apiFetch(`/admin/reels/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
 
+  async createUploadPresign(payload: UploadPresignRequest): Promise<UploadPresignResponse> {
+    const normalizedPayload: UploadPresignRequest = {
+      ...payload,
+      sizeBytes: payload.sizeBytes ?? payload.size,
+    };
+    const res = await apiFetch<{ data: UploadPresignResponse }>('/admin/uploads/presign', {
+      method: 'POST',
+      body: JSON.stringify(normalizedPayload),
+    });
+    return unwrapData<UploadPresignResponse>(res, 'Invalid upload presign payload');
+  },
+
+  async completeUploadAsset(assetId: string): Promise<UploadAssetData> {
+    const res = await apiFetch<{ data: UploadAssetData }>(
+      `/admin/uploads/${encodeURIComponent(assetId)}/complete`,
+      { method: 'POST' }
+    );
+    return unwrapData<UploadAssetData>(res, 'Invalid upload completion payload');
+  },
+
+  async uploadImage(file: File, folder = 'uploads'): Promise<UploadImageResponse> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('folder', folder);
+    const res = await uploadFetch<{ data: UploadImageResponse }>('/admin/uploads/images', {
+      method: 'POST',
+      body: form,
+    });
+    return unwrapData<UploadImageResponse>(res, 'Invalid image upload payload');
+  },
+
+  async createAdminEmailTemplate(payload: CreateEmailTemplateRequest): Promise<EmailTemplate> {
+    const res = await apiFetch<{ data: EmailTemplate }>('/admin/email/templates', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<EmailTemplate>(res, 'Invalid email template payload');
+  },
+
   /* ===================== FORMS (ADMIN) ===================== */
 
   async getAdminForms(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<AdminForm>> {
@@ -763,15 +851,35 @@ export const apiClient = {
     return unwrapData<AdminForm>(res, 'Invalid form payload');
   },
 
+  async uploadFormBanner(id: string, file: File): Promise<AdminForm> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await uploadFetch<{ data: AdminForm }>(`/admin/forms/${encodeURIComponent(id)}/banner`, {
+      method: 'POST',
+      body: form,
+    });
+    return unwrapData<AdminForm>(res, 'Invalid upload banner payload');
+  },
+
   async deleteAdminForm(id: string): Promise<MessageResponse> {
     return apiFetch(`/admin/forms/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
 
-  async publishAdminForm(id: string): Promise<{ slug: string; publicUrl?: string }> {
-    const res = await apiFetch<{ data: { slug: string; publicUrl?: string } }>(`/admin/forms/${encodeURIComponent(id)}/publish`, {
+  async publishAdminForm(
+    id: string
+  ): Promise<{ slug: string; publicUrl?: string; publishedAt?: string; status?: FormStatus }> {
+    const res = await apiFetch<{
+      data: { slug: string; publicUrl?: string; publishedAt?: string; status?: FormStatus };
+    }>(
+      `/admin/forms/${encodeURIComponent(id)}/publish`,
+      {
       method: 'POST',
-    });
-    return unwrapData<{ slug: string; publicUrl?: string }>(res, 'Invalid publish payload');
+      }
+    );
+    return unwrapData<{ slug: string; publicUrl?: string; publishedAt?: string; status?: FormStatus }>(
+      res,
+      'Invalid publish payload'
+    );
   },
 
   async getFormSubmissions(id: string, params?: Record<string, unknown>): Promise<SimplePaginatedResponse<FormSubmission>> {
@@ -780,16 +888,9 @@ export const apiClient = {
     return unwrapSimplePaginated<FormSubmission>(res, 'Invalid submissions payload');
   },
 
-  async getFormSubmissionStats(
-    id: string,
-    params?: Record<string, unknown>
-  ): Promise<FormSubmissionDailyCount[]> {
-    const qs = toQueryString(params);
-    const res = await apiFetch<ApiResponse<FormSubmissionDailyCount[]>>(
-      `/admin/forms/${encodeURIComponent(id)}/submissions/stats${qs}`,
-      { method: 'GET' }
-    );
-    return unwrapData<FormSubmissionDailyCount[]>(res, 'Invalid submission stats payload');
+  async getFormSubmissionStats(id: string): Promise<FormSubmissionDailyStat[]> {
+    const res = await apiFetch<unknown>(`/admin/forms/${encodeURIComponent(id)}/submissions/stats`, { method: 'GET' });
+    return normalizeDailyStats(res);
   },
 
   async getFormStats(params?: Record<string, unknown>): Promise<FormStatsResponse> {
@@ -805,10 +906,11 @@ export const apiClient = {
     return unwrapData<PublicFormPayload>(res, 'Invalid public form payload');
   },
 
-  async submitPublicForm(slug: string, payload: SubmitFormRequest): Promise<MessageResponse> {
+  async submitPublicForm(slug: string, payload: SubmitFormRequest | FormData): Promise<MessageResponse> {
+    const body = payload instanceof FormData ? payload : JSON.stringify(payload);
     return apiFetch(`/forms/${encodeURIComponent(slug)}/submissions`, {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body,
     });
   },
 

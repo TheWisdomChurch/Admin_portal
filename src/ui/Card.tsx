@@ -26,7 +26,7 @@ export function Card({ children, className, title, actions, headerClassName, con
             headerClassName
           )}
         >
-          {title && <h3 className="text-base md:text-lg font-semibold text-[var(--color-text-primary)]">{title}</h3>}
+          {title && <h3 className="text-sm md:text-base font-medium text-[var(--color-text-primary)]">{title}</h3>}
           {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
         </div>
       )}
