@@ -919,6 +919,14 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     }
   };
 
+  if (!slug) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center space-y-3">
+        <div className="text-sm text-gray-700">Invalid form link. Please check the URL and try again.</div>
+      </div>
+    );
+  }
+
   if (loading || !payload) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center space-y-3">
