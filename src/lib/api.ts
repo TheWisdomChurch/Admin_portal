@@ -20,7 +20,6 @@ import type {
   PublicFormPayload,
   SubmitFormRequest,
   FormSubmission,
-  FormSubmissionDailyCount,
   FormStatsResponse,
   FormStatus,
   FormSubmissionDailyStat,

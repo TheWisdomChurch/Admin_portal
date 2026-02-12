@@ -19,14 +19,15 @@ type SuccessDetail = { label: string; value: string };
 
 type PublicFormClientProps = {
   slug: string;
-  initialPayload: PublicFormPayload | null;
-  fallbackApiOrigin?: string | null;
 };
 
 const MAX_IMAGE_MB = 5;
 const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const ACCEPTED_IMAGE_ACCEPT = ACCEPTED_IMAGE_TYPES.join(',');
+const FETCH_TIMEOUT_MS = 12000; // give backend time; avoid false negatives
+const RETRY_BASE_MS = 1200;
+const RETRY_MAX_MS = 6000;
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -461,18 +462,22 @@ function FieldInput({
   );
 }
 
-async function fetchPublicFormClient(
-  slug: string,
-  fallbackApiOrigin?: string | null
-): Promise<PublicFormPayload | null> {
+async function fetchPublicFormClient(slug: string): Promise<PublicFormPayload | null> {
+  const apiOrigin =
+    process.env.NEXT_PUBLIC_API_URL ??
+    process.env.NEXT_PUBLIC_BACKEND_URL ??
+    'https://api.wisdomchurchhq.org';
+
   const candidates: string[] = [];
-  if (fallbackApiOrigin) candidates.push(`${fallbackApiOrigin}/api/v1/forms/${encodeURIComponent(slug)}`);
-  candidates.push(`/api/v1/forms/${encodeURIComponent(slug)}`);
-  candidates.push(`https://api.wisdomchurchhq.org/api/v1/forms/${encodeURIComponent(slug)}`);
+  candidates.push(`/api/v1/forms/${encodeURIComponent(slug)}`); // same-origin proxy
+  candidates.push(`${apiOrigin}/api/v1/forms/${encodeURIComponent(slug)}`); // direct API
 
   for (const url of candidates) {
     try {
-      const res = await fetch(url, { method: 'GET', credentials: 'include' });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      const res = await fetch(url, { method: 'GET', credentials: 'include', signal: controller.signal });
+      clearTimeout(timeoutId);
       if (!res.ok) continue;
       const json = (await res.json()) as { data?: PublicFormPayload } | PublicFormPayload;
       const payload = 'data' in json ? json.data ?? null : (json as PublicFormPayload);
@@ -486,7 +491,7 @@ async function fetchPublicFormClient(
   return null;
 }
 
-export default function PublicFormClient({ slug, initialPayload, fallbackApiOrigin }: PublicFormClientProps) {
+export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const loadCachedPayload = (): PublicFormPayload | null => {
     if (typeof window === 'undefined' || !slug) return null;
     try {
@@ -500,9 +505,11 @@ export default function PublicFormClient({ slug, initialPayload, fallbackApiOrig
   };
 
   const initialCached = loadCachedPayload();
-  const initialData = initialPayload ?? initialCached;
+  const initialData = initialCached;
 
   const [payload, setPayload] = useState<PublicFormPayload | null>(initialData);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const leftRef = useRef<HTMLDivElement | null>(null);
@@ -555,42 +562,59 @@ export default function PublicFormClient({ slug, initialPayload, fallbackApiOrig
   }, [payload, slug]);
 
   useEffect(() => {
-    if (!slug || payload) return;
-    let alive = true;
+    if (!slug || payload) {
+      setLoading(false);
+      return;
+    }
 
-    (async () => {
+    let alive = true;
+    let attempt = 0;
+
+    const fetchWithRetry = async () => {
+      if (!alive) return;
+      attempt += 1;
+      setLoading(true);
+      setRetrying(attempt > 1);
+      setLoadError(null);
+
       try {
-        setLoading(true);
-        const res = await fetchPublicFormClient(slug, fallbackApiOrigin);
+        const res = await fetchPublicFormClient(slug);
         if (!alive) return;
-        if (!res) {
-          toast.error('Form is not available right now.');
+        if (res) {
+          setPayload(res);
+          if (typeof window !== 'undefined') {
+            try {
+              sessionStorage.setItem(`public-form:${slug}`, JSON.stringify(res));
+            } catch {
+              // ignore storage errors
+            }
+          }
+          resetFormState(res.form.fields ?? []);
+          setSuccessOpen(false);
+          setSuccessDetails([]);
+          setSuccessTokens({});
+          setLoading(false);
+          setRetrying(false);
           return;
         }
-        setPayload(res);
-        try {
-          if (typeof window !== 'undefined') {
-            sessionStorage.setItem(`public-form:${slug}`, JSON.stringify(res));
-          }
-        } catch {
-          // ignore storage errors
-        }
-        resetFormState(res.form.fields ?? []);
-        setSuccessOpen(false);
-        setSuccessDetails([]);
-        setSuccessTokens({});
+        // failed -> schedule retry
+        const delay = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * attempt);
+        setLoadError('Connecting... retrying automatically');
+        setTimeout(fetchWithRetry, delay);
       } catch (err) {
         console.error(err);
-        toast.error('Failed to load registration form');
-      } finally {
-        if (alive) setLoading(false);
+        const delay = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * attempt);
+        setLoadError('Network issue, retrying...');
+        setTimeout(fetchWithRetry, delay);
       }
-    })();
+    };
+
+    fetchWithRetry();
 
     return () => {
       alive = false;
     };
-  }, [fallbackApiOrigin, payload, resetFormState, slug]);
+  }, [payload, resetFormState, slug]);
 
   const valueToString = (value: FieldValue): string => {
     if (typeof value === 'string') return value.trim();
@@ -970,21 +994,21 @@ export default function PublicFormClient({ slug, initialPayload, fallbackApiOrig
     }
   };
 
-  if (loading) {
+  if (!slug) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center p-6">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-yellow-600 border-r-transparent" />
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center space-y-3">
+        <div className="text-sm text-gray-700">Invalid form link. Please check the URL and try again.</div>
       </div>
     );
   }
 
-  if (!payload) {
+  if (loading || !payload) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center p-6">
-        <Card className="p-6 max-w-lg w-full bg-white border-gray-200">
-          <h1 className="text-lg font-medium text-black">Form not available</h1>
-          <p className="text-sm text-gray-600 mt-2">This registration link is invalid or has expired.</p>
-        </Card>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center space-y-3">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-yellow-600 border-r-transparent" />
+        <div className="text-sm text-gray-600">
+          {loadError || (retrying ? 'Connecting… retrying automatically' : 'Loading form…')}
+        </div>
       </div>
     );
   }

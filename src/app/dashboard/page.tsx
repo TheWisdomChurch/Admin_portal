@@ -10,6 +10,7 @@ import {
   AlertCircle,
   ArrowUpRight,
   ClipboardList,
+  FileText,
 } from 'lucide-react';
 import { Card } from '@/ui/Card';
 import { Badge } from '@/ui/Badge';
@@ -17,7 +18,7 @@ import { Button } from '@/ui/Button';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
 import { useAuthContext } from '@/providers/AuthProviders';
-import { EventData, DashboardAnalytics, AdminForm } from '@/lib/types';
+import { EventData, DashboardAnalytics, AdminForm, FormStatsResponse } from '@/lib/types';
 
 const toArray = <T,>(value: unknown): T[] => {
   if (Array.isArray(value)) return value as T[];
@@ -60,17 +61,19 @@ export default function DashboardPage() {
     total: 0,
     recent: [],
   });
+  const [formStats, setFormStats] = useState<FormStatsResponse | null>(null);
 
   const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
 
       // Try to fetch real data, fall back to mock data if it fails
-      const [analyticsResult, eventsResult, testimonialsResult, formsResult] = await Promise.allSettled([
+      const [analyticsResult, eventsResult, testimonialsResult, formsResult, formStatsResult] = await Promise.allSettled([
         apiClient.getAnalytics(),
         apiClient.getEvents({ limit: 5, page: 1 }),
         apiClient.getAllTestimonials({ approved: true }),
         apiClient.getAdminForms({ page: 1, limit: 4 }),
+        apiClient.getFormStats({ limit: 6 }),
       ]);
 
       if (analyticsResult.status === 'fulfilled') {
@@ -103,6 +106,13 @@ export default function DashboardPage() {
       } else {
         console.warn('Forms unavailable:', formsResult.reason);
         setFormOverview({ total: 0, recent: [] });
+      }
+
+      if (formStatsResult.status === 'fulfilled') {
+        setFormStats(formStatsResult.value);
+      } else {
+        console.warn('Form submission stats unavailable:', formStatsResult.reason);
+        setFormStats(null);
       }
     } catch (error) {
       console.error('Dashboard error:', error);
