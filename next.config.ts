@@ -9,6 +9,15 @@ const nextConfig: NextConfig = {
   // Optional: leave turbopack config if you want, but it's not required for production builds
   turbopack: {},
 
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: '**.amazonaws.com' },
+      { protocol: 'https', hostname: '**.cloudfront.net' },
+      { protocol: 'https', hostname: '**.digitaloceanspaces.com' },
+      { protocol: 'https', hostname: '**.cdn.digitaloceanspaces.com' },
+    ],
+  },
+
   // IMPORTANT: no rewrites to /proxy/auth
   async rewrites() {
     return [

@@ -36,6 +36,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   const [theme, setTheme] = useState<ThemeMode>(() => {
     if (typeof window === 'undefined') return defaultTheme;
     const saved = localStorage.getItem('theme') as ThemeMode | null;
+    if (defaultTheme !== 'system') return defaultTheme;
     return saved || defaultTheme;
   });
 
