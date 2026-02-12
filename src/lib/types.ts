@@ -505,7 +505,6 @@ export interface AdminForm {
   isPublished: boolean;
   status?: FormStatus;
   publishedAt?: string;
-  publicUrl?: string;
   settings?: FormSettings;
   fields: FormField[];
   createdAt: string;

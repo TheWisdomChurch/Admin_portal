@@ -20,7 +20,7 @@ import { Button } from '@/ui/Button';
 import { PageHeader } from '@/layouts';
 import { DataTable } from '@/components/DateTable';
 import { apiClient } from '@/lib/api';
-import type { AdminForm, FormSubmission, FormSubmissionDailyCount } from '@/lib/types';
+import type { AdminForm, FormSubmission, FormSubmissionDailyStat } from '@/lib/types';
 import { withAuth } from '@/providers/withAuth';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
@@ -38,12 +38,12 @@ function buildDateRange(days: number) {
   return { start, end };
 }
 
-function fillDailySeries(range: RangeOption, raw: FormSubmissionDailyCount[]) {
+function fillDailySeries(range: RangeOption, raw: FormSubmissionDailyStat[]) {
   const { start, end } = buildDateRange(range);
   const cursor = new Date(start);
   const map = new Map<string, number>();
   raw.forEach((row) => {
-    const key = toISODateOnly(new Date(row.day));
+    const key = toISODateOnly(new Date(row.date));
     map.set(key, row.count);
   });
 
@@ -69,7 +69,7 @@ function SubmissionsPage() {
 
   const [form, setForm] = useState<AdminForm | null>(null);
   const [submissions, setSubmissions] = useState<FormSubmission[]>([]);
-  const [stats, setStats] = useState<FormSubmissionDailyCount[]>([]);
+  const [stats, setStats] = useState<FormSubmissionDailyStat[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [page, setPage] = useState(1);
@@ -82,14 +82,10 @@ function SubmissionsPage() {
     try {
       setLoading(true);
 
-      const { start, end } = buildDateRange(range);
       const [formRes, submissionsRes, statsRes] = await Promise.all([
         apiClient.getAdminForm(formId),
         apiClient.getFormSubmissions(formId, { page, limit }),
-        apiClient.getFormSubmissionStats(formId, {
-          start: start.toISOString(),
-          end: end.toISOString(),
-        }),
+        apiClient.getFormSubmissionStats(formId),
       ]);
 
       setForm(formRes);
@@ -102,7 +98,7 @@ function SubmissionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [formId, page, limit, range]);
+  }, [formId, page, limit]);
 
   useEffect(() => {
     load();
