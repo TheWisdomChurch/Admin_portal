@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
@@ -142,10 +142,18 @@ function FieldInput({
 
 export default function PublicFormPage() {
   const params = useParams();
+  const pathname = usePathname();
   const slug = useMemo(() => {
     const raw = params?.slug;
-    return typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : '';
-  }, [params]);
+    if (typeof raw === 'string') return raw;
+    if (Array.isArray(raw) && raw.length > 0) return raw[0];
+
+    // Fallback: derive slug from URL path (handles edge router hydration issues)
+    const path = (pathname || '').split('?')[0];
+    const parts = path.split('/').filter(Boolean);
+    const last = parts[parts.length - 1] || '';
+    return last || '';
+  }, [params, pathname]);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const leftRef = useRef<HTMLDivElement | null>(null);
@@ -154,6 +162,7 @@ export default function PublicFormPage() {
 
   const [loading, setLoading] = useState(true);
   const [payload, setPayload] = useState<PublicFormPayload | null>(null);
+  const [loadError, setLoadError] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [values, setValues] = useState<ValuesState>({});
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -191,7 +200,11 @@ export default function PublicFormPage() {
 
   // Fetch
   useEffect(() => {
-    if (!slug) return;
+    if (!slug) {
+      setLoading(false);
+      setLoadError('Missing form slug in URL.');
+      return;
+    }
 
     let alive = true;
 
@@ -202,6 +215,7 @@ export default function PublicFormPage() {
         if (!alive) return;
 
         setPayload(res);
+        setLoadError('');
 
         // init values
         setValues(buildInitialValues(res.form.fields ?? []));
@@ -209,6 +223,7 @@ export default function PublicFormPage() {
       } catch (err) {
         console.error(err);
         const message = err instanceof Error ? err.message : 'Failed to load registration form';
+        setLoadError(message);
         toast.error(message);
       } finally {
         if (alive) setLoading(false);
@@ -370,7 +385,9 @@ export default function PublicFormPage() {
       <div className="min-h-[60vh] flex items-center justify-center p-6">
         <Card className="p-6 max-w-lg w-full">
           <h1 className="text-xl font-semibold text-secondary-900">Form not available</h1>
-          <p className="text-secondary-600 mt-2">This registration link is invalid or has expired.</p>
+          <p className="text-secondary-600 mt-2">
+            {loadError || 'This registration link is invalid or has expired.'}
+          </p>
         </Card>
       </div>
     );
