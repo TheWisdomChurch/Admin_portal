@@ -212,6 +212,12 @@ export default withAuth(function FormsPage() {
   const submitButtonIcon: FormSettings['submitButtonIcon'] = 'check';
 
   const [formHeaderNote, setFormHeaderNote] = useState('Please ensure details are accurate before submitting.');
+  const [submissionTarget, setSubmissionTarget] = useState<FormSettings['submissionTarget'] | ''>('');
+  const [submissionDepartment, setSubmissionDepartment] = useState('');
+  const [responseEmailEnabled, setResponseEmailEnabled] = useState(true);
+  const [responseEmailTemplateKey, setResponseEmailTemplateKey] = useState('');
+  const [responseEmailTemplateId, setResponseEmailTemplateId] = useState('');
+  const [responseEmailSubject, setResponseEmailSubject] = useState('');
   const [coverImageUrl, setCoverImageUrl] = useState('');
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
@@ -415,33 +421,6 @@ export default withAuth(function FormsPage() {
       }
     })();
   }, []);
-
-  const applyPreset = (preset: FormPreset) => {
-    setTitle(preset.title);
-    setDescription(preset.description);
-    setSlug(preset.slug);
-    setEventId('');
-    setCapacity('');
-    setClosesAt('');
-    setExpiresAt('');
-    setIntroTitle(preset.introTitle || 'Event Registration');
-    setIntroSubtitle(preset.introSubtitle || 'Secure your spot by registering below.');
-    setIntroBullets('Smooth check-in\nEngaging sessions\nFriendly community');
-    setIntroBulletSubs('Arrive early for badges\nShort, powerful sessions\nMeet friendly stewards');
-    setLayoutMode('split');
-    setDateFormat('dd/mm');
-    setFormHeaderNote('Please ensure details are accurate before submitting.');
-    setResponseEmailEnabled(true);
-    setResponseEmailTemplateKey(preset.responseEmailTemplateKey || '');
-    setResponseEmailTemplateId('');
-    setResponseEmailSubject(preset.responseEmailSubject || '');
-    setSubmissionTarget(preset.submissionTarget || '');
-    setSubmissionDepartment(preset.submissionDepartment || '');
-    setFields(preset.fields);
-    setPublishedSlug(null);
-    setPublishedUrl(null);
-    setShowBuilder(true);
-  };
 
   const requestDelete = (form: AdminForm) => {
     setDeleteTarget(form);
@@ -802,6 +781,12 @@ export default withAuth(function FormsPage() {
         successTitle: successTitle.trim() || undefined,
         successSubtitle: successSubtitle.trim() || undefined,
         successMessage: successMessage.trim() || undefined,
+        responseEmailEnabled,
+        responseEmailTemplateId: responseEmailTemplateId.trim() || undefined,
+        responseEmailTemplateKey: responseEmailTemplateKey.trim() || undefined,
+        responseEmailSubject: responseEmailSubject.trim() || undefined,
+        submissionTarget: submissionTarget || undefined,
+        submissionDepartment: submissionDepartment.trim() || undefined,
         introTitle,
         introSubtitle,
 
@@ -879,6 +864,12 @@ export default withAuth(function FormsPage() {
       }
       setBannerFile(null);
       setBannerPreview(null);
+      setSubmissionTarget('');
+      setSubmissionDepartment('');
+      setResponseEmailEnabled(true);
+      setResponseEmailTemplateKey('');
+      setResponseEmailTemplateId('');
+      setResponseEmailSubject('');
       setShowBuilder(false);
       load();
     } catch (err) {
@@ -1475,7 +1466,7 @@ export default withAuth(function FormsPage() {
                       value={submissionTarget}
                       onChange={(e) => {
                         clearFieldError('submissionTarget');
-                        setSubmissionTarget(e.target.value as FormSettings['submissionTarget']);
+                        setSubmissionTarget(e.target.value as FormSettings['submissionTarget'] | '');
                       }}
                     >
                       <option value="">Do not route</option>
