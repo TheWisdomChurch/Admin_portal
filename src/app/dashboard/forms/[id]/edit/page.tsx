@@ -9,7 +9,7 @@ import { Input } from '@/ui/input';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
 import { buildPublicFormUrl } from '@/lib/utils';
-import type { AdminForm, FormField, FormFieldType, UpdateFormRequest } from '@/lib/types';
+import type { AdminForm, EventData, FormField, FormFieldType, FormSettings, UpdateFormRequest } from '@/lib/types';
 import { withAuth } from '@/providers/withAuth';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, Copy, Save, Globe } from 'lucide-react';
@@ -40,6 +40,8 @@ function EditFormPage() {
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [bannerUploading, setBannerUploading] = useState(false);
   const [removeFieldIndex, setRemoveFieldIndex] = useState<number | null>(null);
+  const [events, setEvents] = useState<EventData[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
 
   const clearFieldError = (key: string) =>
     setFieldErrors((prev) => {
@@ -82,6 +84,36 @@ function EditFormPage() {
     setBannerPreview(URL.createObjectURL(file));
   };
 
+  const updateSettings = (updates: Partial<FormSettings>) => {
+    setForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          ...updates,
+        },
+      };
+    });
+  };
+
+  const toLocalInput = (value?: string): string => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
+      date.getMinutes()
+    )}`;
+  };
+
+  const fromLocalInput = (value: string): string | undefined => {
+    if (!value) return undefined;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return undefined;
+    return date.toISOString();
+  };
+
   useEffect(() => {
     if (!formId) return;
     (async () => {
@@ -105,7 +137,7 @@ function EditFormPage() {
         setEventsLoading(true);
         const res = await apiClient.getEvents({ page: 1, limit: 200 });
         setEvents(Array.isArray(res.data) ? res.data : []);
-      } catch (err) {
+      } catch {
         setEvents([]);
       } finally {
         setEventsLoading(false);
@@ -214,7 +246,11 @@ function EditFormPage() {
       toast.error('Publish the form to get a link');
       return;
     }
-    const url = buildPublicFormUrl(slug, form?.publicUrl) ?? `/forms/${encodeURIComponent(slug)}`;
+    const url = buildPublicFormUrl(slug, form?.publicUrl) ?? (slug ? `/forms/${encodeURIComponent(slug)}` : '');
+    if (!url) {
+      toast.error('Form link unavailable');
+      return;
+    }
     await navigator.clipboard.writeText(url);
     toast.success('Link copied');
   };
