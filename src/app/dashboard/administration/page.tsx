@@ -596,34 +596,38 @@ export default function AdministrationPage() {
           {leaders.length === 0 ? (
             <p className="text-sm text-[var(--color-text-tertiary)]">No leadership records yet.</p>
           ) : (
-            leaders.map((row) => (
-              <AccordionRow
-                key={row.id}
-                title={row.name}
-                subtitle={row.title}
-                badge={<Badge variant="primary" size="sm">{row.title}</Badge>}
-              >
-                <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                    Birthday: {row.dob}
-                  </div>
-                  {row.anniversary && (
-                    <div className="flex items-center gap-2">
-                      <Heart className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                      Anniversary: {row.anniversary}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                    {row.email || 'No email'}
-                  </div>
-                  <p className="text-xs text-[var(--color-text-tertiary)] mt-2">
-                    Automated greetings: configure email templates in notifications.
-                  </p>
+            leaders.map((row) => {
+              const anniversaryRow = row.anniversary ? (
+                <div className="flex items-center gap-2">
+                  <Heart className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                  Anniversary: {row.anniversary}
                 </div>
-              </AccordionRow>
-            ))
+              ) : null;
+
+              return (
+                <AccordionRow
+                  key={row.id}
+                  title={row.name}
+                  subtitle={row.title}
+                  badge={<Badge variant="primary" size="sm">{row.title}</Badge>}
+                >
+                  <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                      Birthday: {row.dob}
+                    </div>
+                    {anniversaryRow}
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                      {row.email || 'No email'}
+                    </div>
+                    <p className="text-xs text-[var(--color-text-tertiary)] mt-2">
+                      Automated greetings: configure email templates in notifications.
+                    </p>
+                  </div>
+                </AccordionRow>
+              );
+            })
           )}
         </div>
       )}
