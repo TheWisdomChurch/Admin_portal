@@ -47,6 +47,10 @@ import type {
   HealthCheckResponse,
   UploadPresignRequest,
   UploadPresignResponse,
+  UploadAssetData,
+  UploadImageResponse,
+  EmailTemplate,
+  CreateEmailTemplateRequest,
 } from './types';
 
 /* ============================================================================
@@ -779,11 +783,42 @@ export const apiClient = {
   },
 
   async createUploadPresign(payload: UploadPresignRequest): Promise<UploadPresignResponse> {
+    const normalizedPayload: UploadPresignRequest = {
+      ...payload,
+      sizeBytes: payload.sizeBytes ?? payload.size,
+    };
     const res = await apiFetch<{ data: UploadPresignResponse }>('/admin/uploads/presign', {
+      method: 'POST',
+      body: JSON.stringify(normalizedPayload),
+    });
+    return unwrapData<UploadPresignResponse>(res, 'Invalid upload presign payload');
+  },
+
+  async completeUploadAsset(assetId: string): Promise<UploadAssetData> {
+    const res = await apiFetch<{ data: UploadAssetData }>(
+      `/admin/uploads/${encodeURIComponent(assetId)}/complete`,
+      { method: 'POST' }
+    );
+    return unwrapData<UploadAssetData>(res, 'Invalid upload completion payload');
+  },
+
+  async uploadImage(file: File, folder = 'uploads'): Promise<UploadImageResponse> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('folder', folder);
+    const res = await uploadFetch<{ data: UploadImageResponse }>('/admin/uploads/images', {
+      method: 'POST',
+      body: form,
+    });
+    return unwrapData<UploadImageResponse>(res, 'Invalid image upload payload');
+  },
+
+  async createAdminEmailTemplate(payload: CreateEmailTemplateRequest): Promise<EmailTemplate> {
+    const res = await apiFetch<{ data: EmailTemplate }>('/admin/email/templates', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
-    return unwrapData<UploadPresignResponse>(res, 'Invalid upload presign payload');
+    return unwrapData<EmailTemplate>(res, 'Invalid email template payload');
   },
 
   /* ===================== FORMS (ADMIN) ===================== */

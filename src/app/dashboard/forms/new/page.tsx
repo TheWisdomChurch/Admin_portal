@@ -54,6 +54,75 @@ const normalizeSlug = (value: string) =>
     .replace(/-{2,}/g, '-')
     .replace(/^-|-$/g, '');
 
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const renderStructuredLines = (value: string) => {
+  const lines = value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const bullets = lines
+    .filter((line) => line.startsWith('- ') || line.startsWith('* '))
+    .map((line) => line.replace(/^(-|\*)\s+/, '').trim())
+    .filter(Boolean);
+
+  const paragraphs = lines.filter((line) => !line.startsWith('- ') && !line.startsWith('* '));
+  return { bullets, paragraphs };
+};
+
+const buildResponseEmailHTML = (opts: {
+  title: string;
+  heading: string;
+  message: string;
+  imageUrl?: string;
+}) => {
+  const safeTitle = escapeHtml(opts.title || 'Registration');
+  const safeHeading = escapeHtml(opts.heading || 'Registration Confirmed');
+  const safeMessage = escapeHtml(opts.message || 'Thank you for registering.');
+  const safeImageUrl = opts.imageUrl ? escapeHtml(opts.imageUrl) : '';
+
+  return `
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f5f7fb;font-family:Arial,sans-serif;color:#111827;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="padding:24px 24px 10px 24px;">
+                <p style="margin:0 0 10px 0;font-size:14px;color:#6b7280;">Wisdom Church Registration</p>
+                <h2 style="margin:0;font-size:24px;line-height:1.25;color:#111827;">${safeHeading}</h2>
+              </td>
+            </tr>
+            ${safeImageUrl ? `<tr><td style="padding:10px 24px 0 24px;"><img src="${safeImageUrl}" alt="${safeTitle}" style="display:block;width:100%;height:auto;border-radius:10px;" /></td></tr>` : ''}
+            <tr>
+              <td style="padding:18px 24px 12px 24px;">
+                <p style="margin:0 0 14px 0;font-size:16px;color:#111827;">Hello {{.RecipientName}},</p>
+                <p style="margin:0;font-size:15px;line-height:1.7;color:#374151;">${safeMessage}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 24px 24px 24px;">
+                <a href="{{.FormURL}}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-size:14px;">View Registration Page</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+`.trim();
+};
+
 // ------------------------------------
 // Page component
 // ------------------------------------
@@ -97,8 +166,20 @@ export default withAuth(function NewFormPage() {
   const [successTitle, setSuccessTitle] = useState('');
   const [successSubtitle, setSuccessSubtitle] = useState('');
   const [successMessage, setSuccessMessage] = useState('We would love to see you.');
+  const [responseEmailEnabled, setResponseEmailEnabled] = useState(true);
+  const [responseEmailSubject, setResponseEmailSubject] = useState('');
+  const [responseEmailHeading, setResponseEmailHeading] = useState('Registration Confirmed');
+  const [responseEmailMessage, setResponseEmailMessage] = useState('Thank you for registering. Your details have been received successfully.');
+  const [responseTemplateFile, setResponseTemplateFile] = useState<File | null>(null);
+  const [responseTemplatePreview, setResponseTemplatePreview] = useState<string | null>(null);
+  const [responseTemplateUrl, setResponseTemplateUrl] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [removeFieldIndex, setRemoveFieldIndex] = useState<number | null>(null);
+  const descriptionStructure = useMemo(() => renderStructuredLines(description), [description]);
+  const responseTemplateKeyPreview = useMemo(
+    () => `forms/${normalizeSlug(slug || title || 'your-link')}`,
+    [slug, title]
+  );
 
   const clearFieldError = (key: string) =>
     setFieldErrors((prev) => {
@@ -128,8 +209,9 @@ export default withAuth(function NewFormPage() {
   useEffect(() => {
     return () => {
       if (bannerPreview) URL.revokeObjectURL(bannerPreview);
+      if (responseTemplatePreview) URL.revokeObjectURL(responseTemplatePreview);
     };
-  }, [bannerPreview]);
+  }, [bannerPreview, responseTemplatePreview]);
 
   const handleBannerFile = (file?: File) => {
     if (!file) {
@@ -146,6 +228,23 @@ export default withAuth(function NewFormPage() {
     }
     setBannerFile(file);
     setBannerPreview(URL.createObjectURL(file));
+  };
+
+  const handleResponseTemplateFile = (file?: File) => {
+    if (!file) {
+      setResponseTemplateFile(null);
+      setResponseTemplatePreview(null);
+      return;
+    }
+    const error = validateBannerFile(file);
+    if (error) {
+      toast.error(error);
+      setResponseTemplateFile(null);
+      setResponseTemplatePreview(null);
+      return;
+    }
+    setResponseTemplateFile(file);
+    setResponseTemplatePreview(URL.createObjectURL(file));
   };
 
   useEffect(() => {
@@ -211,6 +310,9 @@ export default withAuth(function NewFormPage() {
         capacity: capacity ? Number(capacity) : undefined,
         closesAt: toIso(closesAt),
         expiresAt: toIso(expiresAt),
+        responseEmailEnabled,
+        responseEmailSubject: responseEmailSubject.trim() || undefined,
+        responseEmailTemplateKey: responseEmailEnabled ? `forms/${normalizedSlug}` : undefined,
         successTitle: successTitle.trim() || undefined,
         successSubtitle: successSubtitle.trim() || undefined,
         successMessage: successMessage.trim() || undefined,
@@ -263,6 +365,44 @@ export default withAuth(function NewFormPage() {
         publishedOk = false;
         publishError = getServerErrorMessage(err, 'Publish failed. Form saved as draft.');
       }
+
+      if (responseEmailEnabled) {
+        try {
+          let templateImageUrl = responseTemplateUrl.trim();
+          if (responseTemplateFile) {
+            const uploaded = await apiClient.uploadImage(responseTemplateFile, 'email_template');
+            templateImageUrl = uploaded.url;
+          }
+
+          const templateKey = `forms/${slugToUse}`;
+          const templateSubject =
+            responseEmailSubject.trim() || `Registration received: ${title.trim() || slugToUse}`;
+          const htmlBody = buildResponseEmailHTML({
+            title: title.trim() || slugToUse,
+            heading: responseEmailHeading.trim(),
+            message: responseEmailMessage.trim(),
+            imageUrl: templateImageUrl || undefined,
+          });
+
+          await apiClient.createAdminEmailTemplate({
+            templateKey,
+            ownerType: 'form',
+            ownerId: created.id,
+            subject: templateSubject,
+            htmlBody,
+            status: 'active',
+            activate: true,
+          });
+          toast.success('Response email template attached');
+        } catch (templateErr) {
+          const templateMsg = getServerErrorMessage(
+            templateErr,
+            'Form was created, but response email template setup failed.'
+          );
+          toast.error(templateMsg);
+        }
+      }
+
       setPublishedSlug(publishedOk ? slugToUse : null);
       if (publishedOk) {
         toast.success('Form created and link ready');
@@ -346,11 +486,33 @@ export default withAuth(function NewFormPage() {
             <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Description</label>
             <textarea
               className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
-              rows={3}
+              rows={5}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional short intro"
+              placeholder="Write a clean short description. Use new lines for spacing. Use '- ' for bullet points."
             />
+            <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">
+              Tip: keep this concise. Use paragraphs and bullet points so visitors can scan quickly.
+            </p>
+            {(descriptionStructure.paragraphs.length > 0 || descriptionStructure.bullets.length > 0) && (
+              <div className="mt-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                  Description Preview
+                </p>
+                <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
+                  {descriptionStructure.paragraphs.map((paragraph, index) => (
+                    <p key={`description-paragraph-${index}`}>{paragraph}</p>
+                  ))}
+                  {descriptionStructure.bullets.length > 0 && (
+                    <ul className="list-disc space-y-1 pl-5">
+                      {descriptionStructure.bullets.map((item, index) => (
+                        <li key={`description-bullet-${index}`}>{item}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="md:col-span-2 grid gap-3 md:grid-cols-2">
@@ -448,6 +610,88 @@ export default withAuth(function NewFormPage() {
                 placeholder="Optional short note shown above the form"
               />
             </div>
+          </div>
+
+          <div className="md:col-span-2 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Response Email Template</h3>
+                <p className="text-xs text-[var(--color-text-tertiary)]">
+                  Attach a unique template to this form. It is sent automatically after successful submission.
+                </p>
+              </div>
+              <label className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={responseEmailEnabled}
+                  onChange={(e) => setResponseEmailEnabled(e.target.checked)}
+                />
+                Enable
+              </label>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <Input
+                label="Email subject"
+                value={responseEmailSubject}
+                onChange={(e) => setResponseEmailSubject(e.target.value)}
+                placeholder="Registration received: Program Name"
+                disabled={!responseEmailEnabled}
+              />
+              <Input
+                label="Template key (auto)"
+                value={responseTemplateKeyPreview}
+                disabled
+                helperText="This key is linked to the form and used for unique template lookup."
+              />
+              <Input
+                label="Email heading"
+                value={responseEmailHeading}
+                onChange={(e) => setResponseEmailHeading(e.target.value)}
+                placeholder="Registration Confirmed"
+                disabled={!responseEmailEnabled}
+              />
+              <Input
+                label="Template image URL (optional)"
+                value={responseTemplateUrl}
+                onChange={(e) => setResponseTemplateUrl(e.target.value)}
+                placeholder="https://..."
+                disabled={!responseEmailEnabled}
+              />
+              <Input
+                label="Or upload template image"
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleResponseTemplateFile(e.target.files?.[0])}
+                helperText="Image is uploaded to your bucket and injected into the response email."
+                disabled={!responseEmailEnabled}
+              />
+              <div className="space-y-2 md:col-span-2">
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Email body message</label>
+                <textarea
+                  className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                  rows={3}
+                  value={responseEmailMessage}
+                  onChange={(e) => setResponseEmailMessage(e.target.value)}
+                  placeholder="Thank you for registering. We look forward to hosting you."
+                  disabled={!responseEmailEnabled}
+                />
+              </div>
+            </div>
+
+            {(responseTemplatePreview || responseTemplateUrl.trim()) && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-[var(--color-text-secondary)]">Email image preview</p>
+                <Image
+                  src={responseTemplatePreview || responseTemplateUrl.trim()}
+                  alt="Response template preview"
+                  width={1200}
+                  height={400}
+                  className="w-full max-h-64 rounded-[var(--radius-card)] object-cover border border-[var(--color-border-secondary)]"
+                  unoptimized
+                />
+              </div>
+            )}
           </div>
 
           <div className="md:col-span-2">

@@ -155,6 +155,81 @@ function formatPrettyPhone(e164: string): string {
   return `${parsed.dial} ${groups.join(' ')}`.trim();
 }
 
+type StructuredBlock =
+  | { type: 'paragraph'; text: string }
+  | { type: 'list'; items: string[] };
+
+function parseStructuredDescription(text: string): StructuredBlock[] {
+  const lines = text.split('\n').map((line) => line.trim());
+  const blocks: StructuredBlock[] = [];
+  let paragraphBuffer: string[] = [];
+  let listBuffer: string[] = [];
+
+  const flushParagraph = () => {
+    if (paragraphBuffer.length === 0) return;
+    blocks.push({ type: 'paragraph', text: paragraphBuffer.join(' ').trim() });
+    paragraphBuffer = [];
+  };
+
+  const flushList = () => {
+    if (listBuffer.length === 0) return;
+    blocks.push({ type: 'list', items: listBuffer });
+    listBuffer = [];
+  };
+
+  for (const line of lines) {
+    if (!line) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+
+    if (line.startsWith('- ') || line.startsWith('* ')) {
+      flushParagraph();
+      const bullet = line.replace(/^(-|\*)\s+/, '').trim();
+      if (bullet) listBuffer.push(bullet);
+      continue;
+    }
+
+    flushList();
+    paragraphBuffer.push(line);
+  }
+
+  flushParagraph();
+  flushList();
+  return blocks;
+}
+
+function StructuredDescription({
+  text,
+  className = '',
+}: {
+  text?: string;
+  className?: string;
+}) {
+  const trimmed = (text || '').trim();
+  if (!trimmed) return null;
+
+  const blocks = parseStructuredDescription(trimmed);
+  return (
+    <div className={`space-y-2 text-sm text-gray-600 ${className}`.trim()}>
+      {blocks.map((block, index) => {
+        if (block.type === 'list') {
+          return (
+            <ul key={`description-list-${index}`} className="list-disc space-y-1 pl-5">
+              {block.items.map((item, itemIndex) => (
+                <li key={`description-item-${index}-${itemIndex}`}>{item}</li>
+              ))}
+            </ul>
+          );
+        }
+
+        return <p key={`description-paragraph-${index}`}>{block.text}</p>;
+      })}
+    </div>
+  );
+}
+
 function PhoneNumberInput({
   label,
   required,
@@ -998,7 +1073,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
           ) : null}
 
           <h1 className="mt-3 text-xl sm:text-2xl font-medium tracking-tight text-black">{heroTitle}</h1>
-          <p className="mt-2 text-sm text-gray-600 max-w-2xl">{heroSubtitle}</p>
+          <StructuredDescription text={heroSubtitle} className="mt-2 max-w-2xl" />
 
           {isClosed ? (
             <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -1068,7 +1143,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
           <div ref={rightRef}>
             <Card className="p-6 md:p-7 shadow-md transition-shadow duration-300 hover:shadow-lg bg-white border-gray-200">
               <h2 className="text-lg font-medium text-black">{displayFormTitle}</h2>
-              {showFormDescription ? <p className="mt-2 text-sm text-gray-600">{formDescription}</p> : null}
+              {showFormDescription ? <StructuredDescription text={formDescription} className="mt-2" /> : null}
 
               {settings?.formHeaderNote ? (
                 <p className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">

@@ -212,17 +212,75 @@ export interface CreateReelData {
 ========================= */
 
 export interface UploadPresignRequest {
-  filename: string;
+  filename?: string;
   contentType: string;
-  size: number;
+  size?: number;
+  sizeBytes?: number;
+  checksum?: string;
+  ownerType?: string;
+  ownerId?: string;
+  kind?: string;
   folder?: string;
 }
 
 export interface UploadPresignResponse {
+  assetId?: string;
   uploadUrl: string;
   publicUrl: string;
+  objectKey?: string;
   key?: string;
   expiresAt?: string;
+}
+
+export interface UploadAssetData {
+  id: string;
+  publicUrl: string;
+  objectKey: string;
+  status: string;
+  ownerType?: string | null;
+  ownerId?: string | null;
+  kind?: string | null;
+  contentType?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UploadImageResponse {
+  folder: string;
+  key: string;
+  url: string;
+}
+
+/* =========================
+   EMAIL TEMPLATES
+========================= */
+
+export type EmailTemplateStatus = 'draft' | 'active' | 'archived';
+
+export interface EmailTemplate {
+  id: string;
+  templateKey: string;
+  ownerType?: string;
+  ownerId?: string;
+  subject?: string;
+  htmlBody: string;
+  textBody?: string;
+  status: EmailTemplateStatus;
+  version: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateEmailTemplateRequest {
+  templateKey: string;
+  ownerType?: string;
+  ownerId?: string;
+  subject?: string;
+  htmlBody: string;
+  textBody?: string;
+  status?: EmailTemplateStatus;
+  activate?: boolean;
 }
 
 /* =========================

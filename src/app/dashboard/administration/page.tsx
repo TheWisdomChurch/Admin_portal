@@ -720,6 +720,34 @@ export default function AdministrationPage() {
                     <Heart className="h-4 w-4 text-[var(--color-text-tertiary)]" />
                     Anniversary: {row.anniversary}
                   </div>
+                </div>
+              ) : null;
+
+              return (
+                <AccordionRow
+                  key={row.id}
+                  title={row.name}
+                  subtitle={row.title}
+                  badge={<Badge variant="primary" size="sm">{row.title}</Badge>}
+                >
+                  <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                      Birthday: {row.dob}
+                    </div>
+                    {anniversaryRow}
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                      {row.email || 'No email'}
+                    </div>
+                    <p className="text-xs text-[var(--color-text-tertiary)] mt-2">
+                      Automated greetings: configure email templates in notifications.
+                    </p>
+                  </div>
+                </AccordionRow>
+              );
+            })
+          )}
                 ) : null}
 
                 <div className="flex items-center gap-2">
@@ -820,7 +848,6 @@ export default function AdministrationPage() {
                 value={leaderForm.title}
                 onChange={(e) => setLeaderForm({ ...leaderForm, title: e.target.value })}
               />
-
               <div className="grid gap-3 md:grid-cols-2">
                 <Input
                   label="Birthday (MM/DD)"
