@@ -194,6 +194,12 @@ export default withAuth(function FormsPage() {
   const [capacity, setCapacity] = useState('');
   const [closesAt, setClosesAt] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
+  const [submissionTarget, setSubmissionTarget] = useState<FormSettings['submissionTarget'] | ''>('');
+  const [submissionDepartment, setSubmissionDepartment] = useState('');
+  const [responseEmailEnabled, setResponseEmailEnabled] = useState(true);
+  const [responseEmailSubject, setResponseEmailSubject] = useState('');
+  const [responseEmailTemplateKey, setResponseEmailTemplateKey] = useState('');
+  const [responseEmailTemplateId, setResponseEmailTemplateId] = useState('');
 
   const [introTitle, setIntroTitle] = useState('Event Registration');
   const [introSubtitle, setIntroSubtitle] = useState('Secure your spot by registering below.');
@@ -212,12 +218,6 @@ export default withAuth(function FormsPage() {
   const submitButtonIcon: FormSettings['submitButtonIcon'] = 'check';
 
   const [formHeaderNote, setFormHeaderNote] = useState('Please ensure details are accurate before submitting.');
-  const [submissionTarget, setSubmissionTarget] = useState<FormSettings['submissionTarget'] | ''>('');
-  const [submissionDepartment, setSubmissionDepartment] = useState('');
-  const [responseEmailEnabled, setResponseEmailEnabled] = useState(true);
-  const [responseEmailTemplateKey, setResponseEmailTemplateKey] = useState('');
-  const [responseEmailTemplateId, setResponseEmailTemplateId] = useState('');
-  const [responseEmailSubject, setResponseEmailSubject] = useState('');
   const [coverImageUrl, setCoverImageUrl] = useState('');
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
@@ -778,15 +778,18 @@ export default withAuth(function FormsPage() {
         capacity: capacity ? Number(capacity) : undefined,
         closesAt: toIso(closesAt),
         expiresAt: toIso(expiresAt),
+        submissionTarget: submissionTarget || undefined,
+        submissionDepartment:
+          submissionTarget === 'workforce' ? submissionDepartment.trim() || undefined : undefined,
+        responseEmailEnabled,
+        responseEmailSubject: responseEmailEnabled ? responseEmailSubject.trim() || undefined : undefined,
+        responseEmailTemplateKey:
+          responseEmailEnabled ? responseEmailTemplateKey.trim() || undefined : undefined,
+        responseEmailTemplateId:
+          responseEmailEnabled ? responseEmailTemplateId.trim() || undefined : undefined,
         successTitle: successTitle.trim() || undefined,
         successSubtitle: successSubtitle.trim() || undefined,
         successMessage: successMessage.trim() || undefined,
-        responseEmailEnabled,
-        responseEmailTemplateId: responseEmailTemplateId.trim() || undefined,
-        responseEmailTemplateKey: responseEmailTemplateKey.trim() || undefined,
-        responseEmailSubject: responseEmailSubject.trim() || undefined,
-        submissionTarget: submissionTarget || undefined,
-        submissionDepartment: submissionDepartment.trim() || undefined,
         introTitle,
         introSubtitle,
 

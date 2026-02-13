@@ -39,6 +39,9 @@ import type {
   Member,
   CreateMemberRequest,
   UpdateMemberRequest,
+  LeadershipMember,
+  CreateLeadershipRequest,
+  UpdateLeadershipRequest,
   PasswordResetRequestPayload,
   PasswordResetConfirmPayload,
   LoginResult,
@@ -51,6 +54,7 @@ import type {
   UploadImageResponse,
   EmailTemplate,
   CreateEmailTemplateRequest,
+  AdminNotificationInbox,
 } from './types';
 
 /* ============================================================================
@@ -943,6 +947,22 @@ export const apiClient = {
     return unwrapData<SendNotificationResult>(res, 'Invalid notification payload');
   },
 
+  async listAdminNotifications(limit = 50): Promise<AdminNotificationInbox> {
+    const res = await apiFetch<ApiResponse<AdminNotificationInbox>>(
+      `/admin/notifications/inbox?limit=${encodeURIComponent(String(limit))}`,
+      { method: 'GET' }
+    );
+    return unwrapData<AdminNotificationInbox>(res, 'Invalid admin notifications payload');
+  },
+
+  async markAdminNotificationRead(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/notifications/${encodeURIComponent(id)}/read`, { method: 'PATCH' });
+  },
+
+  async markAllAdminNotificationsRead(): Promise<MessageResponse> {
+    return apiFetch('/admin/notifications/read-all', { method: 'POST' });
+  },
+
   /* ===================== OTP ===================== */
 
   async sendOtp(payload: SendOTPRequest): Promise<SendOTPResponse> {
@@ -1030,6 +1050,48 @@ export const apiClient = {
 
   async deleteMember(id: string): Promise<MessageResponse> {
     return apiFetch(`/admin/members/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+
+  /* ===================== LEADERSHIP ===================== */
+
+  async listLeadership(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<LeadershipMember>> {
+    const qs = toQueryString(params);
+    const res = await apiFetch(`/admin/leadership${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<LeadershipMember>(res, 'Invalid leadership payload');
+  },
+
+  async createLeadership(payload: CreateLeadershipRequest): Promise<LeadershipMember> {
+    const res = await apiFetch<ApiResponse<LeadershipMember>>('/admin/leadership', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<LeadershipMember>(res, 'Invalid leadership payload');
+  },
+
+  async updateLeadership(id: string, payload: UpdateLeadershipRequest): Promise<LeadershipMember> {
+    const res = await apiFetch<ApiResponse<LeadershipMember>>(`/admin/leadership/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<LeadershipMember>(res, 'Invalid leadership payload');
+  },
+
+  async deleteLeadership(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/leadership/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+
+  async approveLeadership(id: string): Promise<LeadershipMember> {
+    const res = await apiFetch<ApiResponse<LeadershipMember>>(`/admin/leadership/${encodeURIComponent(id)}/approve`, {
+      method: 'POST',
+    });
+    return unwrapData<LeadershipMember>(res, 'Invalid leadership approval payload');
+  },
+
+  async declineLeadership(id: string): Promise<LeadershipMember> {
+    const res = await apiFetch<ApiResponse<LeadershipMember>>(`/admin/leadership/${encodeURIComponent(id)}/decline`, {
+      method: 'POST',
+    });
+    return unwrapData<LeadershipMember>(res, 'Invalid leadership decline payload');
   },
 
   /* ===================== WORKFORCE (BIRTHDAYS) ===================== */
