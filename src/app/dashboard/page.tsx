@@ -1,7 +1,7 @@
 // src/app/(dashboard)/page.tsx
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import {
   Calendar,
   Users,
@@ -73,7 +73,7 @@ export default function DashboardPage() {
         apiClient.getEvents({ limit: 5, page: 1 }),
         apiClient.getAllTestimonials({ approved: true }),
         apiClient.getAdminForms({ page: 1, limit: 4 }),
-        apiClient.getFormStats({ limit: 6 }),
+        apiClient.getFormStats(),
       ]);
 
       if (analyticsResult.status === 'fulfilled') {
@@ -111,12 +111,13 @@ export default function DashboardPage() {
       if (formStatsResult.status === 'fulfilled') {
         setFormStats(formStatsResult.value);
       } else {
-        console.warn('Form submission stats unavailable:', formStatsResult.reason);
+        console.warn('Form stats unavailable:', formStatsResult.reason);
         setFormStats(null);
       }
     } catch (error) {
       console.error('Dashboard error:', error);
       toast.error('Failed to load dashboard data');
+      setFormStats(null);
     } finally {
       setLoading(false);
     }
@@ -401,8 +402,8 @@ function StatCard({
   icon,
 }: {
   title: string;
-  value: React.ReactNode;
-  icon: React.ReactNode;
+  value: ReactNode;
+  icon: ReactNode;
 }) {
   return (
     <Card
