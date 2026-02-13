@@ -679,6 +679,86 @@ export interface WorkforceStatsResponse {
 }
 
 /* =========================
+   LEADERSHIP
+========================= */
+
+export type LeadershipRole =
+  | 'senior_pastor'
+  | 'associate_pastor'
+  | 'deacon'
+  | 'deaconess'
+  | 'reverend';
+
+export type LeadershipStatus = 'pending' | 'approved' | 'declined';
+
+export interface LeadershipMember {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  role: LeadershipRole;
+  status: LeadershipStatus;
+  bio?: string | null;
+  imageUrl?: string | null;
+  birthdayMonth?: number;
+  birthdayDay?: number;
+  anniversaryMonth?: number;
+  anniversaryDay?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLeadershipRequest {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  role: LeadershipRole;
+  status?: LeadershipStatus;
+  bio?: string;
+  imageUrl?: string;
+  birthday?: string;
+  anniversary?: string;
+}
+
+export interface UpdateLeadershipRequest {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  role?: LeadershipRole;
+  status?: LeadershipStatus;
+  bio?: string;
+  imageUrl?: string;
+  birthday?: string;
+  anniversary?: string;
+}
+
+/* =========================
+   ADMIN NOTIFICATIONS
+========================= */
+
+export interface AdminNotification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  ticketCode?: string;
+  entityType?: string;
+  entityId?: string;
+  isRead: boolean;
+  readAt?: string;
+  createdAt: string;
+}
+
+export interface AdminNotificationInbox {
+  items: AdminNotification[];
+  unread: number;
+}
+
+/* =========================
    MISC
 ========================= */
 
