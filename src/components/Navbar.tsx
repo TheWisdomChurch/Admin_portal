@@ -1,7 +1,7 @@
 // src/components/admin/Navbar.tsx
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Bell, Search, LogOut, Calendar, Settings, Moon, Sun, Monitor } from 'lucide-react';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/input';
@@ -11,11 +11,13 @@ import { LogoutModal } from '@/ui/LogoutModal';
 import { Badge } from '@/ui/Badge';
 import { format } from 'date-fns';
 import { useTheme } from '@/providers/ThemeProviders';
+import { apiClient } from '@/lib/api';
 
 export function Navbar() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [unread, setUnread] = useState(0);
   const auth = useAuthContext();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -72,6 +74,35 @@ export function Navbar() {
   const themeIcon = theme === 'system' ? Monitor : theme === 'dark' ? Moon : Sun;
   const themeLabel = theme === 'system' ? 'System theme' : theme === 'dark' ? 'Dark mode' : 'Light mode';
   const ThemeIcon = themeIcon;
+
+  useEffect(() => {
+    let mounted = true;
+    const loadUnread = async () => {
+      try {
+        const inbox = await apiClient.listAdminNotifications(20);
+        if (!mounted) return;
+        setUnread(Number(inbox.unread || 0));
+      } catch {
+        if (!mounted) return;
+        setUnread(0);
+      }
+    };
+
+    loadUnread();
+    const timer = window.setInterval(loadUnread, 60000);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const openNotifications = () => {
+    if (auth.user?.role === 'super_admin') {
+      router.push('/dashboard/super/notifications');
+      return;
+    }
+    router.push('/dashboard/notifications');
+  };
 
   return (
     <>
@@ -135,9 +166,12 @@ export function Navbar() {
                 size="sm"
                 className="relative text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
                 aria-label="Notifications"
+                onClick={openNotifications}
               >
                 <Bell className="h-5 w-5" />
-                <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                {unread > 0 && (
+                  <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                )}
               </Button>
             </div>
 

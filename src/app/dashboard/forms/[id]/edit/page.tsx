@@ -35,13 +35,13 @@ function EditFormPage() {
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<EventData[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [bannerUploading, setBannerUploading] = useState(false);
   const [removeFieldIndex, setRemoveFieldIndex] = useState<number | null>(null);
-  const [events, setEvents] = useState<EventData[]>([]);
-  const [eventsLoading, setEventsLoading] = useState(false);
 
   const clearFieldError = (key: string) =>
     setFieldErrors((prev) => {
@@ -84,36 +84,6 @@ function EditFormPage() {
     setBannerPreview(URL.createObjectURL(file));
   };
 
-  const updateSettings = (updates: Partial<FormSettings>) => {
-    setForm((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        settings: {
-          ...prev.settings,
-          ...updates,
-        },
-      };
-    });
-  };
-
-  const toLocalInput = (value?: string): string => {
-    if (!value) return '';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '';
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
-      date.getMinutes()
-    )}`;
-  };
-
-  const fromLocalInput = (value: string): string | undefined => {
-    if (!value) return undefined;
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return undefined;
-    return date.toISOString();
-  };
-
   useEffect(() => {
     if (!formId) return;
     (async () => {
@@ -147,6 +117,34 @@ function EditFormPage() {
 
   const updateField = (index: number, updates: Partial<FieldDraft>) => {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, ...updates } : f)));
+  };
+
+  const toLocalInput = (value?: string) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const tzOffset = date.getTimezoneOffset() * 60_000;
+    return new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+  };
+
+  const fromLocalInput = (value: string) => {
+    if (!value) return undefined;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return undefined;
+    return date.toISOString();
+  };
+
+  const updateSettings = (updates: Partial<FormSettings>) => {
+    setForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          ...updates,
+        },
+      };
+    });
   };
 
   const addField = () => {
@@ -246,9 +244,9 @@ function EditFormPage() {
       toast.error('Publish the form to get a link');
       return;
     }
-    const url = buildPublicFormUrl(slug, form?.publicUrl) ?? (slug ? `/forms/${encodeURIComponent(slug)}` : '');
+    const url = buildPublicFormUrl(slug, form?.publicUrl) ?? (slug ? `/forms/${encodeURIComponent(slug)}` : null);
     if (!url) {
-      toast.error('Form link unavailable');
+      toast.error('Publish the form to get a link');
       return;
     }
     await navigator.clipboard.writeText(url);
