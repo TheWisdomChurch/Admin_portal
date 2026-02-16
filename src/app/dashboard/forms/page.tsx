@@ -48,6 +48,16 @@ type FieldDraft = {
 
 const dateFormats = ['yyyy-mm-dd', 'mm/dd/yyyy', 'dd/mm/yyyy', 'dd/mm'] as const;
 type DateFormat = (typeof dateFormats)[number];
+const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; label: string }> = [
+  { value: 'registration', label: 'Registration' },
+  { value: 'event', label: 'Event' },
+  { value: 'membership', label: 'Membership' },
+  { value: 'workforce', label: 'Workforce' },
+  { value: 'leadership', label: 'Leadership' },
+  { value: 'application', label: 'Application' },
+  { value: 'contact', label: 'Contact' },
+  { value: 'general', label: 'General' },
+];
 
 const MAX_BANNER_MB = 5;
 const MAX_BANNER_BYTES = MAX_BANNER_MB * 1024 * 1024;
@@ -194,6 +204,7 @@ export default withAuth(function FormsPage() {
   const [capacity, setCapacity] = useState('');
   const [closesAt, setClosesAt] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
+  const [formType, setFormType] = useState<FormSettings['formType'] | ''>('registration');
   const [submissionTarget, setSubmissionTarget] = useState<FormSettings['submissionTarget'] | ''>('');
   const [submissionDepartment, setSubmissionDepartment] = useState('');
   const [responseEmailEnabled, setResponseEmailEnabled] = useState(true);
@@ -782,6 +793,7 @@ export default withAuth(function FormsPage() {
         capacity: capacity ? Number(capacity) : undefined,
         closesAt: toIso(closesAt),
         expiresAt: toIso(expiresAt),
+        formType: formType || undefined,
         submissionTarget: submissionTarget || undefined,
         submissionDepartment:
           submissionTarget === 'workforce' ||
@@ -875,6 +887,7 @@ export default withAuth(function FormsPage() {
       }
       setBannerFile(null);
       setBannerPreview(null);
+      setFormType('registration');
       setSubmissionTarget('');
       setSubmissionDepartment('');
       setResponseEmailEnabled(true);
@@ -1420,6 +1433,28 @@ export default withAuth(function FormsPage() {
                   </p>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Form Type</label>
+                    <select
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                      value={formType}
+                      onChange={(e) => {
+                        clearFieldError('formType');
+                        setFormType(e.target.value as FormSettings['formType'] | '');
+                      }}
+                    >
+                      <option value="">Select a type</option>
+                      {formTypeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    {fieldErrors.formType && (
+                      <p className="mt-1 text-sm text-red-500">{fieldErrors.formType}</p>
+                    )}
+                  </div>
+
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Linked Event</label>
                     <select
