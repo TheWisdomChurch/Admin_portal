@@ -54,6 +54,7 @@ import type {
   UploadImageResponse,
   EmailTemplate,
   CreateEmailTemplateRequest,
+  UpdateEmailTemplateRequest,
   AdminNotificationInbox,
 } from './types';
 
@@ -822,6 +823,35 @@ export const apiClient = {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+    return unwrapData<EmailTemplate>(res, 'Invalid email template payload');
+  },
+
+  async listAdminEmailTemplates(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<EmailTemplate>> {
+    const qs = toQueryString(params);
+    const res = await apiFetch(`/admin/email/templates${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<EmailTemplate>(res, 'Invalid email templates payload');
+  },
+
+  async getAdminEmailTemplate(id: string): Promise<EmailTemplate> {
+    const res = await apiFetch<{ data: EmailTemplate }>(`/admin/email/templates/${encodeURIComponent(id)}`, {
+      method: 'GET',
+    });
+    return unwrapData<EmailTemplate>(res, 'Invalid email template payload');
+  },
+
+  async updateAdminEmailTemplate(id: string, payload: UpdateEmailTemplateRequest): Promise<EmailTemplate> {
+    const res = await apiFetch<{ data: EmailTemplate }>(`/admin/email/templates/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<EmailTemplate>(res, 'Invalid email template payload');
+  },
+
+  async activateAdminEmailTemplate(id: string): Promise<EmailTemplate> {
+    const res = await apiFetch<{ data: EmailTemplate }>(
+      `/admin/email/templates/${encodeURIComponent(id)}/activate`,
+      { method: 'POST' }
+    );
     return unwrapData<EmailTemplate>(res, 'Invalid email template payload');
   },
 
