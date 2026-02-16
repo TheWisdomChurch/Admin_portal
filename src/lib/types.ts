@@ -471,7 +471,7 @@ export interface FormSettings {
   responseEmailTemplateId?: string;
   responseEmailTemplateKey?: string;
   responseEmailSubject?: string;
-  submissionTarget?: 'workforce' | 'member';
+  submissionTarget?: 'workforce' | 'workforce_new' | 'workforce_serving' | 'member';
   submissionDepartment?: string;
 
   // UI extras you added:
