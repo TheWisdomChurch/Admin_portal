@@ -54,14 +54,6 @@ const normalizeSlug = (value: string) =>
     .replace(/-{2,}/g, '-')
     .replace(/^-|-$/g, '');
 
-const escapeHtml = (value: string) =>
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-
 const renderStructuredLines = (value: string) => {
   const lines = value
     .split('\n')
@@ -75,52 +67,6 @@ const renderStructuredLines = (value: string) => {
 
   const paragraphs = lines.filter((line) => !line.startsWith('- ') && !line.startsWith('* '));
   return { bullets, paragraphs };
-};
-
-const buildResponseEmailHTML = (opts: {
-  title: string;
-  heading: string;
-  message: string;
-  imageUrl?: string;
-}) => {
-  const safeTitle = escapeHtml(opts.title || 'Registration');
-  const safeHeading = escapeHtml(opts.heading || 'Registration Confirmed');
-  const safeMessage = escapeHtml(opts.message || 'Thank you for registering.');
-  const safeImageUrl = opts.imageUrl ? escapeHtml(opts.imageUrl) : '';
-
-  return `
-<!doctype html>
-<html>
-  <body style="margin:0;padding:0;background:#f5f7fb;font-family:Arial,sans-serif;color:#111827;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px;">
-      <tr>
-        <td align="center">
-          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
-            <tr>
-              <td style="padding:24px 24px 10px 24px;">
-                <p style="margin:0 0 10px 0;font-size:14px;color:#6b7280;">Wisdom Church Registration</p>
-                <h2 style="margin:0;font-size:24px;line-height:1.25;color:#111827;">${safeHeading}</h2>
-              </td>
-            </tr>
-            ${safeImageUrl ? `<tr><td style="padding:10px 24px 0 24px;"><img src="${safeImageUrl}" alt="${safeTitle}" style="display:block;width:100%;height:auto;border-radius:10px;" /></td></tr>` : ''}
-            <tr>
-              <td style="padding:18px 24px 12px 24px;">
-                <p style="margin:0 0 14px 0;font-size:16px;color:#111827;">Hello {{.RecipientName}},</p>
-                <p style="margin:0;font-size:15px;line-height:1.7;color:#374151;">${safeMessage}</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:8px 24px 24px 24px;">
-                <a href="{{.FormURL}}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-size:14px;">View Registration Page</a>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>
-`.trim();
 };
 
 // ------------------------------------
@@ -292,6 +238,18 @@ export default withAuth(function NewFormPage() {
   const save = async () => {
     setFieldErrors({});
     const normalizedSlug = normalizeSlug(slug || title);
+    let responseTemplateImageUrl = responseTemplateUrl.trim();
+
+    if (responseEmailEnabled && responseTemplateFile) {
+      try {
+        const uploaded = await apiClient.uploadImage(responseTemplateFile, 'email_template');
+        responseTemplateImageUrl = uploaded.url;
+      } catch (uploadErr) {
+        const uploadMessage = getServerErrorMessage(uploadErr, 'Failed to upload response email template image.');
+        toast.error(uploadMessage);
+        return;
+      }
+    }
 
     const payload: CreateFormRequest = {
       title: title.trim(),
@@ -313,6 +271,7 @@ export default withAuth(function NewFormPage() {
         responseEmailEnabled,
         responseEmailSubject: responseEmailSubject.trim() || undefined,
         responseEmailTemplateKey: responseEmailEnabled ? `forms/${normalizedSlug}` : undefined,
+        responseEmailTemplateUrl: responseEmailEnabled ? responseTemplateImageUrl || undefined : undefined,
         successTitle: successTitle.trim() || undefined,
         successSubtitle: successSubtitle.trim() || undefined,
         successMessage: successMessage.trim() || undefined,
@@ -367,40 +326,7 @@ export default withAuth(function NewFormPage() {
       }
 
       if (responseEmailEnabled) {
-        try {
-          let templateImageUrl = responseTemplateUrl.trim();
-          if (responseTemplateFile) {
-            const uploaded = await apiClient.uploadImage(responseTemplateFile, 'email_template');
-            templateImageUrl = uploaded.url;
-          }
-
-          const templateKey = `forms/${slugToUse}`;
-          const templateSubject =
-            responseEmailSubject.trim() || `Registration received: ${title.trim() || slugToUse}`;
-          const htmlBody = buildResponseEmailHTML({
-            title: title.trim() || slugToUse,
-            heading: responseEmailHeading.trim(),
-            message: responseEmailMessage.trim(),
-            imageUrl: templateImageUrl || undefined,
-          });
-
-          await apiClient.createAdminEmailTemplate({
-            templateKey,
-            ownerType: 'form',
-            ownerId: created.id,
-            subject: templateSubject,
-            htmlBody,
-            status: 'active',
-            activate: true,
-          });
-          toast.success('Response email template attached');
-        } catch (templateErr) {
-          const templateMsg = getServerErrorMessage(
-            templateErr,
-            'Form was created, but response email template setup failed.'
-          );
-          toast.error(templateMsg);
-        }
+        toast.success('Form created. You can fine-tune response email layout in Response Email Editor.');
       }
 
       setPublishedSlug(publishedOk ? slugToUse : null);
