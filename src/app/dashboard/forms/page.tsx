@@ -733,6 +733,10 @@ export default withAuth(function FormsPage() {
     : 'DELETE';
 
   const pendingField = removeFieldIndex !== null ? fields[removeFieldIndex] : null;
+  const isWorkforceTarget =
+    submissionTarget === 'workforce' ||
+    submissionTarget === 'workforce_new' ||
+    submissionTarget === 'workforce_serving';
 
   const save = async () => {
     setFieldErrors({});
@@ -780,7 +784,11 @@ export default withAuth(function FormsPage() {
         expiresAt: toIso(expiresAt),
         submissionTarget: submissionTarget || undefined,
         submissionDepartment:
-          submissionTarget === 'workforce' ? submissionDepartment.trim() || undefined : undefined,
+          submissionTarget === 'workforce' ||
+          submissionTarget === 'workforce_new' ||
+          submissionTarget === 'workforce_serving'
+            ? submissionDepartment.trim() || undefined
+            : undefined,
         responseEmailEnabled,
         responseEmailSubject: responseEmailEnabled ? responseEmailSubject.trim() || undefined : undefined,
         responseEmailTemplateKey:
@@ -1458,7 +1466,7 @@ export default withAuth(function FormsPage() {
                 <div className="mb-3">
                   <p className="text-sm font-semibold text-[var(--color-text-primary)]">Submission Routing</p>
                   <p className="text-xs text-[var(--color-text-tertiary)]">
-                    Route registrations into Workforce or Member records automatically.
+                    Route registrations into Workforce (new/serving) or Member records automatically.
                   </p>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
@@ -1473,7 +1481,9 @@ export default withAuth(function FormsPage() {
                       }}
                     >
                       <option value="">Do not route</option>
-                      <option value="workforce">Workforce</option>
+                      <option value="workforce_new">Workforce (new workers)</option>
+                      <option value="workforce_serving">Workforce (already serving)</option>
+                      <option value="workforce">Workforce (legacy)</option>
                       <option value="member">Member</option>
                     </select>
                     {fieldErrors.submissionTarget && (
@@ -1488,7 +1498,7 @@ export default withAuth(function FormsPage() {
                       setSubmissionDepartment(e.target.value);
                     }}
                     placeholder="e.g., Hospitality"
-                    disabled={submissionTarget !== 'workforce'}
+                    disabled={!isWorkforceTarget}
                     error={fieldErrors.submissionDepartment}
                   />
                 </div>
