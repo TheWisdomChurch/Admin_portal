@@ -211,6 +211,7 @@ export default withAuth(function FormsPage() {
   const [responseEmailSubject, setResponseEmailSubject] = useState('');
   const [responseEmailTemplateKey, setResponseEmailTemplateKey] = useState('');
   const [responseEmailTemplateId, setResponseEmailTemplateId] = useState('');
+  const [responseEmailTemplateUrl, setResponseEmailTemplateUrl] = useState('');
 
   const [introTitle, setIntroTitle] = useState('Event Registration');
   const [introSubtitle, setIntroSubtitle] = useState('Secure your spot by registering below.');
@@ -807,6 +808,8 @@ export default withAuth(function FormsPage() {
           responseEmailEnabled ? responseEmailTemplateKey.trim() || undefined : undefined,
         responseEmailTemplateId:
           responseEmailEnabled ? responseEmailTemplateId.trim() || undefined : undefined,
+        responseEmailTemplateUrl:
+          responseEmailEnabled ? responseEmailTemplateUrl.trim() || undefined : undefined,
         successTitle: successTitle.trim() || undefined,
         successSubtitle: successSubtitle.trim() || undefined,
         successMessage: successMessage.trim() || undefined,
@@ -893,6 +896,7 @@ export default withAuth(function FormsPage() {
       setResponseEmailEnabled(true);
       setResponseEmailTemplateKey('');
       setResponseEmailTemplateId('');
+      setResponseEmailTemplateUrl('');
       setResponseEmailSubject('');
       setShowBuilder(false);
       load();
@@ -1588,10 +1592,20 @@ export default withAuth(function FormsPage() {
                     disabled={!responseEmailEnabled}
                     error={fieldErrors.responseEmailTemplateId}
                   />
+                  <Input
+                    label="Template image URL (optional)"
+                    value={responseEmailTemplateUrl}
+                    onChange={(e) => {
+                      clearFieldError('responseEmailTemplateUrl');
+                      setResponseEmailTemplateUrl(e.target.value);
+                    }}
+                    placeholder="https://churchasset.fra1.cdn.digitaloceanspaces.com/email_template/WPC_26.png"
+                    disabled={!responseEmailEnabled}
+                    error={fieldErrors.responseEmailTemplateUrl}
+                  />
                 </div>
                 <p className="mt-3 text-xs text-[var(--color-text-tertiary)]">
-                  Template key or ID must match a template saved in the Email Templates registry. Leave blank to use the
-                  default confirmation email.
+                  Use template key/ID from Email Templates registry, or provide a direct template image URL.
                 </p>
               </div>
 
