@@ -580,43 +580,6 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     return { formTitle, eventTitle, eventDate, eventTime, eventLocation, name, email, phone };
   };
 
-  const buildSuccessDetails = (sourceValues: ValuesState): SuccessDetail[] => {
-    const eventDetails: SuccessDetail[] = [];
-    const preferred: SuccessDetail[] = [];
-    const others: SuccessDetail[] = [];
-
-    if (payload?.event?.date) {
-      const formatted = formatEventDate(payload.event.date);
-      if (formatted) eventDetails.push({ label: 'Event Date', value: formatted });
-    }
-    if (payload?.event?.time) eventDetails.push({ label: 'Event Time', value: payload.event.time });
-    if (payload?.event?.location) eventDetails.push({ label: 'Location', value: payload.event.location });
-
-    fields
-      .slice()
-      .sort((a, b) => a.order - b.order)
-      .forEach((field) => {
-        let value = valueToString(sourceValues[field.key]);
-        if (!value) return;
-
-        const normalizedType = normalizeFieldType(field.type);
-        if (isPhoneType(normalizedType) || fieldMatches(field, ['phone', 'mobile', 'tel', 'contact'])) {
-          value = formatPrettyPhone(value);
-        }
-
-        const detail = { label: field.label || field.key, value };
-
-        if (fieldMatches(field, ['full name', 'name', 'email', 'phone', 'mobile', 'tel', 'contact', 'address'])) {
-          preferred.push(detail);
-        } else {
-          others.push(detail);
-        }
-      });
-
-    const details = [...preferred, ...eventDetails, ...others];
-    return details.slice(0, 8);
-  };
-
   const applyTemplate = (template: string, tokens: Record<string, string>) =>
     template
       .replace(/{{\s*([\w.-]+)\s*}}/g, (_, key: string) => tokens[key] ?? '')
@@ -768,7 +731,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     }
   }, [settings?.submitButtonIcon]);
 
-  const hasLeftColumn = introBullets.length > 0 || Boolean(payload?.event);
+  const hasLeftColumn = introBullets.length > 0;
 
   const fallbackTokens = buildSuccessTokens(values);
   const tokenSource = Object.keys(successTokens).length > 0 ? successTokens : fallbackTokens;
@@ -888,7 +851,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
       await apiClient.submitPublicForm(slug, payloadToSend);
 
       setSuccessTokens(buildSuccessTokens(values));
-      setSuccessDetails(buildSuccessDetails(values));
+      setSuccessDetails([]);
       resetFormState();
       setSuccessOpen(true);
     } catch (err) {
@@ -1091,27 +1054,6 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
                 </Card>
               ) : null}
 
-              {payload.event ? (
-                <Card className="p-6 transition-shadow duration-300 hover:shadow-md bg-white border-gray-200">
-                  <h3 className="text-base font-medium text-black">Event Details</h3>
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                    <div className="rounded-xl border border-gray-200 bg-white p-4">
-                      <div className="text-gray-500">Date</div>
-                      <div className="mt-1 font-medium text-black">
-                        {formatEventDate(payload.event.date) || payload.event.date}
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-gray-200 bg-white p-4">
-                      <div className="text-gray-500">Time</div>
-                      <div className="mt-1 font-medium text-black">{payload.event.time}</div>
-                    </div>
-                    <div className="rounded-xl border border-gray-200 bg-white p-4 sm:col-span-2">
-                      <div className="text-gray-500">Location</div>
-                      <div className="mt-1 font-medium text-black">{payload.event.location}</div>
-                    </div>
-                  </div>
-                </Card>
-              ) : null}
             </div>
           ) : null}
         </div>
