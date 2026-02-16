@@ -1595,69 +1595,6 @@ export default withAuth(function FormsPage() {
                 </p>
               </div>
 
-              <div className="md:col-span-2 grid gap-3 md:grid-cols-3">
-                <Input label="Left column title" value={introTitle} onChange={(e) => setIntroTitle(e.target.value)} />
-                <Input label="Left column subtitle" value={introSubtitle} onChange={(e) => setIntroSubtitle(e.target.value)} />
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Left column bullets (one per line)</label>
-                  <textarea
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                    rows={3}
-                    value={introBullets}
-                    onChange={(e) => setIntroBullets(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Bullet subtext (matches order)</label>
-                  <textarea
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                    rows={3}
-                    value={introBulletSubs}
-                    onChange={(e) => setIntroBulletSubs(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Form header note</label>
-                  <textarea
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                    rows={2}
-                    value={formHeaderNote}
-                    onChange={(e) => setFormHeaderNote(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="md:col-span-2">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs text-[var(--color-text-tertiary)]">Build the form fields below, then create to generate the link.</p>
-                  <div className="flex flex-wrap gap-2 sm:flex-nowrap">
-                    <select
-                      value={layoutMode}
-                      onChange={(e) => setLayoutMode(e.target.value === 'split' ? 'split' : 'stack')}
-                      className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                    >
-                      <option value="split">Two column layout</option>
-                      <option value="stack">Single column layout</option>
-                    </select>
-                    <select
-                      value={dateFormat}
-                      onChange={(e) => {
-                        const next = e.target.value as DateFormat;
-                        if (dateFormats.includes(next)) setDateFormat(next);
-                      }}
-                      className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                    >
-                      <option value="yyyy-mm-dd">YYYY-MM-DD</option>
-                      <option value="mm/dd/yyyy">MM/DD/YYYY</option>
-                      <option value="dd/mm/yyyy">DD/MM/YYYY</option>
-                      <option value="dd/mm">DD/MM</option>
-                    </select>
-                    <Button onClick={save} loading={saving} disabled={saving} icon={<Save className="h-4 w-4" />} className="whitespace-nowrap">
-                      Create & Publish
-                    </Button>
-                  </div>
-                </div>
-              </div>
             </div>
           </Card>
 
@@ -1767,6 +1704,86 @@ export default withAuth(function FormsPage() {
               <Button variant="outline" onClick={addField} icon={<Plus className="h-4 w-4" />} className="whitespace-nowrap">
                 Add Field
               </Button>
+            </div>
+          </Card>
+
+          <Card title="Publish">
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-[var(--color-text-tertiary)]">
+                  Build your fields above, then publish the form link.
+                </p>
+                <Button onClick={save} loading={saving} disabled={saving} icon={<Save className="h-4 w-4" />} className="whitespace-nowrap">
+                  Create & Publish
+                </Button>
+              </div>
+
+              <details className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+                <summary className="cursor-pointer list-none text-sm font-semibold text-[var(--color-text-primary)]">
+                  Advanced Public Layout (optional)
+                </summary>
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  <Input label="Left column title" value={introTitle} onChange={(e) => setIntroTitle(e.target.value)} />
+                  <Input label="Left column subtitle" value={introSubtitle} onChange={(e) => setIntroSubtitle(e.target.value)} />
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Left column bullets (one per line)</label>
+                    <textarea
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                      rows={3}
+                      value={introBullets}
+                      onChange={(e) => setIntroBullets(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Bullet subtext (matches order)</label>
+                    <textarea
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                      rows={3}
+                      value={introBulletSubs}
+                      onChange={(e) => setIntroBulletSubs(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Form header note</label>
+                    <textarea
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                      rows={2}
+                      value={formHeaderNote}
+                      onChange={(e) => setFormHeaderNote(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="md:col-span-3 grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Layout</label>
+                      <select
+                        value={layoutMode}
+                        onChange={(e) => setLayoutMode(e.target.value === 'split' ? 'split' : 'stack')}
+                        className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                      >
+                        <option value="split">Two column layout</option>
+                        <option value="stack">Single column layout</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Date format</label>
+                      <select
+                        value={dateFormat}
+                        onChange={(e) => {
+                          const next = e.target.value as DateFormat;
+                          if (dateFormats.includes(next)) setDateFormat(next);
+                        }}
+                        className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                      >
+                        <option value="yyyy-mm-dd">YYYY-MM-DD</option>
+                        <option value="mm/dd/yyyy">MM/DD/YYYY</option>
+                        <option value="dd/mm/yyyy">DD/MM/YYYY</option>
+                        <option value="dd/mm">DD/MM</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </details>
             </div>
           </Card>
 
