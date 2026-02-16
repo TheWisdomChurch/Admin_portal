@@ -467,6 +467,7 @@ export interface FormSettings {
   successTitle?: string;
   successSubtitle?: string;
   successMessage?: string;
+  formType?: 'registration' | 'event' | 'membership' | 'workforce' | 'leadership' | 'application' | 'contact' | 'general';
   responseEmailEnabled?: boolean;
   responseEmailTemplateId?: string;
   responseEmailTemplateKey?: string;
