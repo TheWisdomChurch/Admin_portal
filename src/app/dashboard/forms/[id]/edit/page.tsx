@@ -21,6 +21,16 @@ type FieldDraft = Omit<FormField, 'id'>;
 const MAX_BANNER_MB = 5;
 const MAX_BANNER_BYTES = MAX_BANNER_MB * 1024 * 1024;
 const ACCEPTED_BANNER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; label: string }> = [
+  { value: 'registration', label: 'Registration' },
+  { value: 'event', label: 'Event' },
+  { value: 'membership', label: 'Membership' },
+  { value: 'workforce', label: 'Workforce' },
+  { value: 'leadership', label: 'Leadership' },
+  { value: 'application', label: 'Application' },
+  { value: 'contact', label: 'Contact' },
+  { value: 'general', label: 'General' },
+];
 
 function EditFormPage() {
   const params = useParams();
@@ -264,6 +274,7 @@ function EditFormPage() {
   if (!form) return null;
 
   const responseEmailEnabled = form.settings?.responseEmailEnabled ?? true;
+  const formType = form.settings?.formType ?? '';
   const submissionTarget = form.settings?.submissionTarget ?? '';
   const isWorkforceTarget =
     submissionTarget === 'workforce' ||
@@ -410,6 +421,27 @@ function EditFormPage() {
 
       <Card title="Registration Settings">
         <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Form Type</label>
+            <select
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+              value={formType}
+              onChange={(e) =>
+                updateSettings({
+                  formType: e.target.value ? (e.target.value as FormSettings['formType']) : undefined,
+                })
+              }
+            >
+              <option value="">Select a type</option>
+              {formTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {fieldErrors.formType && <p className="text-sm text-red-500">{fieldErrors.formType}</p>}
+          </div>
+
           <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Linked Event</label>
             <select
