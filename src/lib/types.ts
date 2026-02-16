@@ -283,6 +283,17 @@ export interface CreateEmailTemplateRequest {
   activate?: boolean;
 }
 
+export interface UpdateEmailTemplateRequest {
+  templateKey?: string;
+  ownerType?: string;
+  ownerId?: string;
+  subject?: string;
+  htmlBody?: string;
+  textBody?: string;
+  status?: EmailTemplateStatus;
+  activate?: boolean;
+}
+
 /* =========================
    TESTIMONIALS
 ========================= */
