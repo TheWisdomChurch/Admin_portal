@@ -551,10 +551,16 @@ function EditFormPage() {
               disabled={!responseEmailEnabled}
               error={fieldErrors.responseEmailTemplateId}
             />
+            <Input
+              label="Template image URL (optional)"
+              value={form.settings?.responseEmailTemplateUrl ?? ''}
+              onChange={(e) => updateSettings({ responseEmailTemplateUrl: e.target.value })}
+              disabled={!responseEmailEnabled}
+              error={fieldErrors.responseEmailTemplateUrl}
+            />
           </div>
           <p className="text-xs text-[var(--color-text-tertiary)]">
-            Template key or ID must match a template saved in the Email Templates registry. Leave blank to use the
-            default confirmation email.
+            Use template key/ID from Email Templates registry, or provide a direct template image URL.
           </p>
         </div>
       </Card>
