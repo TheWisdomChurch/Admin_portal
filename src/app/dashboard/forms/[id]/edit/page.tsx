@@ -12,7 +12,7 @@ import { buildPublicFormUrl } from '@/lib/utils';
 import type { AdminForm, EventData, FormField, FormFieldType, FormSettings, UpdateFormRequest } from '@/lib/types';
 import { withAuth } from '@/providers/withAuth';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Copy, Save, Globe } from 'lucide-react';
+import { Plus, Trash2, Copy, Save, Globe, Mail } from 'lucide-react';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 import { AlertModal } from '@/ui/AlertModal';
 
@@ -289,6 +289,13 @@ function EditFormPage() {
           subtitle="Adjust fields, then save and publish."
         />
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => router.push(`/dashboard/forms/${form.id}/response-email`)}
+            icon={<Mail className="h-4 w-4" />}
+          >
+            Response Email
+          </Button>
           <Button variant="outline" onClick={copyLink} icon={<Copy className="h-4 w-4" />}>
             Copy Link
           </Button>
