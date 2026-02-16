@@ -265,6 +265,10 @@ function EditFormPage() {
 
   const responseEmailEnabled = form.settings?.responseEmailEnabled ?? true;
   const submissionTarget = form.settings?.submissionTarget ?? '';
+  const isWorkforceTarget =
+    submissionTarget === 'workforce' ||
+    submissionTarget === 'workforce_new' ||
+    submissionTarget === 'workforce_serving';
 
   return (
     <div className="space-y-6">
@@ -463,7 +467,9 @@ function EditFormPage() {
               onChange={(e) => updateSettings({ submissionTarget: e.target.value ? (e.target.value as FormSettings['submissionTarget']) : undefined })}
             >
               <option value="">Do not route</option>
-              <option value="workforce">Workforce</option>
+              <option value="workforce_new">Workforce (new workers)</option>
+              <option value="workforce_serving">Workforce (already serving)</option>
+              <option value="workforce">Workforce (legacy)</option>
               <option value="member">Member</option>
             </select>
             {fieldErrors.submissionTarget && (
@@ -475,7 +481,7 @@ function EditFormPage() {
             value={form.settings?.submissionDepartment ?? ''}
             onChange={(e) => updateSettings({ submissionDepartment: e.target.value })}
             placeholder="e.g., Hospitality"
-            disabled={submissionTarget !== 'workforce'}
+            disabled={!isWorkforceTarget}
             error={fieldErrors.submissionDepartment}
           />
         </div>
