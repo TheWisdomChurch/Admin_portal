@@ -699,13 +699,13 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const formTitle = payload?.form?.title?.trim() || 'Form';
   const normalizedFormType = (settings?.formType || 'registration').trim().toLowerCase();
   const formTypeLabelMap: Record<string, string> = {
-    registration: 'REGISTRATION FORM',
-    event: 'EVENT FORM',
-    membership: 'MEMBERSHIP FORM',
-    workforce: 'WORKFORCE FORM',
-    leadership: 'LEADERSHIP FORM',
-    application: 'APPLICATION FORM',
-    contact: 'CONTACT FORM',
+    registration: 'REGISTRATION',
+    event: 'EVENT',
+    membership: 'MEMBERSHIP',
+    workforce: 'WORKFORCE',
+    leadership: 'LEADERSHIP',
+    application: 'APPLICATION',
+    contact: 'CONTACT',
     general: 'FORM',
   };
   const formTypeLabel = formTypeLabelMap[normalizedFormType] || 'FORM';
