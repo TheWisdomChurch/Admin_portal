@@ -155,81 +155,6 @@ function formatPrettyPhone(e164: string): string {
   return `${parsed.dial} ${groups.join(' ')}`.trim();
 }
 
-type StructuredBlock =
-  | { type: 'paragraph'; text: string }
-  | { type: 'list'; items: string[] };
-
-function parseStructuredDescription(text: string): StructuredBlock[] {
-  const lines = text.split('\n').map((line) => line.trim());
-  const blocks: StructuredBlock[] = [];
-  let paragraphBuffer: string[] = [];
-  let listBuffer: string[] = [];
-
-  const flushParagraph = () => {
-    if (paragraphBuffer.length === 0) return;
-    blocks.push({ type: 'paragraph', text: paragraphBuffer.join(' ').trim() });
-    paragraphBuffer = [];
-  };
-
-  const flushList = () => {
-    if (listBuffer.length === 0) return;
-    blocks.push({ type: 'list', items: listBuffer });
-    listBuffer = [];
-  };
-
-  for (const line of lines) {
-    if (!line) {
-      flushParagraph();
-      flushList();
-      continue;
-    }
-
-    if (line.startsWith('- ') || line.startsWith('* ')) {
-      flushParagraph();
-      const bullet = line.replace(/^(-|\*)\s+/, '').trim();
-      if (bullet) listBuffer.push(bullet);
-      continue;
-    }
-
-    flushList();
-    paragraphBuffer.push(line);
-  }
-
-  flushParagraph();
-  flushList();
-  return blocks;
-}
-
-function StructuredDescription({
-  text,
-  className = '',
-}: {
-  text?: string;
-  className?: string;
-}) {
-  const trimmed = (text || '').trim();
-  if (!trimmed) return null;
-
-  const blocks = parseStructuredDescription(trimmed);
-  return (
-    <div className={`space-y-2 text-sm text-gray-600 ${className}`.trim()}>
-      {blocks.map((block, index) => {
-        if (block.type === 'list') {
-          return (
-            <ul key={`description-list-${index}`} className="list-disc space-y-1 pl-5">
-              {block.items.map((item, itemIndex) => (
-                <li key={`description-item-${index}-${itemIndex}`}>{item}</li>
-              ))}
-            </ul>
-          );
-        }
-
-        return <p key={`description-paragraph-${index}`}>{block.text}</p>;
-      })}
-    </div>
-  );
-}
-
 function PhoneNumberInput({
   label,
   required,
@@ -771,28 +696,22 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     updateValue(field.key, next);
   };
 
-  const eventTitle = payload?.event?.title ?? payload?.form?.title ?? 'Event Registration';
-  const eventSubtitle =
-    payload?.event?.shortDescription ?? payload?.form?.description ?? 'Secure your spot by registering below.';
-  const heroTitle = settings?.design?.heroTitle?.trim() || settings?.introTitle?.trim() || eventTitle;
-  const heroSubtitle = settings?.design?.heroSubtitle?.trim() || settings?.introSubtitle?.trim() || eventSubtitle;
-  const formTitle = payload?.form?.title?.trim() || 'Registration Form';
-  const normalizedHeroTitle = heroTitle.trim().toLowerCase();
-  const normalizedFormTitle = formTitle.toLowerCase();
-  const displayFormTitle =
-    normalizedFormTitle && normalizedFormTitle !== normalizedHeroTitle ? formTitle : 'Registration Form';
-  const formDescription = payload?.form?.description?.trim() || '';
-  const showFormDescription =
-    Boolean(formDescription) &&
-    formDescription.trim().toLowerCase() !== heroSubtitle.trim().toLowerCase();
+  const formTitle = payload?.form?.title?.trim() || 'Form';
+  const normalizedFormType = (settings?.formType || 'registration').trim().toLowerCase();
+  const formTypeLabelMap: Record<string, string> = {
+    registration: 'REGISTRATION FORM',
+    event: 'EVENT FORM',
+    membership: 'MEMBERSHIP FORM',
+    workforce: 'WORKFORCE FORM',
+    leadership: 'LEADERSHIP FORM',
+    application: 'APPLICATION FORM',
+    contact: 'CONTACT FORM',
+    general: 'FORM',
+  };
+  const formTypeLabel = formTypeLabelMap[normalizedFormType] || 'FORM';
+  const pageHeaderTitle = `${formTypeLabel} - ${formTitle}`;
+  const eventTitle = payload?.event?.title ?? formTitle;
   const bannerUrl = settings?.design?.coverImageUrl || payload?.event?.bannerImage || payload?.event?.image || undefined;
-
-  const layoutMode = useMemo(() => {
-    if (settings?.layoutMode === 'split' || settings?.layoutMode === 'stack') return settings.layoutMode;
-    if (settings?.design?.layout === 'split') return 'split';
-    if (settings?.design?.layout === 'stacked' || settings?.design?.layout === 'inline') return 'stack';
-    return 'split';
-  }, [settings]);
 
   const introBullets = useMemo(() => {
     if (Array.isArray(settings?.introBullets)) {
@@ -1054,7 +973,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
         {/* Hero */}
         <div className="mb-8">
           <div className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-600 shadow-sm">
-            Registration
+            {formTypeLabel}
           </div>
 
           {bannerUrl ? (
@@ -1072,8 +991,9 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
             </div>
           ) : null}
 
-          <h1 className="mt-3 text-xl sm:text-2xl font-medium tracking-tight text-black">{heroTitle}</h1>
-          <StructuredDescription text={heroSubtitle} className="mt-2 max-w-2xl" />
+          <h1 className="mt-3 text-2xl sm:text-3xl font-black tracking-[0.08em] uppercase text-black">
+            {pageHeaderTitle}
+          </h1>
 
           {isClosed ? (
             <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -1082,11 +1002,66 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
           ) : null}
         </div>
 
-        <div
-          className={`grid grid-cols-1 gap-6 md:gap-8 items-start ${
-            layoutMode === 'split' && hasLeftColumn ? 'md:grid-cols-[1.05fr_1fr]' : ''
-          }`}
-        >
+        <div className="space-y-6 md:space-y-8">
+          <div ref={rightRef}>
+            <Card className="p-6 md:p-7 shadow-md transition-shadow duration-300 hover:shadow-lg bg-white border-gray-200">
+              {settings?.formHeaderNote ? (
+                <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                  {settings.formHeaderNote}
+                </p>
+              ) : null}
+
+              <div className={settings?.formHeaderNote ? 'mt-4 space-y-4' : 'space-y-4'}>
+                {fields
+                  .slice()
+                  .sort((a, b) => a.order - b.order)
+                  .map((field) => {
+                    const fieldType = normalizeFieldType(field.type);
+                    const checkboxWithOptions =
+                      isCheckboxType(fieldType) && Array.isArray(field.options) && field.options.length > 0;
+                    const showLabel = !isCheckboxType(fieldType) || checkboxWithOptions;
+
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {showLabel ? (
+                          <label className="block text-sm font-medium text-gray-800">
+                            {field.label} {field.required ? <span className="text-red-500">*</span> : null}
+                          </label>
+                        ) : null}
+
+                        <FieldInput
+                          field={field}
+                          value={values[field.key]}
+                          onChange={(next) => updateFieldValue(field, next)}
+                        />
+
+                        {fieldErrors[field.key] && touchedFields[field.key] ? (
+                          <p className="text-xs text-red-600">{fieldErrors[field.key]}</p>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+              </div>
+
+              <div className="mt-6">
+                {formError ? <p className="mb-3 text-xs text-red-600">{formError}</p> : null}
+
+                <Button
+                  className="w-full"
+                  size="sm"
+                  loading={submitting}
+                  disabled={submitting || isClosed}
+                  onClick={submit}
+                  icon={submitButtonIcon}
+                >
+                  {submitButtonLabel}
+                </Button>
+
+                <p className="mt-3 text-xs text-gray-600 text-center">{privacyCopy}</p>
+              </div>
+            </Card>
+          </div>
+
           {hasLeftColumn ? (
             <div ref={leftRef} className="space-y-6">
               {introBullets.length > 0 ? (
@@ -1139,68 +1114,6 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
               ) : null}
             </div>
           ) : null}
-
-          <div ref={rightRef}>
-            <Card className="p-6 md:p-7 shadow-md transition-shadow duration-300 hover:shadow-lg bg-white border-gray-200">
-              <h2 className="text-lg font-medium text-black">{displayFormTitle}</h2>
-              {showFormDescription ? <StructuredDescription text={formDescription} className="mt-2" /> : null}
-
-              {settings?.formHeaderNote ? (
-                <p className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
-                  {settings.formHeaderNote}
-                </p>
-              ) : null}
-
-              <div className="mt-6 space-y-4">
-                {fields
-                  .slice()
-                  .sort((a, b) => a.order - b.order)
-                  .map((field) => {
-                    const fieldType = normalizeFieldType(field.type);
-                    const checkboxWithOptions =
-                      isCheckboxType(fieldType) && Array.isArray(field.options) && field.options.length > 0;
-                    const showLabel = !isCheckboxType(fieldType) || checkboxWithOptions;
-
-                    return (
-                      <div key={field.key} className="space-y-1.5">
-                        {showLabel ? (
-                          <label className="block text-sm font-medium text-gray-800">
-                            {field.label} {field.required ? <span className="text-red-500">*</span> : null}
-                          </label>
-                        ) : null}
-
-                        <FieldInput
-                          field={field}
-                          value={values[field.key]}
-                          onChange={(next) => updateFieldValue(field, next)}
-                        />
-
-                        {fieldErrors[field.key] && touchedFields[field.key] ? (
-                          <p className="text-xs text-red-600">{fieldErrors[field.key]}</p>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-              </div>
-
-              <div className="mt-6">
-                {formError ? <p className="mb-3 text-xs text-red-600">{formError}</p> : null}
-
-                <Button
-                  className="w-full"
-                  size="sm"
-                  loading={submitting}
-                  disabled={submitting || isClosed}
-                  onClick={submit}
-                  icon={submitButtonIcon}
-                >
-                  {submitButtonLabel}
-                </Button>
-
-                <p className="mt-3 text-xs text-gray-600 text-center">{privacyCopy}</p>
-              </div>
-            </Card>
-          </div>
         </div>
 
         <footer className="mt-14 border-t border-gray-200 pt-10" style={footerStyle}>
