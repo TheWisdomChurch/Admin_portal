@@ -253,6 +253,50 @@ function normalizeDailyStats(payload: unknown): FormSubmissionDailyStat[] {
   return normalized;
 }
 
+function normalizeAbsoluteHttpUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  let candidate = trimmed;
+  if (candidate.startsWith('//')) {
+    candidate = `https:${candidate}`;
+  }
+  if (!/^https?:\/\//i.test(candidate)) {
+    candidate = `https://${candidate}`;
+  }
+
+  try {
+    const parsed = new URL(candidate);
+    if ((parsed.protocol === 'https:' || parsed.protocol === 'http:') && parsed.host) {
+      return parsed.toString();
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function sanitizeFormPayload<T extends CreateFormRequest | UpdateFormRequest>(payload: T): T {
+  if (!payload || typeof payload !== 'object') return payload;
+  if (!('settings' in payload) || !payload.settings) return payload;
+
+  const nextSettings = { ...(payload.settings as Record<string, unknown>) };
+  if ('responseEmailTemplateUrl' in nextSettings) {
+    const normalized = normalizeAbsoluteHttpUrl(nextSettings.responseEmailTemplateUrl);
+    if (normalized) {
+      nextSettings.responseEmailTemplateUrl = normalized;
+    } else {
+      delete nextSettings.responseEmailTemplateUrl;
+    }
+  }
+
+  return {
+    ...payload,
+    settings: nextSettings,
+  };
+}
+
 /* ============================================================================
    Auth Storage (stores user profile only; cookie holds session)
 ============================================================================ */
@@ -869,17 +913,19 @@ export const apiClient = {
   },
 
   async createAdminForm(payload: CreateFormRequest): Promise<AdminForm> {
+    const sanitizedPayload = sanitizeFormPayload(payload);
     const res = await apiFetch<{ data: AdminForm }>('/admin/forms', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(sanitizedPayload),
     });
     return unwrapData<AdminForm>(res, 'Invalid form payload');
   },
 
   async updateAdminForm(id: string, payload: UpdateFormRequest): Promise<AdminForm> {
+    const sanitizedPayload = sanitizeFormPayload(payload);
     const res = await apiFetch<{ data: AdminForm }>(`/admin/forms/${encodeURIComponent(id)}`, {
       method: 'PUT',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(sanitizedPayload),
     });
     return unwrapData<AdminForm>(res, 'Invalid form payload');
   },
