@@ -101,6 +101,24 @@ function normalizeFieldKey(value: string, fallback: string) {
   return v || fallback;
 }
 
+function normalizeAbsoluteHttpUrl(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  let candidate = trimmed;
+  if (!/^https?:\/\//i.test(candidate)) {
+    candidate = `https://${candidate}`;
+  }
+  try {
+    const parsed = new URL(candidate);
+    if ((parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.host) {
+      return parsed.toString();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function ensureOptions(f: FieldDraft): FieldDraft {
   if (!isOptionField(f.type)) return { ...f, options: undefined };
 
@@ -759,6 +777,19 @@ export default withAuth(function FormsPage() {
       return;
     }
     const normalizedSlug = normalizeSlug(slug || normalizedTitle);
+    let normalizedResponseTemplateURL = responseEmailTemplateUrl.trim();
+    if (responseEmailEnabled && normalizedResponseTemplateURL) {
+      const resolved = normalizeAbsoluteHttpUrl(normalizedResponseTemplateURL);
+      if (!resolved) {
+        setFieldErrors((prev) => ({
+          ...prev,
+          responseEmailTemplateUrl: 'Use a valid absolute URL like https://...png',
+        }));
+        toast.error('Template image URL is invalid. Use a full URL like https://...png');
+        return;
+      }
+      normalizedResponseTemplateURL = resolved;
+    }
 
     const payload: CreateFormRequest = {
       title: normalizedTitle,
@@ -809,7 +840,7 @@ export default withAuth(function FormsPage() {
         responseEmailTemplateId:
           responseEmailEnabled ? responseEmailTemplateId.trim() || undefined : undefined,
         responseEmailTemplateUrl:
-          responseEmailEnabled ? responseEmailTemplateUrl.trim() || undefined : undefined,
+          responseEmailEnabled ? normalizedResponseTemplateURL || undefined : undefined,
         successTitle: successTitle.trim() || undefined,
         successSubtitle: successSubtitle.trim() || undefined,
         successMessage: successMessage.trim() || undefined,
