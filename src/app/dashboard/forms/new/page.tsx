@@ -45,6 +45,8 @@ type SubmitButtonIcon = (typeof submitButtonIcons)[number];
 const MAX_BANNER_MB = 5;
 const MAX_BANNER_BYTES = MAX_BANNER_MB * 1024 * 1024;
 const ACCEPTED_BANNER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const META_PREFIX = '<!--WH_FORM_TEMPLATE_META:';
+const META_SUFFIX = '-->';
 
 const normalizeSlug = (value: string) =>
   value
@@ -75,6 +77,77 @@ const normalizeAbsoluteHttpUrl = (rawValue: string): { value?: string; error?: s
   } catch {
     return { error: 'Template image URL is invalid. Use a full URL, e.g. https://...png' };
   }
+};
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const stripTemplateMeta = (html: string) => html.replace(/<!--WH_FORM_TEMPLATE_META:[\s\S]*?-->\s*/g, '');
+
+const embedTemplateMeta = (
+  html: string,
+  meta: { heading?: string; message?: string; imageUrl?: string }
+) => {
+  const payload = encodeURIComponent(JSON.stringify(meta));
+  return `${META_PREFIX}${payload}${META_SUFFIX}\n${stripTemplateMeta(html)}`;
+};
+
+const buildResponseEmailHTML = (opts: { title: string; heading: string; message: string; imageUrl?: string }) => {
+  const safeTitle = escapeHtml(opts.title || 'Registration');
+  const safeHeading = escapeHtml(opts.heading || 'Registration Confirmed');
+  const safeMessage = escapeHtml(opts.message || 'Thank you for registering.');
+  const safeImageUrl = opts.imageUrl ? escapeHtml(opts.imageUrl) : '';
+
+  return `
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#ffffff;font-family:Arial,sans-serif;color:#111827;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #fde68a;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="padding:14px 24px 8px 24px;">
+                <div style="height:6px;background:#facc15;border-radius:999px;margin:0 0 12px 0;"></div>
+                {{if .SubscribeURL}}<a href="{{.SubscribeURL}}" style="font-size:12px;color:#111827;text-decoration:underline;font-weight:700;">subscribe</a>{{end}}
+                {{if .UnsubscribeURL}}&nbsp;|&nbsp;<a href="{{.UnsubscribeURL}}" style="font-size:12px;color:#111827;text-decoration:underline;font-weight:700;">unsubscribe</a>{{end}}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 24px 10px 24px;">
+                <p style="margin:0 0 8px 0;font-size:13px;color:#111827;font-weight:700;">${safeTitle}</p>
+                <h2 style="margin:0;font-size:24px;line-height:1.25;color:#111827;">${safeHeading}</h2>
+              </td>
+            </tr>
+            ${safeImageUrl ? `<tr><td style="padding:10px 24px 0 24px;"><img src="${safeImageUrl}" alt="${safeTitle}" style="display:block;width:100%;height:auto;border-radius:10px;" /></td></tr>` : ''}
+            <tr>
+              <td style="padding:18px 24px 12px 24px;">
+                <p style="margin:0 0 14px 0;font-size:16px;color:#111827;">Hello {{.RecipientName}},</p>
+                <p style="margin:0;font-size:15px;line-height:1.7;color:#374151;">${safeMessage}</p>
+                {{if .RegistrationCode}}
+                <div style="margin-top:16px;display:inline-block;padding:10px 14px;border-radius:8px;background:#fff9db;border:1px solid #facc15;font-size:13px;color:#111827;">
+                  Registration Number: <strong>{{.RegistrationCode}}</strong>
+                </div>
+                {{end}}
+                {{if .CalendarOptInURL}}
+                <p style="margin:14px 0 0;font-size:13px;color:#111827;">
+                  <a href="{{.CalendarOptInURL}}" style="color:#111827;text-decoration:underline;font-weight:700;">Add event to calendar</a>
+                </p>
+                {{end}}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+`.trim();
 };
 
 const renderStructuredLines = (value: string) => {
@@ -260,6 +333,7 @@ export default withAuth(function NewFormPage() {
 
   const save = async () => {
     setFieldErrors({});
+    const normalizedTitle = title.trim();
     const normalizedSlug = normalizeSlug(slug || title);
     let responseTemplateImageUrl = responseTemplateUrl.trim();
 
@@ -285,7 +359,7 @@ export default withAuth(function NewFormPage() {
     }
 
     const payload: CreateFormRequest = {
-      title: title.trim(),
+      title: normalizedTitle,
       description: description.trim() || undefined,
       slug: normalizedSlug,
       eventId: eventId || undefined,
@@ -346,6 +420,54 @@ export default withAuth(function NewFormPage() {
           toast.error('Form saved, but banner upload failed.');
         }
       }
+
+      if (responseEmailEnabled) {
+        const templateKey = `forms/${created.slug || normalizedSlug || created.id}`;
+        const templateSubject = responseEmailSubject.trim() || `Registration received: ${created.title || normalizedTitle}`;
+        const htmlBody = embedTemplateMeta(
+          buildResponseEmailHTML({
+            title: created.title || normalizedTitle,
+            heading: responseEmailHeading.trim(),
+            message: responseEmailMessage.trim(),
+            imageUrl: responseTemplateImageUrl || undefined,
+          }),
+          {
+            heading: responseEmailHeading.trim() || undefined,
+            message: responseEmailMessage.trim() || undefined,
+            imageUrl: responseTemplateImageUrl || undefined,
+          }
+        );
+
+        try {
+          const tpl = await apiClient.createAdminEmailTemplate({
+            templateKey,
+            ownerType: 'form',
+            ownerId: created.id,
+            subject: templateSubject,
+            htmlBody,
+            status: 'active',
+            activate: true,
+          });
+
+          created = await apiClient.updateAdminForm(created.id, {
+            settings: {
+              ...(created.settings || {}),
+              responseEmailEnabled: true,
+              responseEmailSubject: templateSubject,
+              responseEmailTemplateKey: templateKey,
+              responseEmailTemplateId: tpl.id,
+              responseEmailTemplateUrl: responseTemplateImageUrl || undefined,
+            },
+          });
+        } catch (templateErr) {
+          const templateMessage = getServerErrorMessage(
+            templateErr,
+            'Form saved, but response email template could not be saved.'
+          );
+          toast.error(templateMessage);
+        }
+      }
+
       let slugToUse = created.slug || normalizedSlug;
       let publishedOk = false;
       let publishError: string | null = null;

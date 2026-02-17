@@ -25,6 +25,7 @@ type TemplateMeta = {
   message?: string;
   logoUrl?: string;
   imageUrl?: string;
+  customHtml?: string;
 };
 
 function normalizeSlug(value: string) {
@@ -82,15 +83,22 @@ function buildResponseEmailHTML(opts: {
   return `
 <!doctype html>
 <html>
-  <body style="margin:0;padding:0;background:#f5f7fb;font-family:Arial,sans-serif;color:#111827;">
+  <body style="margin:0;padding:0;background:#ffffff;font-family:Arial,sans-serif;color:#111827;">
     <table width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px;">
       <tr>
         <td align="center">
-          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #fde68a;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="padding:14px 24px 8px 24px;">
+                <div style="height:6px;background:#facc15;border-radius:999px;margin:0 0 12px 0;"></div>
+                {{if .SubscribeURL}}<a href="{{.SubscribeURL}}" style="font-size:12px;color:#111827;text-decoration:underline;font-weight:700;">subscribe</a>{{end}}
+                {{if .UnsubscribeURL}}&nbsp;|&nbsp;<a href="{{.UnsubscribeURL}}" style="font-size:12px;color:#111827;text-decoration:underline;font-weight:700;">unsubscribe</a>{{end}}
+              </td>
+            </tr>
             <tr>
               <td style="padding:24px 24px 10px 24px;">
                 ${safeLogoUrl ? `<img src="${safeLogoUrl}" alt="Logo" style="display:block;max-width:140px;height:auto;margin:0 0 14px 0;" />` : ''}
-                <p style="margin:0 0 8px 0;font-size:13px;color:#6b7280;">${safeTitle}</p>
+                <p style="margin:0 0 8px 0;font-size:13px;color:#111827;font-weight:700;">${safeTitle}</p>
                 <h2 style="margin:0;font-size:24px;line-height:1.25;color:#111827;">${safeHeading}</h2>
               </td>
             </tr>
@@ -100,9 +108,14 @@ function buildResponseEmailHTML(opts: {
                 <p style="margin:0 0 14px 0;font-size:16px;color:#111827;">Hello {{.RecipientName}},</p>
                 <p style="margin:0;font-size:15px;line-height:1.7;color:#374151;">${safeMessage}</p>
                 {{if .RegistrationCode}}
-                <div style="margin-top:16px;display:inline-block;padding:10px 14px;border-radius:8px;background:#f3f4f6;border:1px solid #e5e7eb;font-size:13px;color:#111827;">
+                <div style="margin-top:16px;display:inline-block;padding:10px 14px;border-radius:8px;background:#fff9db;border:1px solid #facc15;font-size:13px;color:#111827;">
                   Registration Number: <strong>{{.RegistrationCode}}</strong>
                 </div>
+                {{end}}
+                {{if .CalendarOptInURL}}
+                <p style="margin:14px 0 0;font-size:13px;color:#111827;">
+                  <a href="{{.CalendarOptInURL}}" style="color:#111827;text-decoration:underline;font-weight:700;">Add event to calendar</a>
+                </p>
                 {{end}}
               </td>
             </tr>
@@ -113,6 +126,36 @@ function buildResponseEmailHTML(opts: {
   </body>
 </html>
 `.trim();
+}
+
+function normalizeAbsoluteHttpUrl(rawValue: string): string {
+  const raw = rawValue.trim();
+  if (!raw) return '';
+
+  let candidate = raw;
+  if (!/^https?:\/\//i.test(candidate)) {
+    candidate = `https://${candidate}`;
+  }
+  try {
+    const parsed = new URL(candidate);
+    if ((parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.host) {
+      return parsed.toString();
+    }
+  } catch {
+    return '';
+  }
+  return '';
+}
+
+function toPreview(html: string) {
+  return html
+    .replace(/{{if [^}]+}}/g, '')
+    .replace(/{{end}}/g, '')
+    .replace(/{{\.RecipientName}}/g, 'John Doe')
+    .replace(/{{\.RegistrationCode}}/g, 'WHC-WPC-26-000001')
+    .replace(/{{\.SubscribeURL}}/g, '#')
+    .replace(/{{\.UnsubscribeURL}}/g, '#')
+    .replace(/{{\.CalendarOptInURL}}/g, '#');
 }
 
 function ResponseEmailEditorPage() {
@@ -139,6 +182,7 @@ function ResponseEmailEditorPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [customHtmlBody, setCustomHtmlBody] = useState('');
 
   const templateKeyPreview = useMemo(() => {
     const existing = form?.settings?.responseEmailTemplateKey?.trim();
@@ -150,19 +194,15 @@ function ResponseEmailEditorPage() {
   }, [form]);
 
   const previewHTML = useMemo(() => {
-    const raw = buildResponseEmailHTML({
+    const generated = buildResponseEmailHTML({
       title: form?.title || 'Registration',
       heading,
       message,
       logoUrl: logoPreview || logoUrl,
       imageUrl: imagePreview || imageUrl,
     });
-    return raw
-      .replace(/{{if \.RegistrationCode}}/g, '')
-      .replace(/{{end}}/g, '')
-      .replace(/{{\.RecipientName}}/g, 'John Doe')
-      .replace(/{{\.RegistrationCode}}/g, 'REG-WPC-0001');
-  }, [form?.title, heading, message, logoPreview, logoUrl, imagePreview, imageUrl]);
+    return toPreview(customHtmlBody.trim() || generated);
+  }, [form?.title, heading, message, logoPreview, logoUrl, imagePreview, imageUrl, customHtmlBody]);
 
   const validateImageFile = (file: File): string | null => {
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
@@ -211,6 +251,8 @@ function ResponseEmailEditorPage() {
           if (meta?.message) setMessage(meta.message);
           if (meta?.logoUrl) setLogoUrl(meta.logoUrl);
           if (meta?.imageUrl) setImageUrl(meta.imageUrl);
+          if (meta?.customHtml) setCustomHtmlBody(stripTemplateMeta(meta.customHtml));
+          else setCustomHtmlBody(stripTemplateMeta(tpl.htmlBody));
         }
       } catch (err) {
         toast.error(getServerErrorMessage(err, 'Failed to load form email template.'));
@@ -260,8 +302,18 @@ function ResponseEmailEditorPage() {
 
     setSaving(true);
     try {
-      let nextLogoUrl = logoUrl.trim();
-      let nextImageUrl = imageUrl.trim();
+      let nextLogoUrl = normalizeAbsoluteHttpUrl(logoUrl);
+      let nextImageUrl = normalizeAbsoluteHttpUrl(imageUrl);
+      if (logoUrl.trim() && !nextLogoUrl) {
+        toast.error('Logo URL is invalid. Use a full URL like https://...png');
+        setSaving(false);
+        return;
+      }
+      if (imageUrl.trim() && !nextImageUrl) {
+        toast.error('Template image URL is invalid. Use a full URL like https://...png');
+        setSaving(false);
+        return;
+      }
 
       if (logoFile) {
         const uploaded = await apiClient.uploadImage(logoFile, 'email_template');
@@ -273,19 +325,22 @@ function ResponseEmailEditorPage() {
       }
 
       const templateKey = templateKeyPreview || `forms/${form.id}`;
+      const builtHtml = buildResponseEmailHTML({
+        title: form.title || 'Registration',
+        heading: heading.trim(),
+        message: message.trim(),
+        logoUrl: nextLogoUrl || undefined,
+        imageUrl: nextImageUrl || undefined,
+      });
+      const mergedHTML = customHtmlBody.trim() || builtHtml;
       const htmlBody = embedTemplateMeta(
-        buildResponseEmailHTML({
-          title: form.title || 'Registration',
-          heading: heading.trim(),
-          message: message.trim(),
-          logoUrl: nextLogoUrl || undefined,
-          imageUrl: nextImageUrl || undefined,
-        }),
+        mergedHTML,
         {
           heading: heading.trim(),
           message: message.trim(),
           logoUrl: nextLogoUrl || undefined,
           imageUrl: nextImageUrl || undefined,
+          customHtml: mergedHTML,
         }
       );
 
@@ -434,6 +489,20 @@ function ResponseEmailEditorPage() {
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Thank you for registering. We look forward to hosting you."
             />
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
+            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Custom HTML template (optional)</label>
+            <textarea
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 font-mono text-xs text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+              rows={10}
+              value={customHtmlBody}
+              onChange={(e) => setCustomHtmlBody(e.target.value)}
+              placeholder="Paste full HTML for complete control. Supported placeholders: {{.RecipientName}}, {{.RegistrationCode}}, {{.SubscribeURL}}, {{.UnsubscribeURL}}, {{.CalendarOptInURL}}"
+            />
+            <p className="text-xs text-[var(--color-text-tertiary)]">
+              Leave empty to use the structured editor.
+            </p>
           </div>
 
           <div className="md:col-span-2 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
