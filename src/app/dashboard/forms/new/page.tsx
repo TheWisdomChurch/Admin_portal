@@ -54,6 +54,29 @@ const normalizeSlug = (value: string) =>
     .replace(/-{2,}/g, '-')
     .replace(/^-|-$/g, '');
 
+const normalizeAbsoluteHttpUrl = (rawValue: string): { value?: string; error?: string } => {
+  const raw = rawValue.trim();
+  if (!raw) return {};
+
+  let candidate = raw;
+  if (!/^https?:\/\//i.test(candidate)) {
+    candidate = `https://${candidate}`;
+  }
+
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return { error: 'Template image URL must start with http:// or https://.' };
+    }
+    if (!parsed.host) {
+      return { error: 'Template image URL must include a valid domain.' };
+    }
+    return { value: parsed.toString() };
+  } catch {
+    return { error: 'Template image URL is invalid. Use a full URL, e.g. https://...png' };
+  }
+};
+
 const renderStructuredLines = (value: string) => {
   const lines = value
     .split('\n')
@@ -249,6 +272,16 @@ export default withAuth(function NewFormPage() {
         toast.error(uploadMessage);
         return;
       }
+    }
+
+    if (responseEmailEnabled && responseTemplateImageUrl) {
+      const normalized = normalizeAbsoluteHttpUrl(responseTemplateImageUrl);
+      if (normalized.error) {
+        toast.error(normalized.error);
+        return;
+      }
+      responseTemplateImageUrl = normalized.value || '';
+      setResponseTemplateUrl(responseTemplateImageUrl);
     }
 
     const payload: CreateFormRequest = {
