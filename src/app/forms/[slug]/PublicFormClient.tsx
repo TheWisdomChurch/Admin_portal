@@ -834,7 +834,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const now = new Date();
   const isClosed = Boolean((closesAt && now > closesAt) || (expiresAt && now > expiresAt));
 
-  const validateClient = () => {
+  const validateClient = (): { isValid: boolean; message: string | null } => {
     const nextErrors: Record<string, string> = {};
     let anyFilled = false;
 
@@ -872,13 +872,24 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
 
     setFieldErrors(nextErrors);
 
+    const errorCount = Object.keys(nextErrors).length;
+    if (errorCount > 0) {
+      const message =
+        errorCount === 1
+          ? 'Please review the highlighted field and try again.'
+          : 'Please review the highlighted fields and try again.';
+      setFormError(message);
+      return { isValid: false, message };
+    }
+
     if (!anyFilled) {
-      setFormError('Please enter at least one field before submitting.');
-      return false;
+      const message = 'Please provide at least one response before submitting.';
+      setFormError(message);
+      return { isValid: false, message };
     }
 
     setFormError('');
-    return Object.keys(nextErrors).length === 0;
+    return { isValid: true, message: null };
   };
 
   const submit = async () => {
@@ -891,8 +902,9 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
       }
 
       setFormError('');
-      if (!validateClient()) {
-        toast.error('Please complete the required fields.');
+      const validation = validateClient();
+      if (!validation.isValid) {
+        toast.error(validation.message || 'Please review the form and try again.');
         return;
       }
 
@@ -1083,7 +1095,11 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
               </div>
 
               <div className="mt-6">
-                {formError ? <p className="mb-3 text-xs text-red-600">{formError}</p> : null}
+                {formError ? (
+                  <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                    {formError}
+                  </div>
+                ) : null}
 
                 <Button
                   className="w-full"
