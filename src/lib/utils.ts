@@ -109,6 +109,6 @@ export function buildPublicFormUrl(slug?: string, publicUrl?: string): string | 
 
   if (!slug) return null;
   const safeSlug = encodeURIComponent(slug);
-  if (base) return `${base}/forms/${safeSlug}`;
-  return `/forms/${safeSlug}`;
+  if (base) return `${base}/form/${safeSlug}`;
+  return `/form/${safeSlug}`;
 }
