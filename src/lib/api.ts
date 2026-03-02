@@ -277,24 +277,100 @@ function normalizeAbsoluteHttpUrl(value: unknown): string | undefined {
   }
 }
 
-function sanitizeFormPayload<T extends CreateFormRequest | UpdateFormRequest>(payload: T): T {
-  if (!payload || typeof payload !== 'object') return payload;
-  if (!('settings' in payload) || !payload.settings) return payload;
-
-  const nextSettings = { ...(payload.settings as Record<string, unknown>) };
-  if ('responseEmailTemplateUrl' in nextSettings) {
-    const normalized = normalizeAbsoluteHttpUrl(nextSettings.responseEmailTemplateUrl);
-    if (normalized) {
-      nextSettings.responseEmailTemplateUrl = normalized;
-    } else {
-      delete nextSettings.responseEmailTemplateUrl;
-    }
+function sanitizeScalarVisibilityValue(value: unknown): string | number | boolean | undefined {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : undefined;
   }
+  if (typeof value === 'number' && !Number.isNaN(value)) {
+    return value;
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  return undefined;
+}
+
+function sanitizeVisibilityShape(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+
+  const rawVisibility = value as Record<string, unknown>;
+  const rawRules = Array.isArray(rawVisibility.rules) ? rawVisibility.rules : [];
+  if (rawRules.length === 0) return undefined;
+
+  const rules = rawRules.reduce<Record<string, unknown>[]>((acc, rule) => {
+    if (!rule || typeof rule !== 'object') return acc;
+    const rawRule = rule as Record<string, unknown>;
+    const fieldKey = typeof rawRule.fieldKey === 'string' ? rawRule.fieldKey.trim() : '';
+    if (!fieldKey) return acc;
+
+    const operator =
+      rawRule.operator === 'equals' ||
+      rawRule.operator === 'not_equals' ||
+      rawRule.operator === 'in' ||
+      rawRule.operator === 'not_in'
+        ? rawRule.operator
+        : 'equals';
+
+    if (operator === 'in' || operator === 'not_in') {
+      const values = Array.isArray(rawRule.values)
+        ? rawRule.values
+            .map((item) => sanitizeScalarVisibilityValue(item))
+            .filter((item): item is string | number | boolean => typeof item !== 'undefined')
+        : [];
+      if (values.length === 0) return acc;
+      acc.push({ fieldKey, operator, values });
+      return acc;
+    }
+
+    const scalarValue = sanitizeScalarVisibilityValue(rawRule.value);
+    if (typeof scalarValue === 'undefined') return acc;
+    acc.push({ fieldKey, operator, value: scalarValue });
+    return acc;
+  }, []);
+
+  if (rules.length === 0) return undefined;
 
   return {
-    ...payload,
-    settings: nextSettings,
+    match: rawVisibility.match === 'any' ? 'any' : 'all',
+    rules,
   };
+}
+
+function sanitizeFormPayload<T extends CreateFormRequest | UpdateFormRequest>(payload: T): T {
+  if (!payload || typeof payload !== 'object') return payload;
+
+  const nextPayload = { ...payload } as T;
+
+  if ('settings' in payload && payload.settings) {
+    const nextSettings = { ...(payload.settings as Record<string, unknown>) };
+    if ('responseEmailTemplateUrl' in nextSettings) {
+      const normalized = normalizeAbsoluteHttpUrl(nextSettings.responseEmailTemplateUrl);
+      if (normalized) {
+        nextSettings.responseEmailTemplateUrl = normalized;
+      } else {
+        delete nextSettings.responseEmailTemplateUrl;
+      }
+    }
+
+    (nextPayload as T & { settings?: typeof nextSettings }).settings = nextSettings;
+  }
+
+  if ('fields' in payload && Array.isArray(payload.fields)) {
+    (nextPayload as unknown as { fields?: unknown[] }).fields = payload.fields.map((field) => {
+      if (!field || typeof field !== 'object') return field;
+      const nextField = { ...(field as Record<string, unknown>) };
+      const nextVisibility = sanitizeVisibilityShape(nextField.visibility);
+      if (nextVisibility) {
+        nextField.visibility = nextVisibility;
+      } else {
+        delete nextField.visibility;
+      }
+      return nextField;
+    });
+  }
+
+  return nextPayload;
 }
 
 /* ============================================================================
