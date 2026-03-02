@@ -445,6 +445,18 @@ export interface FormFieldOption {
   value: string;
 }
 
+export interface FormFieldCondition {
+  fieldKey: string;
+  operator: 'equals' | 'not_equals' | 'in' | 'not_in';
+  value?: unknown;
+  values?: unknown[];
+}
+
+export interface FormFieldVisibility {
+  match?: 'all' | 'any';
+  rules?: FormFieldCondition[];
+}
+
 export interface FormField {
   id: string;
   formId?: string;
@@ -453,6 +465,7 @@ export interface FormField {
   type: FormFieldType;
   required: boolean;
   options?: FormFieldOption[];
+  visibility?: FormFieldVisibility;
   order: number;
   createdAt?: string;
   updatedAt?: string;

@@ -111,6 +111,76 @@ function buildInitialValues(formFields: FormField[]): ValuesState {
   return init;
 }
 
+function toComparableNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return null;
+}
+
+function valuesEqual(a: unknown, b: unknown): boolean {
+  if (a == null || b == null) return false;
+
+  if (typeof a === 'boolean' && typeof b === 'boolean') {
+    return a === b;
+  }
+
+  if (typeof a === 'string' && typeof b === 'string') {
+    return a.trim() === b.trim();
+  }
+
+  const leftNumber = toComparableNumber(a);
+  const rightNumber = toComparableNumber(b);
+  if (leftNumber !== null && rightNumber !== null) {
+    return leftNumber === rightNumber;
+  }
+
+  return String(a) === String(b);
+}
+
+function valueInList(value: unknown, list?: unknown[]): boolean {
+  if (!Array.isArray(list) || list.length === 0) return false;
+  return list.some((item) => valuesEqual(value, item));
+}
+
+function isFieldVisible(field: FormField, values: ValuesState): boolean {
+  const visibility = field.visibility;
+  const rules = visibility?.rules?.filter((rule) => rule?.fieldKey?.trim()) ?? [];
+  if (rules.length === 0) return true;
+
+  const evaluateRule = (rule: { fieldKey: string; operator: string; value?: unknown; values?: unknown[] }) => {
+    const fieldKey = rule.fieldKey.trim();
+    const currentValue = values[fieldKey];
+
+    if (typeof currentValue === 'undefined' || currentValue === null) {
+      return false;
+    }
+
+    switch (rule.operator) {
+      case 'equals':
+        return valuesEqual(currentValue, rule.value);
+      case 'not_equals':
+        return !valuesEqual(currentValue, rule.value);
+      case 'in':
+        return valueInList(currentValue, rule.values);
+      case 'not_in':
+        return !valueInList(currentValue, rule.values);
+      default:
+        return false;
+    }
+  };
+
+  if (visibility?.match === 'any') {
+    return rules.some(evaluateRule);
+  }
+
+  return rules.every(evaluateRule);
+}
+
 const COUNTRY_PHONE_CODES = [
   { iso: 'NG', name: 'Nigeria', dial: '+234' },
   { iso: 'GH', name: 'Ghana', dial: '+233' },
@@ -457,6 +527,12 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const fields = useMemo<FormField[]>(() => {
     return payload?.form?.fields ?? [];
   }, [payload]);
+  const sortedFields = useMemo<FormField[]>(() => {
+    return fields.slice().sort((a, b) => a.order - b.order);
+  }, [fields]);
+  const visibleFields = useMemo<FormField[]>(() => {
+    return sortedFields.filter((field) => isFieldVisible(field, values));
+  }, [sortedFields, values]);
 
   const settings = payload?.form?.settings;
 
@@ -759,7 +835,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     const nextErrors: Record<string, string> = {};
     let anyFilled = false;
 
-    fields.forEach((f) => {
+    visibleFields.forEach((f) => {
       const v = values[f.key];
       const fieldType = normalizeFieldType(f.type);
       const hasOptions = Array.isArray(f.options) && f.options.length > 0;
@@ -785,7 +861,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
 
     setTouchedFields((prev) => {
       const next = { ...prev };
-      fields.forEach((f) => {
+      visibleFields.forEach((f) => {
         next[f.key] = true;
       });
       return next;
@@ -823,7 +899,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
       const formData = new FormData();
       let hasFiles = false;
 
-      fields.forEach((f) => {
+      visibleFields.forEach((f) => {
         const fieldType = normalizeFieldType(f.type);
         const v = values[f.key];
 
@@ -975,35 +1051,32 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
               ) : null}
 
               <div className={settings?.formHeaderNote ? 'mt-4 space-y-4' : 'space-y-4'}>
-                {fields
-                  .slice()
-                  .sort((a, b) => a.order - b.order)
-                  .map((field) => {
-                    const fieldType = normalizeFieldType(field.type);
-                    const checkboxWithOptions =
-                      isCheckboxType(fieldType) && Array.isArray(field.options) && field.options.length > 0;
-                    const showLabel = !isCheckboxType(fieldType) || checkboxWithOptions;
+                {visibleFields.map((field) => {
+                  const fieldType = normalizeFieldType(field.type);
+                  const checkboxWithOptions =
+                    isCheckboxType(fieldType) && Array.isArray(field.options) && field.options.length > 0;
+                  const showLabel = !isCheckboxType(fieldType) || checkboxWithOptions;
 
-                    return (
-                      <div key={field.key} className="space-y-1.5">
-                        {showLabel ? (
-                          <label className="block text-sm font-medium text-gray-800">
-                            {field.label} {field.required ? <span className="text-red-500">*</span> : null}
-                          </label>
-                        ) : null}
+                  return (
+                    <div key={field.key} className="space-y-1.5">
+                      {showLabel ? (
+                        <label className="block text-sm font-medium text-gray-800">
+                          {field.label} {field.required ? <span className="text-red-500">*</span> : null}
+                        </label>
+                      ) : null}
 
-                        <FieldInput
-                          field={field}
-                          value={values[field.key]}
-                          onChange={(next) => updateFieldValue(field, next)}
-                        />
+                      <FieldInput
+                        field={field}
+                        value={values[field.key]}
+                        onChange={(next) => updateFieldValue(field, next)}
+                      />
 
-                        {fieldErrors[field.key] && touchedFields[field.key] ? (
-                          <p className="text-xs text-red-600">{fieldErrors[field.key]}</p>
-                        ) : null}
-                      </div>
-                    );
-                  })}
+                      {fieldErrors[field.key] && touchedFields[field.key] ? (
+                        <p className="text-xs text-red-600">{fieldErrors[field.key]}</p>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="mt-6">
