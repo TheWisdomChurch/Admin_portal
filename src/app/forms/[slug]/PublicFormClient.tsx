@@ -501,6 +501,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
 
   const initialCached = loadCachedPayload();
   const initialData = initialCached;
+  const hasCachedPayload = Boolean(initialData);
 
   const [payload, setPayload] = useState<PublicFormPayload | null>(initialData);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -563,7 +564,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   }, [payload, slug]);
 
   useEffect(() => {
-    if (!slug || payload) {
+    if (!slug) {
       setLoading(false);
       return;
     }
@@ -574,7 +575,9 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     const fetchWithRetry = async () => {
       if (!alive) return;
       attempt += 1;
-      setLoading(true);
+      if (!hasCachedPayload) {
+        setLoading(true);
+      }
       setRetrying(attempt > 1);
       setLoadError(null);
 
@@ -615,7 +618,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     return () => {
       alive = false;
     };
-  }, [payload, resetFormState, slug]);
+  }, [hasCachedPayload, resetFormState, slug]);
 
   const valueToString = (value: FieldValue): string => {
     if (typeof value === 'string') return value.trim();

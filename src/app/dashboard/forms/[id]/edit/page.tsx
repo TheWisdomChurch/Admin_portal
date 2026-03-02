@@ -80,29 +80,29 @@ function sanitizeFieldVisibility(visibility?: FormFieldVisibility): FormFieldVis
   }
 
   const rules = visibility.rules.reduce<VisibilityRuleDraft[]>((acc, rule) => {
-      const fieldKey = typeof rule.fieldKey === 'string' ? rule.fieldKey.trim() : '';
-      if (!fieldKey) return acc;
+    const fieldKey = typeof rule.fieldKey === 'string' ? rule.fieldKey.trim() : '';
+    if (!fieldKey) return acc;
 
-      const operator: VisibilityRuleDraft['operator'] = visibilityOperatorOptions.some((item) => item.value === rule.operator)
-        ? rule.operator
-        : 'equals';
+    const operator: VisibilityRuleDraft['operator'] = visibilityOperatorOptions.some((item) => item.value === rule.operator)
+      ? rule.operator
+      : 'equals';
 
-      if (usesVisibilityList(operator)) {
-        const values = Array.isArray(rule.values)
-          ? rule.values
-              .map((value) => sanitizeVisibilityValue(value))
-              .filter((value): value is string | number | boolean => typeof value !== 'undefined')
-          : [];
-        if (values.length === 0) return acc;
-        acc.push({ fieldKey, operator, values });
-        return acc;
-      }
-
-      const value = sanitizeVisibilityValue(rule.value);
-      if (typeof value === 'undefined') return acc;
-      acc.push({ fieldKey, operator, value });
+    if (usesVisibilityList(operator)) {
+      const values = Array.isArray(rule.values)
+        ? rule.values
+            .map((value) => sanitizeVisibilityValue(value))
+            .filter((value): value is string | number | boolean => typeof value !== 'undefined')
+        : [];
+      if (values.length === 0) return acc;
+      acc.push({ fieldKey, operator, values });
       return acc;
-    }, []);
+    }
+
+    const value = sanitizeVisibilityValue(rule.value);
+    if (typeof value === 'undefined') return acc;
+    acc.push({ fieldKey, operator, value });
+    return acc;
+  }, []);
 
   if (rules.length === 0) {
     return undefined;
@@ -112,6 +112,92 @@ function sanitizeFieldVisibility(visibility?: FormFieldVisibility): FormFieldVis
     match: visibility.match === 'any' ? 'any' : 'all',
     rules,
   };
+}
+
+function normalizeVisibilityToken(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+function isAffirmativeOption(value: string): boolean {
+  const token = normalizeVisibilityToken(value);
+  return token === 'yes' || token === 'true' || token === '1';
+}
+
+function isNegativeOption(value: string): boolean {
+  const token = normalizeVisibilityToken(value);
+  return token === 'no' || token === 'false' || token === '0';
+}
+
+function looksLikeIfYesLabel(label: string): boolean {
+  return /^\s*if\s+yes\b/i.test(label);
+}
+
+function findYesOptionValue(field: Pick<FormField, 'type' | 'options'>): string | undefined {
+  const options = Array.isArray(field.options) ? field.options : [];
+  if ((field.type !== 'radio' && field.type !== 'select') || options.length === 0) {
+    return undefined;
+  }
+
+  let yesValue: string | undefined;
+  let hasNoOption = false;
+
+  options.forEach((option) => {
+    const label = option.label || '';
+    const value = option.value || '';
+    if (!yesValue && (isAffirmativeOption(label) || isAffirmativeOption(value))) {
+      yesValue = value || label;
+    }
+    if (isNegativeOption(label) || isNegativeOption(value)) {
+      hasNoOption = true;
+    }
+  });
+
+  return yesValue && hasNoOption ? yesValue : undefined;
+}
+
+function buildImplicitYesVisibility(fields: FieldDraft[], currentIndex: number): FormFieldVisibility | undefined {
+  const currentField = fields[currentIndex];
+  if (!currentField || !looksLikeIfYesLabel(currentField.label || '')) {
+    return undefined;
+  }
+
+  for (let index = currentIndex - 1; index >= 0; index -= 1) {
+    const candidate = fields[index];
+    const fieldKey = candidate?.key?.trim();
+    const yesValue = candidate ? findYesOptionValue(candidate) : undefined;
+    if (!fieldKey || !yesValue) continue;
+
+    return {
+      match: 'all',
+      rules: [
+        {
+          fieldKey,
+          operator: 'equals',
+          value: yesValue,
+        },
+      ],
+    };
+  }
+
+  return undefined;
+}
+
+function applyImplicitYesVisibilityDefaults(fields: FieldDraft[]): FieldDraft[] {
+  return fields.map((field, index) => {
+    if (sanitizeFieldVisibility(field.visibility)) {
+      return field;
+    }
+
+    const suggestedVisibility = buildImplicitYesVisibility(fields, index);
+    if (!suggestedVisibility) {
+      return field;
+    }
+
+    return {
+      ...field,
+      visibility: suggestedVisibility,
+    };
+  });
 }
 
 function EditFormPage() {
@@ -182,7 +268,7 @@ function EditFormPage() {
       try {
         const res = await apiClient.getAdminForm(formId);
         setForm(res);
-        setFields(res.fields || []);
+        setFields(applyImplicitYesVisibilityDefaults(res.fields || []));
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load form';
         toast.error(message);
@@ -219,10 +305,14 @@ function EditFormPage() {
           return { ...field, visibility: undefined };
         }
 
-        const nextVisibility = sanitizeFieldVisibility(field.visibility) ?? {
-          match: 'all' as const,
-          rules: [createEmptyVisibilityRule()],
-        };
+        const nextVisibility = (
+          sanitizeFieldVisibility(field.visibility) ??
+          buildImplicitYesVisibility(prev, index) ??
+          {
+            match: 'all' as const,
+            rules: [createEmptyVisibilityRule()],
+          }
+        );
         return { ...field, visibility: nextVisibility };
       })
     );
@@ -448,7 +538,7 @@ function EditFormPage() {
       toast.error('Publish the form to get a link');
       return;
     }
-    const url = buildPublicFormUrl(slug, form?.publicUrl) ?? (slug ? `/forms/${encodeURIComponent(slug)}` : null);
+    const url = buildPublicFormUrl(slug, form?.publicUrl) ?? (slug ? `/form/${encodeURIComponent(slug)}` : null);
     if (!url) {
       toast.error('Publish the form to get a link');
       return;
@@ -1019,7 +1109,7 @@ function EditFormPage() {
       <Card title="Preview Link">
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-[var(--color-text-secondary)]">
-            {form.publicUrl || (form.slug ? `/forms/${form.slug}` : 'Publish to generate link')}
+            {form.publicUrl || (form.slug ? `/form/${form.slug}` : 'Publish to generate link')}
           </p>
           <Button variant="outline" size="sm" onClick={copyLink} icon={<Copy className="h-4 w-4" />}>
             Copy
