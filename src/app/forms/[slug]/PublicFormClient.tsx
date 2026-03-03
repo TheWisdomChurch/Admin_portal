@@ -141,33 +141,74 @@ function buildInitialValues(formFields: FormField[]): ValuesState {
   return init;
 }
 
-function evaluateVisibilityRule(rule: FormFieldVisibilityCondition, values: ValuesState): boolean {
-  const actualValues = normalizeFieldValueList(values[rule.fieldKey]);
-  if (actualValues.length === 0) return false;
+function toComparableNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return null;
+}
 
-  if (rule.operator === 'equals') {
-    return actualValues.some((actual) => valuesEqual(actual, rule.value));
+function valuesEqual(a: unknown, b: unknown): boolean {
+  if (a == null || b == null) return false;
+
+  if (typeof a === 'boolean' && typeof b === 'boolean') {
+    return a === b;
   }
 
-  if (rule.operator === 'not_equals') {
-    return actualValues.every((actual) => !valuesEqual(actual, rule.value));
+  if (typeof a === 'string' && typeof b === 'string') {
+    return a.trim() === b.trim();
   }
 
-  const expectedValues = (rule.values ?? [])
-    .map((value) => normalizeComparable(value))
-    .filter((value): value is string | number | boolean => value !== null);
-
-  if (expectedValues.length === 0) return false;
-
-  if (rule.operator === 'in') {
-    return actualValues.some((actual) => expectedValues.some((expected) => valuesEqual(actual, expected)));
+  const leftNumber = toComparableNumber(a);
+  const rightNumber = toComparableNumber(b);
+  if (leftNumber !== null && rightNumber !== null) {
+    return leftNumber === rightNumber;
   }
 
-  if (rule.operator === 'not_in') {
-    return actualValues.every((actual) => expectedValues.every((expected) => !valuesEqual(actual, expected)));
+  return String(a) === String(b);
+}
+
+function valueInList(value: unknown, list?: unknown[]): boolean {
+  if (!Array.isArray(list) || list.length === 0) return false;
+  return list.some((item) => valuesEqual(value, item));
+}
+
+function isFieldVisible(field: FormField, values: ValuesState): boolean {
+  const visibility = field.visibility;
+  const rules = visibility?.rules?.filter((rule) => rule?.fieldKey?.trim()) ?? [];
+  if (rules.length === 0) return true;
+
+  const evaluateRule = (rule: { fieldKey: string; operator: string; value?: unknown; values?: unknown[] }) => {
+    const fieldKey = rule.fieldKey.trim();
+    const currentValue = values[fieldKey];
+
+    if (typeof currentValue === 'undefined' || currentValue === null) {
+      return false;
+    }
+
+    switch (rule.operator) {
+      case 'equals':
+        return valuesEqual(currentValue, rule.value);
+      case 'not_equals':
+        return !valuesEqual(currentValue, rule.value);
+      case 'in':
+        return valueInList(currentValue, rule.values);
+      case 'not_in':
+        return !valueInList(currentValue, rule.values);
+      default:
+        return false;
+    }
+  };
+
+  if (visibility?.match === 'any') {
+    return rules.some(evaluateRule);
   }
 
-  return true;
+  return rules.every(evaluateRule);
 }
 
 const COUNTRY_PHONE_CODES = [
@@ -490,6 +531,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
 
   const initialCached = loadCachedPayload();
   const initialData = initialCached;
+  const hasCachedPayload = Boolean(initialData);
 
   const [payload, setPayload] = useState<PublicFormPayload | null>(initialData);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -519,6 +561,9 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const sortedFields = useMemo<FormField[]>(() => {
     return fields.slice().sort((a, b) => a.order - b.order);
   }, [fields]);
+  const visibleFields = useMemo<FormField[]>(() => {
+    return sortedFields.filter((field) => isFieldVisible(field, values));
+  }, [sortedFields, values]);
 
   const settings = payload?.form?.settings;
 
@@ -578,7 +623,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   }, [payload, slug]);
 
   useEffect(() => {
-    if (!slug || payload) {
+    if (!slug) {
       setLoading(false);
       return;
     }
@@ -589,7 +634,9 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     const fetchWithRetry = async () => {
       if (!alive) return;
       attempt += 1;
-      setLoading(true);
+      if (!hasCachedPayload) {
+        setLoading(true);
+      }
       setRetrying(attempt > 1);
       setLoadError(null);
 
@@ -630,7 +677,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     return () => {
       alive = false;
     };
-  }, [payload, resetFormState, slug]);
+  }, [hasCachedPayload, resetFormState, slug]);
 
   const valueToString = (value: FieldValue): string => {
     if (typeof value === 'string') return value.trim();
@@ -669,40 +716,6 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     const phone = phoneRaw ? formatPrettyPhone(phoneRaw) : '';
 
     return { formTitle, eventTitle, eventDate, eventTime, eventLocation, name, email, phone };
-  };
-
-  const buildSuccessDetails = (sourceValues: ValuesState): SuccessDetail[] => {
-    const eventDetails: SuccessDetail[] = [];
-    const preferred: SuccessDetail[] = [];
-    const others: SuccessDetail[] = [];
-
-    if (payload?.event?.date) {
-      const formatted = formatEventDate(payload.event.date);
-      if (formatted) eventDetails.push({ label: 'Event Date', value: formatted });
-    }
-    if (payload?.event?.time) eventDetails.push({ label: 'Event Time', value: payload.event.time });
-    if (payload?.event?.location) eventDetails.push({ label: 'Location', value: payload.event.location });
-
-    visibleFields.forEach((field) => {
-        let value = valueToString(sourceValues[field.key]);
-        if (!value) return;
-
-        const normalizedType = normalizeFieldType(field.type);
-        if (isPhoneType(normalizedType) || fieldMatches(field, ['phone', 'mobile', 'tel', 'contact'])) {
-          value = formatPrettyPhone(value);
-        }
-
-        const detail = { label: field.label || field.key, value };
-
-        if (fieldMatches(field, ['full name', 'name', 'email', 'phone', 'mobile', 'tel', 'contact', 'address'])) {
-          preferred.push(detail);
-        } else {
-          others.push(detail);
-        }
-      });
-
-    const details = [...preferred, ...eventDetails, ...others];
-    return details.slice(0, 8);
   };
 
   const applyTemplate = (template: string, tokens: Record<string, string>) =>
@@ -784,28 +797,22 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     updateValue(field.key, next);
   };
 
-  const eventTitle = payload?.event?.title ?? payload?.form?.title ?? 'Event Registration';
-  const eventSubtitle =
-    payload?.event?.shortDescription ?? payload?.form?.description ?? 'Secure your spot by registering below.';
-  const heroTitle = settings?.design?.heroTitle?.trim() || settings?.introTitle?.trim() || eventTitle;
-  const heroSubtitle = settings?.design?.heroSubtitle?.trim() || settings?.introSubtitle?.trim() || eventSubtitle;
-  const formTitle = payload?.form?.title?.trim() || 'Registration Form';
-  const normalizedHeroTitle = heroTitle.trim().toLowerCase();
-  const normalizedFormTitle = formTitle.toLowerCase();
-  const displayFormTitle =
-    normalizedFormTitle && normalizedFormTitle !== normalizedHeroTitle ? formTitle : 'Registration Form';
-  const formDescription = payload?.form?.description?.trim() || '';
-  const showFormDescription =
-    Boolean(formDescription) &&
-    formDescription.trim().toLowerCase() !== heroSubtitle.trim().toLowerCase();
+  const formTitle = payload?.form?.title?.trim() || 'Form';
+  const normalizedFormType = (settings?.formType || 'registration').trim().toLowerCase();
+  const formTypeLabelMap: Record<string, string> = {
+    registration: 'REGISTRATION',
+    event: 'EVENT',
+    membership: 'MEMBERSHIP',
+    workforce: 'WORKFORCE',
+    leadership: 'LEADERSHIP',
+    application: 'APPLICATION',
+    contact: 'CONTACT',
+    general: 'FORM',
+  };
+  const formTypeLabel = formTypeLabelMap[normalizedFormType] || 'FORM';
+  const pageHeaderTitle = `${formTypeLabel} - ${formTitle}`;
+  const eventTitle = payload?.event?.title ?? formTitle;
   const bannerUrl = settings?.design?.coverImageUrl || payload?.event?.bannerImage || payload?.event?.image || undefined;
-
-  const layoutMode = useMemo(() => {
-    if (settings?.layoutMode === 'split' || settings?.layoutMode === 'stack') return settings.layoutMode;
-    if (settings?.design?.layout === 'split') return 'split';
-    if (settings?.design?.layout === 'stacked' || settings?.design?.layout === 'inline') return 'stack';
-    return 'split';
-  }, [settings]);
 
   const introBullets = useMemo(() => {
     if (Array.isArray(settings?.introBullets)) {
@@ -862,7 +869,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     }
   }, [settings?.submitButtonIcon]);
 
-  const hasLeftColumn = introBullets.length > 0 || Boolean(payload?.event);
+  const hasLeftColumn = introBullets.length > 0;
 
   const fallbackTokens = buildSuccessTokens(values);
   const tokenSource = Object.keys(successTokens).length > 0 ? successTokens : fallbackTokens;
@@ -886,7 +893,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const now = new Date();
   const isClosed = Boolean((closesAt && now > closesAt) || (expiresAt && now > expiresAt));
 
-  const validateClient = () => {
+  const validateClient = (): { isValid: boolean; message: string | null } => {
     const nextErrors: Record<string, string> = {};
     let anyFilled = false;
 
@@ -924,13 +931,24 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
 
     setFieldErrors(nextErrors);
 
+    const errorCount = Object.keys(nextErrors).length;
+    if (errorCount > 0) {
+      const message =
+        errorCount === 1
+          ? 'Please review the highlighted field and try again.'
+          : 'Please review the highlighted fields and try again.';
+      setFormError(message);
+      return { isValid: false, message };
+    }
+
     if (!anyFilled) {
-      setFormError('Please enter at least one field before submitting.');
-      return false;
+      const message = 'Please provide at least one response before submitting.';
+      setFormError(message);
+      return { isValid: false, message };
     }
 
     setFormError('');
-    return Object.keys(nextErrors).length === 0;
+    return { isValid: true, message: null };
   };
 
   const submit = async () => {
@@ -943,8 +961,9 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
       }
 
       setFormError('');
-      if (!validateClient()) {
-        toast.error('Please complete the required fields.');
+      const validation = validateClient();
+      if (!validation.isValid) {
+        toast.error(validation.message || 'Please review the form and try again.');
         return;
       }
 
@@ -982,7 +1001,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
       await apiClient.submitPublicForm(slug, payloadToSend);
 
       setSuccessTokens(buildSuccessTokens(values));
-      setSuccessDetails(buildSuccessDetails(values));
+      setSuccessDetails([]);
       resetFormState();
       setSuccessOpen(true);
     } catch (err) {
@@ -1006,6 +1025,14 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
       setSubmitting(false);
     }
   };
+
+  if (!slug) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center space-y-3">
+        <div className="text-sm text-gray-700">Invalid form link. Please check the URL and try again.</div>
+      </div>
+    );
+  }
 
   if (loading || !payload) {
     return (
@@ -1059,7 +1086,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
         {/* Hero */}
         <div className="mb-8">
           <div className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-600 shadow-sm">
-            Registration
+            {formTypeLabel}
           </div>
 
           {bannerUrl ? (
@@ -1077,8 +1104,9 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
             </div>
           ) : null}
 
-          <h1 className="mt-3 text-xl sm:text-2xl font-medium tracking-tight text-black">{heroTitle}</h1>
-          <p className="mt-2 text-sm text-gray-600 max-w-2xl">{heroSubtitle}</p>
+          <h1 className="mt-3 text-2xl sm:text-3xl font-black tracking-[0.08em] uppercase text-black">
+            {pageHeaderTitle}
+          </h1>
 
           {isClosed ? (
             <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -1087,11 +1115,67 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
           ) : null}
         </div>
 
-        <div
-          className={`grid grid-cols-1 gap-6 md:gap-8 items-start ${
-            layoutMode === 'split' && hasLeftColumn ? 'md:grid-cols-[1.05fr_1fr]' : ''
-          }`}
-        >
+        <div className="space-y-6 md:space-y-8">
+          <div ref={rightRef}>
+            <Card className="p-6 md:p-7 shadow-md transition-shadow duration-300 hover:shadow-lg bg-white border-gray-200">
+              {settings?.formHeaderNote ? (
+                <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                  {settings.formHeaderNote}
+                </p>
+              ) : null}
+
+              <div className={settings?.formHeaderNote ? 'mt-4 space-y-4' : 'space-y-4'}>
+                {visibleFields.map((field) => {
+                  const fieldType = normalizeFieldType(field.type);
+                  const checkboxWithOptions =
+                    isCheckboxType(fieldType) && Array.isArray(field.options) && field.options.length > 0;
+                  const showLabel = !isCheckboxType(fieldType) || checkboxWithOptions;
+
+                  return (
+                    <div key={field.key} className="space-y-1.5">
+                      {showLabel ? (
+                        <label className="block text-sm font-medium text-gray-800">
+                          {field.label} {field.required ? <span className="text-red-500">*</span> : null}
+                        </label>
+                      ) : null}
+
+                      <FieldInput
+                        field={field}
+                        value={values[field.key]}
+                        onChange={(next) => updateFieldValue(field, next)}
+                      />
+
+                      {fieldErrors[field.key] && touchedFields[field.key] ? (
+                        <p className="text-xs text-red-600">{fieldErrors[field.key]}</p>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-6">
+                {formError ? (
+                  <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                    {formError}
+                  </div>
+                ) : null}
+
+                <Button
+                  className="w-full"
+                  size="sm"
+                  loading={submitting}
+                  disabled={submitting || isClosed}
+                  onClick={submit}
+                  icon={submitButtonIcon}
+                >
+                  {submitButtonLabel}
+                </Button>
+
+                <p className="mt-3 text-xs text-gray-600 text-center">{privacyCopy}</p>
+              </div>
+            </Card>
+          </div>
+
           {hasLeftColumn ? (
             <div ref={leftRef} className="space-y-6">
               {introBullets.length > 0 ? (
@@ -1121,88 +1205,8 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
                 </Card>
               ) : null}
 
-              {payload.event ? (
-                <Card className="p-6 transition-shadow duration-300 hover:shadow-md bg-white border-gray-200">
-                  <h3 className="text-base font-medium text-black">Event Details</h3>
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                    <div className="rounded-xl border border-gray-200 bg-white p-4">
-                      <div className="text-gray-500">Date</div>
-                      <div className="mt-1 font-medium text-black">
-                        {formatEventDate(payload.event.date) || payload.event.date}
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-gray-200 bg-white p-4">
-                      <div className="text-gray-500">Time</div>
-                      <div className="mt-1 font-medium text-black">{payload.event.time}</div>
-                    </div>
-                    <div className="rounded-xl border border-gray-200 bg-white p-4 sm:col-span-2">
-                      <div className="text-gray-500">Location</div>
-                      <div className="mt-1 font-medium text-black">{payload.event.location}</div>
-                    </div>
-                  </div>
-                </Card>
-              ) : null}
             </div>
           ) : null}
-
-          <div ref={rightRef}>
-            <Card className="p-6 md:p-7 shadow-md transition-shadow duration-300 hover:shadow-lg bg-white border-gray-200">
-              <h2 className="text-lg font-medium text-black">{displayFormTitle}</h2>
-              {showFormDescription ? <p className="mt-2 text-sm text-gray-600">{formDescription}</p> : null}
-
-              {settings?.formHeaderNote ? (
-                <p className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
-                  {settings.formHeaderNote}
-                </p>
-              ) : null}
-
-              <div className="mt-6 space-y-4">
-                {visibleFields.map((field) => {
-                    const fieldType = normalizeFieldType(field.type);
-                    const checkboxWithOptions =
-                      isCheckboxType(fieldType) && Array.isArray(field.options) && field.options.length > 0;
-                    const showLabel = !isCheckboxType(fieldType) || checkboxWithOptions;
-
-                    return (
-                      <div key={field.key} className="space-y-1.5">
-                        {showLabel ? (
-                          <label className="block text-sm font-medium text-gray-800">
-                            {field.label} {field.required ? <span className="text-red-500">*</span> : null}
-                          </label>
-                        ) : null}
-
-                        <FieldInput
-                          field={field}
-                          value={values[field.key]}
-                          onChange={(next) => updateFieldValue(field, next)}
-                        />
-
-                        {fieldErrors[field.key] && touchedFields[field.key] ? (
-                          <p className="text-xs text-red-600">{fieldErrors[field.key]}</p>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-              </div>
-
-              <div className="mt-6">
-                {formError ? <p className="mb-3 text-xs text-red-600">{formError}</p> : null}
-
-                <Button
-                  className="w-full"
-                  size="sm"
-                  loading={submitting}
-                  disabled={submitting || isClosed}
-                  onClick={submit}
-                  icon={submitButtonIcon}
-                >
-                  {submitButtonLabel}
-                </Button>
-
-                <p className="mt-3 text-xs text-gray-600 text-center">{privacyCopy}</p>
-              </div>
-            </Card>
-          </div>
         </div>
 
         <footer className="mt-14 border-t border-gray-200 pt-10" style={footerStyle}>

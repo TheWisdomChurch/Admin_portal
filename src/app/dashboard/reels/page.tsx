@@ -198,13 +198,15 @@ function ReelsPage() {
         apiClient.createUploadPresign({
           filename: videoFile.name,
           contentType: videoFile.type,
-          size: videoFile.size,
+          sizeBytes: videoFile.size,
+          kind: 'video',
           folder: 'reels/videos',
         }),
         apiClient.createUploadPresign({
           filename: thumbnailFile.name,
           contentType: thumbnailFile.type,
-          size: thumbnailFile.size,
+          sizeBytes: thumbnailFile.size,
+          kind: 'thumbnail',
           folder: 'reels/thumbnails',
         }),
         getVideoDuration(videoFile),
@@ -214,6 +216,17 @@ function ReelsPage() {
         uploadToPresignedUrl(videoPresign.uploadUrl, videoFile),
         uploadToPresignedUrl(thumbPresign.uploadUrl, thumbnailFile),
       ]);
+
+      const completionJobs: Promise<unknown>[] = [];
+      if (videoPresign.assetId) {
+        completionJobs.push(apiClient.completeUploadAsset(videoPresign.assetId));
+      }
+      if (thumbPresign.assetId) {
+        completionJobs.push(apiClient.completeUploadAsset(thumbPresign.assetId));
+      }
+      if (completionJobs.length > 0) {
+        await Promise.all(completionJobs);
+      }
 
       const payload = {
         title: uploadTitle.trim() || 'New Reel',

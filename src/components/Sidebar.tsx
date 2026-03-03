@@ -36,6 +36,7 @@ const adminNavItems = [
   { href: '/dashboard/testimonials', label: 'Testimonials', icon: MessageSquare, description: 'Member testimonials' },
   { href: '/dashboard/forms', label: 'Forms', icon: ClipboardList, description: 'Create registration links' },
   { href: '/dashboard/registrations', label: 'Registrations', icon: Users, description: 'Registered people list' },
+  { href: '/dashboard/notifications', label: 'Notifications', icon: BellRing, description: 'Alerts and approvals' },
   { href: '/dashboard/test', label: 'Test', icon: Sparkles, description: 'Playground page' },
   { href: '/dashboard/event', label: 'Event', icon: Calendar, description: 'Single event page' },
   { href: '/dashboard/content', label: 'Content', icon: FileText, description: 'Website content' },

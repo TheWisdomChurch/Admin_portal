@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
-import { Testimonial, WorkforceMember } from '@/lib/types';
+import { LeadershipMember, Testimonial, WorkforceMember } from '@/lib/types';
 
-export type ApprovalItemType = 'testimonial' | 'workforce';
+export type ApprovalItemType = 'testimonial' | 'workforce' | 'leadership';
 export type ApprovalItemStatus = 'pending' | 'new' | 'flagged';
 
 export interface ApprovalItem {
@@ -85,6 +85,39 @@ function mapWorkforceToApproval(member: Partial<WorkforceMember>): ApprovalItem 
   };
 }
 
+function roleLabel(role?: string): string {
+  switch (role) {
+    case 'senior_pastor':
+      return 'Senior Pastor';
+    case 'associate_pastor':
+      return 'Associate Pastor';
+    case 'reverend':
+      return 'Reverend';
+    case 'deacon':
+      return 'Deacon';
+    case 'deaconess':
+      return 'Deaconness';
+    default:
+      return role || 'Leadership';
+  }
+}
+
+function mapLeadershipToApproval(member: Partial<LeadershipMember>): ApprovalItem {
+  const submittedAt = member.createdAt || member.updatedAt || new Date().toISOString();
+  const name = `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim() || 'Leadership applicant';
+
+  return {
+    id: member.id ?? generateId(),
+    type: 'leadership',
+    name,
+    summary: roleLabel(member.role),
+    submittedAt,
+    status: 'pending',
+    email: member.email,
+    source: 'api',
+  };
+}
+
 export function useSuperQueues() {
   const [items, setItems] = useState<ApprovalItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,17 +134,20 @@ export function useSuperQueues() {
   const loadQueues = useCallback(async () => {
     try {
       setLoading(true);
-      const [testimonialsRes, workforceRes] = await Promise.all([
+      const [testimonialsRes, workforceRes, leadershipRes] = await Promise.all([
         apiClient.getAllTestimonials({ approved: false }),
         apiClient.listWorkforce({ status: 'new', limit: 25 }),
+        apiClient.listLeadership({ status: 'pending', limit: 25 }),
       ]);
 
       const testimonials = getDataArray<Testimonial>(testimonialsRes);
       const workforce = getDataArray<WorkforceMember>(workforceRes);
+      const leadership = getDataArray<LeadershipMember>(leadershipRes);
 
       const approvals = [
         ...testimonials.map(mapTestimonialToApproval),
         ...workforce.map(mapWorkforceToApproval),
+        ...leadership.map(mapLeadershipToApproval),
       ].sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
 
       setItems(approvals);
@@ -133,6 +169,8 @@ export function useSuperQueues() {
         if (item.source === 'api') {
           if (item.type === 'testimonial') {
             await apiClient.approveTestimonial(item.id);
+          } else if (item.type === 'leadership') {
+            await apiClient.approveLeadership(item.id);
           } else {
             await apiClient.updateWorkforce(item.id, { status: 'serving' });
           }
@@ -149,11 +187,35 @@ export function useSuperQueues() {
     []
   );
 
+  const declineItem = useCallback(
+    async (item: ApprovalItem) => {
+      try {
+        if (item.source === 'api') {
+          if (item.type === 'testimonial') {
+            await apiClient.deleteTestimonial(item.id);
+          } else if (item.type === 'leadership') {
+            await apiClient.declineLeadership(item.id);
+          } else {
+            await apiClient.updateWorkforce(item.id, { status: 'not_serving' });
+          }
+        }
+        setItems((prev) => prev.filter((approval) => approval.id !== item.id));
+        toast.success(`${item.name} declined`);
+      } catch (error) {
+        console.error('Decline failed:', error);
+        const message = error instanceof Error ? error.message : 'Unable to decline item';
+        toast.error(message);
+      }
+    },
+    []
+  );
+
   const stats = useMemo(
     () => ({
       total: items.length,
       testimonials: items.filter((item) => item.type === 'testimonial').length,
       workforce: items.filter((item) => item.type === 'workforce').length,
+      leadership: items.filter((item) => item.type === 'leadership').length,
     }),
     [items]
   );
@@ -163,6 +225,7 @@ export function useSuperQueues() {
     loading,
     refresh: loadQueues,
     approveItem,
+    declineItem,
     stats,
   };
 }

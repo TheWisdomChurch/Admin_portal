@@ -14,9 +14,9 @@ import { useAuthContext } from '@/providers/AuthProviders';
 
 function SuperDashboard() {
   const auth = useAuthContext();
-  const { items, loading, refresh, approveItem, stats } = useSuperQueues();
+  const { items, loading, refresh, approveItem, declineItem, stats } = useSuperQueues();
   const { searchTerm, setSearchTerm } = useDashboardSearch('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'testimonial' | 'workforce'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'testimonial' | 'workforce' | 'leadership'>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'name'>('recent');
   const [approvingId, setApprovingId] = useState<string | null>(null);
 
@@ -44,6 +44,12 @@ function SuperDashboard() {
   const handleApprove = async (item: ApprovalItem) => {
     setApprovingId(item.id);
     await approveItem(item);
+    setApprovingId(null);
+  };
+
+  const handleDecline = async (item: ApprovalItem) => {
+    setApprovingId(item.id);
+    await declineItem(item);
     setApprovingId(null);
   };
 
@@ -167,6 +173,13 @@ function SuperDashboard() {
             >
               Workforce
             </Button>
+            <Button
+              size="sm"
+              variant={typeFilter === 'leadership' ? 'primary' : 'ghost'}
+              onClick={() => setTypeFilter('leadership')}
+            >
+              Leadership
+            </Button>
           </div>
 
           <div className="relative w-full md:w-80">
@@ -236,6 +249,14 @@ function SuperDashboard() {
                         {item.email}
                       </Badge>
                     )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDecline(item)}
+                      loading={approvingId === item.id}
+                    >
+                      Decline
+                    </Button>
                     <Button
                       size="sm"
                       onClick={() => handleApprove(item)}
