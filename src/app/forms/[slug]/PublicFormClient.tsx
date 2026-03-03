@@ -7,7 +7,7 @@ import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { Calendar, Check, MousePointer2, Send } from 'lucide-react';
 import { apiClient } from '@/lib/api';
-import type { PublicFormPayload, FormField } from '@/lib/types';
+import type { PublicFormPayload, FormField, FormFieldVisibilityCondition } from '@/lib/types';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { SuccessModal } from '@/ui/SuccessModal';
@@ -65,6 +65,36 @@ const isPhoneLikeField = (field: FormField) => {
   const hay = `${field.key} ${field.label}`.toLowerCase();
   return /(phone|mobile|tel|telephone|contact[-_\s]?number)/.test(hay);
 };
+const normalizeComparable = (value: unknown): string | number | boolean | null => {
+  if (typeof value === 'string') return value.trim().toLowerCase();
+  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  return null;
+};
+const normalizeFieldValueList = (value: FieldValue): Array<string | number | boolean> => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => normalizeComparable(item))
+      .filter((item): item is string | number | boolean => item !== null);
+  }
+  const normalized = normalizeComparable(value);
+  return normalized === null ? [] : [normalized];
+};
+const valuesEqual = (left: unknown, right: unknown) => {
+  const normalizedLeft = normalizeComparable(left);
+  const normalizedRight = normalizeComparable(right);
+  return normalizedLeft !== null && normalizedRight !== null && normalizedLeft === normalizedRight;
+};
+const isAffirmativeValue = (value: FieldValue) => {
+  const normalizedValues = normalizeFieldValueList(value);
+  return normalizedValues.some((item) => item === true || item === 1 || item === 'yes' || item === 'true' || item === '1');
+};
+const hasYesNoOptions = (field: FormField) => {
+  const options = Array.isArray(field.options) ? field.options : [];
+  if (options.length < 2) return false;
+  const tokens = options.flatMap((option) => [option.label, option.value]).map((item) => item.trim().toLowerCase());
+  return tokens.includes('yes') && tokens.includes('no');
+};
+const startsWithIfYes = (field: FormField) => /^if\s+yes\b/i.test(field.label.trim());
 
 const pad2 = (value: number) => value.toString().padStart(2, '0');
 const formatDate = (value?: string, format?: string) => {
@@ -109,6 +139,35 @@ function buildInitialValues(formFields: FormField[]): ValuesState {
     init[f.key] = '';
   });
   return init;
+}
+
+function evaluateVisibilityRule(rule: FormFieldVisibilityCondition, values: ValuesState): boolean {
+  const actualValues = normalizeFieldValueList(values[rule.fieldKey]);
+  if (actualValues.length === 0) return false;
+
+  if (rule.operator === 'equals') {
+    return actualValues.some((actual) => valuesEqual(actual, rule.value));
+  }
+
+  if (rule.operator === 'not_equals') {
+    return actualValues.every((actual) => !valuesEqual(actual, rule.value));
+  }
+
+  const expectedValues = (rule.values ?? [])
+    .map((value) => normalizeComparable(value))
+    .filter((value): value is string | number | boolean => value !== null);
+
+  if (expectedValues.length === 0) return false;
+
+  if (rule.operator === 'in') {
+    return actualValues.some((actual) => expectedValues.some((expected) => valuesEqual(actual, expected)));
+  }
+
+  if (rule.operator === 'not_in') {
+    return actualValues.every((actual) => expectedValues.every((expected) => !valuesEqual(actual, expected)));
+  }
+
+  return true;
 }
 
 const COUNTRY_PHONE_CODES = [
@@ -457,8 +516,40 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const fields = useMemo<FormField[]>(() => {
     return payload?.form?.fields ?? [];
   }, [payload]);
+  const sortedFields = useMemo<FormField[]>(() => {
+    return fields.slice().sort((a, b) => a.order - b.order);
+  }, [fields]);
 
   const settings = payload?.form?.settings;
+
+  const isFieldVisible = useCallback(
+    (field: FormField) => {
+      const visibilityRules = field.visibility?.rules ?? [];
+      if (visibilityRules.length > 0) {
+        const results = visibilityRules.map((rule) => evaluateVisibilityRule(rule, values));
+        return field.visibility?.match === 'any' ? results.some(Boolean) : results.every(Boolean);
+      }
+
+      if (!startsWithIfYes(field)) return true;
+
+      const currentIndex = sortedFields.findIndex((candidate) => candidate.key === field.key);
+      if (currentIndex <= 0) return true;
+
+      for (let index = currentIndex - 1; index >= 0; index -= 1) {
+        const candidate = sortedFields[index];
+        if (hasYesNoOptions(candidate)) {
+          return isAffirmativeValue(values[candidate.key]);
+        }
+      }
+
+      return true;
+    },
+    [sortedFields, values]
+  );
+
+  const visibleFields = useMemo<FormField[]>(() => {
+    return sortedFields.filter((field) => isFieldVisible(field));
+  }, [isFieldVisible, sortedFields]);
 
   const updateValue = (key: string, next: FieldValue) => {
     setValues((prev) => ({ ...prev, [key]: next }));
@@ -468,13 +559,13 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   // ✅ Now this is stable because `fields` is stable via useMemo
   const resetFormState = useCallback(
     (formFields?: FormField[]) => {
-      const nextFields = formFields ?? fields;
+      const nextFields = formFields ?? sortedFields;
       setValues(buildInitialValues(nextFields));
       setFieldErrors({});
       setTouchedFields({});
       setFormError('');
     },
-    [fields]
+    [sortedFields]
   );
 
   useEffect(() => {
@@ -592,10 +683,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     if (payload?.event?.time) eventDetails.push({ label: 'Event Time', value: payload.event.time });
     if (payload?.event?.location) eventDetails.push({ label: 'Location', value: payload.event.location });
 
-    fields
-      .slice()
-      .sort((a, b) => a.order - b.order)
-      .forEach((field) => {
+    visibleFields.forEach((field) => {
         let value = valueToString(sourceValues[field.key]);
         if (!value) return;
 
@@ -802,7 +890,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     const nextErrors: Record<string, string> = {};
     let anyFilled = false;
 
-    fields.forEach((f) => {
+    visibleFields.forEach((f) => {
       const v = values[f.key];
       const fieldType = normalizeFieldType(f.type);
       const hasOptions = Array.isArray(f.options) && f.options.length > 0;
@@ -828,7 +916,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
 
     setTouchedFields((prev) => {
       const next = { ...prev };
-      fields.forEach((f) => {
+      visibleFields.forEach((f) => {
         next[f.key] = true;
       });
       return next;
@@ -866,7 +954,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
       const formData = new FormData();
       let hasFiles = false;
 
-      fields.forEach((f) => {
+      visibleFields.forEach((f) => {
         const fieldType = normalizeFieldType(f.type);
         const v = values[f.key];
 
@@ -1069,10 +1157,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
               ) : null}
 
               <div className="mt-6 space-y-4">
-                {fields
-                  .slice()
-                  .sort((a, b) => a.order - b.order)
-                  .map((field) => {
+                {visibleFields.map((field) => {
                     const fieldType = normalizeFieldType(field.type);
                     const checkboxWithOptions =
                       isCheckboxType(fieldType) && Array.isArray(field.options) && field.options.length > 0;

@@ -376,6 +376,20 @@ export interface FormFieldOption {
   value: string;
 }
 
+export type FormFieldVisibilityOperator = 'equals' | 'not_equals' | 'in' | 'not_in';
+
+export interface FormFieldVisibilityCondition {
+  fieldKey: string;
+  operator: FormFieldVisibilityOperator;
+  value?: string | boolean | number;
+  values?: Array<string | boolean | number>;
+}
+
+export interface FormFieldVisibility {
+  match?: 'all' | 'any';
+  rules: FormFieldVisibilityCondition[];
+}
+
 export interface FormField {
   id: string;
   formId?: string;
@@ -384,6 +398,7 @@ export interface FormField {
   type: FormFieldType;
   required: boolean;
   options?: FormFieldOption[];
+  visibility?: FormFieldVisibility;
   order: number;
   createdAt?: string;
   updatedAt?: string;
