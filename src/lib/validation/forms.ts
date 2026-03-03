@@ -22,6 +22,18 @@ const optionSchema = z.object({
   value: z.string().trim().min(1, 'Option value is required'),
 });
 
+const visibilityRuleSchema = z.object({
+  fieldKey: z.string().trim().min(1, 'Visibility field is required'),
+  operator: z.enum(['equals', 'not_equals', 'in', 'not_in']),
+  value: z.union([z.string(), z.boolean(), z.number()]).optional(),
+  values: z.array(z.union([z.string(), z.boolean(), z.number()])).optional(),
+});
+
+const visibilitySchema = z.object({
+  match: z.enum(['all', 'any']).optional(),
+  rules: z.array(visibilityRuleSchema).min(1, 'Add at least one visibility rule'),
+});
+
 export const fieldDraftSchema = z.object({
   key: z.string().trim().min(1, 'Field key is required'),
   label: z.string().trim().min(1, 'Field label is required'),
@@ -29,6 +41,7 @@ export const fieldDraftSchema = z.object({
   required: z.boolean(),
   order: z.number().int().positive(),
   options: z.array(optionSchema).optional(),
+  visibility: visibilitySchema.optional(),
 });
 
 export const createFormSchema = z
@@ -66,6 +79,40 @@ export const createFormSchema = z
           });
         }
       }
+
+      const rules = field.visibility?.rules ?? [];
+      rules.forEach((rule, ruleIndex) => {
+        const refKey = normalizeFieldKey(rule.fieldKey);
+        const selfKey = normalizeFieldKey(field.key);
+        if (!keys.includes(refKey)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['fields', index, 'visibility', 'rules', ruleIndex, 'fieldKey'],
+            message: 'Select a valid controlling field',
+          });
+        }
+        if (refKey === selfKey) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['fields', index, 'visibility', 'rules', ruleIndex, 'fieldKey'],
+            message: 'A field cannot depend on itself',
+          });
+        }
+        if ((rule.operator === 'equals' || rule.operator === 'not_equals') && rule.value === undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['fields', index, 'visibility', 'rules', ruleIndex, 'value'],
+            message: 'Set a comparison value',
+          });
+        }
+        if ((rule.operator === 'in' || rule.operator === 'not_in') && (!rule.values || rule.values.length === 0)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['fields', index, 'visibility', 'rules', ruleIndex, 'values'],
+            message: 'Provide at least one comparison value',
+          });
+        }
+      });
     });
   });
 
