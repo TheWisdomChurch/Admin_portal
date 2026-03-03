@@ -12,10 +12,10 @@ import { useSuperQueues, ApprovalItem } from '@/hooks/useSuperQueues';
 import { CheckCircle, Clock, Filter, RefreshCcw, Search, ShieldCheck, Users, XCircle } from 'lucide-react';
 
 function ApprovalsPage() {
-  const { items, loading, refresh, approveItem } = useSuperQueues();
+  const { items, loading, refresh, approveItem, declineItem } = useSuperQueues();
   const { searchTerm, setSearchTerm } = useDashboardSearch('');
 
-  const [typeFilter, setTypeFilter] = useState<'all' | 'testimonial' | 'workforce'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'testimonial' | 'workforce' | 'leadership'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'new' | 'flagged'>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'name'>('recent');
   const [approvingId, setApprovingId] = useState<string | null>(null);
@@ -43,6 +43,12 @@ function ApprovalsPage() {
   const handleApprove = async (item: ApprovalItem) => {
     setApprovingId(item.id);
     await approveItem(item);
+    setApprovingId(null);
+  };
+
+  const handleDecline = async (item: ApprovalItem) => {
+    setApprovingId(item.id);
+    await declineItem(item);
     setApprovingId(null);
   };
 
@@ -90,6 +96,14 @@ function ApprovalsPage() {
               onClick={() => setTypeFilter('workforce')}
             >
               Workforce
+            </Button>
+            <Button
+              size="sm"
+              variant={typeFilter === 'leadership' ? 'primary' : 'ghost'}
+              icon={<ShieldCheck className="h-4 w-4" />}
+              onClick={() => setTypeFilter('leadership')}
+            >
+              Leadership
             </Button>
             <Button
               size="sm"
@@ -178,7 +192,11 @@ function ApprovalsPage() {
                     <td className="py-3 pr-4 font-semibold text-[var(--color-text-primary)]">{item.name}</td>
                     <td className="py-3 pr-4">
                       <Badge variant="outline" size="sm">
-                        {item.type === 'testimonial' ? 'Testimonial' : 'Workforce'}
+                        {item.type === 'testimonial'
+                          ? 'Testimonial'
+                          : item.type === 'workforce'
+                            ? 'Workforce'
+                            : 'Leadership'}
                       </Badge>
                     </td>
                     <td className="py-3 pr-4 text-[var(--color-text-secondary)] max-w-lg">
@@ -206,6 +224,14 @@ function ApprovalsPage() {
                           onClick={() => setSearchTerm(item.department || item.name)}
                         >
                           Filter similar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDecline(item)}
+                          loading={approvingId === item.id}
+                        >
+                          Decline
                         </Button>
                         <Button
                           size="sm"

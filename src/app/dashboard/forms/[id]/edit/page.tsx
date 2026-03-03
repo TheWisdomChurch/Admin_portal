@@ -9,18 +9,196 @@ import { Input } from '@/ui/input';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
 import { buildPublicFormUrl } from '@/lib/utils';
-import type { AdminForm, EventData, FormField, FormFieldType, FormSettings, UpdateFormRequest } from '@/lib/types';
+import type {
+  AdminForm,
+  EventData,
+  FormField,
+  FormFieldCondition,
+  FormFieldType,
+  FormFieldVisibility,
+  FormSettings,
+  UpdateFormRequest,
+} from '@/lib/types';
 import { withAuth } from '@/providers/withAuth';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Copy, Save, Globe } from 'lucide-react';
+import { Plus, Trash2, Copy, Save, Globe, Mail } from 'lucide-react';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 import { AlertModal } from '@/ui/AlertModal';
 
 type FieldDraft = Omit<FormField, 'id'>;
+type VisibilityRuleDraft = FormFieldCondition;
 
 const MAX_BANNER_MB = 5;
 const MAX_BANNER_BYTES = MAX_BANNER_MB * 1024 * 1024;
 const ACCEPTED_BANNER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const visibilityOperatorOptions: Array<{ value: VisibilityRuleDraft['operator']; label: string }> = [
+  { value: 'equals', label: 'Equals' },
+  { value: 'not_equals', label: 'Does not equal' },
+  { value: 'in', label: 'Matches any' },
+  { value: 'not_in', label: 'Matches none' },
+];
+const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; label: string }> = [
+  { value: 'registration', label: 'Registration' },
+  { value: 'event', label: 'Event' },
+  { value: 'membership', label: 'Membership' },
+  { value: 'workforce', label: 'Workforce' },
+  { value: 'leadership', label: 'Leadership' },
+  { value: 'application', label: 'Application' },
+  { value: 'contact', label: 'Contact' },
+  { value: 'general', label: 'General' },
+];
+
+function createEmptyVisibilityRule(): VisibilityRuleDraft {
+  return {
+    fieldKey: '',
+    operator: 'equals',
+    value: '',
+  };
+}
+
+function usesVisibilityList(operator: VisibilityRuleDraft['operator']): boolean {
+  return operator === 'in' || operator === 'not_in';
+}
+
+function sanitizeVisibilityValue(value: unknown): string | number | boolean | undefined {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : undefined;
+  }
+  if (typeof value === 'number' && !Number.isNaN(value)) {
+    return value;
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  return undefined;
+}
+
+function sanitizeFieldVisibility(visibility?: FormFieldVisibility): FormFieldVisibility | undefined {
+  if (!visibility || !Array.isArray(visibility.rules) || visibility.rules.length === 0) {
+    return undefined;
+  }
+
+  const rules = visibility.rules.reduce<VisibilityRuleDraft[]>((acc, rule) => {
+    const fieldKey = typeof rule.fieldKey === 'string' ? rule.fieldKey.trim() : '';
+    if (!fieldKey) return acc;
+
+    const operator: VisibilityRuleDraft['operator'] = visibilityOperatorOptions.some((item) => item.value === rule.operator)
+      ? rule.operator
+      : 'equals';
+
+    if (usesVisibilityList(operator)) {
+      const values = Array.isArray(rule.values)
+        ? rule.values
+            .map((value) => sanitizeVisibilityValue(value))
+            .filter((value): value is string | number | boolean => typeof value !== 'undefined')
+        : [];
+      if (values.length === 0) return acc;
+      acc.push({ fieldKey, operator, values });
+      return acc;
+    }
+
+    const value = sanitizeVisibilityValue(rule.value);
+    if (typeof value === 'undefined') return acc;
+    acc.push({ fieldKey, operator, value });
+    return acc;
+  }, []);
+
+  if (rules.length === 0) {
+    return undefined;
+  }
+
+  return {
+    match: visibility.match === 'any' ? 'any' : 'all',
+    rules,
+  };
+}
+
+function normalizeVisibilityToken(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+function isAffirmativeOption(value: string): boolean {
+  const token = normalizeVisibilityToken(value);
+  return token === 'yes' || token === 'true' || token === '1';
+}
+
+function isNegativeOption(value: string): boolean {
+  const token = normalizeVisibilityToken(value);
+  return token === 'no' || token === 'false' || token === '0';
+}
+
+function looksLikeIfYesLabel(label: string): boolean {
+  return /^\s*if\s+yes\b/i.test(label);
+}
+
+function findYesOptionValue(field: Pick<FormField, 'type' | 'options'>): string | undefined {
+  const options = Array.isArray(field.options) ? field.options : [];
+  if ((field.type !== 'radio' && field.type !== 'select') || options.length === 0) {
+    return undefined;
+  }
+
+  let yesValue: string | undefined;
+  let hasNoOption = false;
+
+  options.forEach((option) => {
+    const label = option.label || '';
+    const value = option.value || '';
+    if (!yesValue && (isAffirmativeOption(label) || isAffirmativeOption(value))) {
+      yesValue = value || label;
+    }
+    if (isNegativeOption(label) || isNegativeOption(value)) {
+      hasNoOption = true;
+    }
+  });
+
+  return yesValue && hasNoOption ? yesValue : undefined;
+}
+
+function buildImplicitYesVisibility(fields: FieldDraft[], currentIndex: number): FormFieldVisibility | undefined {
+  const currentField = fields[currentIndex];
+  if (!currentField || !looksLikeIfYesLabel(currentField.label || '')) {
+    return undefined;
+  }
+
+  for (let index = currentIndex - 1; index >= 0; index -= 1) {
+    const candidate = fields[index];
+    const fieldKey = candidate?.key?.trim();
+    const yesValue = candidate ? findYesOptionValue(candidate) : undefined;
+    if (!fieldKey || !yesValue) continue;
+
+    return {
+      match: 'all',
+      rules: [
+        {
+          fieldKey,
+          operator: 'equals',
+          value: yesValue,
+        },
+      ],
+    };
+  }
+
+  return undefined;
+}
+
+function applyImplicitYesVisibilityDefaults(fields: FieldDraft[]): FieldDraft[] {
+  return fields.map((field, index) => {
+    if (sanitizeFieldVisibility(field.visibility)) {
+      return field;
+    }
+
+    const suggestedVisibility = buildImplicitYesVisibility(fields, index);
+    if (!suggestedVisibility) {
+      return field;
+    }
+
+    return {
+      ...field,
+      visibility: suggestedVisibility,
+    };
+  });
+}
 
 function EditFormPage() {
   const params = useParams();
@@ -35,13 +213,13 @@ function EditFormPage() {
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<EventData[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [bannerUploading, setBannerUploading] = useState(false);
   const [removeFieldIndex, setRemoveFieldIndex] = useState<number | null>(null);
-  const [events, setEvents] = useState<EventData[]>([]);
-  const [eventsLoading, setEventsLoading] = useState(false);
 
   const clearFieldError = (key: string) =>
     setFieldErrors((prev) => {
@@ -84,43 +262,13 @@ function EditFormPage() {
     setBannerPreview(URL.createObjectURL(file));
   };
 
-  const updateSettings = (updates: Partial<FormSettings>) => {
-    setForm((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        settings: {
-          ...prev.settings,
-          ...updates,
-        },
-      };
-    });
-  };
-
-  const toLocalInput = (value?: string): string => {
-    if (!value) return '';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '';
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
-      date.getMinutes()
-    )}`;
-  };
-
-  const fromLocalInput = (value: string): string | undefined => {
-    if (!value) return undefined;
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return undefined;
-    return date.toISOString();
-  };
-
   useEffect(() => {
     if (!formId) return;
     (async () => {
       try {
         const res = await apiClient.getAdminForm(formId);
         setForm(res);
-        setFields(res.fields || []);
+        setFields(applyImplicitYesVisibilityDefaults(res.fields || []));
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load form';
         toast.error(message);
@@ -147,6 +295,149 @@ function EditFormPage() {
 
   const updateField = (index: number, updates: Partial<FieldDraft>) => {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, ...updates } : f)));
+  };
+
+  const setFieldVisibilityEnabled = (index: number, enabled: boolean) => {
+    setFields((prev) =>
+      prev.map((field, fieldIndex) => {
+        if (fieldIndex !== index) return field;
+        if (!enabled) {
+          return { ...field, visibility: undefined };
+        }
+
+        const nextVisibility = (
+          sanitizeFieldVisibility(field.visibility) ??
+          buildImplicitYesVisibility(prev, index) ??
+          {
+            match: 'all' as const,
+            rules: [createEmptyVisibilityRule()],
+          }
+        );
+        return { ...field, visibility: nextVisibility };
+      })
+    );
+  };
+
+  const updateFieldVisibility = (index: number, updates: Partial<FormFieldVisibility>) => {
+    setFields((prev) =>
+      prev.map((field, fieldIndex) => {
+        if (fieldIndex !== index) return field;
+        const currentVisibility = field.visibility ?? { match: 'all' as const, rules: [createEmptyVisibilityRule()] };
+        return {
+          ...field,
+          visibility: {
+            ...currentVisibility,
+            ...updates,
+          },
+        };
+      })
+    );
+  };
+
+  const updateFieldVisibilityRule = (
+    fieldIndex: number,
+    ruleIndex: number,
+    updates: Partial<VisibilityRuleDraft>
+  ) => {
+    setFields((prev) =>
+      prev.map((field, currentFieldIndex) => {
+        if (currentFieldIndex !== fieldIndex) return field;
+        const currentVisibility = field.visibility ?? { match: 'all' as const, rules: [createEmptyVisibilityRule()] };
+        const rules = Array.isArray(currentVisibility.rules) ? [...currentVisibility.rules] : [];
+        if (!rules[ruleIndex]) return field;
+
+        rules[ruleIndex] = {
+          ...rules[ruleIndex],
+          ...updates,
+        };
+
+        return {
+          ...field,
+          visibility: {
+            ...currentVisibility,
+            rules,
+          },
+        };
+      })
+    );
+  };
+
+  const addFieldVisibilityRule = (fieldIndex: number) => {
+    setFields((prev) =>
+      prev.map((field, currentFieldIndex) => {
+        if (currentFieldIndex !== fieldIndex) return field;
+        const currentVisibility = field.visibility ?? { match: 'all' as const, rules: [] };
+        return {
+          ...field,
+          visibility: {
+            match: currentVisibility.match === 'any' ? 'any' : 'all',
+            rules: [...(currentVisibility.rules ?? []), createEmptyVisibilityRule()],
+          },
+        };
+      })
+    );
+  };
+
+  const removeFieldVisibilityRule = (fieldIndex: number, ruleIndex: number) => {
+    setFields((prev) =>
+      prev.map((field, currentFieldIndex) => {
+        if (currentFieldIndex !== fieldIndex) return field;
+        const currentVisibility = field.visibility;
+        if (!currentVisibility?.rules?.length) return field;
+
+        const rules = currentVisibility.rules.filter((_, index) => index !== ruleIndex);
+        if (rules.length === 0) {
+          return {
+            ...field,
+            visibility: undefined,
+          };
+        }
+
+        return {
+          ...field,
+          visibility: {
+            match: currentVisibility.match === 'any' ? 'any' : 'all',
+            rules,
+          },
+        };
+      })
+    );
+  };
+
+  const getVisibilityTargetFields = (currentIndex: number) =>
+    fields.filter((field, index) => index !== currentIndex && Boolean(field.key?.trim()));
+
+  const getVisibilityTargetOptions = (fieldKey: string) => {
+    const target = fields.find((field) => field.key === fieldKey);
+    return Array.isArray(target?.options) ? target.options : [];
+  };
+
+  const toLocalInput = (value?: string) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const tzOffset = date.getTimezoneOffset() * 60_000;
+    return new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+  };
+
+  const fromLocalInput = (value: string) => {
+    if (!value) return undefined;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return undefined;
+    return date.toISOString();
+  };
+
+  const updateSettings = (updates: Partial<FormSettings>) => {
+    setForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          ...updates,
+        },
+      };
+    });
   };
 
   const addField = () => {
@@ -198,6 +489,7 @@ function EditFormPage() {
         ...f,
         key: (f.key || `field_${idx + 1}`).trim(),
         label: f.label.trim(),
+        visibility: sanitizeFieldVisibility(f.visibility),
         order: idx + 1,
       })),
       settings: form.settings,
@@ -246,9 +538,9 @@ function EditFormPage() {
       toast.error('Publish the form to get a link');
       return;
     }
-    const url = buildPublicFormUrl(slug, form?.publicUrl) ?? (slug ? `/forms/${encodeURIComponent(slug)}` : '');
+    const url = buildPublicFormUrl(slug, form?.publicUrl) ?? (slug ? `/form/${encodeURIComponent(slug)}` : null);
     if (!url) {
-      toast.error('Form link unavailable');
+      toast.error('Publish the form to get a link');
       return;
     }
     await navigator.clipboard.writeText(url);
@@ -266,7 +558,12 @@ function EditFormPage() {
   if (!form) return null;
 
   const responseEmailEnabled = form.settings?.responseEmailEnabled ?? true;
+  const formType = form.settings?.formType ?? '';
   const submissionTarget = form.settings?.submissionTarget ?? '';
+  const isWorkforceTarget =
+    submissionTarget === 'workforce' ||
+    submissionTarget === 'workforce_new' ||
+    submissionTarget === 'workforce_serving';
 
   return (
     <div className="space-y-6">
@@ -276,6 +573,13 @@ function EditFormPage() {
           subtitle="Adjust fields, then save and publish."
         />
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => router.push(`/dashboard/forms/${form.id}/response-email`)}
+            icon={<Mail className="h-4 w-4" />}
+          >
+            Response Email
+          </Button>
           <Button variant="outline" onClick={copyLink} icon={<Copy className="h-4 w-4" />}>
             Copy Link
           </Button>
@@ -408,6 +712,27 @@ function EditFormPage() {
 
       <Card title="Registration Settings">
         <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Form Type</label>
+            <select
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+              value={formType}
+              onChange={(e) =>
+                updateSettings({
+                  formType: e.target.value ? (e.target.value as FormSettings['formType']) : undefined,
+                })
+              }
+            >
+              <option value="">Select a type</option>
+              {formTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {fieldErrors.formType && <p className="text-sm text-red-500">{fieldErrors.formType}</p>}
+          </div>
+
           <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Linked Event</label>
             <select
@@ -465,7 +790,9 @@ function EditFormPage() {
               onChange={(e) => updateSettings({ submissionTarget: e.target.value ? (e.target.value as FormSettings['submissionTarget']) : undefined })}
             >
               <option value="">Do not route</option>
-              <option value="workforce">Workforce</option>
+              <option value="workforce_new">Workforce (new workers)</option>
+              <option value="workforce_serving">Workforce (already serving)</option>
+              <option value="workforce">Workforce (legacy)</option>
               <option value="member">Member</option>
             </select>
             {fieldErrors.submissionTarget && (
@@ -477,7 +804,7 @@ function EditFormPage() {
             value={form.settings?.submissionDepartment ?? ''}
             onChange={(e) => updateSettings({ submissionDepartment: e.target.value })}
             placeholder="e.g., Hospitality"
-            disabled={submissionTarget !== 'workforce'}
+            disabled={!isWorkforceTarget}
             error={fieldErrors.submissionDepartment}
           />
         </div>
@@ -515,10 +842,16 @@ function EditFormPage() {
               disabled={!responseEmailEnabled}
               error={fieldErrors.responseEmailTemplateId}
             />
+            <Input
+              label="Template image URL (optional)"
+              value={form.settings?.responseEmailTemplateUrl ?? ''}
+              onChange={(e) => updateSettings({ responseEmailTemplateUrl: e.target.value })}
+              disabled={!responseEmailEnabled}
+              error={fieldErrors.responseEmailTemplateUrl}
+            />
           </div>
           <p className="text-xs text-[var(--color-text-tertiary)]">
-            Template key or ID must match a template saved in the Email Templates registry. Leave blank to use the
-            default confirmation email.
+            Use template key/ID from Email Templates registry, or provide a direct template image URL.
           </p>
         </div>
       </Card>
@@ -530,6 +863,13 @@ function EditFormPage() {
               key={index}
               className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4"
             >
+              {(() => {
+                const visibilityRules = Array.isArray(field.visibility?.rules) ? field.visibility.rules : [];
+                const visibilityEnabled = visibilityRules.length > 0;
+                const targetFields = getVisibilityTargetFields(index);
+
+                return (
+                  <>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <Input
                   label="Label"
@@ -586,6 +926,177 @@ function EditFormPage() {
                   />
                 </div>
               )}
+              <div className="mt-3 rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-3">
+                <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={visibilityEnabled}
+                    onChange={(e) => setFieldVisibilityEnabled(index, e.target.checked)}
+                  />
+                  Show this field conditionally
+                </label>
+
+                {visibilityEnabled ? (
+                  <div className="mt-3 space-y-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <label className="block text-xs font-medium text-[var(--color-text-tertiary)]">
+                          Rule matching
+                        </label>
+                        <select
+                          className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                          value={field.visibility?.match === 'any' ? 'any' : 'all'}
+                          onChange={(e) =>
+                            updateFieldVisibility(index, {
+                              match: e.target.value === 'any' ? 'any' : 'all',
+                            })
+                          }
+                        >
+                          <option value="all">All conditions must pass</option>
+                          <option value="any">Any condition can pass</option>
+                        </select>
+                      </div>
+                      <div className="flex items-end">
+                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                          Example: show &quot;Preferred unit&quot; only when the volunteer field matches the
+                          &quot;Yes&quot; option.
+                        </p>
+                      </div>
+                    </div>
+
+                    {visibilityRules.map((rule, ruleIndex) => {
+                      const targetOptions = getVisibilityTargetOptions(rule.fieldKey);
+                      const useListInput = usesVisibilityList(rule.operator);
+                      const scalarValue =
+                        typeof rule.value === 'string'
+                          ? rule.value
+                          : typeof rule.value === 'number' || typeof rule.value === 'boolean'
+                          ? String(rule.value)
+                          : '';
+                      const listValue = Array.isArray(rule.values) ? rule.values.map((value) => String(value)).join(', ') : '';
+                      const canUseOptionSelect = !useListInput && targetOptions.length > 0;
+
+                      return (
+                        <div
+                          key={`${field.key || index}-visibility-${ruleIndex}`}
+                          className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-3"
+                        >
+                          <div className="grid gap-3 lg:grid-cols-3">
+                            <div className="space-y-1">
+                              <label className="block text-xs font-medium text-[var(--color-text-tertiary)]">
+                                When field
+                              </label>
+                              <select
+                                className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                                value={rule.fieldKey}
+                                onChange={(e) =>
+                                  updateFieldVisibilityRule(index, ruleIndex, {
+                                    fieldKey: e.target.value,
+                                  })
+                                }
+                              >
+                                <option value="">Select a field</option>
+                                {targetFields.map((targetField) => (
+                                  <option key={targetField.key} value={targetField.key}>
+                                    {targetField.label || targetField.key}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="block text-xs font-medium text-[var(--color-text-tertiary)]">
+                                Condition
+                              </label>
+                              <select
+                                className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                                value={rule.operator}
+                                onChange={(e) => {
+                                  const nextOperator = e.target.value as VisibilityRuleDraft['operator'];
+                                  updateFieldVisibilityRule(index, ruleIndex, {
+                                    operator: nextOperator,
+                                    value: usesVisibilityList(nextOperator) ? undefined : '',
+                                    values: usesVisibilityList(nextOperator) ? [] : undefined,
+                                  });
+                                }}
+                              >
+                                {visibilityOperatorOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="block text-xs font-medium text-[var(--color-text-tertiary)]">
+                                Value
+                              </label>
+                              {canUseOptionSelect ? (
+                                <select
+                                  className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                                  value={scalarValue}
+                                  onChange={(e) =>
+                                    updateFieldVisibilityRule(index, ruleIndex, {
+                                      value: e.target.value,
+                                    })
+                                  }
+                                >
+                                  <option value="">Select a value</option>
+                                  {targetOptions.map((option) => (
+                                    <option key={`${option.value}-${option.label}`} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                                  value={useListInput ? listValue : scalarValue}
+                                  onChange={(e) =>
+                                    updateFieldVisibilityRule(index, ruleIndex, useListInput
+                                      ? {
+                                          values: e.target.value
+                                            .split(',')
+                                            .map((value) => value.trim())
+                                            .filter(Boolean),
+                                        }
+                                      : {
+                                          value: e.target.value,
+                                        })
+                                  }
+                                  placeholder={useListInput ? 'yes, maybe' : 'yes'}
+                                />
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="mt-3 flex justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => removeFieldVisibilityRule(index, ruleIndex)}
+                            >
+                              Remove Condition
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => addFieldVisibilityRule(index)}
+                    >
+                      Add Condition
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+                  </>
+                );
+              })()}
             </div>
           ))}
 
@@ -598,7 +1109,7 @@ function EditFormPage() {
       <Card title="Preview Link">
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-[var(--color-text-secondary)]">
-            {form.publicUrl || (form.slug ? `/forms/${form.slug}` : 'Publish to generate link')}
+            {form.publicUrl || (form.slug ? `/form/${form.slug}` : 'Publish to generate link')}
           </p>
           <Button variant="outline" size="sm" onClick={copyLink} icon={<Copy className="h-4 w-4" />}>
             Copy

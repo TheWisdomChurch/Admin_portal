@@ -212,17 +212,86 @@ export interface CreateReelData {
 ========================= */
 
 export interface UploadPresignRequest {
-  filename: string;
+  filename?: string;
   contentType: string;
-  size: number;
+  size?: number;
+  sizeBytes?: number;
+  checksum?: string;
+  ownerType?: string;
+  ownerId?: string;
+  kind?: string;
   folder?: string;
 }
 
 export interface UploadPresignResponse {
+  assetId?: string;
   uploadUrl: string;
   publicUrl: string;
+  objectKey?: string;
   key?: string;
   expiresAt?: string;
+}
+
+export interface UploadAssetData {
+  id: string;
+  publicUrl: string;
+  objectKey: string;
+  status: string;
+  ownerType?: string | null;
+  ownerId?: string | null;
+  kind?: string | null;
+  contentType?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UploadImageResponse {
+  folder: string;
+  key: string;
+  url: string;
+}
+
+/* =========================
+   EMAIL TEMPLATES
+========================= */
+
+export type EmailTemplateStatus = 'draft' | 'active' | 'archived';
+
+export interface EmailTemplate {
+  id: string;
+  templateKey: string;
+  ownerType?: string;
+  ownerId?: string;
+  subject?: string;
+  htmlBody: string;
+  textBody?: string;
+  status: EmailTemplateStatus;
+  version: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateEmailTemplateRequest {
+  templateKey: string;
+  ownerType?: string;
+  ownerId?: string;
+  subject?: string;
+  htmlBody: string;
+  textBody?: string;
+  status?: EmailTemplateStatus;
+  activate?: boolean;
+}
+
+export interface UpdateEmailTemplateRequest {
+  templateKey?: string;
+  ownerType?: string;
+  ownerId?: string;
+  subject?: string;
+  htmlBody?: string;
+  textBody?: string;
+  status?: EmailTemplateStatus;
+  activate?: boolean;
 }
 
 /* =========================
@@ -376,18 +445,16 @@ export interface FormFieldOption {
   value: string;
 }
 
-export type FormFieldVisibilityOperator = 'equals' | 'not_equals' | 'in' | 'not_in';
-
-export interface FormFieldVisibilityCondition {
+export interface FormFieldCondition {
   fieldKey: string;
-  operator: FormFieldVisibilityOperator;
-  value?: string | boolean | number;
-  values?: Array<string | boolean | number>;
+  operator: 'equals' | 'not_equals' | 'in' | 'not_in';
+  value?: unknown;
+  values?: unknown[];
 }
 
 export interface FormFieldVisibility {
   match?: 'all' | 'any';
-  rules: FormFieldVisibilityCondition[];
+  rules?: FormFieldCondition[];
 }
 
 export interface FormField {
@@ -424,11 +491,13 @@ export interface FormSettings {
   successTitle?: string;
   successSubtitle?: string;
   successMessage?: string;
+  formType?: 'registration' | 'event' | 'membership' | 'workforce' | 'leadership' | 'application' | 'contact' | 'general';
   responseEmailEnabled?: boolean;
   responseEmailTemplateId?: string;
   responseEmailTemplateKey?: string;
+  responseEmailTemplateUrl?: string;
   responseEmailSubject?: string;
-  submissionTarget?: 'workforce' | 'member';
+  submissionTarget?: 'workforce' | 'workforce_new' | 'workforce_serving' | 'member';
   submissionDepartment?: string;
 
   // UI extras you added:
@@ -633,6 +702,86 @@ export interface WorkforceStatsResponse {
   byStatus: Record<string, number>;
   byDepartment: Record<string, number>;
   byDeptAndStatus: WorkforceBucket[];
+}
+
+/* =========================
+   LEADERSHIP
+========================= */
+
+export type LeadershipRole =
+  | 'senior_pastor'
+  | 'associate_pastor'
+  | 'deacon'
+  | 'deaconess'
+  | 'reverend';
+
+export type LeadershipStatus = 'pending' | 'approved' | 'declined';
+
+export interface LeadershipMember {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  role: LeadershipRole;
+  status: LeadershipStatus;
+  bio?: string | null;
+  imageUrl?: string | null;
+  birthdayMonth?: number;
+  birthdayDay?: number;
+  anniversaryMonth?: number;
+  anniversaryDay?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLeadershipRequest {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  role: LeadershipRole;
+  status?: LeadershipStatus;
+  bio?: string;
+  imageUrl?: string;
+  birthday?: string;
+  anniversary?: string;
+}
+
+export interface UpdateLeadershipRequest {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  role?: LeadershipRole;
+  status?: LeadershipStatus;
+  bio?: string;
+  imageUrl?: string;
+  birthday?: string;
+  anniversary?: string;
+}
+
+/* =========================
+   ADMIN NOTIFICATIONS
+========================= */
+
+export interface AdminNotification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  ticketCode?: string;
+  entityType?: string;
+  entityId?: string;
+  isRead: boolean;
+  readAt?: string;
+  createdAt: string;
+}
+
+export interface AdminNotificationInbox {
+  items: AdminNotification[];
+  unread: number;
 }
 
 /* =========================

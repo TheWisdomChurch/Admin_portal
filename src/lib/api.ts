@@ -39,6 +39,9 @@ import type {
   Member,
   CreateMemberRequest,
   UpdateMemberRequest,
+  LeadershipMember,
+  CreateLeadershipRequest,
+  UpdateLeadershipRequest,
   PasswordResetRequestPayload,
   PasswordResetConfirmPayload,
   LoginResult,
@@ -47,6 +50,12 @@ import type {
   HealthCheckResponse,
   UploadPresignRequest,
   UploadPresignResponse,
+  UploadAssetData,
+  UploadImageResponse,
+  EmailTemplate,
+  CreateEmailTemplateRequest,
+  UpdateEmailTemplateRequest,
+  AdminNotificationInbox,
 } from './types';
 
 /* ============================================================================
@@ -242,6 +251,126 @@ function normalizeDailyStats(payload: unknown): FormSubmissionDailyStat[] {
   });
 
   return normalized;
+}
+
+function normalizeAbsoluteHttpUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  let candidate = trimmed;
+  if (candidate.startsWith('//')) {
+    candidate = `https:${candidate}`;
+  }
+  if (!/^https?:\/\//i.test(candidate)) {
+    candidate = `https://${candidate}`;
+  }
+
+  try {
+    const parsed = new URL(candidate);
+    if ((parsed.protocol === 'https:' || parsed.protocol === 'http:') && parsed.host) {
+      return parsed.toString();
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function sanitizeScalarVisibilityValue(value: unknown): string | number | boolean | undefined {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : undefined;
+  }
+  if (typeof value === 'number' && !Number.isNaN(value)) {
+    return value;
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  return undefined;
+}
+
+function sanitizeVisibilityShape(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+
+  const rawVisibility = value as Record<string, unknown>;
+  const rawRules = Array.isArray(rawVisibility.rules) ? rawVisibility.rules : [];
+  if (rawRules.length === 0) return undefined;
+
+  const rules = rawRules.reduce<Record<string, unknown>[]>((acc, rule) => {
+    if (!rule || typeof rule !== 'object') return acc;
+    const rawRule = rule as Record<string, unknown>;
+    const fieldKey = typeof rawRule.fieldKey === 'string' ? rawRule.fieldKey.trim() : '';
+    if (!fieldKey) return acc;
+
+    const operator =
+      rawRule.operator === 'equals' ||
+      rawRule.operator === 'not_equals' ||
+      rawRule.operator === 'in' ||
+      rawRule.operator === 'not_in'
+        ? rawRule.operator
+        : 'equals';
+
+    if (operator === 'in' || operator === 'not_in') {
+      const values = Array.isArray(rawRule.values)
+        ? rawRule.values
+            .map((item) => sanitizeScalarVisibilityValue(item))
+            .filter((item): item is string | number | boolean => typeof item !== 'undefined')
+        : [];
+      if (values.length === 0) return acc;
+      acc.push({ fieldKey, operator, values });
+      return acc;
+    }
+
+    const scalarValue = sanitizeScalarVisibilityValue(rawRule.value);
+    if (typeof scalarValue === 'undefined') return acc;
+    acc.push({ fieldKey, operator, value: scalarValue });
+    return acc;
+  }, []);
+
+  if (rules.length === 0) return undefined;
+
+  return {
+    match: rawVisibility.match === 'any' ? 'any' : 'all',
+    rules,
+  };
+}
+
+function sanitizeFormPayload<T extends CreateFormRequest | UpdateFormRequest>(payload: T): T {
+  if (!payload || typeof payload !== 'object') return payload;
+
+  const nextPayload = { ...payload } as T;
+
+  if ('settings' in payload && payload.settings) {
+    const nextSettings = { ...(payload.settings as Record<string, unknown>) };
+    if ('responseEmailTemplateUrl' in nextSettings) {
+      const normalized = normalizeAbsoluteHttpUrl(nextSettings.responseEmailTemplateUrl);
+      if (normalized) {
+        nextSettings.responseEmailTemplateUrl = normalized;
+      } else {
+        delete nextSettings.responseEmailTemplateUrl;
+      }
+    }
+
+    (nextPayload as T & { settings?: typeof nextSettings }).settings = nextSettings;
+  }
+
+  if ('fields' in payload && Array.isArray(payload.fields)) {
+    (nextPayload as unknown as { fields?: unknown[] }).fields = payload.fields.map((field) => {
+      if (!field || typeof field !== 'object') return field;
+      const nextField = { ...(field as Record<string, unknown>) };
+      const nextVisibility = sanitizeVisibilityShape(nextField.visibility);
+      if (nextVisibility) {
+        nextField.visibility = nextVisibility;
+      } else {
+        delete nextField.visibility;
+      }
+      return nextField;
+    });
+  }
+
+  return nextPayload;
 }
 
 /* ============================================================================
@@ -779,11 +908,71 @@ export const apiClient = {
   },
 
   async createUploadPresign(payload: UploadPresignRequest): Promise<UploadPresignResponse> {
+    const normalizedPayload: UploadPresignRequest = {
+      ...payload,
+      sizeBytes: payload.sizeBytes ?? payload.size,
+    };
     const res = await apiFetch<{ data: UploadPresignResponse }>('/admin/uploads/presign', {
+      method: 'POST',
+      body: JSON.stringify(normalizedPayload),
+    });
+    return unwrapData<UploadPresignResponse>(res, 'Invalid upload presign payload');
+  },
+
+  async completeUploadAsset(assetId: string): Promise<UploadAssetData> {
+    const res = await apiFetch<{ data: UploadAssetData }>(
+      `/admin/uploads/${encodeURIComponent(assetId)}/complete`,
+      { method: 'POST' }
+    );
+    return unwrapData<UploadAssetData>(res, 'Invalid upload completion payload');
+  },
+
+  async uploadImage(file: File, folder = 'uploads'): Promise<UploadImageResponse> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('folder', folder);
+    const res = await uploadFetch<{ data: UploadImageResponse }>('/admin/uploads/images', {
+      method: 'POST',
+      body: form,
+    });
+    return unwrapData<UploadImageResponse>(res, 'Invalid image upload payload');
+  },
+
+  async createAdminEmailTemplate(payload: CreateEmailTemplateRequest): Promise<EmailTemplate> {
+    const res = await apiFetch<{ data: EmailTemplate }>('/admin/email/templates', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
-    return unwrapData<UploadPresignResponse>(res, 'Invalid upload presign payload');
+    return unwrapData<EmailTemplate>(res, 'Invalid email template payload');
+  },
+
+  async listAdminEmailTemplates(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<EmailTemplate>> {
+    const qs = toQueryString(params);
+    const res = await apiFetch(`/admin/email/templates${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<EmailTemplate>(res, 'Invalid email templates payload');
+  },
+
+  async getAdminEmailTemplate(id: string): Promise<EmailTemplate> {
+    const res = await apiFetch<{ data: EmailTemplate }>(`/admin/email/templates/${encodeURIComponent(id)}`, {
+      method: 'GET',
+    });
+    return unwrapData<EmailTemplate>(res, 'Invalid email template payload');
+  },
+
+  async updateAdminEmailTemplate(id: string, payload: UpdateEmailTemplateRequest): Promise<EmailTemplate> {
+    const res = await apiFetch<{ data: EmailTemplate }>(`/admin/email/templates/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<EmailTemplate>(res, 'Invalid email template payload');
+  },
+
+  async activateAdminEmailTemplate(id: string): Promise<EmailTemplate> {
+    const res = await apiFetch<{ data: EmailTemplate }>(
+      `/admin/email/templates/${encodeURIComponent(id)}/activate`,
+      { method: 'POST' }
+    );
+    return unwrapData<EmailTemplate>(res, 'Invalid email template payload');
   },
 
   /* ===================== FORMS (ADMIN) ===================== */
@@ -800,17 +989,19 @@ export const apiClient = {
   },
 
   async createAdminForm(payload: CreateFormRequest): Promise<AdminForm> {
+    const sanitizedPayload = sanitizeFormPayload(payload);
     const res = await apiFetch<{ data: AdminForm }>('/admin/forms', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(sanitizedPayload),
     });
     return unwrapData<AdminForm>(res, 'Invalid form payload');
   },
 
   async updateAdminForm(id: string, payload: UpdateFormRequest): Promise<AdminForm> {
+    const sanitizedPayload = sanitizeFormPayload(payload);
     const res = await apiFetch<{ data: AdminForm }>(`/admin/forms/${encodeURIComponent(id)}`, {
       method: 'PUT',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(sanitizedPayload),
     });
     return unwrapData<AdminForm>(res, 'Invalid form payload');
   },
@@ -908,6 +1099,22 @@ export const apiClient = {
     return unwrapData<SendNotificationResult>(res, 'Invalid notification payload');
   },
 
+  async listAdminNotifications(limit = 50): Promise<AdminNotificationInbox> {
+    const res = await apiFetch<ApiResponse<AdminNotificationInbox>>(
+      `/admin/notifications/inbox?limit=${encodeURIComponent(String(limit))}`,
+      { method: 'GET' }
+    );
+    return unwrapData<AdminNotificationInbox>(res, 'Invalid admin notifications payload');
+  },
+
+  async markAdminNotificationRead(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/notifications/${encodeURIComponent(id)}/read`, { method: 'PATCH' });
+  },
+
+  async markAllAdminNotificationsRead(): Promise<MessageResponse> {
+    return apiFetch('/admin/notifications/read-all', { method: 'POST' });
+  },
+
   /* ===================== OTP ===================== */
 
   async sendOtp(payload: SendOTPRequest): Promise<SendOTPResponse> {
@@ -995,6 +1202,48 @@ export const apiClient = {
 
   async deleteMember(id: string): Promise<MessageResponse> {
     return apiFetch(`/admin/members/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+
+  /* ===================== LEADERSHIP ===================== */
+
+  async listLeadership(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<LeadershipMember>> {
+    const qs = toQueryString(params);
+    const res = await apiFetch(`/admin/leadership${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<LeadershipMember>(res, 'Invalid leadership payload');
+  },
+
+  async createLeadership(payload: CreateLeadershipRequest): Promise<LeadershipMember> {
+    const res = await apiFetch<ApiResponse<LeadershipMember>>('/admin/leadership', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<LeadershipMember>(res, 'Invalid leadership payload');
+  },
+
+  async updateLeadership(id: string, payload: UpdateLeadershipRequest): Promise<LeadershipMember> {
+    const res = await apiFetch<ApiResponse<LeadershipMember>>(`/admin/leadership/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<LeadershipMember>(res, 'Invalid leadership payload');
+  },
+
+  async deleteLeadership(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/leadership/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+
+  async approveLeadership(id: string): Promise<LeadershipMember> {
+    const res = await apiFetch<ApiResponse<LeadershipMember>>(`/admin/leadership/${encodeURIComponent(id)}/approve`, {
+      method: 'POST',
+    });
+    return unwrapData<LeadershipMember>(res, 'Invalid leadership approval payload');
+  },
+
+  async declineLeadership(id: string): Promise<LeadershipMember> {
+    const res = await apiFetch<ApiResponse<LeadershipMember>>(`/admin/leadership/${encodeURIComponent(id)}/decline`, {
+      method: 'POST',
+    });
+    return unwrapData<LeadershipMember>(res, 'Invalid leadership decline payload');
   },
 
   /* ===================== WORKFORCE (BIRTHDAYS) ===================== */

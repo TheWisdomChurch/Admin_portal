@@ -48,6 +48,16 @@ type FieldDraft = {
 
 const dateFormats = ['yyyy-mm-dd', 'mm/dd/yyyy', 'dd/mm/yyyy', 'dd/mm'] as const;
 type DateFormat = (typeof dateFormats)[number];
+const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; label: string }> = [
+  { value: 'registration', label: 'Registration' },
+  { value: 'event', label: 'Event' },
+  { value: 'membership', label: 'Membership' },
+  { value: 'workforce', label: 'Workforce' },
+  { value: 'leadership', label: 'Leadership' },
+  { value: 'application', label: 'Application' },
+  { value: 'contact', label: 'Contact' },
+  { value: 'general', label: 'General' },
+];
 
 const MAX_BANNER_MB = 5;
 const MAX_BANNER_BYTES = MAX_BANNER_MB * 1024 * 1024;
@@ -89,6 +99,24 @@ function normalizeFieldKey(value: string, fallback: string) {
     .replace(/_{2,}/g, '_')
     .replace(/^_+|_+$/g, '');
   return v || fallback;
+}
+
+function normalizeAbsoluteHttpUrl(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  let candidate = trimmed;
+  if (!/^https?:\/\//i.test(candidate)) {
+    candidate = `https://${candidate}`;
+  }
+  try {
+    const parsed = new URL(candidate);
+    if ((parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.host) {
+      return parsed.toString();
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 function ensureOptions(f: FieldDraft): FieldDraft {
@@ -194,6 +222,14 @@ export default withAuth(function FormsPage() {
   const [capacity, setCapacity] = useState('');
   const [closesAt, setClosesAt] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
+  const [formType, setFormType] = useState<FormSettings['formType'] | ''>('registration');
+  const [submissionTarget, setSubmissionTarget] = useState<FormSettings['submissionTarget'] | ''>('');
+  const [submissionDepartment, setSubmissionDepartment] = useState('');
+  const [responseEmailEnabled, setResponseEmailEnabled] = useState(true);
+  const [responseEmailSubject, setResponseEmailSubject] = useState('');
+  const [responseEmailTemplateKey, setResponseEmailTemplateKey] = useState('');
+  const [responseEmailTemplateId, setResponseEmailTemplateId] = useState('');
+  const [responseEmailTemplateUrl, setResponseEmailTemplateUrl] = useState('');
 
   const [introTitle, setIntroTitle] = useState('Event Registration');
   const [introSubtitle, setIntroSubtitle] = useState('Secure your spot by registering below.');
@@ -212,12 +248,6 @@ export default withAuth(function FormsPage() {
   const submitButtonIcon: FormSettings['submitButtonIcon'] = 'check';
 
   const [formHeaderNote, setFormHeaderNote] = useState('Please ensure details are accurate before submitting.');
-  const [submissionTarget, setSubmissionTarget] = useState<FormSettings['submissionTarget'] | ''>('');
-  const [submissionDepartment, setSubmissionDepartment] = useState('');
-  const [responseEmailEnabled, setResponseEmailEnabled] = useState(true);
-  const [responseEmailTemplateKey, setResponseEmailTemplateKey] = useState('');
-  const [responseEmailTemplateId, setResponseEmailTemplateId] = useState('');
-  const [responseEmailSubject, setResponseEmailSubject] = useState('');
   const [coverImageUrl, setCoverImageUrl] = useState('');
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
@@ -733,6 +763,10 @@ export default withAuth(function FormsPage() {
     : 'DELETE';
 
   const pendingField = removeFieldIndex !== null ? fields[removeFieldIndex] : null;
+  const isWorkforceTarget =
+    submissionTarget === 'workforce' ||
+    submissionTarget === 'workforce_new' ||
+    submissionTarget === 'workforce_serving';
 
   const save = async () => {
     setFieldErrors({});
@@ -743,6 +777,19 @@ export default withAuth(function FormsPage() {
       return;
     }
     const normalizedSlug = normalizeSlug(slug || normalizedTitle);
+    let normalizedResponseTemplateURL = responseEmailTemplateUrl.trim();
+    if (responseEmailEnabled && normalizedResponseTemplateURL) {
+      const resolved = normalizeAbsoluteHttpUrl(normalizedResponseTemplateURL);
+      if (!resolved) {
+        setFieldErrors((prev) => ({
+          ...prev,
+          responseEmailTemplateUrl: 'Use a valid absolute URL like https://...png',
+        }));
+        toast.error('Template image URL is invalid. Use a full URL like https://...png');
+        return;
+      }
+      normalizedResponseTemplateURL = resolved;
+    }
 
     const payload: CreateFormRequest = {
       title: normalizedTitle,
@@ -778,15 +825,25 @@ export default withAuth(function FormsPage() {
         capacity: capacity ? Number(capacity) : undefined,
         closesAt: toIso(closesAt),
         expiresAt: toIso(expiresAt),
+        formType: formType || undefined,
+        submissionTarget: submissionTarget || undefined,
+        submissionDepartment:
+          submissionTarget === 'workforce' ||
+          submissionTarget === 'workforce_new' ||
+          submissionTarget === 'workforce_serving'
+            ? submissionDepartment.trim() || undefined
+            : undefined,
+        responseEmailEnabled,
+        responseEmailSubject: responseEmailEnabled ? responseEmailSubject.trim() || undefined : undefined,
+        responseEmailTemplateKey:
+          responseEmailEnabled ? responseEmailTemplateKey.trim() || undefined : undefined,
+        responseEmailTemplateId:
+          responseEmailEnabled ? responseEmailTemplateId.trim() || undefined : undefined,
+        responseEmailTemplateUrl:
+          responseEmailEnabled ? normalizedResponseTemplateURL || undefined : undefined,
         successTitle: successTitle.trim() || undefined,
         successSubtitle: successSubtitle.trim() || undefined,
         successMessage: successMessage.trim() || undefined,
-        responseEmailEnabled,
-        responseEmailTemplateId: responseEmailTemplateId.trim() || undefined,
-        responseEmailTemplateKey: responseEmailTemplateKey.trim() || undefined,
-        responseEmailSubject: responseEmailSubject.trim() || undefined,
-        submissionTarget: submissionTarget || undefined,
-        submissionDepartment: submissionDepartment.trim() || undefined,
         introTitle,
         introSubtitle,
 
@@ -864,11 +921,13 @@ export default withAuth(function FormsPage() {
       }
       setBannerFile(null);
       setBannerPreview(null);
+      setFormType('registration');
       setSubmissionTarget('');
       setSubmissionDepartment('');
       setResponseEmailEnabled(true);
       setResponseEmailTemplateKey('');
       setResponseEmailTemplateId('');
+      setResponseEmailTemplateUrl('');
       setResponseEmailSubject('');
       setShowBuilder(false);
       load();
@@ -1409,6 +1468,28 @@ export default withAuth(function FormsPage() {
                   </p>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Form Type</label>
+                    <select
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                      value={formType}
+                      onChange={(e) => {
+                        clearFieldError('formType');
+                        setFormType(e.target.value as FormSettings['formType'] | '');
+                      }}
+                    >
+                      <option value="">Select a type</option>
+                      {formTypeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    {fieldErrors.formType && (
+                      <p className="mt-1 text-sm text-red-500">{fieldErrors.formType}</p>
+                    )}
+                  </div>
+
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Linked Event</label>
                     <select
@@ -1455,7 +1536,7 @@ export default withAuth(function FormsPage() {
                 <div className="mb-3">
                   <p className="text-sm font-semibold text-[var(--color-text-primary)]">Submission Routing</p>
                   <p className="text-xs text-[var(--color-text-tertiary)]">
-                    Route registrations into Workforce or Member records automatically.
+                    Route registrations into Workforce (new/serving) or Member records automatically.
                   </p>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
@@ -1470,7 +1551,9 @@ export default withAuth(function FormsPage() {
                       }}
                     >
                       <option value="">Do not route</option>
-                      <option value="workforce">Workforce</option>
+                      <option value="workforce_new">Workforce (new workers)</option>
+                      <option value="workforce_serving">Workforce (already serving)</option>
+                      <option value="workforce">Workforce (legacy)</option>
                       <option value="member">Member</option>
                     </select>
                     {fieldErrors.submissionTarget && (
@@ -1485,7 +1568,7 @@ export default withAuth(function FormsPage() {
                       setSubmissionDepartment(e.target.value);
                     }}
                     placeholder="e.g., Hospitality"
-                    disabled={submissionTarget !== 'workforce'}
+                    disabled={!isWorkforceTarget}
                     error={fieldErrors.submissionDepartment}
                   />
                 </div>
@@ -1540,76 +1623,23 @@ export default withAuth(function FormsPage() {
                     disabled={!responseEmailEnabled}
                     error={fieldErrors.responseEmailTemplateId}
                   />
+                  <Input
+                    label="Template image URL (optional)"
+                    value={responseEmailTemplateUrl}
+                    onChange={(e) => {
+                      clearFieldError('responseEmailTemplateUrl');
+                      setResponseEmailTemplateUrl(e.target.value);
+                    }}
+                    placeholder="https://churchasset.fra1.cdn.digitaloceanspaces.com/email_template/WPC_26.png"
+                    disabled={!responseEmailEnabled}
+                    error={fieldErrors.responseEmailTemplateUrl}
+                  />
                 </div>
                 <p className="mt-3 text-xs text-[var(--color-text-tertiary)]">
-                  Template key or ID must match a template saved in the Email Templates registry. Leave blank to use the
-                  default confirmation email.
+                  Use template key/ID from Email Templates registry, or provide a direct template image URL.
                 </p>
               </div>
 
-              <div className="md:col-span-2 grid gap-3 md:grid-cols-3">
-                <Input label="Left column title" value={introTitle} onChange={(e) => setIntroTitle(e.target.value)} />
-                <Input label="Left column subtitle" value={introSubtitle} onChange={(e) => setIntroSubtitle(e.target.value)} />
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Left column bullets (one per line)</label>
-                  <textarea
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                    rows={3}
-                    value={introBullets}
-                    onChange={(e) => setIntroBullets(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Bullet subtext (matches order)</label>
-                  <textarea
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                    rows={3}
-                    value={introBulletSubs}
-                    onChange={(e) => setIntroBulletSubs(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Form header note</label>
-                  <textarea
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                    rows={2}
-                    value={formHeaderNote}
-                    onChange={(e) => setFormHeaderNote(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="md:col-span-2">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs text-[var(--color-text-tertiary)]">Build the form fields below, then create to generate the link.</p>
-                  <div className="flex flex-wrap gap-2 sm:flex-nowrap">
-                    <select
-                      value={layoutMode}
-                      onChange={(e) => setLayoutMode(e.target.value === 'split' ? 'split' : 'stack')}
-                      className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                    >
-                      <option value="split">Two column layout</option>
-                      <option value="stack">Single column layout</option>
-                    </select>
-                    <select
-                      value={dateFormat}
-                      onChange={(e) => {
-                        const next = e.target.value as DateFormat;
-                        if (dateFormats.includes(next)) setDateFormat(next);
-                      }}
-                      className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                    >
-                      <option value="yyyy-mm-dd">YYYY-MM-DD</option>
-                      <option value="mm/dd/yyyy">MM/DD/YYYY</option>
-                      <option value="dd/mm/yyyy">DD/MM/YYYY</option>
-                      <option value="dd/mm">DD/MM</option>
-                    </select>
-                    <Button onClick={save} loading={saving} disabled={saving} icon={<Save className="h-4 w-4" />} className="whitespace-nowrap">
-                      Create & Publish
-                    </Button>
-                  </div>
-                </div>
-              </div>
             </div>
           </Card>
 
@@ -1719,6 +1749,86 @@ export default withAuth(function FormsPage() {
               <Button variant="outline" onClick={addField} icon={<Plus className="h-4 w-4" />} className="whitespace-nowrap">
                 Add Field
               </Button>
+            </div>
+          </Card>
+
+          <Card title="Publish">
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-[var(--color-text-tertiary)]">
+                  Build your fields above, then publish the form link.
+                </p>
+                <Button onClick={save} loading={saving} disabled={saving} icon={<Save className="h-4 w-4" />} className="whitespace-nowrap">
+                  Create & Publish
+                </Button>
+              </div>
+
+              <details className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+                <summary className="cursor-pointer list-none text-sm font-semibold text-[var(--color-text-primary)]">
+                  Advanced Public Layout (optional)
+                </summary>
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  <Input label="Left column title" value={introTitle} onChange={(e) => setIntroTitle(e.target.value)} />
+                  <Input label="Left column subtitle" value={introSubtitle} onChange={(e) => setIntroSubtitle(e.target.value)} />
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Left column bullets (one per line)</label>
+                    <textarea
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                      rows={3}
+                      value={introBullets}
+                      onChange={(e) => setIntroBullets(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Bullet subtext (matches order)</label>
+                    <textarea
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                      rows={3}
+                      value={introBulletSubs}
+                      onChange={(e) => setIntroBulletSubs(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Form header note</label>
+                    <textarea
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                      rows={2}
+                      value={formHeaderNote}
+                      onChange={(e) => setFormHeaderNote(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="md:col-span-3 grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Layout</label>
+                      <select
+                        value={layoutMode}
+                        onChange={(e) => setLayoutMode(e.target.value === 'split' ? 'split' : 'stack')}
+                        className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                      >
+                        <option value="split">Two column layout</option>
+                        <option value="stack">Single column layout</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Date format</label>
+                      <select
+                        value={dateFormat}
+                        onChange={(e) => {
+                          const next = e.target.value as DateFormat;
+                          if (dateFormats.includes(next)) setDateFormat(next);
+                        }}
+                        className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                      >
+                        <option value="yyyy-mm-dd">YYYY-MM-DD</option>
+                        <option value="mm/dd/yyyy">MM/DD/YYYY</option>
+                        <option value="dd/mm/yyyy">DD/MM/YYYY</option>
+                        <option value="dd/mm">DD/MM</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </details>
             </div>
           </Card>
 

@@ -1,6 +1,6 @@
-import PublicFormClient from './PublicFormClient';
+import PublicFormClient from '@/app/forms/[slug]/PublicFormClient';
 
-export default async function PublicFormPage({
+export default async function PublicFormAliasPage({
   params,
 }: {
   params: Promise<{ slug?: string }> | { slug?: string };
