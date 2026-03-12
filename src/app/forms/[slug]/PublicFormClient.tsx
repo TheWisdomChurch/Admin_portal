@@ -28,6 +28,7 @@ const ACCEPTED_IMAGE_ACCEPT = ACCEPTED_IMAGE_TYPES.join(',');
 const FETCH_TIMEOUT_MS = 12000; // give backend time; avoid false negatives
 const RETRY_BASE_MS = 1200;
 const RETRY_MAX_MS = 6000;
+const MAX_FETCH_ATTEMPTS = 3;
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -458,21 +459,22 @@ function FieldInput({
 }
 
 async function fetchPublicFormClient(slug: string): Promise<PublicFormPayload | null> {
-  const apiOrigin =
-    process.env.NEXT_PUBLIC_API_URL ??
-    process.env.NEXT_PUBLIC_BACKEND_URL ??
-    'https://api.wisdomchurchhq.org';
-
+  const apiOrigin = (
+    process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL ?? ''
+  )
+    .trim()
+    .replace(/\/+$/, '');
   const candidates: string[] = [];
-  candidates.push(`/api/v1/forms/${encodeURIComponent(slug)}`); // same-origin proxy
-  candidates.push(`${apiOrigin}/api/v1/forms/${encodeURIComponent(slug)}`); // direct API
+  candidates.push(`/api/v1/forms/${encodeURIComponent(slug)}`);
+  if (apiOrigin) {
+    candidates.push(`${apiOrigin}/api/v1/forms/${encodeURIComponent(slug)}`);
+  }
 
   for (const url of candidates) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
       const res = await fetch(url, { method: 'GET', credentials: 'include', signal: controller.signal });
-      clearTimeout(timeoutId);
       if (!res.ok) continue;
       const json = (await res.json()) as { data?: PublicFormPayload } | PublicFormPayload;
       const payload = 'data' in json ? json.data ?? null : (json as PublicFormPayload);
@@ -480,6 +482,8 @@ async function fetchPublicFormClient(slug: string): Promise<PublicFormPayload | 
       return payload;
     } catch {
       continue;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
@@ -499,10 +503,8 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     }
   };
 
-  const initialCached = loadCachedPayload();
-  const initialData = initialCached;
-
-  const [payload, setPayload] = useState<PublicFormPayload | null>(initialData);
+  const cachedPayload = useMemo(() => loadCachedPayload(), [slug]);
+  const [payload, setPayload] = useState<PublicFormPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
 
@@ -510,11 +512,12 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const leftRef = useRef<HTMLDivElement | null>(null);
   const rightRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
+  const fieldsRef = useRef<FormField[]>([]);
 
-  const [loading, setLoading] = useState(!initialData);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [values, setValues] = useState<ValuesState>(() =>
-    buildInitialValues(initialData?.form?.fields ?? [])
+    buildInitialValues(cachedPayload?.form?.fields ?? [])
   );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
@@ -530,6 +533,9 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const sortedFields = useMemo<FormField[]>(() => {
     return fields.slice().sort((a, b) => a.order - b.order);
   }, [fields]);
+  useEffect(() => {
+    fieldsRef.current = sortedFields;
+  }, [sortedFields]);
   const visibleFields = useMemo<FormField[]>(() => {
     return sortedFields.filter((field) => isFieldVisible(field, values));
   }, [sortedFields, values]);
@@ -544,13 +550,13 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   // ✅ Now this is stable because `fields` is stable via useMemo
   const resetFormState = useCallback(
     (formFields?: FormField[]) => {
-      const nextFields = formFields ?? sortedFields;
+      const nextFields = formFields ?? fieldsRef.current;
       setValues(buildInitialValues(nextFields));
       setFieldErrors({});
       setTouchedFields({});
       setFormError('');
     },
-    [sortedFields]
+    []
   );
 
   useEffect(() => {
@@ -563,59 +569,69 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   }, [payload, slug]);
 
   useEffect(() => {
-    if (!slug || payload) {
+    if (!slug) {
       setLoading(false);
       return;
     }
 
     let alive = true;
-    let attempt = 0;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    const fetchWithRetry = async () => {
+    const fetchWithRetry = async (attempt: number) => {
       if (!alive) return;
-      attempt += 1;
+
       setLoading(true);
       setRetrying(attempt > 1);
-      setLoadError(null);
+      setLoadError(attempt > 1 ? 'Refreshing the latest form fields…' : null);
 
       try {
         const res = await fetchPublicFormClient(slug);
         if (!alive) return;
-        if (res) {
+
+        if (res?.form) {
           setPayload(res);
-          if (typeof window !== 'undefined') {
-            try {
-              sessionStorage.setItem(`public-form:${slug}`, JSON.stringify(res));
-            } catch {
-              // ignore storage errors
-            }
-          }
           resetFormState(res.form.fields ?? []);
           setSuccessOpen(false);
           setSuccessDetails([]);
           setSuccessTokens({});
           setLoading(false);
           setRetrying(false);
+          setLoadError(null);
           return;
         }
-        // failed -> schedule retry
-        const delay = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * attempt);
-        setLoadError('Connecting... retrying automatically');
-        setTimeout(fetchWithRetry, delay);
       } catch (err) {
         console.error(err);
-        const delay = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * attempt);
-        setLoadError('Network issue, retrying...');
-        setTimeout(fetchWithRetry, delay);
       }
+
+      if (!alive) return;
+
+      if (attempt < MAX_FETCH_ATTEMPTS) {
+        const delay = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * attempt);
+        timeoutId = setTimeout(() => {
+          void fetchWithRetry(attempt + 1);
+        }, delay);
+        return;
+      }
+
+      if (cachedPayload?.form) {
+        setPayload(cachedPayload);
+        resetFormState(cachedPayload.form.fields ?? []);
+        setLoadError('Showing the last saved version because the newest form could not be loaded.');
+      } else {
+        setLoadError('Unable to load this form right now. Please refresh and try again.');
+      }
+
+      setLoading(false);
+      setRetrying(false);
     };
 
-    fetchWithRetry();
+    void fetchWithRetry(1);
 
     return () => {
       alive = false;
+      if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [payload, resetFormState, slug]);
+  }, [cachedPayload, resetFormState, slug]);
 
   const valueToString = (value: FieldValue): string => {
     if (typeof value === 'string') return value.trim();
@@ -751,26 +767,67 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const pageHeaderTitle = `${formTypeLabel} - ${formTitle}`;
   const eventTitle = payload?.event?.title ?? formTitle;
   const bannerUrl = settings?.design?.coverImageUrl || payload?.event?.bannerImage || payload?.event?.image || undefined;
+  const eventSessions = useMemo(
+    () =>
+      Array.isArray(payload?.event?.sessions)
+        ? payload.event.sessions.filter((session) => session.title?.trim() || session.time?.trim())
+        : [],
+    [payload?.event?.sessions]
+  );
 
   const introBullets = useMemo(() => {
     if (Array.isArray(settings?.introBullets)) {
-      return settings.introBullets.map((item) => item.trim()).filter(Boolean);
+      const configured = settings.introBullets.map((item) => item.trim()).filter(Boolean);
+      if (configured.length > 0) return configured;
     }
-    const tags = payload?.event?.tags ?? [];
+
+    if (eventSessions.length > 0) {
+      return eventSessions
+        .map((session) => session.title?.trim())
+        .filter((item): item is string => Boolean(item));
+    }
+
+    const tags = payload?.event?.tags?.map((item) => item.trim()).filter(Boolean) ?? [];
     if (tags.length > 0) return tags.slice(0, 5);
-    return ['Smooth check-in', 'Engaging sessions', 'Friendly community', 'Practical takeaways'];
-  }, [payload, settings]);
+
+    return [];
+  }, [eventSessions, payload, settings]);
 
   const introBulletSubs = useMemo(() => {
-    return Array.isArray(settings?.introBulletSubtexts)
-      ? settings?.introBulletSubtexts.map((item) => item.trim())
-      : [];
-  }, [settings]);
+    if (Array.isArray(settings?.introBulletSubtexts)) {
+      const configured = settings.introBulletSubtexts.map((item) => item.trim());
+      if (configured.some(Boolean)) return configured;
+    }
+
+    if (eventSessions.length > 0) {
+      return eventSessions.map((session) => session.time?.trim() || '');
+    }
+
+    return [];
+  }, [eventSessions, settings]);
+
+  const infoSectionTitle =
+    settings?.introTitle?.trim() ||
+    (eventSessions.length > 0 ? 'Session Schedule' : introBullets.length > 0 ? 'Form Details' : '');
+  const infoSectionSubtitle =
+    settings?.introSubtitle?.trim() ||
+    payload?.form?.description?.trim() ||
+    payload?.event?.shortDescription?.trim() ||
+    '';
+  const showDetailsColumn = Boolean(infoSectionTitle || infoSectionSubtitle || introBullets.length > 0);
+  const layoutMode = settings?.layoutMode === 'stack' ? 'stack' : 'split';
 
   const submitButtonLabel =
     settings?.submitButtonText?.trim() || settings?.design?.ctaButtonLabel?.trim() || 'Submit Registration';
   const privacyCopy = settings?.design?.privacyCopy ?? 'By submitting, you confirm your details are accurate.';
-  const footerText = settings?.footerText?.trim() || settings?.design?.footerNote?.trim() || 'Powered by Wisdom Church';
+  const siteName = process.env.NEXT_PUBLIC_SITE_NAME?.trim() || 'Registration Portal';
+  const siteSubtitle = process.env.NEXT_PUBLIC_SITE_SUBTITLE?.trim() || 'Online registration';
+  const siteHomeUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_PUBLIC_URL?.trim() ||
+    (typeof window !== 'undefined' && window.location.origin ? window.location.origin : '/');
+  const siteLogoSrc = process.env.NEXT_PUBLIC_SITE_LOGO_PATH?.trim() || '/OIP.webp';
+  const footerText = settings?.footerText?.trim() || settings?.design?.footerNote?.trim() || siteName;
   const footerStyle = undefined;
 
   const baseThemeStyle = useMemo<React.CSSProperties>(
@@ -807,7 +864,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     }
   }, [settings?.submitButtonIcon]);
 
-  const hasLeftColumn = introBullets.length > 0;
+  const hasLeftColumn = showDetailsColumn;
 
   const fallbackTokens = buildSuccessTokens(values);
   const tokenSource = Object.keys(successTokens).length > 0 ? successTokens : fallbackTokens;
@@ -972,13 +1029,26 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     );
   }
 
-  if (loading || !payload) {
+  if (loading) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center space-y-3">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-yellow-600 border-r-transparent" />
         <div className="text-sm text-gray-600">
           {loadError || (retrying ? 'Connecting… retrying automatically' : 'Loading form…')}
         </div>
+      </div>
+    );
+  }
+
+  if (!payload) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <div className="max-w-md rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError || 'Unable to load this form right now.'}
+        </div>
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
       </div>
     );
   }
@@ -992,22 +1062,22 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
       <header className="border-b border-gray-200 bg-white/90 backdrop-blur">
         <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Link
-            href="https://wisdomchurchhq.org"
+            href={siteHomeUrl}
             className="flex items-center gap-3"
-            aria-label="Wisdom Church home"
+            aria-label={`${siteName} home`}
             prefetch={false}
           >
             <span className="relative h-10 w-10 overflow-hidden rounded-full border border-gray-200 bg-white">
-              <Image src="/OIP.webp" alt="Wisdom Church logo" fill className="object-cover" sizes="40px" />
+              <Image src={siteLogoSrc} alt={`${siteName} logo`} fill className="object-cover" sizes="40px" />
             </span>
             <div className="leading-tight">
-              <div className="text-sm font-medium text-black">Wisdom Church</div>
-              <div className="text-xs text-gray-500">Registration</div>
+              <div className="text-sm font-medium text-black">{siteName}</div>
+              <div className="text-xs text-gray-500">{siteSubtitle}</div>
             </div>
           </Link>
           <nav className="flex flex-wrap items-center gap-3 text-xs text-gray-600">
             <Link
-              href="https://wisdomchurchhq.org"
+              href={siteHomeUrl}
               className="rounded-full px-3 py-1 hover:text-black hover:bg-gray-50 transition-colors"
               prefetch={false}
             >
@@ -1053,7 +1123,13 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
           ) : null}
         </div>
 
-        <div className="space-y-6 md:space-y-8">
+        <div
+          className={
+            hasLeftColumn && layoutMode === 'split'
+              ? 'grid gap-6 md:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]'
+              : 'space-y-6 md:space-y-8'
+          }
+        >
           <div ref={rightRef}>
             <Card className="p-6 md:p-7 shadow-md transition-shadow duration-300 hover:shadow-lg bg-white border-gray-200">
               {settings?.formHeaderNote ? (
@@ -1116,13 +1192,15 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
 
           {hasLeftColumn ? (
             <div ref={leftRef} className="space-y-6">
-              {introBullets.length > 0 ? (
-                <Card className="p-6 transition-shadow duration-300 hover:shadow-md bg-white border-gray-200">
-                  <h2 className="text-base font-medium text-black">What to Expect</h2>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Here’s a quick overview of what your experience will look like.
-                  </p>
+              <Card className="p-6 transition-shadow duration-300 hover:shadow-md bg-white border-gray-200">
+                {infoSectionTitle ? (
+                  <h2 className="text-base font-medium text-black">{infoSectionTitle}</h2>
+                ) : null}
+                {infoSectionSubtitle ? (
+                  <p className="mt-1 text-sm text-gray-600">{infoSectionSubtitle}</p>
+                ) : null}
 
+                {introBullets.length > 0 ? (
                   <ul ref={listRef} className="mt-4 space-y-3">
                     {introBullets.map((item, idx) => {
                       const sub = introBulletSubs[idx];
@@ -1140,9 +1218,8 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
                       );
                     })}
                   </ul>
-                </Card>
-              ) : null}
-
+                ) : null}
+              </Card>
             </div>
           ) : null}
         </div>
@@ -1150,33 +1227,36 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
         <footer className="mt-14 border-t border-gray-200 pt-10" style={footerStyle}>
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2">
-              <div className="text-sm font-medium text-black">Wisdom Church</div>
+              <div className="text-sm font-medium text-black">{siteName}</div>
               <p className="text-xs text-gray-600">
-                We are committed to creating welcoming, well-organized experiences that honor your time and keep you
-                informed from registration to check-in.
+                {payload.form.description?.trim() ||
+                  infoSectionSubtitle ||
+                  'Complete the form with accurate details so your registration can be processed correctly.'}
               </p>
             </div>
             <div className="space-y-2">
-              <div className="text-sm font-medium text-black">Resources</div>
+              <div className="text-sm font-medium text-black">Form Details</div>
               <ul className="space-y-1 text-xs text-gray-600">
-                <li>Registration guidelines</li>
-                <li>Event policies</li>
-                <li>FAQs</li>
+                <li>{payload.event?.title ? `Linked event: ${payload.event.title}` : `Form: ${formTitle}`}</li>
+                {closesAt ? <li>Closes: {formatDate(closesAt.toISOString(), settings?.dateFormat)}</li> : null}
+                {payload.form.updatedAt ? (
+                  <li>Updated: {formatDate(payload.form.updatedAt, settings?.dateFormat)}</li>
+                ) : null}
               </ul>
             </div>
             <div className="space-y-2">
-              <div className="text-sm font-medium text-black">Privacy & Security</div>
+              <div className="text-sm font-medium text-black">Privacy & Accuracy</div>
               <ul className="space-y-1 text-xs text-gray-600">
-                <li>Your data is handled securely</li>
-                <li>Access is limited to authorized staff</li>
-                <li>Updates shared only when necessary</li>
+                <li>{privacyCopy}</li>
+                <li>Only authorized staff can review submissions.</li>
+                <li>{isClosed ? 'This form is currently closed.' : 'Please complete all required fields before submitting.'}</li>
               </ul>
             </div>
           </div>
 
           <div className="mt-8 flex flex-col gap-2 border-t border-gray-200 pt-4 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between">
             <span>{footerText}</span>
-            <span>© {new Date().getFullYear()} Wisdom Church. All rights reserved.</span>
+            <span>© {new Date().getFullYear()} {siteName}. All rights reserved.</span>
           </div>
         </footer>
       </div>

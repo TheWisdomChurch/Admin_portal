@@ -158,6 +158,22 @@ function SubmissionsPage() {
     []
   );
 
+  const sortedSubmissions = useMemo(
+    () =>
+      submissions.slice().sort((left, right) => {
+        const leftTime = new Date(left.createdAt).getTime();
+        const rightTime = new Date(right.createdAt).getTime();
+
+        if (Number.isNaN(leftTime) && Number.isNaN(rightTime)) return 0;
+        if (Number.isNaN(leftTime)) return 1;
+        if (Number.isNaN(rightTime)) return -1;
+        return rightTime - leftTime;
+      }),
+    [submissions]
+  );
+
+  const latestSubmissions = useMemo(() => sortedSubmissions.slice(0, 5), [sortedSubmissions]);
+
   const handleCopyLink = useCallback(async () => {
     if (!formId) return;
 
@@ -268,6 +284,31 @@ function SubmissionsPage() {
         </Card>
       </div>
 
+      <Card title="Latest Registrations">
+        {latestSubmissions.length > 0 ? (
+          <div className="space-y-3">
+            {latestSubmissions.map((submission) => (
+              <div
+                key={submission.id}
+                className="flex flex-col gap-1 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-3"
+              >
+                <div className="text-sm font-medium text-[var(--color-text-primary)]">
+                  {submission.name || submission.email || 'Anonymous'}
+                </div>
+                <div className="text-xs text-[var(--color-text-secondary)]">
+                  {submission.email || submission.contactNumber || 'No contact information'}
+                </div>
+                <div className="text-xs text-[var(--color-text-tertiary)]">
+                  {new Date(submission.createdAt).toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-[var(--color-text-tertiary)]">No registrations yet.</p>
+        )}
+      </Card>
+
       <Card title="Registrations Over Time">
         <div className="flex flex-wrap items-center gap-2 pb-4">
           <Button
@@ -292,7 +333,7 @@ function SubmissionsPage() {
 
       <Card className="p-0">
         <DataTable
-          data={submissions}
+          data={sortedSubmissions}
           columns={columns}
           total={total}
           page={page}

@@ -8,6 +8,7 @@ import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
+import { buildFormSubmissionsReportPath, buildFormSubmissionsReportUrl } from '@/lib/formSubmissions';
 import { buildPublicFormUrl } from '@/lib/utils';
 import type {
   AdminForm,
@@ -198,6 +199,15 @@ function applyImplicitYesVisibilityDefaults(fields: FieldDraft[]): FieldDraft[] 
       visibility: suggestedVisibility,
     };
   });
+}
+
+function splitLines(value: string): string[] | undefined {
+  const items = value
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return items.length > 0 ? items : undefined;
 }
 
 function EditFormPage() {
@@ -497,7 +507,7 @@ function EditFormPage() {
     try {
       const updated = await apiClient.updateAdminForm(form.id, payload);
       setForm(updated);
-      setFields(updated.fields || []);
+      setFields(applyImplicitYesVisibilityDefaults(updated.fields || []));
       toast.success('Form updated');
       router.push('/dashboard/forms');
     } catch (err) {
@@ -547,6 +557,17 @@ function EditFormPage() {
     toast.success('Link copied');
   };
 
+  const copyReportLink = async () => {
+    if (!form?.id) return;
+
+    try {
+      await navigator.clipboard.writeText(buildFormSubmissionsReportUrl(form.id));
+      toast.success('Report link copied');
+    } catch {
+      toast.error('Failed to copy report link');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-[300px] w-full items-center justify-center">
@@ -564,6 +585,8 @@ function EditFormPage() {
     submissionTarget === 'workforce' ||
     submissionTarget === 'workforce_new' ||
     submissionTarget === 'workforce_serving';
+  const introBulletsValue = (form.settings?.introBullets ?? []).join('\n');
+  const introBulletSubtextsValue = (form.settings?.introBulletSubtexts ?? []).join('\n');
 
   return (
     <div className="space-y-6">
@@ -582,6 +605,15 @@ function EditFormPage() {
           </Button>
           <Button variant="outline" onClick={copyLink} icon={<Copy className="h-4 w-4" />}>
             Copy Link
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => router.push(buildFormSubmissionsReportPath(form.id))}
+          >
+            Open Report
+          </Button>
+          <Button variant="outline" onClick={copyReportLink}>
+            Copy Report Link
           </Button>
           <Button variant="outline" onClick={publishForm} loading={publishing} icon={<Globe className="h-4 w-4" />}>
             {form.slug ? 'Update Publish' : 'Publish'}
@@ -853,6 +885,107 @@ function EditFormPage() {
           <p className="text-xs text-[var(--color-text-tertiary)]">
             Use template key/ID from Email Templates registry, or provide a direct template image URL.
           </p>
+        </div>
+      </Card>
+
+      <Card title="Public Content">
+        <div className="grid gap-4 md:grid-cols-2">
+          <Input
+            label="Details section title"
+            value={form.settings?.introTitle ?? ''}
+            onChange={(e) => updateSettings({ introTitle: e.target.value || undefined })}
+            helperText="Use this area for custom content like WPC26 schedule or registration highlights."
+          />
+
+          <Input
+            label="Details section subtitle"
+            value={form.settings?.introSubtitle ?? ''}
+            onChange={(e) => updateSettings({ introSubtitle: e.target.value || undefined })}
+            helperText="Short supporting line shown above the detail items."
+          />
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+              Detail items
+            </label>
+            <textarea
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+              rows={5}
+              value={introBulletsValue}
+              onChange={(e) => updateSettings({ introBullets: splitLines(e.target.value) })}
+              placeholder={'Morning session\nEvening session'}
+            />
+            <p className="text-sm text-[var(--color-text-tertiary)]">
+              Add one item per line. Example: `Morning session`, `Evening session`.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+              Item subtext
+            </label>
+            <textarea
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+              rows={5}
+              value={introBulletSubtextsValue}
+              onChange={(e) => updateSettings({ introBulletSubtexts: splitLines(e.target.value) })}
+              placeholder={'Starts 9 A.M.\nStarts 4 P.M.'}
+            />
+            <p className="text-sm text-[var(--color-text-tertiary)]">
+              Each line matches the item in the same position. Example: `Starts 9 A.M.` for `Morning session`.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+              Form header note
+            </label>
+            <textarea
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+              rows={3}
+              value={form.settings?.formHeaderNote ?? ''}
+              onChange={(e) => updateSettings({ formHeaderNote: e.target.value || undefined })}
+              placeholder="Optional note shown above the form fields."
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                Layout
+              </label>
+              <select
+                className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                value={form.settings?.layoutMode ?? 'split'}
+                onChange={(e) =>
+                  updateSettings({ layoutMode: e.target.value === 'stack' ? 'stack' : 'split' })
+                }
+              >
+                <option value="split">Two column layout</option>
+                <option value="stack">Single column layout</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                Date format
+              </label>
+              <select
+                className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                value={form.settings?.dateFormat ?? 'yyyy-mm-dd'}
+                onChange={(e) =>
+                  updateSettings({
+                    dateFormat: e.target.value as NonNullable<FormSettings['dateFormat']>,
+                  })
+                }
+              >
+                <option value="yyyy-mm-dd">YYYY-MM-DD</option>
+                <option value="mm/dd/yyyy">MM/DD/YYYY</option>
+                <option value="dd/mm/yyyy">DD/MM/YYYY</option>
+                <option value="dd/mm">DD/MM</option>
+              </select>
+            </div>
+          </div>
         </div>
       </Card>
 
