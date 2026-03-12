@@ -16,6 +16,14 @@ import { VerifyActionModal } from '@/ui/VerifyActionModal';
 import { AlertModal } from '@/ui/AlertModal';
 
 import { apiClient, mapValidationErrors } from '@/lib/api';
+import {
+  buildFormSubmissionsReportPath,
+  buildFormSubmissionsReportUrl,
+  exportFormSubmissionsCsv,
+  exportFormSubmissionsPdf,
+  fetchAllFormSubmissions,
+  filterFormSubmissions,
+} from '@/lib/formSubmissions';
 import type {
   AdminForm,
   CreateFormRequest,
@@ -209,6 +217,7 @@ export default withAuth(function FormsPage() {
 
   // ✅ PDF export loading state
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
 
   // Builder state
   const [showBuilder, setShowBuilder] = useState(false);
@@ -385,6 +394,11 @@ export default withAuth(function FormsPage() {
     return counts.length > 0 ? Math.max(...counts) : 1;
   }, [trendData]);
 
+  const selectedForm = useMemo(
+    () => forms.find((form) => form.id === selectedFormId) ?? null,
+    [forms, selectedFormId]
+  );
+
   const load = useCallback(async () => {
     try {
       setLoading(true);
@@ -513,48 +527,21 @@ export default withAuth(function FormsPage() {
     return () => clearInterval(interval);
   }, [activeTab, liveUpdates, load, loadSubmissions]);
 
-  const filteredSubmissions = useMemo(() => {
-    const term = filterText.trim().toLowerCase();
-    const start = filterStart ? new Date(filterStart) : null;
-    const end = filterEnd ? new Date(filterEnd) : null;
-
-    if (start && Number.isNaN(start.getTime())) return submissions;
-    if (end && Number.isNaN(end.getTime())) return submissions;
-
-    return submissions.filter((submission) => {
-      const haystack = [
-        submission.name,
-        submission.email,
-        submission.contactNumber,
-        submission.contactAddress,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-      if (term && !haystack.includes(term)) return false;
-
-      if (start || end) {
-        const created = new Date(submission.createdAt);
-        if (Number.isNaN(created.getTime())) return false;
-        if (start && created < start) return false;
-        if (end) {
-          const endOfDay = new Date(end);
-          endOfDay.setHours(23, 59, 59, 999);
-          if (created > endOfDay) return false;
-        }
-      }
-
-      return true;
-    });
-  }, [submissions, filterText, filterStart, filterEnd]);
+  const filteredSubmissions = useMemo(
+    () =>
+      filterFormSubmissions(submissions, {
+        query: filterText,
+        from: filterStart,
+        to: filterEnd,
+      }),
+    [submissions, filterText, filterStart, filterEnd]
+  );
 
   const filteredTotal = useMemo(() => {
     const hasFilters = filterText.trim() || filterStart || filterEnd;
     return hasFilters ? filteredSubmissions.length : submissionsTotal;
   }, [filterText, filterStart, filterEnd, filteredSubmissions.length, submissionsTotal]);
 
-  // ✅ REPLACED: export CSV -> export PDF (server-generated)
   const exportSubmissions = useCallback(async () => {
     if (!selectedFormId) {
       toast.error('Select a form first');
@@ -567,52 +554,11 @@ export default withAuth(function FormsPage() {
 
     try {
       setExportingPdf(true);
-
-      // Env-aware base URL normalization:
-      const rawBase =
-        (process.env.NEXT_PUBLIC_API_URL ||
-          (process.env as unknown as { NEXT_PUBLIC_API_BASE_URL?: string }).NEXT_PUBLIC_API_BASE_URL ||
-          '').trim();
-
-      let base = rawBase.replace(/\/+$/, '');
-      if (!base) base = 'http://localhost:8080';
-
-      // If mistakenly set to https://domain.com/api/v1, normalize to origin
-      if (base.endsWith('/api/v1')) base = base.slice(0, -'/api/v1'.length);
-
-      // Optional query params (backend may ignore, safe to send)
-      const params = new URLSearchParams();
-      if (filterText.trim()) params.set('q', filterText.trim());
-      if (filterStart.trim()) params.set('from', filterStart.trim());
-      if (filterEnd.trim()) params.set('to', filterEnd.trim());
-
-      const url = `${base}/api/v1/admin/forms/${selectedFormId}/submissions/export.pdf${
-        params.toString() ? `?${params.toString()}` : ''
-      }`;
-
-      const res = await fetch(url, {
-        method: 'GET',
-        credentials: 'include',
-        headers: { Accept: 'application/pdf' },
+      await exportFormSubmissionsPdf(selectedFormId, selectedForm?.title || selectedFormId, {
+        query: filterText,
+        from: filterStart,
+        to: filterEnd,
       });
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(text || `Export failed (${res.status})`);
-      }
-
-      const blob = await res.blob();
-      const dlUrl = URL.createObjectURL(blob);
-
-      const a = document.createElement('a');
-      a.href = dlUrl;
-      a.download = `form-submissions-${selectedFormId}-${new Date().toISOString().slice(0, 10)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-
-      URL.revokeObjectURL(dlUrl);
-
       toast.success('PDF exported. Password is your login email.');
     } catch (err) {
       console.error(err);
@@ -620,7 +566,64 @@ export default withAuth(function FormsPage() {
     } finally {
       setExportingPdf(false);
     }
-  }, [filteredSubmissions.length, selectedFormId, filterText, filterStart, filterEnd]);
+  }, [filteredSubmissions.length, filterEnd, filterStart, filterText, selectedForm, selectedFormId]);
+
+  const exportSubmissionsCsv = useCallback(async () => {
+    if (!selectedFormId) {
+      toast.error('Select a form first');
+      return;
+    }
+
+    try {
+      setExportingCsv(true);
+
+      const source =
+        submissions.length >= submissionsTotal && !filterText.trim() && !filterStart && !filterEnd
+          ? submissions
+          : await fetchAllFormSubmissions(selectedFormId);
+
+      const filtered = filterFormSubmissions(source, {
+        query: filterText,
+        from: filterStart,
+        to: filterEnd,
+      });
+
+      if (filtered.length === 0) {
+        toast.error('No submissions to export');
+        return;
+      }
+
+      exportFormSubmissionsCsv(filtered, selectedForm?.title || selectedFormId);
+      toast.success('CSV exported. You can open it in Excel.');
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Failed to export CSV');
+    } finally {
+      setExportingCsv(false);
+    }
+  }, [
+    filterEnd,
+    filterStart,
+    filterText,
+    selectedForm,
+    selectedFormId,
+    submissions,
+    submissionsTotal,
+  ]);
+
+  const handleCopyReportLink = useCallback(async () => {
+    if (!selectedFormId) {
+      toast.error('Select a form first');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(buildFormSubmissionsReportUrl(selectedFormId));
+      toast.success('Report link copied');
+    } catch {
+      toast.error('Failed to copy report link');
+    }
+  }, [selectedFormId]);
 
   // ---------- Field builder actions ----------
   const addField = () => {
@@ -1314,7 +1317,30 @@ export default withAuth(function FormsPage() {
                 Refresh
               </Button>
 
-              {/* ✅ CHANGED: Export CSV -> Export PDF (server-generated) */}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (!selectedFormId) {
+                    toast.error('Select a form first');
+                    return;
+                  }
+                  router.push(buildFormSubmissionsReportPath(selectedFormId));
+                }}
+                disabled={!selectedFormId}
+                className="whitespace-nowrap"
+              >
+                Open Report
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={handleCopyReportLink}
+                disabled={!selectedFormId}
+                className="whitespace-nowrap"
+              >
+                Copy Report Link
+              </Button>
+
               <Button
                 variant="outline"
                 onClick={exportSubmissions}
@@ -1323,6 +1349,16 @@ export default withAuth(function FormsPage() {
                 className="whitespace-nowrap"
               >
                 Export PDF
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={exportSubmissionsCsv}
+                loading={exportingCsv}
+                disabled={exportingCsv || !selectedFormId || submissionsTotal === 0}
+                className="whitespace-nowrap"
+              >
+                Export CSV
               </Button>
             </div>
 

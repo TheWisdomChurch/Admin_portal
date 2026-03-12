@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { Copy } from 'lucide-react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -20,6 +21,12 @@ import { Button } from '@/ui/Button';
 import { PageHeader } from '@/layouts';
 import { DataTable } from '@/components/DateTable';
 import { apiClient } from '@/lib/api';
+import {
+  buildFormSubmissionsReportUrl,
+  exportFormSubmissionsCsv,
+  exportFormSubmissionsPdf,
+  fetchAllFormSubmissions,
+} from '@/lib/formSubmissions';
 import type { AdminForm, FormSubmission, FormSubmissionDailyStat } from '@/lib/types';
 import { withAuth } from '@/providers/withAuth';
 
@@ -76,6 +83,8 @@ function SubmissionsPage() {
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
   const [range, setRange] = useState<RangeOption>(7);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
 
   const load = useCallback(async () => {
     if (!formId) return;
@@ -149,6 +158,50 @@ function SubmissionsPage() {
     []
   );
 
+  const handleCopyLink = useCallback(async () => {
+    if (!formId) return;
+
+    try {
+      await navigator.clipboard.writeText(buildFormSubmissionsReportUrl(formId));
+      toast.success('Report link copied');
+    } catch {
+      toast.error('Failed to copy report link');
+    }
+  }, [formId]);
+
+  const handleExportPdf = useCallback(async () => {
+    if (!formId) return;
+
+    try {
+      setExportingPdf(true);
+      await exportFormSubmissionsPdf(formId, form?.title || formId);
+      toast.success('PDF exported. Password is your login email.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to export PDF');
+    } finally {
+      setExportingPdf(false);
+    }
+  }, [form, formId]);
+
+  const handleExportCsv = useCallback(async () => {
+    if (!formId) return;
+
+    try {
+      setExportingCsv(true);
+      const allSubmissions = await fetchAllFormSubmissions(formId);
+      if (allSubmissions.length === 0) {
+        toast.error('No submissions to export');
+        return;
+      }
+      exportFormSubmissionsCsv(allSubmissions, form?.title || formId);
+      toast.success('CSV exported. You can open it in Excel.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to export CSV');
+    } finally {
+      setExportingCsv(false);
+    }
+  }, [form, formId]);
+
   if (loading) {
     return (
       <div className="flex min-h-[300px] w-full items-center justify-center">
@@ -164,9 +217,55 @@ function SubmissionsPage() {
           title="Form Submissions"
           subtitle={form ? form.title : 'Registrations and daily counts'}
         />
-        <Button variant="outline" onClick={() => router.back()}>
-          Back
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={handleCopyLink} icon={<Copy className="h-4 w-4" />}>
+            Copy Report Link
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleExportPdf}
+            loading={exportingPdf}
+            disabled={exportingPdf || total === 0}
+          >
+            Export PDF
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleExportCsv}
+            loading={exportingCsv}
+            disabled={exportingCsv || total === 0}
+          >
+            Export CSV
+          </Button>
+          <Button variant="outline" onClick={() => router.back()}>
+            Back
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">
+            Total registrations
+          </p>
+          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">{total}</p>
+        </Card>
+        <Card>
+          <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">
+            Showing on this page
+          </p>
+          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">
+            {submissions.length}
+          </p>
+        </Card>
+        <Card>
+          <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">
+            Selected range
+          </p>
+          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">
+            {range} days
+          </p>
+        </Card>
       </div>
 
       <Card title="Registrations Over Time">
