@@ -11,152 +11,21 @@ import { Input } from '@/ui/input';
 import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
 import { apiClient } from '@/lib/api';
+import {
+  ACCEPTED_EMAIL_IMAGE_TYPES,
+  MAX_EMAIL_IMAGE_BYTES,
+  MAX_EMAIL_IMAGE_MB,
+  buildFormEmailHTML,
+  buildFormEmailTextBody,
+  embedTemplateMeta,
+  normalizeAbsoluteHttpUrl,
+  normalizeTemplateSlug,
+  parseTemplateMeta,
+  stripTemplateMeta,
+  toEmailPreview,
+} from '@/lib/formEmailTemplates';
 import type { AdminForm, EmailTemplate, UpdateFormRequest } from '@/lib/types';
 import { getServerErrorMessage } from '@/lib/serverValidation';
-
-const MAX_IMAGE_MB = 5;
-const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
-const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const META_PREFIX = '<!--WH_FORM_TEMPLATE_META:';
-const META_SUFFIX = '-->';
-
-type TemplateMeta = {
-  heading?: string;
-  message?: string;
-  logoUrl?: string;
-  imageUrl?: string;
-  customHtml?: string;
-};
-
-function normalizeSlug(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, '-')
-    .replace(/-{2,}/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function stripTemplateMeta(html: string) {
-  return html.replace(/<!--WH_FORM_TEMPLATE_META:[\s\S]*?-->\s*/g, '');
-}
-
-function embedTemplateMeta(html: string, meta: TemplateMeta) {
-  const payload = encodeURIComponent(JSON.stringify(meta));
-  return `${META_PREFIX}${payload}${META_SUFFIX}\n${stripTemplateMeta(html)}`;
-}
-
-function parseTemplateMeta(html: string): TemplateMeta | null {
-  const match = html.match(/<!--WH_FORM_TEMPLATE_META:([\s\S]*?)-->/);
-  if (!match?.[1]) return null;
-  try {
-    const decoded = decodeURIComponent(match[1]);
-    const parsed = JSON.parse(decoded) as TemplateMeta;
-    return parsed && typeof parsed === 'object' ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function buildResponseEmailHTML(opts: {
-  title: string;
-  heading: string;
-  message: string;
-  logoUrl?: string;
-  imageUrl?: string;
-}) {
-  const safeTitle = escapeHtml(opts.title || 'Registration');
-  const safeHeading = escapeHtml(opts.heading || 'Registration Confirmed');
-  const safeMessage = escapeHtml(opts.message || 'Thank you for registering.');
-  const safeLogoUrl = opts.logoUrl ? escapeHtml(opts.logoUrl) : '';
-  const safeImageUrl = opts.imageUrl ? escapeHtml(opts.imageUrl) : '';
-
-  return `
-<!doctype html>
-<html>
-  <body style="margin:0;padding:0;background:#ffffff;font-family:Arial,sans-serif;color:#111827;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px;">
-      <tr>
-        <td align="center">
-          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #fde68a;border-radius:14px;overflow:hidden;">
-            <tr>
-              <td style="padding:14px 24px 8px 24px;">
-                <div style="height:6px;background:#facc15;border-radius:999px;margin:0 0 12px 0;"></div>
-                {{if .SubscribeURL}}<a href="{{.SubscribeURL}}" style="font-size:12px;color:#111827;text-decoration:underline;font-weight:700;">subscribe</a>{{end}}
-                {{if .UnsubscribeURL}}&nbsp;|&nbsp;<a href="{{.UnsubscribeURL}}" style="font-size:12px;color:#111827;text-decoration:underline;font-weight:700;">unsubscribe</a>{{end}}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:24px 24px 10px 24px;">
-                ${safeLogoUrl ? `<img src="${safeLogoUrl}" alt="Logo" style="display:block;max-width:140px;height:auto;margin:0 0 14px 0;" />` : ''}
-                <p style="margin:0 0 8px 0;font-size:13px;color:#111827;font-weight:700;">${safeTitle}</p>
-                <h2 style="margin:0;font-size:24px;line-height:1.25;color:#111827;">${safeHeading}</h2>
-              </td>
-            </tr>
-            ${safeImageUrl ? `<tr><td style="padding:10px 24px 0 24px;"><img src="${safeImageUrl}" alt="${safeTitle}" style="display:block;width:100%;height:auto;border-radius:10px;" /></td></tr>` : ''}
-            <tr>
-              <td style="padding:18px 24px 12px 24px;">
-                <p style="margin:0 0 14px 0;font-size:16px;color:#111827;">Hello {{.RecipientName}},</p>
-                <p style="margin:0;font-size:15px;line-height:1.7;color:#374151;">${safeMessage}</p>
-                {{if .RegistrationCode}}
-                <div style="margin-top:16px;display:inline-block;padding:10px 14px;border-radius:8px;background:#fff9db;border:1px solid #facc15;font-size:13px;color:#111827;">
-                  Registration Number: <strong>{{.RegistrationCode}}</strong>
-                </div>
-                {{end}}
-                {{if .CalendarOptInURL}}
-                <p style="margin:14px 0 0;font-size:13px;color:#111827;">
-                  <a href="{{.CalendarOptInURL}}" style="color:#111827;text-decoration:underline;font-weight:700;">Add event to calendar</a>
-                </p>
-                {{end}}
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>
-`.trim();
-}
-
-function normalizeAbsoluteHttpUrl(rawValue: string): string {
-  const raw = rawValue.trim();
-  if (!raw) return '';
-
-  let candidate = raw;
-  if (!/^https?:\/\//i.test(candidate)) {
-    candidate = `https://${candidate}`;
-  }
-  try {
-    const parsed = new URL(candidate);
-    if ((parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.host) {
-      return parsed.toString();
-    }
-  } catch {
-    return '';
-  }
-  return '';
-}
-
-function toPreview(html: string) {
-  return html
-    .replace(/{{if [^}]+}}/g, '')
-    .replace(/{{end}}/g, '')
-    .replace(/{{\.RecipientName}}/g, 'John Doe')
-    .replace(/{{\.RegistrationCode}}/g, 'WHC-WPC-26-000001')
-    .replace(/{{\.SubscribeURL}}/g, '#')
-    .replace(/{{\.UnsubscribeURL}}/g, '#')
-    .replace(/{{\.CalendarOptInURL}}/g, '#');
-}
 
 function ResponseEmailEditorPage() {
   const params = useParams();
@@ -188,28 +57,31 @@ function ResponseEmailEditorPage() {
     const existing = form?.settings?.responseEmailTemplateKey?.trim();
     if (existing) return existing;
     if (form?.slug) return `forms/${form.slug}`;
-    if (form?.title) return `forms/${normalizeSlug(form.title)}`;
+    if (form?.title) return `forms/${normalizeTemplateSlug(form.title)}`;
     if (form?.id) return `forms/${form.id}`;
     return '';
   }, [form]);
 
   const previewHTML = useMemo(() => {
-    const generated = buildResponseEmailHTML({
+    const generated = buildFormEmailHTML({
       title: form?.title || 'Registration',
       heading,
       message,
-      logoUrl: logoPreview || logoUrl,
-      imageUrl: imagePreview || imageUrl,
+      logoUrl: logoPreview || logoUrl || undefined,
+      imageUrl: imagePreview || imageUrl || undefined,
+      includeRegistrationCode: true,
+      includeCalendarOptIn: true,
+      greeting: 'Hello {{.RecipientName}},',
     });
-    return toPreview(customHtmlBody.trim() || generated);
+    return toEmailPreview(customHtmlBody.trim() || generated);
   }, [form?.title, heading, message, logoPreview, logoUrl, imagePreview, imageUrl, customHtmlBody]);
 
   const validateImageFile = (file: File): string | null => {
-    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+    if (!ACCEPTED_EMAIL_IMAGE_TYPES.includes(file.type)) {
       return 'Image must be JPEG, PNG, or WebP.';
     }
-    if (file.size > MAX_IMAGE_BYTES) {
-      return `Image must be ${MAX_IMAGE_MB}MB or smaller.`;
+    if (file.size > MAX_EMAIL_IMAGE_BYTES) {
+      return `Image must be ${MAX_EMAIL_IMAGE_MB}MB or smaller.`;
     }
     return null;
   };
@@ -265,6 +137,7 @@ function ResponseEmailEditorPage() {
 
   const handleLogoFile = (file?: File) => {
     if (!file) {
+      if (logoPreview) URL.revokeObjectURL(logoPreview);
       setLogoFile(null);
       setLogoPreview(null);
       return;
@@ -274,12 +147,14 @@ function ResponseEmailEditorPage() {
       toast.error(err);
       return;
     }
+    if (logoPreview) URL.revokeObjectURL(logoPreview);
     setLogoFile(file);
     setLogoPreview(URL.createObjectURL(file));
   };
 
   const handleImageFile = (file?: File) => {
     if (!file) {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
       setImageFile(null);
       setImagePreview(null);
       return;
@@ -289,6 +164,7 @@ function ResponseEmailEditorPage() {
       toast.error(err);
       return;
     }
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
   };
@@ -325,14 +201,22 @@ function ResponseEmailEditorPage() {
       }
 
       const templateKey = templateKeyPreview || `forms/${form.id}`;
-      const builtHtml = buildResponseEmailHTML({
+      const builtHtml = buildFormEmailHTML({
         title: form.title || 'Registration',
         heading: heading.trim(),
         message: message.trim(),
         logoUrl: nextLogoUrl || undefined,
         imageUrl: nextImageUrl || undefined,
+        includeRegistrationCode: true,
+        includeCalendarOptIn: true,
+        greeting: 'Hello {{.RecipientName}},',
       });
       const mergedHTML = customHtmlBody.trim() || builtHtml;
+      const textBody = buildFormEmailTextBody({
+        title: form.title || 'Registration',
+        heading: heading.trim(),
+        message: message.trim(),
+      });
       const htmlBody = embedTemplateMeta(
         mergedHTML,
         {
@@ -352,6 +236,7 @@ function ResponseEmailEditorPage() {
           ownerId: form.id,
           subject: subject.trim(),
           htmlBody,
+          textBody,
           status: 'active',
           activate: true,
         });
@@ -362,6 +247,7 @@ function ResponseEmailEditorPage() {
           ownerId: form.id,
           subject: subject.trim(),
           htmlBody,
+          textBody,
           status: 'active',
           activate: true,
         });
@@ -467,7 +353,9 @@ function ResponseEmailEditorPage() {
               onChange={(e) => handleLogoFile(e.target.files?.[0])}
               className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
             />
-            <p className="text-xs text-[var(--color-text-tertiary)]">Max {MAX_IMAGE_MB}MB. JPEG, PNG, WebP.</p>
+            <p className="text-xs text-[var(--color-text-tertiary)]">
+              Max {MAX_EMAIL_IMAGE_MB}MB. JPEG, PNG, WebP.
+            </p>
           </div>
           <div className="space-y-2">
             <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Upload template image (optional)</label>
@@ -477,7 +365,9 @@ function ResponseEmailEditorPage() {
               onChange={(e) => handleImageFile(e.target.files?.[0])}
               className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
             />
-            <p className="text-xs text-[var(--color-text-tertiary)]">Max {MAX_IMAGE_MB}MB. JPEG, PNG, WebP.</p>
+            <p className="text-xs text-[var(--color-text-tertiary)]">
+              Max {MAX_EMAIL_IMAGE_MB}MB. JPEG, PNG, WebP.
+            </p>
           </div>
 
           <div className="space-y-2 md:col-span-2">

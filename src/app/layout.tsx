@@ -5,8 +5,11 @@ import { AuthProvider } from '@/providers/AuthProviders';
 import { ThemeProvider } from '@/providers/ThemeProviders';
 import { bodyFont, fontVariables } from '@/styles/fonts';
 
-const SITE_URL = 'https://admin-portalwisdomchurch.org';
-const SITE_NAME = 'Wisdom Church Admin Portal';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://admin-portal.example.com';
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME?.trim() || 'Administration Portal';
+const SITE_DESCRIPTION =
+  process.env.NEXT_PUBLIC_SITE_DESCRIPTION?.trim() ||
+  'Secure internal administration portal for managing operational workflows.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -18,7 +21,7 @@ export const metadata: Metadata = {
     default: SITE_NAME,
     template: `%s | ${SITE_NAME}`,
   },
-  description: 'Internal administration portal for managing Wisdom Church content and operations.',
+  description: SITE_DESCRIPTION,
 
   // ✅ Internal portal: keep out of Google/Bing
   robots: {
@@ -48,7 +51,7 @@ export const metadata: Metadata = {
   // Optional social previews (harmless even if noindex)
   openGraph: {
     title: SITE_NAME,
-    description: 'Secure internal portal for administration workflows.',
+    description: SITE_DESCRIPTION,
     url: SITE_URL,
     siteName: SITE_NAME,
     type: 'website',
@@ -57,7 +60,7 @@ export const metadata: Metadata = {
         url: '/logo.webp',
         width: 512,
         height: 512,
-        alt: 'Wisdom Church Admin Portal',
+        alt: SITE_NAME,
       },
     ],
   },
@@ -65,7 +68,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary',
     title: SITE_NAME,
-    description: 'Secure internal portal for administration workflows.',
+    description: SITE_DESCRIPTION,
     images: ['/logo.webp'],
   },
 };

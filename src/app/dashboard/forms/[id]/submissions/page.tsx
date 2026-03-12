@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Copy } from 'lucide-react';
+import { Copy, Send } from 'lucide-react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -26,6 +26,9 @@ import {
   exportFormSubmissionsCsv,
   exportFormSubmissionsPdf,
   fetchAllFormSubmissions,
+  filterFormSubmissions,
+  resolveFormSubmissionEmail,
+  resolveFormSubmissionName,
 } from '@/lib/formSubmissions';
 import type { AdminForm, FormSubmission, FormSubmissionDailyStat } from '@/lib/types';
 import { withAuth } from '@/providers/withAuth';
@@ -190,8 +193,16 @@ function SubmissionsPage() {
 
     try {
       setExportingPdf(true);
-      await exportFormSubmissionsPdf(formId, form?.title || formId);
-      toast.success('PDF exported. Password is your login email.');
+      const allSubmissions = await fetchAllFormSubmissions(formId);
+      const filtered = filterFormSubmissions(allSubmissions);
+
+      if (filtered.length === 0) {
+        toast.error('No submissions to export');
+        return;
+      }
+
+      await exportFormSubmissionsPdf(filtered, form?.title || formId);
+      toast.success('PDF exported');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to export PDF');
     } finally {
@@ -205,11 +216,13 @@ function SubmissionsPage() {
     try {
       setExportingCsv(true);
       const allSubmissions = await fetchAllFormSubmissions(formId);
-      if (allSubmissions.length === 0) {
+      const filtered = filterFormSubmissions(allSubmissions);
+
+      if (filtered.length === 0) {
         toast.error('No submissions to export');
         return;
       }
-      exportFormSubmissionsCsv(allSubmissions, form?.title || formId);
+      exportFormSubmissionsCsv(filtered, form?.title || formId);
       toast.success('CSV exported. You can open it in Excel.');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to export CSV');
@@ -236,6 +249,13 @@ function SubmissionsPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={handleCopyLink} icon={<Copy className="h-4 w-4" />}>
             Copy Report Link
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => router.push(`/dashboard/forms/${formId}/campaigns`)}
+            icon={<Send className="h-4 w-4" />}
+          >
+            Ads & Outreach
           </Button>
           <Button
             variant="outline"
@@ -293,10 +313,10 @@ function SubmissionsPage() {
                 className="flex flex-col gap-1 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-3"
               >
                 <div className="text-sm font-medium text-[var(--color-text-primary)]">
-                  {submission.name || submission.email || 'Anonymous'}
+                  {resolveFormSubmissionName(submission, 'Anonymous')}
                 </div>
                 <div className="text-xs text-[var(--color-text-secondary)]">
-                  {submission.email || submission.contactNumber || 'No contact information'}
+                  {resolveFormSubmissionEmail(submission) || submission.contactNumber || 'No contact information'}
                 </div>
                 <div className="text-xs text-[var(--color-text-tertiary)]">
                   {new Date(submission.createdAt).toLocaleString()}

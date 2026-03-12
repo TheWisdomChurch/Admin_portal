@@ -61,54 +61,56 @@ export function formatFileSize(bytes: number) {
 export const normalizeEmail = (value: string): string => value.trim().toLowerCase();
 
 const PUBLIC_BASE_URL = (process.env.NEXT_PUBLIC_PUBLIC_URL ?? process.env.NEXT_PUBLIC_FRONTEND_URL ?? '').replace(/\/+$/, '');
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL ?? '').replace(/\/+$/, '');
+const PUBLIC_FORM_SEGMENT = '/forms';
+
+function resolvePublicBaseUrl(): string {
+  if (PUBLIC_BASE_URL) return PUBLIC_BASE_URL;
+  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
+  return '';
+}
+
+function normalizeLegacyPublicFormPath(pathname: string): string {
+  if (pathname === '/form') return PUBLIC_FORM_SEGMENT;
+  if (pathname.startsWith('/form/')) {
+    return `${PUBLIC_FORM_SEGMENT}/${pathname.slice('/form/'.length)}`;
+  }
+  return pathname;
+}
+
+function isBlockedPublicPath(pathname: string): boolean {
+  return /^\/(?:api|admin)(?:\/|$)/i.test(pathname);
+}
+
+export function buildPublicFormPath(slug: string): string {
+  return `${PUBLIC_FORM_SEGMENT}/${encodeURIComponent(slug)}`;
+}
 
 export function buildPublicFormUrl(slug?: string, publicUrl?: string): string | null {
-  const base =
-    PUBLIC_BASE_URL ||
-    (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '');
-
-  let baseHost = '';
-  try {
-    if (base && /^https?:\/\//i.test(base)) baseHost = new URL(base).host;
-  } catch {
-    baseHost = '';
-  }
+  const base = resolvePublicBaseUrl();
 
   if (publicUrl) {
     const trimmed = publicUrl.trim();
-    const lowered = trimmed.toLowerCase();
-    let apiHost = '';
-    try {
-      if (API_ORIGIN) apiHost = new URL(API_ORIGIN).host;
-    } catch {
-      apiHost = '';
-    }
-
-    let publicHost = '';
-    try {
-      if (/^https?:\/\//i.test(trimmed)) publicHost = new URL(trimmed).host;
-    } catch {
-      publicHost = '';
-    }
-
-    const looksLikeApi =
-      lowered.includes('/api/') ||
-      lowered.includes('/api/v1') ||
-      lowered.includes('/admin/') ||
-      (apiHost && publicHost && apiHost === publicHost) ||
-      (baseHost && publicHost && baseHost !== publicHost);
-
-    if (!looksLikeApi) {
-      if (trimmed.startsWith('/')) {
-        return base ? `${base}${trimmed}` : trimmed;
+    if (trimmed.startsWith('/')) {
+      const normalizedPath = normalizeLegacyPublicFormPath(trimmed);
+      if (!isBlockedPublicPath(normalizedPath)) {
+        return base ? `${base}${normalizedPath}` : normalizedPath;
       }
-      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    }
+
+    if (/^https?:\/\//i.test(trimmed)) {
+      try {
+        const normalized = new URL(trimmed);
+        normalized.pathname = normalizeLegacyPublicFormPath(normalized.pathname);
+        if (!isBlockedPublicPath(normalized.pathname)) {
+          return normalized.toString();
+        }
+      } catch {
+        return null;
+      }
     }
   }
 
   if (!slug) return null;
-  const safeSlug = encodeURIComponent(slug);
-  if (base) return `${base}/form/${safeSlug}`;
-  return `/form/${safeSlug}`;
+  const path = buildPublicFormPath(slug);
+  return base ? `${base}${path}` : path;
 }

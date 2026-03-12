@@ -23,6 +23,7 @@
     "date-fns": "^4.1.0",
     "framer-motion": "^12.25.0",
     "gsap": "^3.14.2",
+    "jspdf": "^2.5.2",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",
     "react": "19.2.3",
@@ -46,5 +47,10 @@
     "eslint-config-next": "16.1.1",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "eslint-plugin-react-hooks": {
+      "hermes-parser": "^0.33.3"
+    }
   }
 }

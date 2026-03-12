@@ -13,6 +13,7 @@ import { buildPublicFormUrl } from '@/lib/utils';
 import type {
   AdminForm,
   EventData,
+  FormContentSection,
   FormField,
   FormFieldCondition,
   FormFieldType,
@@ -22,7 +23,7 @@ import type {
 } from '@/lib/types';
 import { withAuth } from '@/providers/withAuth';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Copy, Save, Globe, Mail } from 'lucide-react';
+import { Plus, Trash2, Copy, Save, Globe, Mail, Send } from 'lucide-react';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 import { AlertModal } from '@/ui/AlertModal';
 
@@ -208,6 +209,47 @@ function splitLines(value: string): string[] | undefined {
     .filter(Boolean);
 
   return items.length > 0 ? items : undefined;
+}
+
+function createEmptyContentSection(): FormContentSection {
+  return {
+    title: '',
+    subtitle: '',
+    items: [],
+    itemSubtexts: [],
+  };
+}
+
+function sanitizeContentSection(section?: FormContentSection): FormContentSection | null {
+  const title = section?.title?.trim() || '';
+  const subtitle = section?.subtitle?.trim() || '';
+  const items = Array.isArray(section?.items)
+    ? section.items.map((item) => item.trim()).filter(Boolean)
+    : [];
+  const itemSubtexts = Array.isArray(section?.itemSubtexts)
+    ? section.itemSubtexts.map((item) => item.trim())
+    : [];
+
+  if (!title && !subtitle && items.length === 0 && !itemSubtexts.some(Boolean)) {
+    return null;
+  }
+
+  return {
+    title: title || undefined,
+    subtitle: subtitle || undefined,
+    items: items.length > 0 ? items : undefined,
+    itemSubtexts: itemSubtexts.some(Boolean) ? itemSubtexts : undefined,
+  };
+}
+
+function sanitizeContentSections(sections?: FormContentSection[]): FormContentSection[] | undefined {
+  if (!Array.isArray(sections) || sections.length === 0) return undefined;
+
+  const normalized = sections
+    .map((section) => sanitizeContentSection(section))
+    .filter((section): section is FormContentSection => Boolean(section));
+
+  return normalized.length > 0 ? normalized : undefined;
 }
 
 function EditFormPage() {
@@ -490,6 +532,12 @@ function EditFormPage() {
     if (!form) return;
     setFieldErrors({});
     setSaving(true);
+    const sanitizedSettings = form.settings
+      ? {
+          ...form.settings,
+          contentSections: sanitizeContentSections(form.settings.contentSections),
+        }
+      : undefined;
     const payload: UpdateFormRequest = {
       title: form.title.trim(),
       description: form.description?.trim() || undefined,
@@ -502,7 +550,7 @@ function EditFormPage() {
         visibility: sanitizeFieldVisibility(f.visibility),
         order: idx + 1,
       })),
-      settings: form.settings,
+      settings: sanitizedSettings,
     };
     try {
       const updated = await apiClient.updateAdminForm(form.id, payload);
@@ -548,13 +596,17 @@ function EditFormPage() {
       toast.error('Publish the form to get a link');
       return;
     }
-    const url = buildPublicFormUrl(slug, form?.publicUrl) ?? (slug ? `/form/${encodeURIComponent(slug)}` : null);
+    const url = buildPublicFormUrl(slug, form?.publicUrl);
     if (!url) {
       toast.error('Publish the form to get a link');
       return;
     }
-    await navigator.clipboard.writeText(url);
-    toast.success('Link copied');
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Link copied');
+    } catch {
+      toast.error('Failed to copy link');
+    }
   };
 
   const copyReportLink = async () => {
@@ -587,6 +639,24 @@ function EditFormPage() {
     submissionTarget === 'workforce_serving';
   const introBulletsValue = (form.settings?.introBullets ?? []).join('\n');
   const introBulletSubtextsValue = (form.settings?.introBulletSubtexts ?? []).join('\n');
+  const contentSections = form.settings?.contentSections ?? [];
+
+  const addContentSection = () => {
+    updateSettings({ contentSections: [...contentSections, createEmptyContentSection()] });
+  };
+
+  const updateContentSection = (index: number, updates: Partial<FormContentSection>) => {
+    updateSettings({
+      contentSections: contentSections.map((section, sectionIndex) =>
+        sectionIndex === index ? { ...section, ...updates } : section
+      ),
+    });
+  };
+
+  const removeContentSection = (index: number) => {
+    const nextSections = contentSections.filter((_, sectionIndex) => sectionIndex !== index);
+    updateSettings({ contentSections: nextSections.length > 0 ? nextSections : undefined });
+  };
 
   return (
     <div className="space-y-6">
@@ -596,6 +666,13 @@ function EditFormPage() {
           subtitle="Adjust fields, then save and publish."
         />
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => router.push(`/dashboard/forms/${form.id}/campaigns`)}
+            icon={<Send className="h-4 w-4" />}
+          >
+            Ads & Outreach
+          </Button>
           <Button
             variant="outline"
             onClick={() => router.push(`/dashboard/forms/${form.id}/response-email`)}
@@ -936,6 +1013,95 @@ function EditFormPage() {
             </p>
           </div>
 
+          <div className="space-y-4 md:col-span-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-[var(--color-text-secondary)]">Additional content sections</h3>
+                <p className="text-sm text-[var(--color-text-tertiary)]">
+                  Add repeatable sections for schedules, directions, requirements, speakers, or FAQs.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addContentSection}
+                icon={<Plus className="h-4 w-4" />}
+              >
+                Add Section
+              </Button>
+            </div>
+
+            {contentSections.length === 0 ? (
+              <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-5 text-sm text-[var(--color-text-tertiary)]">
+                No extra sections added yet. Use this when a form needs more than the main details block.
+              </div>
+            ) : null}
+
+            {contentSections.map((section, index) => (
+              <div
+                key={`content-section-${index}`}
+                className="space-y-4 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4"
+              >
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-sm font-medium text-[var(--color-text-secondary)]">Section {index + 1}</div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeContentSection(index)}
+                    icon={<Trash2 className="h-4 w-4" />}
+                  >
+                    Remove
+                  </Button>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input
+                    label="Section title"
+                    value={section.title ?? ''}
+                    onChange={(e) => updateContentSection(index, { title: e.target.value })}
+                  />
+                  <Input
+                    label="Section subtitle"
+                    value={section.subtitle ?? ''}
+                    onChange={(e) => updateContentSection(index, { subtitle: e.target.value })}
+                  />
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                      Section items
+                    </label>
+                    <textarea
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                      rows={5}
+                      value={(section.items ?? []).join('\n')}
+                      onChange={(e) => updateContentSection(index, { items: splitLines(e.target.value) ?? [] })}
+                      placeholder={'Arrival and accreditation\nMain auditorium opens\nNetworking dinner'}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                      Item subtext
+                    </label>
+                    <textarea
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                      rows={5}
+                      value={(section.itemSubtexts ?? []).join('\n')}
+                      onChange={(e) =>
+                        updateContentSection(index, {
+                          itemSubtexts: e.target.value.split('\n').map((item) => item.trim()),
+                        })
+                      }
+                      placeholder={'8:00 A.M.\n9:00 A.M.\n6:00 P.M.'}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
           <div className="space-y-2">
             <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
               Form header note
@@ -1242,7 +1408,7 @@ function EditFormPage() {
       <Card title="Preview Link">
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-[var(--color-text-secondary)]">
-            {form.publicUrl || (form.slug ? `/form/${form.slug}` : 'Publish to generate link')}
+            {buildPublicFormUrl(form.slug, form.publicUrl) || 'Publish to generate link'}
           </p>
           <Button variant="outline" size="sm" onClick={copyLink} icon={<Copy className="h-4 w-4" />}>
             Copy

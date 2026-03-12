@@ -440,7 +440,7 @@ function EventPage() {
               label="Registration link (CTA)"
               value={draft.registrationLink}
               onChange={(e) => setDraft((d) => ({ ...d, registrationLink: e.target.value }))}
-              placeholder="https://admin.wisdomchurchhq.org/forms/your-form-slug"
+              placeholder="https://your-domain.com/forms/your-form-slug"
               helperText="This becomes the Register button destination on frontend."
             />
 
