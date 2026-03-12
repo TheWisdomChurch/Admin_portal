@@ -16,6 +16,7 @@ import Image from 'next/image';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Footer } from '@/components/Footer';
 import { apiClient } from '@/lib/api';
+import { getConfiguredAuthIdentityProviders } from '@/lib/authProviders';
 import type { ApiError } from '@/lib/api';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 import { loginSchema, type LoginFormSchema } from '@/lib/validation/auth';
@@ -59,6 +60,7 @@ function LoginInner() {
   }>({ open: false, title: '', description: '', mode: 'generic' });
 
   const redirectPath = useMemo(() => safeRedirect(searchParams.get('redirect')), [searchParams]);
+  const identityProviders = useMemo(() => getConfiguredAuthIdentityProviders(), []);
 
   const {
     register,
@@ -306,6 +308,20 @@ const verifyOtpAndLogin = async () => {
           <p className="text-sm text-[var(--color-text-secondary)] sm:text-base">
             Manage events, testimonies, and ministry updates with clarity and control.
           </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-white/70 p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Access Control</p>
+              <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+                Password sign-in is protected with a one-time verification code before the session is established.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-white/70 p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Trusted Devices</p>
+              <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+                Use Remember me only on secure devices you control. Session persistence remains optional.
+              </p>
+            </div>
+          </div>
         </section>
 
         <Card className="auth-glass w-full max-w-md p-8">
@@ -369,7 +385,7 @@ const verifyOtpAndLogin = async () => {
                   })}
                   error={errors.password?.message}
                   disabled={isLoading}
-                  autoComplete="new-password"
+                  autoComplete="current-password"
                   autoCapitalize="none"
                   spellCheck={false}
                 />
@@ -408,10 +424,44 @@ const verifyOtpAndLogin = async () => {
               </Link>
             </div>
 
+            <p className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs text-[var(--color-text-tertiary)]">
+              Enterprise security is enabled: every password login goes through a one-time verification code.
+            </p>
+
             <Button type="submit" variant="primary" className="w-full" disabled={isLoading} loading={isLoading}>
               {isLoading ? 'Signing in...' : 'Sign In'}
               {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
             </Button>
+
+            {identityProviders.length > 0 ? (
+              <div className="space-y-3">
+                <div className="relative py-1">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-[var(--color-border-secondary)]" />
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-white px-3 text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
+                      Or continue with
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {identityProviders.map((provider) => (
+                    <Button
+                      key={provider.id}
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-center"
+                      disabled={isLoading}
+                      onClick={() => window.location.assign(provider.href)}
+                    >
+                      {provider.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </form>
 
           <div className="mt-8 pt-6 border-t border-[var(--color-border-secondary)]">

@@ -484,6 +484,13 @@ export interface FormDesignSettings {
   footerNote?: string;
 }
 
+export interface FormContentSection {
+  title?: string;
+  subtitle?: string;
+  items?: string[];
+  itemSubtexts?: string[];
+}
+
 export interface FormSettings {
   capacity?: number;
   closesAt?: string;
@@ -497,6 +504,11 @@ export interface FormSettings {
   responseEmailTemplateKey?: string;
   responseEmailTemplateUrl?: string;
   responseEmailSubject?: string;
+  campaignEmailEnabled?: boolean;
+  campaignEmailTemplateId?: string;
+  campaignEmailTemplateKey?: string;
+  campaignEmailTemplateUrl?: string;
+  campaignEmailSubject?: string;
   submissionTarget?: 'workforce' | 'workforce_new' | 'workforce_serving' | 'member';
   submissionDepartment?: string;
 
@@ -505,6 +517,7 @@ export interface FormSettings {
   introSubtitle?: string;
   introBullets?: string[];
   introBulletSubtexts?: string[];
+  contentSections?: FormContentSection[];
   layoutMode?: 'split' | 'stack';
   dateFormat?: 'yyyy-mm-dd' | 'mm/dd/yyyy' | 'dd/mm/yyyy' | 'dd/mm';
   footerText?: string;

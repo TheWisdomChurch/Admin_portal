@@ -67,17 +67,12 @@ import type {
  * - trims
  * - removes trailing slashes
  * - strips a trailing /api/v1 if someone passes that
- *
- * In development, falls back to localhost.
- * In production, requires an explicit env var (fails loudly if missing).
  */
 function normalizeOrigin(raw?: string | null): string {
-  const nodeEnv = process.env.NODE_ENV;
-  const isProd = nodeEnv === 'production';
-
   if (!raw || !raw.trim()) {
-    if (!isProd) return 'http://localhost:8080';
-    throw new Error('[api] Missing NEXT_PUBLIC_API_URL (or NEXT_PUBLIC_BACKEND_URL) in production.');
+    throw new Error(
+      '[api] Missing API origin. Set NEXT_PUBLIC_API_URL or NEXT_PUBLIC_BACKEND_URL, or use the same-origin proxy.'
+    );
   }
 
   let base = raw.trim().replace(/\/+$/, '');
@@ -85,25 +80,40 @@ function normalizeOrigin(raw?: string | null): string {
   return base;
 }
 
-// IMPORTANT: for admin portal, always use same-origin proxy when enabled
-const USE_API_PROXY = process.env.NEXT_PUBLIC_API_PROXY === 'true';
+function requireOrigin(origin: string, message: string): string {
+  if (!origin) {
+    throw new Error(message);
+  }
+  return origin;
+}
 
-// Origin only used for rootFetch health in prod and for non-proxy mode
-const API_ORIGIN = normalizeOrigin(
-  process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL
-);
+// Default to the same-origin proxy unless explicitly disabled.
+const USE_API_PROXY = process.env.NEXT_PUBLIC_API_PROXY !== 'false';
+
+const RAW_API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL;
+const API_ORIGIN = RAW_API_ORIGIN ? normalizeOrigin(RAW_API_ORIGIN) : '';
 
 // When proxy is enabled, all API calls go to same-origin:
-const API_V1_BASE_URL = USE_API_PROXY ? '/api/v1' : `${API_ORIGIN}/api/v1`;
+const API_V1_BASE_URL = USE_API_PROXY
+  ? '/api/v1'
+  : `${requireOrigin(
+      API_ORIGIN,
+      '[api] Missing NEXT_PUBLIC_API_URL or NEXT_PUBLIC_BACKEND_URL while NEXT_PUBLIC_API_PROXY=false.'
+    )}/api/v1`;
 
 // Uploads: route through same proxy too if you want cookies/session consistently
-const UPLOAD_ORIGIN = normalizeOrigin(
+const RAW_UPLOAD_ORIGIN =
   process.env.NEXT_PUBLIC_UPLOAD_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_URL ??
-    process.env.NEXT_PUBLIC_BACKEND_URL
-);
+  process.env.NEXT_PUBLIC_API_URL ??
+  process.env.NEXT_PUBLIC_BACKEND_URL;
+const UPLOAD_ORIGIN = RAW_UPLOAD_ORIGIN ? normalizeOrigin(RAW_UPLOAD_ORIGIN) : '';
 
-const UPLOAD_V1_BASE_URL = USE_API_PROXY ? '/api/v1' : `${UPLOAD_ORIGIN}/api/v1`;
+const UPLOAD_V1_BASE_URL = USE_API_PROXY
+  ? '/api/v1'
+  : `${requireOrigin(
+      UPLOAD_ORIGIN,
+      '[api] Missing NEXT_PUBLIC_UPLOAD_BASE_URL or API origin while NEXT_PUBLIC_API_PROXY=false.'
+    )}/api/v1`;
 
 const AUTH_USER_KEY = 'wisdomhouse_auth_user';
 
@@ -352,6 +362,14 @@ function sanitizeFormPayload<T extends CreateFormRequest | UpdateFormRequest>(pa
         delete nextSettings.responseEmailTemplateUrl;
       }
     }
+    if ('campaignEmailTemplateUrl' in nextSettings) {
+      const normalized = normalizeAbsoluteHttpUrl(nextSettings.campaignEmailTemplateUrl);
+      if (normalized) {
+        nextSettings.campaignEmailTemplateUrl = normalized;
+      } else {
+        delete nextSettings.campaignEmailTemplateUrl;
+      }
+    }
 
     (nextPayload as T & { settings?: typeof nextSettings }).settings = nextSettings;
   }
@@ -498,7 +516,10 @@ async function uploadFetch<T>(endpoint: string, options: RequestInit = {}): Prom
 
 /** Root fetch (NOT /api/v1). Needed for /health. */
 async function rootFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${API_ORIGIN}${endpoint}`;
+  const url = `${requireOrigin(
+    API_ORIGIN,
+    '[api] Missing NEXT_PUBLIC_API_URL or NEXT_PUBLIC_BACKEND_URL for direct root requests.'
+  )}${endpoint}`;
   const headers: HeadersInit = { ...(options.headers || {}) };
 
   try {

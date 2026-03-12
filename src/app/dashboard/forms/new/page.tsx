@@ -1077,7 +1077,7 @@ export default withAuth(function NewFormPage() {
       <Card title="Form Link">
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-[var(--color-text-secondary)]">
-            {publishedSlug ? (buildPublicFormUrl(publishedSlug) ?? `/forms/${publishedSlug}`) : 'Create & publish to generate link'}
+            {publishedSlug ? buildPublicFormUrl(publishedSlug) : 'Create & publish to generate link'}
           </p>
           <Button
             variant="outline"
@@ -1087,7 +1087,11 @@ export default withAuth(function NewFormPage() {
                 toast.error('Publish first to copy link');
                 return;
               }
-              const url = buildPublicFormUrl(publishedSlug) ?? `/forms/${encodeURIComponent(publishedSlug)}`;
+              const url = buildPublicFormUrl(publishedSlug);
+              if (!url) {
+                toast.error('Unable to build public link');
+                return;
+              }
               await navigator.clipboard.writeText(url);
               toast.success('Link copied');
             }}

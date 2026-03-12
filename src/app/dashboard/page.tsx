@@ -17,6 +17,7 @@ import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
+import { buildPublicFormUrl } from '@/lib/utils';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { EventData, DashboardAnalytics, AdminForm, FormStatsResponse } from '@/lib/types';
 
@@ -266,7 +267,7 @@ export default function DashboardPage() {
                   >
                     <p className="text-sm font-semibold text-[var(--color-text-primary)]">{form.title}</p>
                     <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
-                      {form.slug ? `/forms/${form.slug}` : 'Not published yet'}
+                      {buildPublicFormUrl(form.slug, form.publicUrl) || 'Not published yet'}
                     </p>
                     <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-text-tertiary)]">
                       <span>{form.isPublished ? 'Published' : 'Draft'}</span>

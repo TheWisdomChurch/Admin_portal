@@ -1,4 +1,5 @@
-import PublicFormClient from '@/app/forms/[slug]/PublicFormClient';
+import { redirect } from 'next/navigation';
+import { buildPublicFormPath } from '@/lib/utils';
 
 export default async function PublicFormAliasPage({
   params,
@@ -7,5 +8,5 @@ export default async function PublicFormAliasPage({
 }) {
   const resolvedParams = await Promise.resolve(params);
   const slug = resolvedParams?.slug ?? '';
-  return <PublicFormClient slug={slug} />;
+  redirect(buildPublicFormPath(slug));
 }

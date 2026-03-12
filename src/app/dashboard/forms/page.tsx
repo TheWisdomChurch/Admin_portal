@@ -23,6 +23,8 @@ import {
   exportFormSubmissionsPdf,
   fetchAllFormSubmissions,
   filterFormSubmissions,
+  resolveFormSubmissionEmail,
+  resolveFormSubmissionName,
 } from '@/lib/formSubmissions';
 import type {
   AdminForm,
@@ -547,26 +549,46 @@ export default withAuth(function FormsPage() {
       toast.error('Select a form first');
       return;
     }
-    if (filteredSubmissions.length === 0) {
-      toast.error('No submissions to export');
-      return;
-    }
 
     try {
       setExportingPdf(true);
-      await exportFormSubmissionsPdf(selectedFormId, selectedForm?.title || selectedFormId, {
+      const source =
+        submissions.length >= submissionsTotal && !filterText.trim() && !filterStart && !filterEnd
+          ? submissions
+          : await fetchAllFormSubmissions(selectedFormId);
+
+      const filtered = filterFormSubmissions(source, {
         query: filterText,
         from: filterStart,
         to: filterEnd,
       });
-      toast.success('PDF exported. Password is your login email.');
+
+      if (filtered.length === 0) {
+        toast.error('No submissions to export');
+        return;
+      }
+
+      await exportFormSubmissionsPdf(filtered, selectedForm?.title || selectedFormId, {
+        query: filterText,
+        from: filterStart,
+        to: filterEnd,
+      });
+      toast.success('PDF exported');
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : 'Failed to export PDF');
     } finally {
       setExportingPdf(false);
     }
-  }, [filteredSubmissions.length, filterEnd, filterStart, filterText, selectedForm, selectedFormId]);
+  }, [
+    filterEnd,
+    filterStart,
+    filterText,
+    selectedForm,
+    selectedFormId,
+    submissions,
+    submissionsTotal,
+  ]);
 
   const exportSubmissionsCsv = useCallback(async () => {
     if (!selectedFormId) {
@@ -1048,9 +1070,9 @@ export default withAuth(function FormsPage() {
         cell: (item: FormSubmission) => (
           <div className="space-y-1">
             <div className="text-sm font-semibold text-secondary-900">
-              {item.name || item.email || 'Anonymous'}
+              {resolveFormSubmissionName(item, 'Anonymous')}
             </div>
-            <div className="text-xs text-secondary-500">{item.email || 'No email'}</div>
+            <div className="text-xs text-secondary-500">{resolveFormSubmissionEmail(item) || 'No email'}</div>
           </div>
         ),
       },
@@ -1247,7 +1269,7 @@ export default withAuth(function FormsPage() {
                       className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3"
                     >
                       <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                        {submission.name || submission.email || 'Anonymous'}
+                        {resolveFormSubmissionName(submission, 'Anonymous')}
                       </p>
                       <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{submission.formTitle}</p>
                       <p className="mt-2 text-[0.7rem] text-[var(--color-text-tertiary)]">
@@ -1339,6 +1361,21 @@ export default withAuth(function FormsPage() {
                 className="whitespace-nowrap"
               >
                 Copy Report Link
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (!selectedFormId) {
+                    toast.error('Select a form first');
+                    return;
+                  }
+                  router.push(`/dashboard/forms/${selectedFormId}/campaigns`);
+                }}
+                disabled={!selectedFormId}
+                className="whitespace-nowrap"
+              >
+                Open Outreach
               </Button>
 
               <Button
@@ -1906,7 +1943,7 @@ export default withAuth(function FormsPage() {
           onLimitChange={setLimit}
           onEdit={handleEdit}
           onDelete={requestDelete}
-          onView={(f: AdminForm) => router.push(`/dashboard/forms/${f.id}/submissions`)}
+          onView={(f: AdminForm) => router.push(buildFormSubmissionsReportPath(f.id))}
           isLoading={loading}
         />
       </Card>

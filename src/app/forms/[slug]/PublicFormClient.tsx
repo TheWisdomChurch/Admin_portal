@@ -7,7 +7,7 @@ import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { Calendar, Check, MousePointer2, Send } from 'lucide-react';
 import { apiClient } from '@/lib/api';
-import type { PublicFormPayload, FormField } from '@/lib/types';
+import type { PublicFormPayload, FormField, FormContentSection } from '@/lib/types';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { SuccessModal } from '@/ui/SuccessModal';
@@ -16,6 +16,12 @@ import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessa
 type FieldValue = string | boolean | string[] | File | null;
 type ValuesState = Record<string, FieldValue>;
 type SuccessDetail = { label: string; value: string };
+type ContentSectionView = {
+  title: string;
+  subtitle: string;
+  items: string[];
+  itemSubtexts: string[];
+};
 
 type PublicFormClientProps = {
   slug: string;
@@ -459,35 +465,23 @@ function FieldInput({
 }
 
 async function fetchPublicFormClient(slug: string): Promise<PublicFormPayload | null> {
-  const apiOrigin = (
-    process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL ?? ''
-  )
-    .trim()
-    .replace(/\/+$/, '');
-  const candidates: string[] = [];
-  candidates.push(`/api/v1/forms/${encodeURIComponent(slug)}`);
-  if (apiOrigin) {
-    candidates.push(`${apiOrigin}/api/v1/forms/${encodeURIComponent(slug)}`);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(`/api/v1/forms/${encodeURIComponent(slug)}`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { data?: PublicFormPayload } | PublicFormPayload;
+    const payload = 'data' in json ? json.data ?? null : (json as PublicFormPayload);
+    return payload?.form ? payload : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  for (const url of candidates) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    try {
-      const res = await fetch(url, { method: 'GET', credentials: 'include', signal: controller.signal });
-      if (!res.ok) continue;
-      const json = (await res.json()) as { data?: PublicFormPayload } | PublicFormPayload;
-      const payload = 'data' in json ? json.data ?? null : (json as PublicFormPayload);
-      if (!payload || !payload.form) continue;
-      return payload;
-    } catch {
-      continue;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-
-  return null;
 }
 
 export default function PublicFormClient({ slug }: PublicFormClientProps) {
@@ -806,15 +800,58 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     return [];
   }, [eventSessions, settings]);
 
-  const infoSectionTitle =
-    settings?.introTitle?.trim() ||
-    (eventSessions.length > 0 ? 'Session Schedule' : introBullets.length > 0 ? 'Form Details' : '');
-  const infoSectionSubtitle =
-    settings?.introSubtitle?.trim() ||
-    payload?.form?.description?.trim() ||
-    payload?.event?.shortDescription?.trim() ||
-    '';
-  const showDetailsColumn = Boolean(infoSectionTitle || infoSectionSubtitle || introBullets.length > 0);
+  const contentSections = useMemo<ContentSectionView[]>(() => {
+    const configured = Array.isArray(settings?.contentSections)
+      ? settings.contentSections
+          .map((section) => {
+            const title = section?.title?.trim() || '';
+            const subtitle = section?.subtitle?.trim() || '';
+            const items = Array.isArray(section?.items)
+              ? section.items.map((item) => item.trim()).filter(Boolean)
+              : [];
+            const itemSubtexts = Array.isArray(section?.itemSubtexts)
+              ? section.itemSubtexts.map((item) => item.trim())
+              : [];
+
+            if (!title && !subtitle && items.length === 0 && !itemSubtexts.some(Boolean)) {
+              return null;
+            }
+
+            return { title, subtitle, items, itemSubtexts };
+          })
+          .filter((section): section is ContentSectionView => Boolean(section))
+      : [];
+
+    if (configured.length > 0) {
+      return configured;
+    }
+
+    const fallbackSection = {
+      title:
+        settings?.introTitle?.trim() ||
+        (eventSessions.length > 0 ? 'Session Schedule' : introBullets.length > 0 ? 'Form Details' : ''),
+      subtitle:
+        settings?.introSubtitle?.trim() ||
+        payload?.form?.description?.trim() ||
+        payload?.event?.shortDescription?.trim() ||
+        '',
+      items: introBullets,
+      itemSubtexts: introBulletSubs,
+    };
+
+    return fallbackSection.title || fallbackSection.subtitle || fallbackSection.items.length > 0
+      ? [fallbackSection]
+      : [];
+  }, [
+    eventSessions.length,
+    introBulletSubs,
+    introBullets,
+    payload?.event?.shortDescription,
+    payload?.form?.description,
+    settings,
+  ]);
+  const primaryContentSection = contentSections[0];
+  const showDetailsColumn = contentSections.length > 0;
   const layoutMode = settings?.layoutMode === 'stack' ? 'stack' : 'split';
 
   const submitButtonLabel =
@@ -1192,34 +1229,42 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
 
           {hasLeftColumn ? (
             <div ref={leftRef} className="space-y-6">
-              <Card className="p-6 transition-shadow duration-300 hover:shadow-md bg-white border-gray-200">
-                {infoSectionTitle ? (
-                  <h2 className="text-base font-medium text-black">{infoSectionTitle}</h2>
-                ) : null}
-                {infoSectionSubtitle ? (
-                  <p className="mt-1 text-sm text-gray-600">{infoSectionSubtitle}</p>
-                ) : null}
+              {contentSections.map((section, sectionIndex) => (
+                <Card
+                  key={`${section.title || 'section'}-${sectionIndex}`}
+                  className="p-6 transition-shadow duration-300 hover:shadow-md bg-white border-gray-200"
+                >
+                  {section.title ? (
+                    <h2 className="text-base font-medium text-black">{section.title}</h2>
+                  ) : null}
+                  {section.subtitle ? (
+                    <p className="mt-1 text-sm text-gray-600">{section.subtitle}</p>
+                  ) : null}
 
-                {introBullets.length > 0 ? (
-                  <ul ref={listRef} className="mt-4 space-y-3">
-                    {introBullets.map((item, idx) => {
-                      const sub = introBulletSubs[idx];
-                      return (
-                        <li
-                          key={`${item}-${idx}`}
-                          className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm"
-                        >
-                          <div className="mt-1 h-2.5 w-2.5 rounded-full bg-yellow-600" />
-                          <div className="text-sm text-gray-800">
-                            <div className="font-medium text-black">{item}</div>
-                            {sub ? <div className="mt-1 text-xs text-gray-500">{sub}</div> : null}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : null}
-              </Card>
+                  {section.items.length > 0 ? (
+                    <ul
+                      ref={sectionIndex === 0 ? listRef : undefined}
+                      className={section.title || section.subtitle ? 'mt-4 space-y-3' : 'space-y-3'}
+                    >
+                      {section.items.map((item, idx) => {
+                        const sub = section.itemSubtexts[idx];
+                        return (
+                          <li
+                            key={`${item}-${idx}`}
+                            className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm"
+                          >
+                            <div className="mt-1 h-2.5 w-2.5 rounded-full bg-yellow-600" />
+                            <div className="text-sm text-gray-800">
+                              <div className="font-medium text-black">{item}</div>
+                              {sub ? <div className="mt-1 text-xs text-gray-500">{sub}</div> : null}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
+                </Card>
+              ))}
             </div>
           ) : null}
         </div>
@@ -1230,7 +1275,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
               <div className="text-sm font-medium text-black">{siteName}</div>
               <p className="text-xs text-gray-600">
                 {payload.form.description?.trim() ||
-                  infoSectionSubtitle ||
+                  primaryContentSection?.subtitle ||
                   'Complete the form with accurate details so your registration can be processed correctly.'}
               </p>
             </div>
