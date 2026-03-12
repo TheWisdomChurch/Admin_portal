@@ -21,8 +21,11 @@ interface OtpModalProps {
   onVerifyOtp: () => void | Promise<void>;
   emailLabel?: string;
   otpLabel?: string;
+  otpHint?: string;
   confirmText?: string;
   requestText?: string;
+  secondaryActionText?: string;
+  onSecondaryAction?: () => void | Promise<void>;
 }
 
 export function OtpModal({
@@ -40,8 +43,11 @@ export function OtpModal({
   onVerifyOtp,
   emailLabel = 'Email address',
   otpLabel = 'Enter the 6-digit code',
+  otpHint = 'Check your inbox for the code. It expires shortly.',
   confirmText = 'Verify & continue',
   requestText = 'Send code',
+  secondaryActionText,
+  onSecondaryAction,
 }: OtpModalProps) {
   if (!open) return null;
 
@@ -101,7 +107,7 @@ export function OtpModal({
                   disabled={loading}
                 />
               </div>
-              <p className="text-xs text-[var(--color-text-tertiary)]">Check your inbox for the code. It expires shortly.</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">{otpHint}</p>
             </div>
           )}
 
@@ -123,13 +129,25 @@ export function OtpModal({
                 {requestText}
               </Button>
             ) : (
-              <Button
-                onClick={onVerifyOtp}
-                loading={loading}
-                className="sm:min-w-[180px]"
-              >
-                {confirmText}
-              </Button>
+              <>
+                {secondaryActionText && onSecondaryAction ? (
+                  <Button
+                    variant="outline"
+                    onClick={onSecondaryAction}
+                    disabled={loading}
+                    className="sm:min-w-[160px]"
+                  >
+                    {secondaryActionText}
+                  </Button>
+                ) : null}
+                <Button
+                  onClick={onVerifyOtp}
+                  loading={loading}
+                  className="sm:min-w-[180px]"
+                >
+                  {confirmText}
+                </Button>
+              </>
             )}
           </div>
         </div>

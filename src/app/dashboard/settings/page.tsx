@@ -1,8 +1,8 @@
 // src/app/(dashboard)/settings/page.tsx
 'use client';
 
-import { useState, useEffect, type ChangeEvent, type FormEvent } from 'react';
-import { Save, Bell, Lock, User, Trash2 } from 'lucide-react';
+import { useState, useEffect, useCallback, type ChangeEvent, type FormEvent } from 'react';
+import { Save, Bell, Lock, User, Trash2, ShieldCheck, Smartphone, Copy, Link as LinkIcon } from 'lucide-react';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/input';
 import { Card } from '@/ui/Card';
@@ -15,7 +15,7 @@ import { PageHeader } from '@/layouts';
 import { OtpModal } from '@/ui/OtpModal';
 import { PasswordStrengthMeter } from '@/ui/PasswordStrengthMeter';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
-
+import type { AuthSecurityProfile, MFAMethod, TOTPSetupResponse } from '@/lib/types';
 
 interface ProfileFormData {
   username: string;
@@ -26,6 +26,20 @@ interface PasswordFormData {
   currentPassword: string;
   newPassword: string;
   confirmPassword: string;
+}
+
+function formatMfaMethodLabel(method?: string | null): string {
+  if (method === 'totp') return 'Authenticator app';
+  return 'Email verification code';
+}
+
+function formatProviderLabel(provider?: string | null): string {
+  if (!provider) return 'Not connected';
+
+  const normalized = provider.replace(/[_-]+/g, ' ').trim();
+  if (!normalized) return 'Not connected';
+
+  return normalized.replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function SettingsPage() {
@@ -59,6 +73,12 @@ function SettingsPage() {
     confirmPassword: '',
   });
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
+  const [securityProfile, setSecurityProfile] = useState<AuthSecurityProfile | null>(null);
+  const [securityLoading, setSecurityLoading] = useState(false);
+  const [mfaSaving, setMfaSaving] = useState(false);
+  const [totpSetup, setTotpSetup] = useState<TOTPSetupResponse | null>(null);
+  const [totpEnableCode, setTotpEnableCode] = useState('');
+  const [totpDisableCode, setTotpDisableCode] = useState('');
 
   // Initialize form data with user info
   useEffect(() => {
@@ -70,6 +90,98 @@ function SettingsPage() {
       setOtpEmail(auth.user.email || '');
     }
   }, [auth.user]);
+
+  const loadSecurityProfile = useCallback(async () => {
+    if (!auth.user) return;
+
+    try {
+      setSecurityLoading(true);
+      const profile = await apiClient.getMFASecurityProfile();
+      setSecurityProfile(profile);
+    } catch (error) {
+      toast.error(getServerErrorMessage(error, 'Failed to load security settings'));
+    } finally {
+      setSecurityLoading(false);
+    }
+  }, [auth.user]);
+
+  useEffect(() => {
+    void loadSecurityProfile();
+  }, [loadSecurityProfile]);
+
+  const syncSecurityState = useCallback(
+    async (profile: AuthSecurityProfile) => {
+      setSecurityProfile(profile);
+      await auth.checkAuth();
+    },
+    [auth]
+  );
+
+  const copySecurityValue = useCallback(async (value: string, successMessage: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(successMessage);
+    } catch {
+      toast.error('Failed to copy value');
+    }
+  }, []);
+
+  const handleBeginTotpSetup = async () => {
+    try {
+      setMfaSaving(true);
+      const setup = await apiClient.beginTotpSetup();
+      setTotpSetup(setup);
+      setTotpEnableCode('');
+      toast.success('Authenticator setup is ready.');
+    } catch (error) {
+      toast.error(getServerErrorMessage(error, 'Failed to start authenticator setup'));
+    } finally {
+      setMfaSaving(false);
+    }
+  };
+
+  const handleEnableTotp = async () => {
+    try {
+      setMfaSaving(true);
+      const profile = await apiClient.enableTotp(totpEnableCode.trim());
+      await syncSecurityState(profile);
+      setTotpSetup(null);
+      setTotpEnableCode('');
+      toast.success('Authenticator app enabled.');
+    } catch (error) {
+      toast.error(getServerErrorMessage(error, 'Failed to enable authenticator app'));
+    } finally {
+      setMfaSaving(false);
+    }
+  };
+
+  const handleDisableTotp = async () => {
+    try {
+      setMfaSaving(true);
+      const profile = await apiClient.disableTotp(totpDisableCode.trim());
+      await syncSecurityState(profile);
+      setTotpDisableCode('');
+      setTotpSetup(null);
+      toast.success('Authenticator app disabled.');
+    } catch (error) {
+      toast.error(getServerErrorMessage(error, 'Failed to disable authenticator app'));
+    } finally {
+      setMfaSaving(false);
+    }
+  };
+
+  const handlePreferredMethodChange = async (method: MFAMethod) => {
+    try {
+      setMfaSaving(true);
+      const profile = await apiClient.setPreferredMfaMethod(method);
+      await syncSecurityState(profile);
+      toast.success(`Sign-in verification updated to ${formatMfaMethodLabel(method).toLowerCase()}.`);
+    } catch (error) {
+      toast.error(getServerErrorMessage(error, 'Failed to update sign-in verification'));
+    } finally {
+      setMfaSaving(false);
+    }
+  };
 
   const handleProfileSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -281,6 +393,9 @@ function SettingsPage() {
     }
   };
 
+  const preferredMethod = securityProfile?.preferredMfaMethod ?? auth.user?.preferred_mfa_method ?? 'email_otp';
+  const totpEnabled = securityProfile?.totpEnabled ?? auth.user?.totp_enabled ?? false;
+
   if (auth.isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -411,6 +526,217 @@ function SettingsPage() {
                     </Button>
                   </div>
                 </form>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="p-6 space-y-6">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]">
+                    <ShieldCheck className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Authentication Methods</h2>
+                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                      Configure Google sign-in and your preferred multi-factor verification method.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Sign-in preference</p>
+                    <p className="mt-2 text-sm font-semibold text-[var(--color-text-primary)]">
+                      {formatMfaMethodLabel(preferredMethod)}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                      {totpEnabled
+                        ? 'Use your authenticator app for the strongest sign-in protection.'
+                        : 'Email verification remains active until the authenticator app is enabled.'}
+                    </p>
+                  </div>
+
+                  <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Connected identity</p>
+                    <p className="mt-2 text-sm font-semibold text-[var(--color-text-primary)]">
+                      {formatProviderLabel(securityProfile?.federatedProvider ?? auth.user?.federated_provider)}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                      {securityProfile?.federatedProvider ?? auth.user?.federated_provider
+                        ? 'This account can sign in through the linked provider when the email is approved.'
+                        : 'No external identity provider is linked to this account yet.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">Preferred sign-in verification</p>
+                      <p className="text-xs text-[var(--color-text-tertiary)]">
+                        Choose how the second factor is completed after password or Google sign-in.
+                      </p>
+                    </div>
+                    {securityLoading ? (
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-border-primary)] border-r-transparent" />
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      variant={preferredMethod === 'email_otp' ? 'primary' : 'outline'}
+                      disabled={mfaSaving || securityLoading || preferredMethod === 'email_otp'}
+                      onClick={() => handlePreferredMethodChange('email_otp')}
+                    >
+                      Email code
+                    </Button>
+                    <Button
+                      variant={preferredMethod === 'totp' ? 'primary' : 'outline'}
+                      disabled={mfaSaving || securityLoading || !totpEnabled || preferredMethod === 'totp'}
+                      onClick={() => handlePreferredMethodChange('totp')}
+                    >
+                      Authenticator app
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-4 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]">
+                      <Smartphone className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">Authenticator app</p>
+                      <p className="text-xs text-[var(--color-text-tertiary)]">
+                        Codes refresh every 30 seconds. If a code does not verify, confirm your phone time is set automatically.
+                      </p>
+                    </div>
+                  </div>
+
+                  {!totpEnabled ? (
+                    <div className="space-y-4">
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button onClick={handleBeginTotpSetup} loading={mfaSaving}>
+                          Start setup
+                        </Button>
+                        {totpSetup ? (
+                          <Button
+                            variant="outline"
+                            onClick={() => setTotpSetup(null)}
+                            disabled={mfaSaving}
+                          >
+                            Cancel setup
+                          </Button>
+                        ) : null}
+                      </div>
+
+                      {totpSetup ? (
+                        <div className="space-y-4 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Issuer</p>
+                              <p className="mt-2 text-sm font-semibold text-[var(--color-text-primary)]">{totpSetup.issuer}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Account</p>
+                              <p className="mt-2 text-sm font-semibold text-[var(--color-text-primary)]">{totpSetup.accountName}</p>
+                            </div>
+                          </div>
+
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Manual entry key</p>
+                            <div className="mt-2 flex flex-col gap-3 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                              <code className="break-all text-sm font-semibold text-[var(--color-text-primary)]">
+                                {totpSetup.manualEntryKey}
+                              </code>
+                              <Button
+                                variant="outline"
+                                onClick={() => copySecurityValue(totpSetup.manualEntryKey, 'Manual entry key copied')}
+                              >
+                                <Copy className="mr-2 h-4 w-4" />
+                                Copy key
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-3">
+                            <Button
+                              variant="outline"
+                              onClick={() => copySecurityValue(totpSetup.otpauthUrl, 'Authenticator setup link copied')}
+                            >
+                              <LinkIcon className="mr-2 h-4 w-4" />
+                              Copy setup link
+                            </Button>
+                            <a
+                              href={totpSetup.otpauthUrl}
+                              className="inline-flex items-center justify-center rounded-[var(--radius-button)] border border-[var(--color-border-primary)] px-4 py-2 text-sm font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-background-secondary)]"
+                            >
+                              Open authenticator link
+                            </a>
+                          </div>
+
+                          <div className="space-y-3">
+                            <Input
+                              label="Verification code"
+                              value={totpEnableCode}
+                              onChange={(event) => setTotpEnableCode(event.target.value.replace(/\D+/g, '').slice(0, 6))}
+                              inputMode="numeric"
+                              placeholder="Enter the current 6-digit code"
+                              helperText="Add the account in Google Authenticator, Authy, or Microsoft Authenticator, then enter the live code."
+                            />
+                            <Button
+                              onClick={handleEnableTotp}
+                              loading={mfaSaving}
+                              disabled={mfaSaving || totpEnableCode.trim().length !== 6}
+                            >
+                              Enable authenticator app
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-[var(--color-text-secondary)]">
+                          Start setup to generate a secure secret for your authenticator app. The same secret is then used to verify every code in this application.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="rounded-[var(--radius-button)] border border-emerald-200/60 bg-emerald-50/70 p-4">
+                        <p className="text-sm font-semibold text-emerald-900">Authenticator app is enabled</p>
+                        <p className="mt-1 text-xs text-emerald-800">
+                          Sign-in can now be protected with codes generated from your registered authenticator app.
+                        </p>
+                      </div>
+
+                      <Input
+                        label="Disable authenticator app"
+                        value={totpDisableCode}
+                        onChange={(event) => setTotpDisableCode(event.target.value.replace(/\D+/g, '').slice(0, 6))}
+                        inputMode="numeric"
+                        placeholder="Enter the current 6-digit code"
+                        helperText="Provide a valid authenticator code before removing TOTP from this account."
+                      />
+
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button
+                          variant="outline"
+                          onClick={() => handlePreferredMethodChange('totp')}
+                          disabled={mfaSaving || preferredMethod === 'totp'}
+                        >
+                          Use authenticator for sign-in
+                        </Button>
+                        <Button
+                          variant="danger"
+                          onClick={handleDisableTotp}
+                          loading={mfaSaving}
+                          disabled={mfaSaving || totpDisableCode.trim().length !== 6}
+                        >
+                          Disable authenticator app
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </Card>
           </div>

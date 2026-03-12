@@ -1,25 +1,35 @@
 export type AuthIdentityProvider = {
-  id: 'google' | 'microsoft';
+  id: 'google';
   label: string;
   href: string;
 };
 
-function readProviderUrl(value?: string): string | null {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : null;
+type AuthIdentityProviderOptions = {
+  rememberMe?: boolean;
+};
+
+function buildProviderHref(path: string, options?: AuthIdentityProviderOptions): string {
+  const query = new URLSearchParams();
+  if (options?.rememberMe) {
+    query.set('rememberMe', 'true');
+  }
+
+  const serialized = query.toString();
+  return serialized ? `${path}?${serialized}` : path;
 }
 
-export function getConfiguredAuthIdentityProviders(): AuthIdentityProvider[] {
-  const providers: Array<AuthIdentityProvider | null> = [
-    (() => {
-      const href = readProviderUrl(process.env.NEXT_PUBLIC_AUTH_GOOGLE_URL);
-      return href ? { id: 'google', label: 'Continue with Google', href } : null;
-    })(),
-    (() => {
-      const href = readProviderUrl(process.env.NEXT_PUBLIC_AUTH_MICROSOFT_URL);
-      return href ? { id: 'microsoft', label: 'Continue with Microsoft', href } : null;
-    })(),
-  ];
+export function getConfiguredAuthIdentityProviders(
+  options: AuthIdentityProviderOptions = {}
+): AuthIdentityProvider[] {
+  if (process.env.NEXT_PUBLIC_AUTH_GOOGLE_ENABLED === 'false') {
+    return [];
+  }
 
-  return providers.filter((provider): provider is AuthIdentityProvider => Boolean(provider));
+  return [
+    {
+      id: 'google',
+      label: 'Continue with Google',
+      href: buildProviderHref('/api/v1/auth/oauth/google/start', options),
+    },
+  ];
 }

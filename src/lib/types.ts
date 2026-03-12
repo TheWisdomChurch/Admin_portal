@@ -15,6 +15,10 @@ export interface User {
   created_at?: string;
   updated_at?: string;
   last_login_at?: string;
+  preferred_mfa_method?: MFAMethod;
+  totp_enabled?: boolean;
+  federated_provider?: string | null;
+  federated_linked_at?: string;
 }
 
 /* =========================
@@ -22,6 +26,7 @@ export interface User {
 ========================= */
 
 export type RegisterRole = UserRole;
+export type MFAMethod = 'email_otp' | 'totp';
 
 export interface LoginCredentials {
   email: string;
@@ -40,6 +45,7 @@ export interface RegisterData {
 
 export interface LoginChallenge {
   otp_required: true;
+  mfa_method?: MFAMethod;
   purpose: string;
   expires_at?: string;
   action_url?: string;
@@ -49,6 +55,21 @@ export interface LoginChallenge {
 export type LoginResult =
   | { user: User; otp_required?: false }
   | LoginChallenge;
+
+export interface AuthSecurityProfile {
+  preferredMfaMethod: MFAMethod;
+  totpEnabled: boolean;
+  availableMethods: MFAMethod[];
+  federatedProvider?: string | null;
+  federatedLinkedAt?: string;
+}
+
+export interface TOTPSetupResponse {
+  issuer: string;
+  accountName: string;
+  manualEntryKey: string;
+  otpauthUrl: string;
+}
 
 export interface PasswordResetRequestPayload {
   email: string;
@@ -611,6 +632,15 @@ export interface FormStatsResponse {
   totalSubmissions: number;
   perForm: FormSubmissionCount[];
   recent: FormSubmissionWithForm[];
+}
+
+export interface FormReportLinkPayload {
+  formId: string;
+  formTitle: string;
+  slug: string;
+  reportUrl: string;
+  reportDataUrl: string;
+  exportPdfUrl: string;
 }
 
 /* =========================

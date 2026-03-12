@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm, Controller, useWatch, type SubmitHandler } from 'react-hook-form';
+import { useForm, Controller, useWatch, type ControllerRenderProps, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { registerSchema, type RegisterFormSchema } from '@/lib/validation/auth';
 import { ArrowLeft, UserPlus, CheckCircle, Mail, Lock, User } from 'lucide-react';
@@ -115,7 +115,7 @@ export default function RegisterPage() {
 
   const password = useWatch({ control, name: 'password' });
 
-  const onSubmit: SubmitHandler<RegisterFormData> = async (formData) => {
+  const onSubmit: SubmitHandler<RegisterFormData> = async (formData: RegisterFormData) => {
     try {
       clearErrors();
       setServerError('');
@@ -397,7 +397,7 @@ export default function RegisterPage() {
                 <Controller
                   name="rememberMe"
                   control={control}
-                  render={({ field }) => (
+                  render={({ field }: { field: ControllerRenderProps<RegisterFormData, 'rememberMe'> }) => (
                     <Checkbox
                       label="Remember me on this device"
                       disabled={isSubmitting}

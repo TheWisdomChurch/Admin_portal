@@ -22,7 +22,7 @@ import { PageHeader } from '@/layouts';
 import { DataTable } from '@/components/DateTable';
 import { apiClient } from '@/lib/api';
 import {
-  buildFormSubmissionsReportUrl,
+  copyFormSubmissionsReportLink,
   exportFormSubmissionsCsv,
   exportFormSubmissionsPdf,
   fetchAllFormSubmissions,
@@ -181,8 +181,8 @@ function SubmissionsPage() {
     if (!formId) return;
 
     try {
-      await navigator.clipboard.writeText(buildFormSubmissionsReportUrl(formId));
-      toast.success('Report link copied');
+      await copyFormSubmissionsReportLink(formId);
+      toast.success('Client report link copied');
     } catch {
       toast.error('Failed to copy report link');
     }
@@ -248,7 +248,7 @@ function SubmissionsPage() {
         />
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={handleCopyLink} icon={<Copy className="h-4 w-4" />}>
-            Copy Report Link
+            Copy Client Report Link
           </Button>
           <Button
             variant="outline"

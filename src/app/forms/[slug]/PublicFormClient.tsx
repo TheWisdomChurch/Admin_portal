@@ -7,7 +7,7 @@ import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { Calendar, Check, MousePointer2, Send } from 'lucide-react';
 import { apiClient } from '@/lib/api';
-import type { PublicFormPayload, FormField, FormContentSection } from '@/lib/types';
+import type { PublicFormPayload, FormField } from '@/lib/types';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { SuccessModal } from '@/ui/SuccessModal';
@@ -485,7 +485,7 @@ async function fetchPublicFormClient(slug: string): Promise<PublicFormPayload | 
 }
 
 export default function PublicFormClient({ slug }: PublicFormClientProps) {
-  const loadCachedPayload = (): PublicFormPayload | null => {
+  const cachedPayload = useMemo(() => {
     if (typeof window === 'undefined' || !slug) return null;
     try {
       const raw = sessionStorage.getItem(`public-form:${slug}`);
@@ -495,9 +495,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     } catch {
       return null;
     }
-  };
-
-  const cachedPayload = useMemo(() => loadCachedPayload(), [slug]);
+  }, [slug]);
   const [payload, setPayload] = useState<PublicFormPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
