@@ -100,34 +100,44 @@ export function filterFormSubmissions(
   if (start && Number.isNaN(start.getTime())) return submissions;
   if (end && Number.isNaN(end.getTime())) return submissions;
 
-  return submissions.filter((submission) => {
-    const haystack = [
-      submission.name,
-      submission.email,
-      submission.contactNumber,
-      submission.contactAddress,
-      submission.registrationCode,
-      ...Object.values(submission.values || {}).map((value) => serializeSubmissionValue(value)),
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
+  return submissions
+    .filter((submission) => {
+      const haystack = [
+        submission.name,
+        submission.email,
+        submission.contactNumber,
+        submission.contactAddress,
+        submission.registrationCode,
+        ...Object.values(submission.values || {}).map((value) => serializeSubmissionValue(value)),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
 
-    if (term && !haystack.includes(term)) return false;
+      if (term && !haystack.includes(term)) return false;
 
-    if (start || end) {
-      const created = new Date(submission.createdAt);
-      if (Number.isNaN(created.getTime())) return false;
-      if (start && created < start) return false;
-      if (end) {
-        const endOfDay = new Date(end);
-        endOfDay.setHours(23, 59, 59, 999);
-        if (created > endOfDay) return false;
+      if (start || end) {
+        const created = new Date(submission.createdAt);
+        if (Number.isNaN(created.getTime())) return false;
+        if (start && created < start) return false;
+        if (end) {
+          const endOfDay = new Date(end);
+          endOfDay.setHours(23, 59, 59, 999);
+          if (created > endOfDay) return false;
+        }
       }
-    }
 
-    return true;
-  });
+      return true;
+    })
+    .sort((left, right) => {
+      const leftTime = new Date(left.createdAt).getTime();
+      const rightTime = new Date(right.createdAt).getTime();
+
+      if (Number.isNaN(leftTime) && Number.isNaN(rightTime)) return 0;
+      if (Number.isNaN(leftTime)) return 1;
+      if (Number.isNaN(rightTime)) return -1;
+      return rightTime - leftTime;
+    });
 }
 
 export async function exportFormSubmissionsPdf(
