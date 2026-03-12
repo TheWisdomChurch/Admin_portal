@@ -151,7 +151,7 @@ export default function PasswordResetPage() {
     }
   };
 
-  const onSubmit: SubmitHandler<ResetFormData> = async (data) => {
+  const onSubmit: SubmitHandler<ResetFormData> = async (data: ResetFormData) => {
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedCode = code.trim();
 

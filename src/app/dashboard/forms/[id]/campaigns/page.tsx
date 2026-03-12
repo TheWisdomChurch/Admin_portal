@@ -257,7 +257,7 @@ function RegistrantCampaignPage() {
     try {
       let nextLogoUrl = normalizeAbsoluteHttpUrl(logoUrl);
       let nextImageUrl = normalizeAbsoluteHttpUrl(imageUrl);
-      let nextCtaUrl = normalizeAbsoluteHttpUrl(ctaUrl);
+      const nextCtaUrl = normalizeAbsoluteHttpUrl(ctaUrl);
 
       if (logoUrl.trim() && !nextLogoUrl) {
         toast.error('Logo URL is invalid. Use a full URL like https://...png');
@@ -609,7 +609,7 @@ function RegistrantCampaignPage() {
                   Delivery integration status
                 </div>
                 <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">
-                  The current frontend API exposes template saving and audience management, but it does not yet expose a segmented "send this campaign to this form audience" delivery endpoint. This page prepares the campaign professionally and keeps the audience ready for backend delivery wiring.
+                  The current frontend API exposes template saving and audience management, but it does not yet expose a segmented &quot;send this campaign to this form audience&quot; delivery endpoint. This page prepares the campaign professionally and keeps the audience ready for backend delivery wiring.
                 </p>
               </div>
             </div>

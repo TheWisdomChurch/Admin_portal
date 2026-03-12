@@ -1,7 +1,13 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useCallback, useRef, useState } from 'react';
-import { apiClient, getAuthUser, setAuthUser, clearAuthStorage } from '@/lib/api';
+import {
+  apiClient,
+  getAuthRememberPreference,
+  getAuthUser,
+  setAuthUser,
+  clearAuthStorage,
+} from '@/lib/api';
 import type { User, MessageResponse } from '@/lib/types';
 
 export type AuthContextType = {
@@ -40,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(me);
 
       // store profile only; cookie is the real session
-      const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
+      const remembered = getAuthRememberPreference();
       setAuthUser(me, remembered);
 
       return me;
@@ -104,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const updated = await apiClient.updateProfile(userData);
     setUser(updated);
 
-    const remembered = !!localStorage.getItem('wisdomhouse_auth_user');
+    const remembered = getAuthRememberPreference();
     setAuthUser(updated, remembered);
 
     return updated;

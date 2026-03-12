@@ -18,7 +18,7 @@ import { AlertModal } from '@/ui/AlertModal';
 import { apiClient, mapValidationErrors } from '@/lib/api';
 import {
   buildFormSubmissionsReportPath,
-  buildFormSubmissionsReportUrl,
+  copyFormSubmissionsReportLink,
   exportFormSubmissionsCsv,
   exportFormSubmissionsPdf,
   fetchAllFormSubmissions,
@@ -640,8 +640,8 @@ export default withAuth(function FormsPage() {
     }
 
     try {
-      await navigator.clipboard.writeText(buildFormSubmissionsReportUrl(selectedFormId));
-      toast.success('Report link copied');
+      await copyFormSubmissionsReportLink(selectedFormId);
+      toast.success('Client report link copied');
     } catch {
       toast.error('Failed to copy report link');
     }
@@ -1360,7 +1360,7 @@ export default withAuth(function FormsPage() {
                 disabled={!selectedFormId}
                 className="whitespace-nowrap"
               >
-                Copy Report Link
+                Copy Client Report Link
               </Button>
 
               <Button

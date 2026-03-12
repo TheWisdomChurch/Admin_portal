@@ -8,7 +8,7 @@ import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
-import { buildFormSubmissionsReportPath, buildFormSubmissionsReportUrl } from '@/lib/formSubmissions';
+import { buildFormSubmissionsReportPath, copyFormSubmissionsReportLink } from '@/lib/formSubmissions';
 import { buildPublicFormUrl } from '@/lib/utils';
 import type {
   AdminForm,
@@ -613,8 +613,8 @@ function EditFormPage() {
     if (!form?.id) return;
 
     try {
-      await navigator.clipboard.writeText(buildFormSubmissionsReportUrl(form.id));
-      toast.success('Report link copied');
+      await copyFormSubmissionsReportLink(form.id);
+      toast.success('Client report link copied');
     } catch {
       toast.error('Failed to copy report link');
     }
@@ -690,7 +690,7 @@ function EditFormPage() {
             Open Report
           </Button>
           <Button variant="outline" onClick={copyReportLink}>
-            Copy Report Link
+            Copy Client Report Link
           </Button>
           <Button variant="outline" onClick={publishForm} loading={publishing} icon={<Globe className="h-4 w-4" />}>
             {form.slug ? 'Update Publish' : 'Publish'}

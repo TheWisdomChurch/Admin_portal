@@ -31,6 +31,10 @@ interface RichTextEditorProps {
   className?: string;
 }
 
+type EditorLike = {
+  getHTML: () => string;
+};
+
 export function RichTextEditor({
   value,
   onChange,
@@ -68,7 +72,7 @@ export function RichTextEditor({
       }),
     ],
     content: value,
-    onUpdate: ({ editor }) => {
+    onUpdate: ({ editor }: { editor: EditorLike }) => {
       onChange(editor.getHTML());
     },
     editorProps: {

@@ -23,7 +23,6 @@ import {
   LineChart,
   Sparkles
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Badge } from '@/ui/Badge';
 import { LogoutModal } from '@/ui/LogoutModal';
@@ -231,11 +230,7 @@ export function Sidebar() {
 
           {/* User info */}
           {showLabels && auth.user && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-6 pt-6 border-t border-[var(--color-border-secondary)]"
-            >
+            <div className="mt-6 border-t border-[var(--color-border-secondary)] pt-6">
               <div className="flex items-center gap-3">
                 <div className="h-12 w-12 rounded-[var(--radius-button)] bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center flex-shrink-0 shadow-sm">
                   <span className="font-bold text-lg text-amber-700">
@@ -257,29 +252,23 @@ export function Sidebar() {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </div>
           )}
         </div>
 
         {/* Navigation */}
         <nav className={`flex-1 space-y-1 overflow-y-auto ${isCollapsed ? 'p-3' : 'p-4'}`}>
-          <AnimatePresence>
-            {navItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-              const Icon = item.icon;
+          {navItems.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const Icon = item.icon;
 
-              return (
-                <motion.div
-                  key={item.href}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                >
-                  <Link
-                    href={item.href}
-                    onClick={() => setIsMobileOpen(false)}
-                    title={item.label}
-                    className={`
+            return (
+              <div key={item.href}>
+                <Link
+                  href={item.href}
+                  onClick={() => setIsMobileOpen(false)}
+                  title={item.label}
+                  className={`
                       flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all
                       duration-200 ease-out group relative
                       ${showLabels ? '' : 'justify-center'}
@@ -321,11 +310,10 @@ export function Sidebar() {
                         {item.label}
                       </span>
                     )}
-                  </Link>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+                </Link>
+              </div>
+            );
+          })}
         </nav>
 
         {/* Footer */}

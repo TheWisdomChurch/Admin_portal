@@ -46,6 +46,7 @@ import type {
   PasswordResetConfirmPayload,
   LoginResult,
   LoginChallenge,
+  AuthSecurityProfile,
   ChangePasswordData,
   HealthCheckResponse,
   UploadPresignRequest,
@@ -56,6 +57,9 @@ import type {
   CreateEmailTemplateRequest,
   UpdateEmailTemplateRequest,
   AdminNotificationInbox,
+  TOTPSetupResponse,
+  FormReportLinkPayload,
+  MFAMethod,
 } from './types';
 
 /* ============================================================================
@@ -116,6 +120,7 @@ const UPLOAD_V1_BASE_URL = USE_API_PROXY
     )}/api/v1`;
 
 const AUTH_USER_KEY = 'wisdomhouse_auth_user';
+const AUTH_REMEMBER_KEY = 'wisdomhouse_auth_remember';
 
 /* ============================================================================
    Error Utilities (WITH validationErrors)
@@ -410,14 +415,38 @@ export function getAuthUser(): User | null {
 
 export function setAuthUser(user: User, rememberMe = false): void {
   if (typeof window === 'undefined') return;
-  const storage = rememberMe ? localStorage : sessionStorage;
-  storage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  const targetStorage = rememberMe ? localStorage : sessionStorage;
+  const otherStorage = rememberMe ? sessionStorage : localStorage;
+  otherStorage.removeItem(AUTH_USER_KEY);
+  targetStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+}
+
+export function getAuthRememberPreference(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (localStorage.getItem(AUTH_REMEMBER_KEY) === '1') return true;
+  if (sessionStorage.getItem(AUTH_REMEMBER_KEY) === '0') return false;
+  return false;
+}
+
+export function setAuthRememberPreference(rememberMe: boolean): void {
+  if (typeof window === 'undefined') return;
+
+  if (rememberMe) {
+    localStorage.setItem(AUTH_REMEMBER_KEY, '1');
+    sessionStorage.removeItem(AUTH_REMEMBER_KEY);
+    return;
+  }
+
+  localStorage.removeItem(AUTH_REMEMBER_KEY);
+  sessionStorage.setItem(AUTH_REMEMBER_KEY, '0');
 }
 
 export function clearAuthStorage(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(AUTH_USER_KEY);
   sessionStorage.removeItem(AUTH_USER_KEY);
+  localStorage.removeItem(AUTH_REMEMBER_KEY);
+  sessionStorage.removeItem(AUTH_REMEMBER_KEY);
   sessionStorage.removeItem('redirect_after_login');
 }
 
@@ -560,6 +589,10 @@ function isUserLike(value: unknown): value is User {
   return typeof record.id === 'string' && typeof record.email === 'string';
 }
 
+function isMFAMethod(value: unknown): value is MFAMethod {
+  return value === 'email_otp' || value === 'totp';
+}
+
 function extractUser(response: unknown): User {
   const data =
     isRecord(response) && 'data' in response
@@ -659,6 +692,7 @@ function extractLoginResult(res: unknown): LoginResult {
     const d = data as Record<string, unknown>;
     return {
       otp_required: true,
+      mfa_method: isMFAMethod(d.mfa_method) ? d.mfa_method : 'email_otp',
       purpose: typeof d.purpose === 'string' ? d.purpose : 'login',
       expires_at: typeof d.expires_at === 'string' ? d.expires_at : undefined,
       action_url: typeof d.action_url === 'string' ? d.action_url : undefined,
@@ -703,6 +737,7 @@ export const apiClient = {
     email: string;
     code: string;
     purpose: string;
+    method?: MFAMethod;
     rememberMe?: boolean;
   }): Promise<User> {
     const res = await apiFetch<ApiResponse<unknown>>('/auth/login/verify-otp', {
@@ -710,6 +745,18 @@ export const apiClient = {
       body: JSON.stringify(payload),
     });
     return extractUser(res);
+  },
+
+  async resendLoginOtp(payload: { email: string }): Promise<LoginChallenge> {
+    const res = await apiFetch<ApiResponse<unknown>>('/auth/login/resend-otp', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    const challenge = extractLoginResult(res);
+    if ('otp_required' in challenge && challenge.otp_required) {
+      return challenge;
+    }
+    throw createApiError('Invalid login challenge payload', 400, res);
   },
 
   async register(data: RegisterData): Promise<User> {
@@ -746,6 +793,42 @@ export const apiClient = {
   async getCurrentUser(): Promise<User> {
     const res = await apiFetch<ApiResponse<unknown>>('/auth/me', { method: 'GET' });
     return extractUser(res);
+  },
+
+  async getMFASecurityProfile(): Promise<AuthSecurityProfile> {
+    const res = await apiFetch<ApiResponse<AuthSecurityProfile>>('/auth/mfa', { method: 'GET' });
+    return unwrapData<AuthSecurityProfile>(res, 'Invalid MFA security profile payload');
+  },
+
+  async beginTotpSetup(): Promise<TOTPSetupResponse> {
+    const res = await apiFetch<ApiResponse<TOTPSetupResponse>>('/auth/mfa/totp/setup', {
+      method: 'POST',
+    });
+    return unwrapData<TOTPSetupResponse>(res, 'Invalid authenticator setup payload');
+  },
+
+  async enableTotp(code: string): Promise<AuthSecurityProfile> {
+    const res = await apiFetch<ApiResponse<AuthSecurityProfile>>('/auth/mfa/totp/enable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+    return unwrapData<AuthSecurityProfile>(res, 'Invalid authenticator enable payload');
+  },
+
+  async disableTotp(code: string): Promise<AuthSecurityProfile> {
+    const res = await apiFetch<ApiResponse<AuthSecurityProfile>>('/auth/mfa/totp/disable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+    return unwrapData<AuthSecurityProfile>(res, 'Invalid authenticator disable payload');
+  },
+
+  async setPreferredMfaMethod(method: MFAMethod): Promise<AuthSecurityProfile> {
+    const res = await apiFetch<ApiResponse<AuthSecurityProfile>>('/auth/mfa/method', {
+      method: 'PATCH',
+      body: JSON.stringify({ method }),
+    });
+    return unwrapData<AuthSecurityProfile>(res, 'Invalid MFA preference payload');
   },
 
   async updateProfile(userData: Partial<User>): Promise<User> {
@@ -1056,6 +1139,14 @@ export const apiClient = {
       res,
       'Invalid publish payload'
     );
+  },
+
+  async getAdminFormReportLink(id: string): Promise<FormReportLinkPayload> {
+    const res = await apiFetch<ApiResponse<FormReportLinkPayload>>(
+      `/admin/forms/${encodeURIComponent(id)}/report-link`,
+      { method: 'GET' }
+    );
+    return unwrapData<FormReportLinkPayload>(res, 'Invalid report link payload');
   },
 
   async getFormSubmissions(id: string, params?: Record<string, unknown>): Promise<SimplePaginatedResponse<FormSubmission>> {

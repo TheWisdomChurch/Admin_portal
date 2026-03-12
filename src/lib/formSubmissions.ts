@@ -1,5 +1,5 @@
 import { apiClient } from './api';
-import type { FormSubmission } from './types';
+import type { FormReportLinkPayload, FormSubmission } from './types';
 import { normalizeEmail, validateEmail } from './utils';
 
 export type FormSubmissionFilters = {
@@ -207,6 +207,16 @@ export function buildFormSubmissionsReportPath(formId: string): string {
 
 export function buildFormSubmissionsReportUrl(formId: string): string {
   return resolveAppUrl(buildFormSubmissionsReportPath(formId));
+}
+
+export async function getFormSubmissionsReportLink(formId: string): Promise<FormReportLinkPayload> {
+  return apiClient.getAdminFormReportLink(formId);
+}
+
+export async function copyFormSubmissionsReportLink(formId: string): Promise<FormReportLinkPayload> {
+  const link = await getFormSubmissionsReportLink(formId);
+  await navigator.clipboard.writeText(link.reportUrl);
+  return link;
 }
 
 export function filterFormSubmissions(
