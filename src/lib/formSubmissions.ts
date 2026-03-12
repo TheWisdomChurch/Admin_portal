@@ -1,5 +1,5 @@
 import { apiClient } from './api';
-import type { FormReportLinkPayload, FormSubmission } from './types';
+import type { FormField, FormReportLinkPayload, FormSubmission } from './types';
 import { normalizeEmail, validateEmail } from './utils';
 
 export type FormSubmissionFilters = {
@@ -18,6 +18,7 @@ export type FormCampaignRecipient = {
 
 type SubmissionValues = FormSubmission['values'];
 type SubmissionIdentitySource = Pick<FormSubmission, 'name' | 'email' | 'values'>;
+type ExportFormField = Pick<FormField, 'key' | 'label' | 'order'>;
 
 const APP_BASE_URL = (
   process.env.NEXT_PUBLIC_PUBLIC_URL ?? process.env.NEXT_PUBLIC_FRONTEND_URL ?? ''
@@ -145,6 +146,78 @@ function formatFieldLabel(key: string): string {
   return normalized.replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function buildFieldLabelMap(fields?: ExportFormField[]): Map<string, string> {
+  const labelMap = new Map<string, string>();
+
+  (fields || [])
+    .slice()
+    .sort((left, right) => (left.order || 0) - (right.order || 0))
+    .forEach((field) => {
+      const key = field.key?.trim();
+      const label = field.label?.trim();
+      if (!key || !label || labelMap.has(key)) return;
+      labelMap.set(key, label);
+    });
+
+  return labelMap;
+}
+
+function resolveExportFieldLabel(key: string, labelMap: Map<string, string>): string {
+  return labelMap.get(key) || formatFieldLabel(key);
+}
+
+function buildOrderedValueKeys(
+  submissions: FormSubmission[],
+  fields?: ExportFormField[]
+): string[] {
+  const orderedKeys: string[] = [];
+  const seen = new Set<string>();
+
+  (fields || [])
+    .slice()
+    .sort((left, right) => (left.order || 0) - (right.order || 0))
+    .forEach((field) => {
+      const key = field.key?.trim();
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      orderedKeys.push(key);
+    });
+
+  submissions.forEach((submission) => {
+    Object.keys(submission.values || {}).forEach((key) => {
+      const normalizedKey = key.trim();
+      if (!normalizedKey || seen.has(normalizedKey)) return;
+      seen.add(normalizedKey);
+      orderedKeys.push(normalizedKey);
+    });
+  });
+
+  return orderedKeys;
+}
+
+function buildSubmissionResponseEntries(
+  submission: FormSubmission,
+  orderedValueKeys: string[]
+): Array<[string, unknown]> {
+  const values = submission.values || {};
+  const seen = new Set<string>();
+  const entries: Array<[string, unknown]> = [];
+
+  orderedValueKeys.forEach((key) => {
+    if (!Object.prototype.hasOwnProperty.call(values, key)) return;
+    entries.push([key, values[key]]);
+    seen.add(key);
+  });
+
+  Object.entries(values).forEach(([key, value]) => {
+    const normalizedKey = key.trim();
+    if (!normalizedKey || seen.has(normalizedKey)) return;
+    entries.push([normalizedKey, value]);
+  });
+
+  return entries;
+}
+
 function formatDateTime(value?: string): string {
   if (!value) return 'Not available';
 
@@ -265,7 +338,8 @@ export function filterFormSubmissions(
 export async function exportFormSubmissionsPdf(
   submissions: FormSubmission[],
   fileLabel?: string,
-  filters?: FormSubmissionFilters
+  filters?: FormSubmissionFilters,
+  fields?: ExportFormField[]
 ): Promise<void> {
   const orderedSubmissions = sortFormSubmissionsByCreatedAt(submissions);
   if (orderedSubmissions.length === 0) {
@@ -274,6 +348,8 @@ export async function exportFormSubmissionsPdf(
 
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const orderedValueKeys = buildOrderedValueKeys(orderedSubmissions, fields);
+  const fieldLabelMap = buildFieldLabelMap(fields);
   const margin = 44;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -362,7 +438,7 @@ export async function exportFormSubmissionsPdf(
       ['Contact Number', submission.contactNumber || 'Not provided'],
       ['Contact Address', submission.contactAddress || 'Not provided'],
     ];
-    const responseEntries = Object.entries(submission.values || {});
+    const responseEntries = buildSubmissionResponseEntries(submission, orderedValueKeys);
 
     ensureSpace(80);
     writeText(heading, {
@@ -389,7 +465,7 @@ export async function exportFormSubmissionsPdf(
       });
 
       responseEntries.forEach(([key, value]) => {
-        writeText(`${formatFieldLabel(key)}: ${serializeSubmissionValue(value) || 'Not provided'}`, {
+        writeText(`${resolveExportFieldLabel(key, fieldLabelMap)}: ${serializeSubmissionValue(value) || 'Not provided'}`, {
           fontSize: 10,
           color: [71, 85, 105],
           indent: 10,
@@ -418,8 +494,16 @@ export async function exportFormSubmissionsPdf(
     doc.text(`Page ${page} of ${pages}`, pageWidth - margin, pageHeight - 12, { align: 'right' });
   }
 
-  const blob = doc.output('blob');
-  downloadBlob(blob, `${buildFilename('form-submissions', fileLabel)}.pdf`);
+  const filename = `${buildFilename('form-submissions', fileLabel)}.pdf`;
+  const saveResult = (
+    doc as unknown as {
+      save: (name: string, options?: { returnPromise?: boolean }) => unknown;
+    }
+  ).save(filename, { returnPromise: true });
+
+  if (saveResult && typeof (saveResult as PromiseLike<unknown>).then === 'function') {
+    await saveResult;
+  }
 }
 
 export async function fetchAllFormSubmissions(formId: string): Promise<FormSubmission[]> {
@@ -448,19 +532,12 @@ export async function fetchAllFormSubmissions(formId: string): Promise<FormSubmi
 
 export function exportFormSubmissionsCsv(
   submissions: FormSubmission[],
-  fileLabel?: string
+  fileLabel?: string,
+  fields?: ExportFormField[]
 ): void {
   const orderedSubmissions = sortFormSubmissionsByCreatedAt(submissions);
-  const valueKeys: string[] = [];
-  const seen = new Set<string>();
-
-  orderedSubmissions.forEach((submission) => {
-    Object.keys(submission.values || {}).forEach((key) => {
-      if (seen.has(key)) return;
-      seen.add(key);
-      valueKeys.push(key);
-    });
-  });
+  const valueKeys = buildOrderedValueKeys(orderedSubmissions, fields);
+  const fieldLabelMap = buildFieldLabelMap(fields);
 
   const rows = [
     [
@@ -470,7 +547,7 @@ export function exportFormSubmissionsCsv(
       'Contact Address',
       'Registration Code',
       'Submitted At',
-      ...valueKeys,
+      ...valueKeys.map((key) => resolveExportFieldLabel(key, fieldLabelMap)),
     ],
     ...orderedSubmissions.map((submission) => [
       resolveFormSubmissionName(submission, ''),

@@ -140,12 +140,12 @@ function SubmissionsPage() {
       {
         key: 'name' as keyof FormSubmission,
         header: 'Name',
-        cell: (row: FormSubmission) => row.name || '—',
+        cell: (row: FormSubmission) => resolveFormSubmissionName(row, '—'),
       },
       {
         key: 'email' as keyof FormSubmission,
         header: 'Email',
-        cell: (row: FormSubmission) => row.email || '—',
+        cell: (row: FormSubmission) => resolveFormSubmissionEmail(row) || '—',
       },
       {
         key: 'registrationCode' as keyof FormSubmission,
@@ -193,6 +193,10 @@ function SubmissionsPage() {
 
     try {
       setExportingPdf(true);
+      const exportForm =
+        form?.id === formId && (form.fields?.length || 0) > 0
+          ? form
+          : await apiClient.getAdminForm(formId);
       const allSubmissions = await fetchAllFormSubmissions(formId);
       const filtered = filterFormSubmissions(allSubmissions);
 
@@ -201,7 +205,7 @@ function SubmissionsPage() {
         return;
       }
 
-      await exportFormSubmissionsPdf(filtered, form?.title || formId);
+      await exportFormSubmissionsPdf(filtered, exportForm.title || formId, undefined, exportForm.fields);
       toast.success('PDF exported');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to export PDF');
@@ -215,6 +219,10 @@ function SubmissionsPage() {
 
     try {
       setExportingCsv(true);
+      const exportForm =
+        form?.id === formId && (form.fields?.length || 0) > 0
+          ? form
+          : await apiClient.getAdminForm(formId);
       const allSubmissions = await fetchAllFormSubmissions(formId);
       const filtered = filterFormSubmissions(allSubmissions);
 
@@ -222,7 +230,7 @@ function SubmissionsPage() {
         toast.error('No submissions to export');
         return;
       }
-      exportFormSubmissionsCsv(filtered, form?.title || formId);
+      exportFormSubmissionsCsv(filtered, exportForm.title || formId, exportForm.fields);
       toast.success('CSV exported. You can open it in Excel.');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to export CSV');

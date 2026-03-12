@@ -552,6 +552,10 @@ export default withAuth(function FormsPage() {
 
     try {
       setExportingPdf(true);
+      const exportForm =
+        selectedForm?.id === selectedFormId && (selectedForm.fields?.length || 0) > 0
+          ? selectedForm
+          : await apiClient.getAdminForm(selectedFormId);
       const source =
         submissions.length >= submissionsTotal && !filterText.trim() && !filterStart && !filterEnd
           ? submissions
@@ -568,11 +572,11 @@ export default withAuth(function FormsPage() {
         return;
       }
 
-      await exportFormSubmissionsPdf(filtered, selectedForm?.title || selectedFormId, {
+      await exportFormSubmissionsPdf(filtered, exportForm.title || selectedFormId, {
         query: filterText,
         from: filterStart,
         to: filterEnd,
-      });
+      }, exportForm.fields);
       toast.success('PDF exported');
     } catch (err) {
       console.error(err);
@@ -598,6 +602,10 @@ export default withAuth(function FormsPage() {
 
     try {
       setExportingCsv(true);
+      const exportForm =
+        selectedForm?.id === selectedFormId && (selectedForm.fields?.length || 0) > 0
+          ? selectedForm
+          : await apiClient.getAdminForm(selectedFormId);
 
       const source =
         submissions.length >= submissionsTotal && !filterText.trim() && !filterStart && !filterEnd
@@ -615,7 +623,7 @@ export default withAuth(function FormsPage() {
         return;
       }
 
-      exportFormSubmissionsCsv(filtered, selectedForm?.title || selectedFormId);
+      exportFormSubmissionsCsv(filtered, exportForm.title || selectedFormId, exportForm.fields);
       toast.success('CSV exported. You can open it in Excel.');
     } catch (err) {
       console.error(err);
