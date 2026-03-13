@@ -3,21 +3,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Copy, Download, Save, Send } from 'lucide-react';
+import { ArrowLeft, Copy, Download, Palette, Save, Send } from 'lucide-react';
 
-import { Button } from '@/ui/Button';
-import { Card } from '@/ui/Card';
-import { Input } from '@/ui/input';
+import { RichTextEditor } from '@/components/RichTextEditor';
 import { PageHeader } from '@/layouts';
-import { withAuth } from '@/providers/withAuth';
 import { apiClient } from '@/lib/api';
+import { sendFormCampaign } from '@/lib/formCampaigns';
 import {
   ACCEPTED_EMAIL_IMAGE_TYPES,
+  DEFAULT_EMAIL_ACCENT_COLOR,
+  DEFAULT_EMAIL_SURFACE_COLOR,
   MAX_EMAIL_IMAGE_BYTES,
   MAX_EMAIL_IMAGE_MB,
   buildFormEmailHTML,
   buildFormEmailTextBody,
   embedTemplateMeta,
+  escapeTemplateHtml,
   normalizeAbsoluteHttpUrl,
   normalizeTemplateSlug,
   parseTemplateMeta,
@@ -32,9 +33,13 @@ import {
   resolveFormSubmissionEmail,
   type FormCampaignRecipient,
 } from '@/lib/formSubmissions';
-import { buildPublicFormUrl } from '@/lib/utils';
-import type { AdminForm, EmailTemplate, FormSubmission, UpdateFormRequest } from '@/lib/types';
 import { getServerErrorMessage } from '@/lib/serverValidation';
+import type { AdminForm, EmailTemplate, FormSubmission, UpdateFormRequest } from '@/lib/types';
+import { buildPublicFormUrl } from '@/lib/utils';
+import { withAuth } from '@/providers/withAuth';
+import { Button } from '@/ui/Button';
+import { Card } from '@/ui/Card';
+import { Input } from '@/ui/input';
 
 type AudienceStats = {
   totalSubmissions: number;
@@ -43,6 +48,18 @@ type AudienceStats = {
   duplicateEmails: number;
   missingOrInvalidEmail: number;
 };
+
+type PersistedCampaign = {
+  updatedForm: AdminForm;
+  savedTemplate: EmailTemplate;
+  htmlBody: string;
+  textBody: string;
+};
+
+const DEFAULT_MESSAGE_HTML = [
+  '<p>Thank you for registering. We are sharing this update so you have the latest details, announcements, and event resources before the day.</p>',
+  '<p>Please review the information below and keep this email for quick reference.</p>',
+].join('');
 
 function buildAudienceStats(
   submissions: FormSubmission[],
@@ -72,6 +89,37 @@ function validateImageFile(file: File): string | null {
   return null;
 }
 
+function toRichTextHtml(value: string) {
+  const segments = value
+    .split(/\n{2,}/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (segments.length === 0) {
+    return DEFAULT_MESSAGE_HTML;
+  }
+
+  return segments.map((segment) => `<p>${escapeTemplateHtml(segment).replace(/\n/g, '<br />')}</p>`).join('');
+}
+
+function toPlainText(value: string) {
+  return value
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|h1|h2|h3|blockquote|ul|ol)>/gi, '\n\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '- ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\r/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function RegistrantCampaignPage() {
   const params = useParams();
   const router = useRouter();
@@ -82,20 +130,25 @@ function RegistrantCampaignPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const [form, setForm] = useState<AdminForm | null>(null);
   const [template, setTemplate] = useState<EmailTemplate | null>(null);
   const [submissions, setSubmissions] = useState<FormSubmission[]>([]);
 
   const [subject, setSubject] = useState('');
+  const [eyebrow, setEyebrow] = useState('Campaign Update');
   const [heading, setHeading] = useState('A special update for our registered guests');
-  const [message, setMessage] = useState(
-    'Thank you for registering. We are sharing this update so you have the latest details, announcements, and event resources before the day.'
-  );
+  const [messageHtml, setMessageHtml] = useState(DEFAULT_MESSAGE_HTML);
+  const [spotlightLabel, setSpotlightLabel] = useState('');
+  const [spotlightText, setSpotlightText] = useState('');
+  const [footerNote, setFooterNote] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [ctaLabel, setCtaLabel] = useState('');
   const [ctaUrl, setCtaUrl] = useState('');
+  const [accentColor, setAccentColor] = useState(DEFAULT_EMAIL_ACCENT_COLOR);
+  const [surfaceColor, setSurfaceColor] = useState(DEFAULT_EMAIL_SURFACE_COLOR);
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -106,6 +159,7 @@ function RegistrantCampaignPage() {
   const recipients = useMemo(() => extractFormCampaignRecipients(submissions), [submissions]);
   const audienceStats = useMemo(() => buildAudienceStats(submissions, recipients), [submissions, recipients]);
   const latestRecipients = useMemo(() => recipients.slice(0, 8), [recipients]);
+  const messageText = useMemo(() => toPlainText(messageHtml), [messageHtml]);
 
   const templateKeyPreview = useMemo(() => {
     const existing = form?.settings?.campaignEmailTemplateKey?.trim();
@@ -116,33 +170,69 @@ function RegistrantCampaignPage() {
     return '';
   }, [form]);
 
-  const generatedHtml = useMemo(() => {
-    return buildFormEmailHTML({
-      title: form?.title || 'Registrant Outreach',
+  const generatedHtml = useMemo(
+    () =>
+      buildFormEmailHTML({
+        title: form?.title || 'Registrant Outreach',
+        eyebrow,
+        heading,
+        message: messageText,
+        messageHtml,
+        logoUrl: logoPreview || logoUrl || undefined,
+        imageUrl: imagePreview || imageUrl || undefined,
+        ctaLabel: ctaLabel.trim() || undefined,
+        ctaUrl: ctaUrl.trim() || undefined,
+        includeRegistrationCode: true,
+        includeCalendarOptIn: false,
+        greeting: 'Hello {{.RecipientName}},',
+        spotlightLabel: spotlightLabel.trim() || undefined,
+        spotlightText: spotlightText.trim() || undefined,
+        accentColor,
+        surfaceColor,
+        footerNote: footerNote.trim() || undefined,
+      }),
+    [
+      accentColor,
+      ctaLabel,
+      ctaUrl,
+      eyebrow,
+      footerNote,
+      form?.title,
       heading,
-      message,
-      logoUrl: logoPreview || logoUrl || undefined,
-      imageUrl: imagePreview || imageUrl || undefined,
-      ctaLabel: ctaLabel.trim() || undefined,
-      ctaUrl: ctaUrl.trim() || undefined,
-      includeRegistrationCode: true,
-      includeCalendarOptIn: false,
-      greeting: 'Hello {{.RecipientName}},',
-    });
-  }, [ctaLabel, ctaUrl, form?.title, heading, imagePreview, imageUrl, logoPreview, logoUrl, message]);
+      imagePreview,
+      imageUrl,
+      logoPreview,
+      logoUrl,
+      messageHtml,
+      messageText,
+      spotlightLabel,
+      spotlightText,
+      surfaceColor,
+    ]
+  );
 
-  const generatedText = useMemo(() => {
-    return buildFormEmailTextBody({
-      title: form?.title || 'Registrant Outreach',
-      heading,
-      message,
-      ctaLabel: ctaLabel.trim() || undefined,
-      ctaUrl: ctaUrl.trim() || undefined,
-    });
-  }, [ctaLabel, ctaUrl, form?.title, heading, message]);
+  const generatedText = useMemo(
+    () =>
+      buildFormEmailTextBody({
+        title: form?.title || 'Registrant Outreach',
+        eyebrow,
+        heading,
+        message: messageText,
+        messageHtml,
+        ctaLabel: ctaLabel.trim() || undefined,
+        ctaUrl: ctaUrl.trim() || undefined,
+        spotlightLabel: spotlightLabel.trim() || undefined,
+        spotlightText: spotlightText.trim() || undefined,
+        footerNote: footerNote.trim() || undefined,
+      }),
+    [ctaLabel, ctaUrl, eyebrow, footerNote, form?.title, heading, messageHtml, messageText, spotlightLabel, spotlightText]
+  );
 
   const activeHtmlBody = useMemo(() => customHtmlBody.trim() || generatedHtml, [customHtmlBody, generatedHtml]);
-
+  const activeTextBody = useMemo(
+    () => (customHtmlBody.trim() ? toPlainText(customHtmlBody) : generatedText),
+    [customHtmlBody, generatedText]
+  );
   const previewHTML = useMemo(() => toEmailPreview(activeHtmlBody), [activeHtmlBody]);
 
   const campaignHtmlFilename = useMemo(() => {
@@ -189,15 +279,23 @@ function RegistrantCampaignPage() {
         if (tpl) {
           setTemplate(tpl);
           if (tpl.subject?.trim()) setSubject(tpl.subject.trim());
+
           const meta = parseTemplateMeta(tpl.htmlBody);
+          if (meta?.eyebrow) setEyebrow(meta.eyebrow);
           if (meta?.heading) setHeading(meta.heading);
-          if (meta?.message) setMessage(meta.message);
+          if (meta?.messageHtml?.trim()) setMessageHtml(meta.messageHtml.trim());
+          else if (meta?.message?.trim()) setMessageHtml(toRichTextHtml(meta.message));
           if (meta?.logoUrl) setLogoUrl(meta.logoUrl);
           if (meta?.imageUrl) setImageUrl(meta.imageUrl);
           if (meta?.ctaLabel) setCtaLabel(meta.ctaLabel);
           if (meta?.ctaUrl) setCtaUrl(meta.ctaUrl);
+          if (meta?.spotlightLabel) setSpotlightLabel(meta.spotlightLabel);
+          if (meta?.spotlightText) setSpotlightText(meta.spotlightText);
+          if (meta?.accentColor) setAccentColor(meta.accentColor);
+          if (meta?.surfaceColor) setSurfaceColor(meta.surfaceColor);
+          if (meta?.footerNote) setFooterNote(meta.footerNote);
           if (meta?.customHtml) setCustomHtmlBody(stripTemplateMeta(meta.customHtml));
-          else setCustomHtmlBody(stripTemplateMeta(tpl.htmlBody));
+          else setCustomHtmlBody('');
         }
       } catch (err) {
         toast.error(getServerErrorMessage(err, 'Failed to load registrant outreach setup.'));
@@ -242,15 +340,18 @@ function RegistrantCampaignPage() {
     setImagePreview(URL.createObjectURL(file));
   };
 
-  const saveTemplate = async () => {
-    if (!form) return;
+  const persistCampaignTemplate = async (showSuccessToast = true): Promise<PersistedCampaign> => {
+    if (!form) {
+      throw new Error('Form not found.');
+    }
     if (!subject.trim()) {
-      toast.error('Email subject is required.');
-      return;
+      throw new Error('Email subject is required.');
+    }
+    if (!heading.trim()) {
+      throw new Error('Campaign heading is required.');
     }
     if (recipients.length === 0) {
-      toast.error('No valid recipient emails were found for this form yet.');
-      return;
+      throw new Error('No valid recipient emails were found for this form yet.');
     }
 
     setSaving(true);
@@ -260,19 +361,13 @@ function RegistrantCampaignPage() {
       const nextCtaUrl = normalizeAbsoluteHttpUrl(ctaUrl);
 
       if (logoUrl.trim() && !nextLogoUrl) {
-        toast.error('Logo URL is invalid. Use a full URL like https://...png');
-        setSaving(false);
-        return;
+        throw new Error('Logo URL is invalid. Use a full URL like https://...png');
       }
       if (imageUrl.trim() && !nextImageUrl) {
-        toast.error('Template image URL is invalid. Use a full URL like https://...png');
-        setSaving(false);
-        return;
+        throw new Error('Template image URL is invalid. Use a full URL like https://...png');
       }
       if (ctaUrl.trim() && !nextCtaUrl) {
-        toast.error('CTA URL is invalid. Use a full URL like https://...');
-        setSaving(false);
-        return;
+        throw new Error('CTA URL is invalid. Use a full URL like https://...');
       }
 
       if (logoFile) {
@@ -285,10 +380,13 @@ function RegistrantCampaignPage() {
       }
 
       const templateKey = templateKeyPreview || `forms/${form.id}/campaigns/primary`;
+      const trimmedMessageHtml = messageHtml.trim() || DEFAULT_MESSAGE_HTML;
       const builtHtml = buildFormEmailHTML({
         title: form.title || 'Registrant Outreach',
+        eyebrow: eyebrow.trim() || undefined,
         heading: heading.trim(),
-        message: message.trim(),
+        message: toPlainText(trimmedMessageHtml),
+        messageHtml: trimmedMessageHtml,
         logoUrl: nextLogoUrl || undefined,
         imageUrl: nextImageUrl || undefined,
         ctaLabel: ctaLabel.trim() || undefined,
@@ -296,24 +394,42 @@ function RegistrantCampaignPage() {
         includeRegistrationCode: true,
         includeCalendarOptIn: false,
         greeting: 'Hello {{.RecipientName}},',
+        spotlightLabel: spotlightLabel.trim() || undefined,
+        spotlightText: spotlightText.trim() || undefined,
+        accentColor,
+        surfaceColor,
+        footerNote: footerNote.trim() || undefined,
       });
       const mergedHTML = customHtmlBody.trim() || builtHtml;
-      const htmlBody = embedTemplateMeta(mergedHTML, {
+      const builtTextBody = buildFormEmailTextBody({
+        title: form.title || 'Registrant Outreach',
+        eyebrow: eyebrow.trim() || undefined,
         heading: heading.trim(),
-        message: message.trim(),
+        message: toPlainText(trimmedMessageHtml),
+        messageHtml: trimmedMessageHtml,
+        ctaLabel: ctaLabel.trim() || undefined,
+        ctaUrl: nextCtaUrl || undefined,
+        spotlightLabel: spotlightLabel.trim() || undefined,
+        spotlightText: spotlightText.trim() || undefined,
+        footerNote: footerNote.trim() || undefined,
+      });
+      const textBody = customHtmlBody.trim() ? toPlainText(customHtmlBody) : builtTextBody;
+      const htmlBody = embedTemplateMeta(mergedHTML, {
+        eyebrow: eyebrow.trim() || undefined,
+        heading: heading.trim(),
+        message: toPlainText(trimmedMessageHtml) || undefined,
+        messageHtml: trimmedMessageHtml,
         logoUrl: nextLogoUrl || undefined,
         imageUrl: nextImageUrl || undefined,
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: nextCtaUrl || undefined,
-        customHtml: mergedHTML,
+        spotlightLabel: spotlightLabel.trim() || undefined,
+        spotlightText: spotlightText.trim() || undefined,
+        accentColor,
+        surfaceColor,
+        footerNote: footerNote.trim() || undefined,
+        customHtml: customHtmlBody.trim() || undefined,
       } satisfies StoredFormEmailTemplateMeta);
-      const textBody = buildFormEmailTextBody({
-        title: form.title || 'Registrant Outreach',
-        heading: heading.trim(),
-        message: message.trim(),
-        ctaLabel: ctaLabel.trim() || undefined,
-        ctaUrl: nextCtaUrl || undefined,
-      });
 
       let savedTemplate: EmailTemplate;
       if (template) {
@@ -362,11 +478,51 @@ function RegistrantCampaignPage() {
       setLogoPreview(null);
       setImagePreview(null);
 
-      toast.success('Registrant outreach template saved.');
-    } catch (err) {
-      toast.error(getServerErrorMessage(err, 'Failed to save outreach template.'));
+      if (showSuccessToast) {
+        toast.success('Registrant outreach template saved.');
+      }
+
+      return {
+        updatedForm,
+        savedTemplate,
+        htmlBody: mergedHTML,
+        textBody,
+      };
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveTemplate = async () => {
+    try {
+      await persistCampaignTemplate(true);
+    } catch (err) {
+      toast.error(getServerErrorMessage(err, 'Failed to save outreach template.'));
+    }
+  };
+
+  const sendCampaign = async () => {
+    if (!form) return;
+
+    setSending(true);
+    try {
+      const persisted = await persistCampaignTemplate(false);
+      const result = await sendFormCampaign(form.id, {
+        subject: subject.trim(),
+        title: heading.trim(),
+        htmlBody: persisted.htmlBody,
+        textBody: persisted.textBody,
+      });
+
+      if (result.failed > 0) {
+        toast.error(`Campaign sent to ${result.sent} of ${result.totalRecipients} recipients. ${result.failed} failed.`);
+      } else {
+        toast.success(`Campaign sent successfully to ${result.sent} recipients.`);
+      }
+    } catch (err) {
+      toast.error(getServerErrorMessage(err, 'Failed to send campaign.'));
+    } finally {
+      setSending(false);
     }
   };
 
@@ -381,7 +537,7 @@ function RegistrantCampaignPage() {
 
   const copyCampaignText = async () => {
     try {
-      await navigator.clipboard.writeText(generatedText);
+      await navigator.clipboard.writeText(activeTextBody);
       toast.success('Campaign text copied.');
     } catch {
       toast.error('Failed to copy campaign text.');
@@ -439,7 +595,7 @@ function RegistrantCampaignPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
           title="Registrant Outreach"
-          subtitle={`Create polished campaign emails for people who registered through ${form.title}.`}
+          subtitle={`Create and send a polished campaign email to people who registered through ${form.title}.`}
         />
         <div className="flex flex-wrap gap-2">
           <Button
@@ -457,6 +613,9 @@ function RegistrantCampaignPage() {
           </Button>
           <Button onClick={saveTemplate} loading={saving} icon={<Save className="h-4 w-4" />}>
             Save Campaign
+          </Button>
+          <Button onClick={sendCampaign} loading={sending} icon={<Send className="h-4 w-4" />}>
+            Send Campaign
           </Button>
         </div>
       </div>
@@ -488,7 +647,7 @@ function RegistrantCampaignPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+      <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
         <div className="space-y-6">
           <Card>
             <div className="grid gap-4 md:grid-cols-2">
@@ -503,6 +662,12 @@ function RegistrantCampaignPage() {
                 value={templateKeyPreview}
                 disabled
                 helperText="This key keeps the campaign template attached to this form."
+              />
+              <Input
+                label="Eyebrow label"
+                value={eyebrow}
+                onChange={(e) => setEyebrow(e.target.value)}
+                placeholder="Campaign Update"
               />
               <Input
                 label="Campaign heading"
@@ -548,7 +713,9 @@ function RegistrantCampaignPage() {
                 </p>
               </div>
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Upload flyer / hero image (optional)</label>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                  Upload flyer / hero image (optional)
+                </label>
                 <input
                   type="file"
                   accept="image/*"
@@ -560,28 +727,97 @@ function RegistrantCampaignPage() {
                 </p>
               </div>
 
-              <div className="space-y-2 md:col-span-2">
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Campaign message</label>
+              <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 md:col-span-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-primary)]">
+                  <Palette className="h-4 w-4" />
+                  Campaign Theme
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="space-y-2 text-sm font-medium text-[var(--color-text-secondary)]">
+                    Accent color
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={accentColor}
+                        onChange={(e) => setAccentColor(e.target.value)}
+                        className="h-10 w-14 rounded border border-[var(--color-border-primary)] bg-transparent"
+                      />
+                      <span className="text-xs text-[var(--color-text-tertiary)]">{accentColor}</span>
+                    </div>
+                  </label>
+                  <label className="space-y-2 text-sm font-medium text-[var(--color-text-secondary)]">
+                    Surface color
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={surfaceColor}
+                        onChange={(e) => setSurfaceColor(e.target.value)}
+                        className="h-10 w-14 rounded border border-[var(--color-border-primary)] bg-transparent"
+                      />
+                      <span className="text-xs text-[var(--color-text-tertiary)]">{surfaceColor}</span>
+                    </div>
+                  </label>
+                </div>
+                <p className="text-xs text-[var(--color-text-tertiary)]">
+                  These colors style the highlighted scripture card, the call-to-action button, and the visual accent band in the email.
+                </p>
+              </div>
+
+              <Input
+                label="Highlighted section label (optional)"
+                value={spotlightLabel}
+                onChange={(e) => setSpotlightLabel(e.target.value)}
+                placeholder="Genesis 26:22 (NKJV)"
+              />
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                  Highlighted section content (optional)
+                </label>
                 <textarea
                   className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
-                  rows={5}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Thank you once again for registering. We are sharing this update so you have the correct arrival time, flyer, and final schedule."
+                  rows={3}
+                  value={spotlightText}
+                  onChange={(e) => setSpotlightText(e.target.value)}
+                  placeholder="For now the Lord has made room for us, and we shall be fruitful in the land."
                 />
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Custom HTML template (optional)</label>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Campaign body</label>
+                <RichTextEditor
+                  value={messageHtml}
+                  onChange={setMessageHtml}
+                  placeholder="Write the full outreach message here. Use headings, bold text, lists, and links for a cleaner campaign structure."
+                />
+                <p className="text-xs text-[var(--color-text-tertiary)]">
+                  Use the structured editor for professional typography. Headings, bold text, lists, links, and the highlighted section will all carry into the final email.
+                </p>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Footer note (optional)</label>
+                <textarea
+                  className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                  rows={2}
+                  value={footerNote}
+                  onChange={(e) => setFooterNote(e.target.value)}
+                  placeholder="You are receiving this email because you registered through this event form."
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                  Custom HTML template (optional)
+                </label>
                 <textarea
                   className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 font-mono text-xs text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
                   rows={10}
                   value={customHtmlBody}
                   onChange={(e) => setCustomHtmlBody(e.target.value)}
-                  placeholder="Paste full HTML for complete control. Supported placeholders: {{.RecipientName}}, {{.RegistrationCode}}, {{.SubscribeURL}}, {{.UnsubscribeURL}}"
+                  placeholder="Paste full HTML only if you want to override the structured builder completely. Supported placeholders: {{.RecipientName}}, {{.RegistrationCode}}, {{.SubscribeURL}}, {{.UnsubscribeURL}}"
                 />
                 <p className="text-xs text-[var(--color-text-tertiary)]">
-                  Leave empty to use the structured campaign editor.
+                  Leave this empty to use the structured editor, highlighted scripture section, and campaign theme controls above.
                 </p>
               </div>
             </div>
@@ -590,7 +826,7 @@ function RegistrantCampaignPage() {
           <Card title="Campaign Delivery">
             <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
               <p>
-                Your audience and campaign template are fully prepared here. Registrant emails are pulled directly from form submissions and deduplicated for outreach quality.
+                This send flow is registrant-specific. It derives the audience directly from this form&apos;s submissions, deduplicates addresses, and sends one personalized email per recipient from a protected server route.
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={copyCampaignHtml} icon={<Copy className="h-4 w-4" />}>
@@ -606,10 +842,10 @@ function RegistrantCampaignPage() {
               <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-primary)]">
                   <Send className="h-4 w-4" />
-                  Delivery integration status
+                  Delivery controls
                 </div>
                 <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">
-                  The current frontend API exposes template saving and audience management, but it does not yet expose a segmented &quot;send this campaign to this form audience&quot; delivery endpoint. This page prepares the campaign professionally and keeps the audience ready for backend delivery wiring.
+                  SMTP must be configured in the deployment environment for send to succeed. The current template is saved automatically before delivery so uploaded images and final URLs are used in the email recipients receive.
                 </p>
               </div>
             </div>
@@ -643,10 +879,10 @@ function RegistrantCampaignPage() {
 
           <Card title="Template Preview">
             <div className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-white">
-              <iframe title="campaign-email-preview" srcDoc={previewHTML} className="h-[620px] w-full" />
+              <iframe title="campaign-email-preview" srcDoc={previewHTML} className="h-[720px] w-full" />
             </div>
             <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">
-              The preview uses sample recipient values and does not send any email.
+              The preview uses sample recipient values. Delivery uses the same HTML structure and personalizes each message with the recipient name and registration code.
             </p>
           </Card>
         </div>
