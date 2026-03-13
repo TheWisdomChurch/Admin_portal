@@ -1,6 +1,7 @@
 // src/app/(dashboard)/settings/page.tsx
 'use client';
 
+import Image from 'next/image';
 import { useState, useEffect, useCallback, type ChangeEvent, type FormEvent } from 'react';
 import { Save, Bell, Lock, User, Trash2, ShieldCheck, Smartphone, Copy, Link as LinkIcon } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -674,10 +675,13 @@ function SettingsPage() {
                               <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Scan QR code</p>
                               <div className="flex min-h-[240px] items-center justify-center rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-white p-3">
                                 {totpQrCodeDataUrl ? (
-                                  <img
+                                  <Image
                                     src={totpQrCodeDataUrl}
                                     alt="Authenticator setup QR code"
+                                    width={220}
+                                    height={220}
                                     className="h-[220px] w-[220px]"
+                                    unoptimized
                                   />
                                 ) : (
                                   <p className="text-center text-xs text-[var(--color-text-tertiary)]">
