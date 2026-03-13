@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback, type ChangeEvent, type FormEvent } from 'react';
 import { Save, Bell, Lock, User, Trash2, ShieldCheck, Smartphone, Copy, Link as LinkIcon } from 'lucide-react';
+import QRCode from 'qrcode';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/input';
 import { Card } from '@/ui/Card';
@@ -79,6 +80,7 @@ function SettingsPage() {
   const [totpSetup, setTotpSetup] = useState<TOTPSetupResponse | null>(null);
   const [totpEnableCode, setTotpEnableCode] = useState('');
   const [totpDisableCode, setTotpDisableCode] = useState('');
+  const [totpQrCodeDataUrl, setTotpQrCodeDataUrl] = useState('');
 
   // Initialize form data with user info
   useEffect(() => {
@@ -108,6 +110,39 @@ function SettingsPage() {
   useEffect(() => {
     void loadSecurityProfile();
   }, [loadSecurityProfile]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function generateQrCode() {
+      if (!totpSetup?.otpauthUrl) {
+        setTotpQrCodeDataUrl('');
+        return;
+      }
+
+      try {
+        const dataUrl = await QRCode.toDataURL(totpSetup.otpauthUrl, {
+          width: 240,
+          margin: 1,
+          errorCorrectionLevel: 'M',
+        });
+
+        if (!cancelled) {
+          setTotpQrCodeDataUrl(dataUrl);
+        }
+      } catch {
+        if (!cancelled) {
+          setTotpQrCodeDataUrl('');
+        }
+      }
+    }
+
+    void generateQrCode();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [totpSetup]);
 
   const syncSecurityState = useCallback(
     async (profile: AuthSecurityProfile) => {
@@ -146,6 +181,7 @@ function SettingsPage() {
       const profile = await apiClient.enableTotp(totpEnableCode.trim());
       await syncSecurityState(profile);
       setTotpSetup(null);
+      setTotpQrCodeDataUrl('');
       setTotpEnableCode('');
       toast.success('Authenticator app enabled.');
     } catch (error) {
@@ -162,6 +198,7 @@ function SettingsPage() {
       await syncSecurityState(profile);
       setTotpDisableCode('');
       setTotpSetup(null);
+      setTotpQrCodeDataUrl('');
       toast.success('Authenticator app disabled.');
     } catch (error) {
       toast.error(getServerErrorMessage(error, 'Failed to disable authenticator app'));
@@ -632,47 +669,68 @@ function SettingsPage() {
 
                       {totpSetup ? (
                         <div className="space-y-4 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                          <div className="grid gap-4 md:grid-cols-2">
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Issuer</p>
-                              <p className="mt-2 text-sm font-semibold text-[var(--color-text-primary)]">{totpSetup.issuer}</p>
+                          <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-start">
+                            <div className="space-y-2">
+                              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Scan QR code</p>
+                              <div className="flex min-h-[240px] items-center justify-center rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-white p-3">
+                                {totpQrCodeDataUrl ? (
+                                  <img
+                                    src={totpQrCodeDataUrl}
+                                    alt="Authenticator setup QR code"
+                                    className="h-[220px] w-[220px]"
+                                  />
+                                ) : (
+                                  <p className="text-center text-xs text-[var(--color-text-tertiary)]">
+                                    QR code preview is unavailable. Use the manual key or setup link below.
+                                  </p>
+                                )}
+                              </div>
                             </div>
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Account</p>
-                              <p className="mt-2 text-sm font-semibold text-[var(--color-text-primary)]">{totpSetup.accountName}</p>
-                            </div>
-                          </div>
 
-                          <div>
-                            <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Manual entry key</p>
-                            <div className="mt-2 flex flex-col gap-3 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                              <code className="break-all text-sm font-semibold text-[var(--color-text-primary)]">
-                                {totpSetup.manualEntryKey}
-                              </code>
-                              <Button
-                                variant="outline"
-                                onClick={() => copySecurityValue(totpSetup.manualEntryKey, 'Manual entry key copied')}
-                              >
-                                <Copy className="mr-2 h-4 w-4" />
-                                Copy key
-                              </Button>
-                            </div>
-                          </div>
+                            <div className="space-y-4">
+                              <div className="grid gap-4 md:grid-cols-2">
+                                <div>
+                                  <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Issuer</p>
+                                  <p className="mt-2 text-sm font-semibold text-[var(--color-text-primary)]">{totpSetup.issuer}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Account</p>
+                                  <p className="mt-2 text-sm font-semibold text-[var(--color-text-primary)]">{totpSetup.accountName}</p>
+                                </div>
+                              </div>
 
-                          <div className="flex flex-wrap gap-3">
-                            <Button
-                              variant="outline"
-                              onClick={() => copySecurityValue(totpSetup.otpauthUrl, 'Authenticator setup link copied')}
-                            >
-                              <LinkIcon className="mr-2 h-4 w-4" />
-                              Copy setup link
-                            </Button>
-                            <a
-                              href={totpSetup.otpauthUrl}
-                              className="inline-flex items-center justify-center rounded-[var(--radius-button)] border border-[var(--color-border-primary)] px-4 py-2 text-sm font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-background-secondary)]"
-                            >
-                              Open authenticator link
-                            </a>
+                              <div>
+                                <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Manual entry key</p>
+                                <div className="mt-2 flex flex-col gap-3 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                  <code className="break-all text-sm font-semibold text-[var(--color-text-primary)]">
+                                    {totpSetup.manualEntryKey}
+                                  </code>
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => copySecurityValue(totpSetup.manualEntryKey, 'Manual entry key copied')}
+                                  >
+                                    <Copy className="mr-2 h-4 w-4" />
+                                    Copy key
+                                  </Button>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap gap-3">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => copySecurityValue(totpSetup.otpauthUrl, 'Authenticator setup link copied')}
+                                >
+                                  <LinkIcon className="mr-2 h-4 w-4" />
+                                  Copy setup link
+                                </Button>
+                                <a
+                                  href={totpSetup.otpauthUrl}
+                                  className="inline-flex items-center justify-center rounded-[var(--radius-button)] border border-[var(--color-border-primary)] px-4 py-2 text-sm font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-background-secondary)]"
+                                >
+                                  Open authenticator link
+                                </a>
+                              </div>
+                            </div>
                           </div>
 
                           <div className="space-y-3">
@@ -682,7 +740,7 @@ function SettingsPage() {
                               onChange={(event) => setTotpEnableCode(event.target.value.replace(/\D+/g, '').slice(0, 6))}
                               inputMode="numeric"
                               placeholder="Enter the current 6-digit code"
-                              helperText="Add the account in Google Authenticator, Authy, or Microsoft Authenticator, then enter the live code."
+                              helperText="Add the account in Google Authenticator, Authy, or Microsoft Authenticator, then enter the live code. Keep your phone time on automatic."
                             />
                             <Button
                               onClick={handleEnableTotp}

@@ -1,18 +1,27 @@
 export const MAX_EMAIL_IMAGE_MB = 5;
 export const MAX_EMAIL_IMAGE_BYTES = MAX_EMAIL_IMAGE_MB * 1024 * 1024;
 export const ACCEPTED_EMAIL_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+export const DEFAULT_EMAIL_ACCENT_COLOR = '#92400e';
+export const DEFAULT_EMAIL_SURFACE_COLOR = '#fff7ed';
 
 const META_PREFIX = '<!--WH_FORM_TEMPLATE_META:';
 const META_SUFFIX = '-->';
 
 export type StoredFormEmailTemplateMeta = {
+  eyebrow?: string;
   heading?: string;
   message?: string;
+  messageHtml?: string;
   logoUrl?: string;
   imageUrl?: string;
   customHtml?: string;
   ctaLabel?: string;
   ctaUrl?: string;
+  spotlightLabel?: string;
+  spotlightText?: string;
+  accentColor?: string;
+  surfaceColor?: string;
+  footerNote?: string;
 };
 
 export function normalizeTemplateSlug(value: string) {
@@ -75,21 +84,154 @@ export function normalizeAbsoluteHttpUrl(rawValue: string): string {
   return '';
 }
 
+function normalizeHexColor(rawValue: string | undefined, fallback: string) {
+  const candidate = rawValue?.trim() || '';
+  if (/^#[0-9a-f]{6}$/i.test(candidate)) {
+    return candidate.toLowerCase();
+  }
+  if (/^#[0-9a-f]{3}$/i.test(candidate)) {
+    const [r, g, b] = candidate.slice(1).split('');
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return fallback;
+}
+
+function applyInlineStyle(markup: string, tagName: string, inlineStyle: string) {
+  const pattern = new RegExp(`<${tagName}(\\s[^>]*)?>`, 'gi');
+  return markup.replace(pattern, (match, attrs = '') => {
+    if (/style=/i.test(match)) return match;
+    return `<${tagName}${attrs} style="${inlineStyle}">`;
+  });
+}
+
+function plainTextToHtmlParagraphs(value: string) {
+  const paragraphs = value
+    .split(/\n{2,}/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (paragraphs.length === 0) {
+    return '<p style="margin:0 0 16px 0;font-size:16px;line-height:1.8;color:#334155;">Thank you for registering.</p>';
+  }
+
+  return paragraphs
+    .map(
+      (paragraph) =>
+        `<p style="margin:0 0 16px 0;font-size:16px;line-height:1.8;color:#334155;">${escapeTemplateHtml(paragraph).replace(/\n/g, '<br />')}</p>`
+    )
+    .join('');
+}
+
+function styleRichEmailMarkup(markup: string, accentColor: string) {
+  let styled = stripTemplateMeta(markup || '').trim();
+  if (!styled) return '';
+
+  styled = applyInlineStyle(
+    styled,
+    'p',
+    'margin:0 0 16px 0;font-size:16px;line-height:1.8;color:#334155;'
+  );
+  styled = applyInlineStyle(
+    styled,
+    'h1',
+    'margin:0 0 16px 0;font-size:28px;line-height:1.2;color:#0f172a;font-weight:800;'
+  );
+  styled = applyInlineStyle(
+    styled,
+    'h2',
+    'margin:6px 0 14px 0;font-size:22px;line-height:1.3;color:#0f172a;font-weight:800;'
+  );
+  styled = applyInlineStyle(
+    styled,
+    'h3',
+    'margin:6px 0 12px 0;font-size:18px;line-height:1.4;color:#0f172a;font-weight:700;'
+  );
+  styled = applyInlineStyle(
+    styled,
+    'ul',
+    'margin:0 0 16px 0;padding-left:22px;color:#334155;font-size:16px;line-height:1.8;'
+  );
+  styled = applyInlineStyle(
+    styled,
+    'ol',
+    'margin:0 0 16px 0;padding-left:22px;color:#334155;font-size:16px;line-height:1.8;'
+  );
+  styled = applyInlineStyle(styled, 'li', 'margin:0 0 8px 0;');
+  styled = applyInlineStyle(
+    styled,
+    'blockquote',
+    `margin:20px 0;padding:18px 20px;border-left:4px solid ${accentColor};background:#fffaf0;border-radius:14px;font-size:17px;line-height:1.8;color:#1f2937;font-family:Georgia,'Times New Roman',serif;`
+  );
+  styled = applyInlineStyle(styled, 'strong', 'color:#0f172a;font-weight:800;');
+  styled = applyInlineStyle(styled, 'em', 'color:#475569;font-style:italic;');
+  styled = applyInlineStyle(styled, 'u', `text-decoration-color:${accentColor};`);
+  styled = applyInlineStyle(
+    styled,
+    'a',
+    `color:${accentColor};text-decoration:underline;font-weight:700;`
+  );
+
+  return styled;
+}
+
+function decodeHtmlEntities(value: string) {
+  return value
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+function convertEmailHtmlToText(value: string) {
+  const normalized = stripTemplateMeta(value || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|h1|h2|h3|blockquote|ul|ol)>/gi, '\n\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '- ')
+    .replace(/<[^>]+>/g, '');
+
+  return decodeHtmlEntities(normalized)
+    .replace(/\r/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+export function renderTemplateVariables(
+  html: string,
+  variables: Partial<Record<'RecipientName' | 'RegistrationCode' | 'SubscribeURL' | 'UnsubscribeURL' | 'CalendarOptInURL', string>>
+) {
+  const conditionalPattern = /{{if\s+\.([A-Za-z0-9_]+)}}([\s\S]*?){{end}}/g;
+  let rendered = stripTemplateMeta(html).replace(conditionalPattern, (_, key: string, inner: string) => {
+    const value = variables[key as keyof typeof variables];
+    return value ? inner : '';
+  });
+
+  Object.entries(variables).forEach(([key, value]) => {
+    const safeValue = value ?? '';
+    rendered = rendered.replace(new RegExp(`{{\\.${key}}}`, 'g'), safeValue);
+  });
+
+  return rendered.replace(/{{\.[A-Za-z0-9_]+}}/g, '');
+}
+
 export function toEmailPreview(html: string) {
-  return html
-    .replace(/{{if [^}]+}}/g, '')
-    .replace(/{{end}}/g, '')
-    .replace(/{{\.RecipientName}}/g, 'John Doe')
-    .replace(/{{\.RegistrationCode}}/g, 'WHC-WPC-26-000001')
-    .replace(/{{\.SubscribeURL}}/g, '#')
-    .replace(/{{\.UnsubscribeURL}}/g, '#')
-    .replace(/{{\.CalendarOptInURL}}/g, '#');
+  return renderTemplateVariables(html, {
+    RecipientName: 'John Doe',
+    RegistrationCode: 'WHC-WPC-26-000001',
+    SubscribeURL: '#',
+    UnsubscribeURL: '#',
+    CalendarOptInURL: '#',
+  });
 }
 
 export function buildFormEmailHTML(opts: {
   title: string;
+  eyebrow?: string;
   heading: string;
   message: string;
+  messageHtml?: string;
   logoUrl?: string;
   imageUrl?: string;
   ctaLabel?: string;
@@ -97,63 +239,84 @@ export function buildFormEmailHTML(opts: {
   includeRegistrationCode?: boolean;
   includeCalendarOptIn?: boolean;
   greeting?: string;
+  spotlightLabel?: string;
+  spotlightText?: string;
+  accentColor?: string;
+  surfaceColor?: string;
+  footerNote?: string;
 }) {
   const safeTitle = escapeTemplateHtml(opts.title || 'Registration');
+  const safeEyebrow = escapeTemplateHtml(opts.eyebrow || '');
   const safeHeading = escapeTemplateHtml(opts.heading || 'Registration Confirmed');
-  const safeMessage = escapeTemplateHtml(opts.message || 'Thank you for registering.');
   const safeGreeting = escapeTemplateHtml(opts.greeting || 'Hello {{.RecipientName}},');
   const safeLogoUrl = opts.logoUrl ? escapeTemplateHtml(opts.logoUrl) : '';
   const safeImageUrl = opts.imageUrl ? escapeTemplateHtml(opts.imageUrl) : '';
   const safeCtaLabel = opts.ctaLabel ? escapeTemplateHtml(opts.ctaLabel) : '';
   const safeCtaUrl = opts.ctaUrl ? escapeTemplateHtml(opts.ctaUrl) : '';
+  const safeSpotlightLabel = escapeTemplateHtml(opts.spotlightLabel || '');
+  const safeSpotlightText = escapeTemplateHtml(opts.spotlightText || '').replace(/\n/g, '<br />');
+  const safeFooterNote = escapeTemplateHtml(opts.footerNote || '').replace(/\n/g, '<br />');
   const includeRegistrationCode = opts.includeRegistrationCode !== false;
   const includeCalendarOptIn = opts.includeCalendarOptIn === true;
+  const accentColor = normalizeHexColor(opts.accentColor, DEFAULT_EMAIL_ACCENT_COLOR);
+  const surfaceColor = normalizeHexColor(opts.surfaceColor, DEFAULT_EMAIL_SURFACE_COLOR);
+  const formattedMessageHtml = opts.messageHtml?.trim()
+    ? styleRichEmailMarkup(opts.messageHtml, accentColor)
+    : plainTextToHtmlParagraphs(opts.message || 'Thank you for registering.');
+  const messageBlock = formattedMessageHtml || plainTextToHtmlParagraphs(opts.message || 'Thank you for registering.');
 
   return `
 <!doctype html>
 <html>
-  <body style="margin:0;padding:0;background:#ffffff;font-family:Arial,sans-serif;color:#111827;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px;">
+  <body style="margin:0;padding:0;background:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;color:#111827;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="padding:28px 12px;background:#f8fafc;">
       <tr>
         <td align="center">
-          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #fde68a;border-radius:14px;overflow:hidden;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:680px;background:#ffffff;border:1px solid #e2e8f0;border-radius:20px;overflow:hidden;box-shadow:0 16px 40px rgba(15,23,42,0.08);">
             <tr>
-              <td style="padding:14px 24px 8px 24px;">
-                <div style="height:6px;background:#facc15;border-radius:999px;margin:0 0 12px 0;"></div>
+              <td style="padding:18px 28px 10px 28px;">
+                <div style="height:6px;background:${accentColor};border-radius:999px;margin:0 0 14px 0;"></div>
                 {{if .SubscribeURL}}<a href="{{.SubscribeURL}}" style="font-size:12px;color:#111827;text-decoration:underline;font-weight:700;">subscribe</a>{{end}}
                 {{if .UnsubscribeURL}}&nbsp;|&nbsp;<a href="{{.UnsubscribeURL}}" style="font-size:12px;color:#111827;text-decoration:underline;font-weight:700;">unsubscribe</a>{{end}}
               </td>
             </tr>
             <tr>
-              <td style="padding:24px 24px 10px 24px;">
-                ${safeLogoUrl ? `<img src="${safeLogoUrl}" alt="Logo" style="display:block;max-width:140px;height:auto;margin:0 0 14px 0;" />` : ''}
-                <p style="margin:0 0 8px 0;font-size:13px;color:#111827;font-weight:700;">${safeTitle}</p>
-                <h2 style="margin:0;font-size:24px;line-height:1.25;color:#111827;">${safeHeading}</h2>
+              <td style="padding:28px 28px 10px 28px;">
+                ${safeLogoUrl ? `<img src="${safeLogoUrl}" alt="Logo" style="display:block;max-width:150px;height:auto;margin:0 0 18px 0;" />` : ''}
+                <p style="margin:0 0 10px 0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;font-weight:700;">${safeTitle}</p>
+                ${safeEyebrow ? `<span style="display:inline-block;margin:0 0 14px 0;padding:8px 12px;border-radius:999px;background:${surfaceColor};color:${accentColor};font-size:12px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;">${safeEyebrow}</span>` : ''}
+                <h2 style="margin:0;font-size:30px;line-height:1.15;color:#0f172a;font-weight:800;">${safeHeading}</h2>
               </td>
             </tr>
-            ${safeImageUrl ? `<tr><td style="padding:10px 24px 0 24px;"><img src="${safeImageUrl}" alt="${safeTitle}" style="display:block;width:100%;height:auto;border-radius:10px;" /></td></tr>` : ''}
+            ${safeImageUrl ? `<tr><td style="padding:10px 28px 0 28px;"><img src="${safeImageUrl}" alt="${safeTitle}" style="display:block;width:100%;height:auto;border-radius:18px;" /></td></tr>` : ''}
             <tr>
-              <td style="padding:18px 24px 12px 24px;">
-                <p style="margin:0 0 14px 0;font-size:16px;color:#111827;">${safeGreeting}</p>
-                <p style="margin:0;font-size:15px;line-height:1.7;color:#374151;">${safeMessage}</p>
+              <td style="padding:22px 28px 28px 28px;">
+                <p style="margin:0 0 16px 0;font-size:16px;line-height:1.7;color:#111827;">${safeGreeting}</p>
+                ${safeSpotlightText ? `
+                <div style="margin:0 0 20px 0;padding:20px;border-radius:18px;background:${surfaceColor};border:1px solid ${accentColor}22;">
+                  ${safeSpotlightLabel ? `<p style="margin:0 0 10px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:${accentColor};font-weight:800;">${safeSpotlightLabel}</p>` : ''}
+                  <p style="margin:0;font-size:19px;line-height:1.8;color:#1f2937;font-family:Georgia,'Times New Roman',serif;">${safeSpotlightText}</p>
+                </div>` : ''}
+                <div style="margin:0;">${messageBlock}</div>
                 ${safeCtaLabel && safeCtaUrl ? `
-                <p style="margin:18px 0 0;">
-                  <a href="${safeCtaUrl}" style="display:inline-block;padding:12px 18px;border-radius:999px;background:#111827;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">
+                <p style="margin:22px 0 0;">
+                  <a href="${safeCtaUrl}" style="display:inline-block;padding:13px 20px;border-radius:999px;background:${accentColor};color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">
                     ${safeCtaLabel}
                   </a>
                 </p>` : ''}
                 ${includeRegistrationCode ? `
                 {{if .RegistrationCode}}
-                <div style="margin-top:16px;display:inline-block;padding:10px 14px;border-radius:8px;background:#fff9db;border:1px solid #facc15;font-size:13px;color:#111827;">
+                <div style="margin-top:18px;display:inline-block;padding:11px 15px;border-radius:10px;background:${surfaceColor};border:1px solid ${accentColor}33;font-size:13px;color:#111827;">
                   Registration Number: <strong>{{.RegistrationCode}}</strong>
                 </div>
                 {{end}}` : ''}
                 ${includeCalendarOptIn ? `
                 {{if .CalendarOptInURL}}
-                <p style="margin:14px 0 0;font-size:13px;color:#111827;">
-                  <a href="{{.CalendarOptInURL}}" style="color:#111827;text-decoration:underline;font-weight:700;">Add event to calendar</a>
+                <p style="margin:16px 0 0;font-size:13px;color:#111827;">
+                  <a href="{{.CalendarOptInURL}}" style="color:${accentColor};text-decoration:underline;font-weight:700;">Add event to calendar</a>
                 </p>
                 {{end}}` : ''}
+                ${safeFooterNote ? `<p style="margin:22px 0 0;font-size:13px;line-height:1.7;color:#64748b;">${safeFooterNote}</p>` : ''}
               </td>
             </tr>
           </table>
@@ -167,25 +330,46 @@ export function buildFormEmailHTML(opts: {
 
 export function buildFormEmailTextBody(opts: {
   title: string;
+  eyebrow?: string;
   heading: string;
   message: string;
+  messageHtml?: string;
   ctaLabel?: string;
   ctaUrl?: string;
+  spotlightLabel?: string;
+  spotlightText?: string;
+  footerNote?: string;
 }) {
-  const lines = [
-    opts.title?.trim() || 'Registration',
-    '',
-    opts.heading?.trim() || 'Registration Confirmed',
-    '',
-    'Hello {{.RecipientName}},',
-    '',
-    opts.message?.trim() || 'Thank you for registering.',
-  ];
+  const messageText = opts.messageHtml?.trim()
+    ? convertEmailHtmlToText(opts.messageHtml)
+    : opts.message?.trim() || 'Thank you for registering.';
+  const lines = [opts.title?.trim() || 'Registration'];
+
+  if (opts.eyebrow?.trim()) {
+    lines.push('', opts.eyebrow.trim());
+  }
+
+  lines.push('', opts.heading?.trim() || 'Registration Confirmed');
+
+  if (opts.spotlightLabel?.trim() || opts.spotlightText?.trim()) {
+    if (opts.spotlightLabel?.trim()) {
+      lines.push('', opts.spotlightLabel.trim());
+    }
+    if (opts.spotlightText?.trim()) {
+      lines.push(opts.spotlightText.trim());
+    }
+  }
+
+  lines.push('', 'Hello {{.RecipientName}},', '', messageText);
 
   if (opts.ctaLabel?.trim() && opts.ctaUrl?.trim()) {
     lines.push('', `${opts.ctaLabel.trim()}: ${opts.ctaUrl.trim()}`);
   }
 
+  if (opts.footerNote?.trim()) {
+    lines.push('', opts.footerNote.trim());
+  }
+
   lines.push('', 'Registration Number: {{.RegistrationCode}}');
-  return lines.join('\n');
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
