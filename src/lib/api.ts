@@ -464,7 +464,7 @@ async function safeParseJson(response: Response): Promise<unknown | null> {
   }
 }
 
-async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_V1_BASE_URL}${endpoint}`;
   const isFormData =
     typeof FormData !== 'undefined' && options.body instanceof FormData;
