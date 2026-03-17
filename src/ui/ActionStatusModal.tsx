@@ -80,7 +80,7 @@ export function ActionStatusModal({
   const config = modeConfig[mode];
   const Icon = config.icon;
   const normalizedDetails = (details || []).filter(
-    (detail) => detail.label.trim() && detail.value.trim()
+    (detail) => String(detail?.label ?? '').trim() && String(detail?.value ?? '').trim()
   );
   const showActions = mode !== 'progress';
 
