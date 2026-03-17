@@ -114,6 +114,52 @@ export function normalizeAbsoluteHttpUrl(rawValue: string): string {
   return '';
 }
 
+function formatGoogleCalendarDate(value: Date) {
+  return value.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+export function buildGoogleCalendarUrl(event?: FormEmailCalendarEvent): string {
+  if (!event) return '';
+
+  const title = event.title?.trim() || '';
+  const startRaw = event.startAt?.trim() || '';
+  if (!title || !startRaw) return '';
+
+  const startsAt = new Date(startRaw);
+  if (Number.isNaN(startsAt.getTime())) return '';
+
+  let endsAt: Date;
+  if (event.endAt?.trim()) {
+    const parsedEnd = new Date(event.endAt);
+    if (Number.isNaN(parsedEnd.getTime())) return '';
+    endsAt = parsedEnd;
+  } else {
+    endsAt = new Date(startsAt.getTime() + 2 * 60 * 60 * 1000);
+  }
+
+  if (endsAt.getTime() <= startsAt.getTime()) {
+    endsAt = new Date(startsAt.getTime() + 2 * 60 * 60 * 1000);
+  }
+
+  const query = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: title,
+    dates: `${formatGoogleCalendarDate(startsAt)}/${formatGoogleCalendarDate(endsAt)}`,
+  });
+
+  if (event.location?.trim()) {
+    query.set('location', event.location.trim());
+  }
+  if (event.description?.trim()) {
+    query.set('details', event.description.trim());
+  }
+  if (event.timeZone?.trim()) {
+    query.set('ctz', event.timeZone.trim());
+  }
+
+  return `https://calendar.google.com/calendar/render?${query.toString()}`;
+}
+
 function normalizeHexColor(rawValue: string | undefined, fallback: string) {
   const candidate = rawValue?.trim() || '';
   if (/^#[0-9a-f]{6}$/i.test(candidate)) {
@@ -416,6 +462,7 @@ export function buildFormEmailHTML(opts: {
   ctaLabel?: string;
   ctaUrl?: string;
   calendarLabel?: string;
+  calendarUrl?: string;
   calendarEvent?: FormEmailCalendarEvent;
   resourceLinks?: FormEmailResourceLink[];
   includeRegistrationCode?: boolean;
@@ -437,11 +484,12 @@ export function buildFormEmailHTML(opts: {
   const safeCtaLabel = opts.ctaLabel ? escapeTemplateHtml(opts.ctaLabel) : '';
   const safeCtaUrl = opts.ctaUrl ? escapeTemplateHtml(opts.ctaUrl) : '';
   const safeCalendarLabel = escapeTemplateHtml(opts.calendarLabel || 'Add event to calendar');
+  const safeCalendarUrl = opts.calendarUrl?.trim() ? escapeTemplateHtml(opts.calendarUrl.trim()) : '';
   const safeSpotlightLabel = escapeTemplateHtml(opts.spotlightLabel || '');
   const safeSpotlightText = escapeTemplateHtml(opts.spotlightText || '').replace(/\n/g, '<br />');
   const safeFooterNote = escapeTemplateHtml(opts.footerNote || '').replace(/\n/g, '<br />');
   const includeRegistrationCode = opts.includeRegistrationCode !== false;
-  const includeCalendarOptIn = opts.includeCalendarOptIn === true;
+  const includeCalendarOptIn = opts.includeCalendarOptIn === true || Boolean(safeCalendarUrl);
   const accentColor = normalizeHexColor(opts.accentColor, DEFAULT_EMAIL_ACCENT_COLOR);
   const surfaceColor = normalizeHexColor(opts.surfaceColor, DEFAULT_EMAIL_SURFACE_COLOR);
   const calendarSummaryRows = buildCalendarSummaryRows(opts.calendarEvent);
@@ -532,7 +580,7 @@ export function buildFormEmailHTML(opts: {
                 </div>
                 {{end}}` : ''}
                 ${includeCalendarOptIn ? `
-                {{if .CalendarOptInURL}}
+                ${safeCalendarUrl ? '' : '{{if .CalendarOptInURL}}'}
                 <div style="margin-top:24px;padding:20px;border-radius:18px;background:#0f172a;color:#ffffff;">
                   <p style="margin:0 0 8px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#fcd34d;font-weight:800;">
                     Save the date
@@ -540,11 +588,11 @@ export function buildFormEmailHTML(opts: {
                   <p style="margin:0 0 14px 0;font-size:15px;line-height:1.7;color:#ffffff;">
                     Open your calendar now and lock this event into your schedule before the email gets buried.
                   </p>
-                  <a href="{{.CalendarOptInURL}}" style="display:inline-block;padding:12px 18px;border-radius:999px;background:#ffffff;color:#0f172a;font-size:14px;font-weight:800;text-decoration:none;">
+                  <a href="${safeCalendarUrl || '{{.CalendarOptInURL}}'}" style="display:inline-block;padding:12px 18px;border-radius:999px;background:#ffffff;color:#0f172a;font-size:14px;font-weight:800;text-decoration:none;">
                     ${safeCalendarLabel}
                   </a>
                 </div>
-                {{end}}` : ''}
+                ${safeCalendarUrl ? '' : '{{end}}'}` : ''}
                 ${safeFooterNote ? `<p style="margin:22px 0 0;font-size:13px;line-height:1.7;color:#64748b;">${safeFooterNote}</p>` : ''}
               </td>
             </tr>
