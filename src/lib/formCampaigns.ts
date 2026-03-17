@@ -58,6 +58,19 @@ export type SendFormCampaignResult = {
   sentAt: string;
 };
 
+function normalizeSendFormCampaignResult(result: SendFormCampaignResult): SendFormCampaignResult {
+  return {
+    ...result,
+    failedRecipients: Array.isArray(result.failedRecipients) ? result.failedRecipients : [],
+    failedRecipientDetails: Array.isArray(result.failedRecipientDetails)
+      ? result.failedRecipientDetails.filter(
+          (detail): detail is { email: string; error: string } =>
+            Boolean(detail && typeof detail.email === 'string' && typeof detail.error === 'string')
+        )
+      : [],
+  };
+}
+
 export async function sendFormCampaign(
   formId: string,
   payload: SendFormCampaignRequest
@@ -70,8 +83,8 @@ export async function sendFormCampaign(
   });
 
   if (body && 'data' in body && body.data) {
-    return body.data;
+    return normalizeSendFormCampaignResult(body.data);
   }
 
-  return body as SendFormCampaignResult;
+  return normalizeSendFormCampaignResult(body as SendFormCampaignResult);
 }
