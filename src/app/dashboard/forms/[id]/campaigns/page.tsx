@@ -18,6 +18,7 @@ import {
   MAX_EMAIL_IMAGE_MB,
   buildFormEmailHTML,
   buildFormEmailTextBody,
+  buildGoogleCalendarUrl,
   embedTemplateMeta,
   escapeTemplateHtml,
   normalizeAbsoluteHttpUrl,
@@ -271,6 +272,7 @@ function appendCampaignTextFallback(
   value: string,
   opts: {
     calendarLabel?: string;
+    calendarUrl?: string;
     includeCalendarOptIn?: boolean;
     includeRegistrationCode?: boolean;
     resourceLinks?: FormEmailResourceLink[];
@@ -296,7 +298,7 @@ function appendCampaignTextFallback(
   }
 
   if (opts.includeCalendarOptIn && !output.includes('{{.CalendarOptInURL}}')) {
-    output = `${output}\n\nCalendar reminder: open your calendar now and save the event.\n${opts.calendarLabel || 'Add event to calendar'}: {{.CalendarOptInURL}}`.trim();
+    output = `${output}\n\nCalendar reminder: open your calendar now and save the event.\n${opts.calendarLabel || 'Add event to calendar'}: ${opts.calendarUrl?.trim() || '{{.CalendarOptInURL}}'}`.trim();
   }
 
   if (opts.includeRegistrationCode && !output.includes('{{.RegistrationCode}}')) {
@@ -379,6 +381,14 @@ function RegistrantCampaignPage() {
     [calendarDescription, calendarEndAt, calendarLocation, calendarStartAt, calendarTimeZone, calendarTitle]
   );
   const normalizedResources = useMemo(() => normalizeCampaignResourceDrafts(resourceLinks), [resourceLinks]);
+  const generatedGoogleCalendarUrl = useMemo(
+    () => buildGoogleCalendarUrl(normalizedCalendar.event),
+    [normalizedCalendar.event]
+  );
+  const effectiveCalendarUrl = useMemo(() => {
+    const manualCalendarUrl = normalizeAbsoluteHttpUrl(calendarUrl);
+    return manualCalendarUrl || generatedGoogleCalendarUrl;
+  }, [calendarUrl, generatedGoogleCalendarUrl]);
   const filteredRecipients = useMemo(() => {
     const term = recipientQuery.trim().toLowerCase();
     if (!term) return recipients;
@@ -424,9 +434,10 @@ function RegistrantCampaignPage() {
         imageUrl: imagePreview || imageUrl || undefined,
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: ctaUrl.trim() || undefined,
+        calendarUrl: effectiveCalendarUrl || undefined,
         resourceLinks: normalizedResources.resourceLinks,
         includeRegistrationCode: true,
-        includeCalendarOptIn: Boolean(calendarUrl.trim() || normalizedCalendar.event),
+        includeCalendarOptIn: Boolean(effectiveCalendarUrl || normalizedCalendar.event),
         calendarLabel: calendarLabel.trim() || undefined,
         calendarEvent: normalizedCalendar.event,
         greeting: 'Hello {{.RecipientName}},',
@@ -439,7 +450,7 @@ function RegistrantCampaignPage() {
     [
       accentColor,
       calendarLabel,
-      calendarUrl,
+      effectiveCalendarUrl,
       normalizedCalendar.event,
       ctaLabel,
       ctaUrl,
@@ -474,9 +485,9 @@ function RegistrantCampaignPage() {
         ctaUrl: ctaUrl.trim() || undefined,
         resourceLinks: normalizedResources.resourceLinks,
         calendarLabel: calendarLabel.trim() || undefined,
-        calendarUrl: normalizeAbsoluteHttpUrl(calendarUrl) || undefined,
+        calendarUrl: effectiveCalendarUrl || undefined,
         calendarEvent: normalizedCalendar.event,
-        includeCalendarOptIn: Boolean(calendarUrl.trim() || normalizedCalendar.event),
+        includeCalendarOptIn: Boolean(effectiveCalendarUrl || normalizedCalendar.event),
         spotlightLabel: spotlightLabel.trim() || undefined,
         spotlightText: spotlightText.trim() || undefined,
         footerNote: footerNote.trim() || undefined,
@@ -484,7 +495,7 @@ function RegistrantCampaignPage() {
     [
       preheader,
       calendarLabel,
-      calendarUrl,
+      effectiveCalendarUrl,
       normalizedCalendar.event,
       ctaLabel,
       ctaUrl,
@@ -506,12 +517,13 @@ function RegistrantCampaignPage() {
       customHtmlBody.trim()
         ? appendCampaignTextFallback(toPlainText(customHtmlBody), {
             calendarLabel: calendarLabel.trim() || undefined,
-            includeCalendarOptIn: Boolean(calendarUrl.trim() || normalizedCalendar.event),
+            calendarUrl: effectiveCalendarUrl || undefined,
+            includeCalendarOptIn: Boolean(effectiveCalendarUrl || normalizedCalendar.event),
             includeRegistrationCode: true,
             resourceLinks: normalizedResources.resourceLinks,
           })
         : generatedText,
-    [calendarLabel, calendarUrl, customHtmlBody, generatedText, normalizedCalendar.event, normalizedResources.resourceLinks]
+    [calendarLabel, customHtmlBody, effectiveCalendarUrl, generatedText, normalizedCalendar.event, normalizedResources.resourceLinks]
   );
   const previewHTML = useMemo(() => toEmailPreview(activeHtmlBody), [activeHtmlBody]);
 
@@ -804,7 +816,7 @@ function RegistrantCampaignPage() {
       let nextLogoUrl = normalizeAbsoluteHttpUrl(logoUrl);
       let nextImageUrl = normalizeAbsoluteHttpUrl(imageUrl);
       const nextCtaUrl = normalizeAbsoluteHttpUrl(ctaUrl);
-      const nextCalendarUrl = normalizeAbsoluteHttpUrl(calendarUrl);
+      const nextManualCalendarUrl = normalizeAbsoluteHttpUrl(calendarUrl);
 
       if (logoUrl.trim() && !nextLogoUrl) {
         throw new Error('Logo URL is invalid. Use a full URL like https://...png');
@@ -815,9 +827,10 @@ function RegistrantCampaignPage() {
       if (ctaUrl.trim() && !nextCtaUrl) {
         throw new Error('CTA URL is invalid. Use a full URL like https://...');
       }
-      if (calendarUrl.trim() && !nextCalendarUrl) {
+      if (calendarUrl.trim() && !nextManualCalendarUrl) {
         throw new Error('Calendar URL is invalid. Use a full URL like https://...');
       }
+      const nextEffectiveCalendarUrl = nextManualCalendarUrl || buildGoogleCalendarUrl(normalizedCalendar.event);
 
       if (logoFile) {
         const uploaded = await apiClient.uploadImage(logoFile, 'email_template');
@@ -841,9 +854,10 @@ function RegistrantCampaignPage() {
         imageUrl: nextImageUrl || undefined,
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: nextCtaUrl || undefined,
+        calendarUrl: nextEffectiveCalendarUrl || undefined,
         resourceLinks: normalizedResources.resourceLinks,
         includeRegistrationCode: true,
-        includeCalendarOptIn: Boolean(nextCalendarUrl || normalizedCalendar.event),
+        includeCalendarOptIn: Boolean(nextEffectiveCalendarUrl || normalizedCalendar.event),
         calendarLabel: calendarLabel.trim() || undefined,
         calendarEvent: normalizedCalendar.event,
         greeting: 'Hello {{.RecipientName}},',
@@ -865,9 +879,9 @@ function RegistrantCampaignPage() {
         ctaUrl: nextCtaUrl || undefined,
         resourceLinks: normalizedResources.resourceLinks,
         calendarLabel: calendarLabel.trim() || undefined,
-        calendarUrl: nextCalendarUrl || undefined,
+        calendarUrl: nextEffectiveCalendarUrl || undefined,
         calendarEvent: normalizedCalendar.event,
-        includeCalendarOptIn: Boolean(nextCalendarUrl || normalizedCalendar.event),
+        includeCalendarOptIn: Boolean(nextEffectiveCalendarUrl || normalizedCalendar.event),
         spotlightLabel: spotlightLabel.trim() || undefined,
         spotlightText: spotlightText.trim() || undefined,
         footerNote: footerNote.trim() || undefined,
@@ -875,7 +889,8 @@ function RegistrantCampaignPage() {
       const textBody = customHtmlBody.trim()
         ? appendCampaignTextFallback(toPlainText(customHtmlBody), {
             calendarLabel: calendarLabel.trim() || undefined,
-            includeCalendarOptIn: Boolean(nextCalendarUrl || normalizedCalendar.event),
+            calendarUrl: nextEffectiveCalendarUrl || undefined,
+            includeCalendarOptIn: Boolean(nextEffectiveCalendarUrl || normalizedCalendar.event),
             includeRegistrationCode: true,
             resourceLinks: normalizedResources.resourceLinks,
           })
@@ -891,7 +906,7 @@ function RegistrantCampaignPage() {
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: nextCtaUrl || undefined,
         calendarLabel: calendarLabel.trim() || undefined,
-        calendarUrl: nextCalendarUrl || undefined,
+        calendarUrl: nextManualCalendarUrl || undefined,
         calendarEvent: normalizedCalendar.event,
         resourceLinks: normalizedResources.resourceLinks,
         spotlightLabel: spotlightLabel.trim() || undefined,
@@ -944,7 +959,7 @@ function RegistrantCampaignPage() {
       setLogoUrl(nextLogoUrl);
       setImageUrl(nextImageUrl);
       setCtaUrl(nextCtaUrl);
-      setCalendarUrl(nextCalendarUrl);
+      setCalendarUrl(nextManualCalendarUrl);
       setLogoFile(null);
       setImageFile(null);
       setLogoPreview(null);
@@ -955,7 +970,7 @@ function RegistrantCampaignPage() {
         savedTemplate,
         htmlBody: mergedHTML,
         textBody,
-        calendarUrl: nextCalendarUrl || undefined,
+        calendarUrl: nextEffectiveCalendarUrl || undefined,
         calendarEvent: normalizedCalendar.event,
         resourceLinks: normalizedResources.resourceLinks,
         heroImageUrl: nextImageUrl || undefined,
@@ -1029,7 +1044,7 @@ function RegistrantCampaignPage() {
     });
     try {
       const persisted = await persistCampaignTemplate();
-      const includeCalendarLinks = Boolean(persisted.calendarUrl || persisted.calendarEvent || form.eventId);
+      const includeCalendarLinks = Boolean(form.eventId);
       const result = await sendFormCampaign(form.id, {
         subject: subject.trim() || undefined,
         title: heading.trim() || undefined,
@@ -1379,7 +1394,7 @@ function RegistrantCampaignPage() {
               <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 md:col-span-2">
                 <div className="text-sm font-medium text-[var(--color-text-primary)]">Calendar Reminder</div>
                 <p className="text-xs text-[var(--color-text-tertiary)]">
-                  Add the event details once here. The email preview will show a structured reminder card, and the backend can generate a calendar link plus an `.ics` invite for recipients.
+                  Add the event details once here. The email preview will show a structured reminder card, and the editor can generate a real Google Calendar link from the schedule you choose.
                 </p>
                 <div className="grid gap-4 md:grid-cols-2">
                   <Input
@@ -1393,7 +1408,7 @@ function RegistrantCampaignPage() {
                     value={calendarUrl}
                     onChange={(e) => setCalendarUrl(e.target.value)}
                     placeholder="https://calendar.google.com/... or https://.../invite.ics"
-                    helperText="Leave empty to let the backend generate the calendar link from the event details below."
+                    helperText="Leave empty to auto-generate a Google Calendar link from the event details below."
                   />
                   <Input
                     label="Event title"
@@ -1450,9 +1465,26 @@ function RegistrantCampaignPage() {
                 {normalizedCalendar.error ? (
                   <p className="text-xs font-medium text-red-600">{normalizedCalendar.error}</p>
                 ) : (
-                  <p className="text-xs text-[var(--color-text-tertiary)]">
-                    When event details are provided, each outbound email can include a generated add-to-calendar link and attached `.ics` file.
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                      When event details are provided, the campaign email can include a direct Google Calendar link immediately. Backend-generated `.ics` delivery still depends on the linked form event pipeline.
+                    </p>
+                    {effectiveCalendarUrl ? (
+                      <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-3">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
+                          {calendarUrl.trim() ? 'Manual calendar URL' : 'Generated Google Calendar URL'}
+                        </div>
+                        <a
+                          href={effectiveCalendarUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 block break-all text-sm font-medium text-[var(--color-accent-primary)] underline underline-offset-4"
+                        >
+                          {effectiveCalendarUrl}
+                        </a>
+                      </div>
+                    ) : null}
+                  </div>
                 )}
               </div>
               <div className="space-y-2">
@@ -1702,6 +1734,16 @@ function RegistrantCampaignPage() {
               ) : null}
               {lastSendResult ? (
                 <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+                  {(() => {
+                    const failedRecipientDetails = Array.isArray(lastSendResult.failedRecipientDetails)
+                      ? lastSendResult.failedRecipientDetails
+                      : [];
+                    const failedRecipients = Array.isArray(lastSendResult.failedRecipients)
+                      ? lastSendResult.failedRecipients
+                      : [];
+
+                    return (
+                      <>
                   <div className="text-sm font-semibold text-[var(--color-text-primary)]">Last delivery result</div>
                   <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
                     Sent {lastSendResult.sent} of {lastSendResult.totalRecipients} targeted recipients
@@ -1710,13 +1752,13 @@ function RegistrantCampaignPage() {
                   {lastSendResult.failureReason ? (
                     <p className="mt-2 text-sm text-red-700">Backend reported: {lastSendResult.failureReason}</p>
                   ) : null}
-                  {lastSendResult.failedRecipientDetails && lastSendResult.failedRecipientDetails.length > 0 ? (
+                  {failedRecipientDetails.length > 0 ? (
                     <div className="mt-3 space-y-2">
                       <div className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">
                         Failed recipients
                       </div>
                       <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                        {lastSendResult.failedRecipientDetails.slice(0, 5).map((detail) => (
+                        {failedRecipientDetails.slice(0, 5).map((detail) => (
                           <div
                             key={`${detail.email}-${detail.error}`}
                             className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2"
@@ -1727,17 +1769,20 @@ function RegistrantCampaignPage() {
                         ))}
                       </div>
                     </div>
-                  ) : lastSendResult.failedRecipients.length > 0 ? (
+                  ) : failedRecipients.length > 0 ? (
                     <div className="mt-3">
                       <div className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">
                         Failed recipients
                       </div>
                       <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                        {lastSendResult.failedRecipients.slice(0, 8).join(', ')}
-                        {lastSendResult.failedRecipients.length > 8 ? ' ...' : ''}
+                        {failedRecipients.slice(0, 8).join(', ')}
+                        {failedRecipients.length > 8 ? ' ...' : ''}
                       </p>
                     </div>
                   ) : null}
+                      </>
+                    );
+                  })()}
                 </div>
               ) : null}
             </div>
