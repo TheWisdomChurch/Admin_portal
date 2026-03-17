@@ -1,3 +1,5 @@
+import type { FormEmailResourceLink } from './formEmailTemplates';
+
 export type FormCampaignCTA = {
   label: string;
   url: string;
@@ -26,6 +28,7 @@ export type SendFormCampaignRequest = {
   secondaryCta?: FormCampaignCTA;
   highlights?: FormCampaignHighlight[];
   footerNote?: string;
+  resourceLinks?: FormEmailResourceLink[];
   includeCalendarLinks?: boolean;
   templateId?: string;
   templateKey?: string;

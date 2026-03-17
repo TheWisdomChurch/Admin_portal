@@ -16,6 +16,22 @@ export type FormEmailCalendarEvent = {
   timeZone?: string;
 };
 
+export type FormEmailResourceLink = {
+  label: string;
+  url: string;
+  description?: string;
+  kind?: string;
+};
+
+type FormEmailResourceKind = 'flyer' | 'document' | 'guide' | 'schedule' | 'resource';
+
+type PreparedFormEmailResourceLink = {
+  label: string;
+  url: string;
+  description?: string;
+  kind: FormEmailResourceKind;
+};
+
 export type StoredFormEmailTemplateMeta = {
   preheader?: string;
   eyebrow?: string;
@@ -30,6 +46,7 @@ export type StoredFormEmailTemplateMeta = {
   calendarLabel?: string;
   calendarUrl?: string;
   calendarEvent?: FormEmailCalendarEvent;
+  resourceLinks?: FormEmailResourceLink[];
   spotlightLabel?: string;
   spotlightText?: string;
   accentColor?: string;
@@ -188,6 +205,75 @@ function buildCalendarSummaryRows(event?: FormEmailCalendarEvent) {
   return rows;
 }
 
+function normalizeResourceKind(value?: string): FormEmailResourceKind {
+  const candidate = value?.trim().toLowerCase() || '';
+  switch (candidate) {
+    case 'flyer':
+    case 'document':
+    case 'guide':
+    case 'schedule':
+    case 'resource':
+      return candidate;
+    default:
+      return 'resource';
+  }
+}
+
+function formatResourceKindLabel(kind: FormEmailResourceKind) {
+  switch (kind) {
+    case 'flyer':
+      return 'Flyer';
+    case 'document':
+      return 'Document';
+    case 'guide':
+      return 'Guide';
+    case 'schedule':
+      return 'Schedule';
+    default:
+      return 'Resource';
+  }
+}
+
+function buildResourceActionLabel(kind: FormEmailResourceKind) {
+  switch (kind) {
+    case 'flyer':
+      return 'Download flyer';
+    case 'document':
+      return 'Download document';
+    case 'guide':
+      return 'Open guide';
+    case 'schedule':
+      return 'Open schedule';
+    default:
+      return 'Open resource';
+  }
+}
+
+function isPreparedResourceLink(
+  resource: PreparedFormEmailResourceLink | null
+): resource is PreparedFormEmailResourceLink {
+  return resource !== null;
+}
+
+function prepareResourceLinks(resourceLinks?: FormEmailResourceLink[]) {
+  if (!resourceLinks?.length) return [] as PreparedFormEmailResourceLink[];
+
+  return resourceLinks
+    .map<PreparedFormEmailResourceLink | null>((resource) => {
+      const label = resource.label?.trim() || '';
+      const url = resource.url?.trim() || '';
+      const description = resource.description?.trim() || undefined;
+      if (!label || !url) return null;
+      return {
+        label,
+        url,
+        description,
+        kind: normalizeResourceKind(resource.kind),
+      };
+    })
+    .filter(isPreparedResourceLink);
+}
+
 function applyInlineStyle(markup: string, tagName: string, inlineStyle: string) {
   const pattern = new RegExp(`<${tagName}(\\s[^>]*)?>`, 'gi');
   return markup.replace(pattern, (match, attrs = '') => {
@@ -331,6 +417,7 @@ export function buildFormEmailHTML(opts: {
   ctaUrl?: string;
   calendarLabel?: string;
   calendarEvent?: FormEmailCalendarEvent;
+  resourceLinks?: FormEmailResourceLink[];
   includeRegistrationCode?: boolean;
   includeCalendarOptIn?: boolean;
   greeting?: string;
@@ -358,6 +445,7 @@ export function buildFormEmailHTML(opts: {
   const accentColor = normalizeHexColor(opts.accentColor, DEFAULT_EMAIL_ACCENT_COLOR);
   const surfaceColor = normalizeHexColor(opts.surfaceColor, DEFAULT_EMAIL_SURFACE_COLOR);
   const calendarSummaryRows = buildCalendarSummaryRows(opts.calendarEvent);
+  const resourceLinks = prepareResourceLinks(opts.resourceLinks);
   const formattedMessageHtml = opts.messageHtml?.trim()
     ? styleRichEmailMarkup(opts.messageHtml, accentColor)
     : plainTextToHtmlParagraphs(opts.message || 'Thank you for registering.');
@@ -412,6 +500,25 @@ export function buildFormEmailHTML(opts: {
                   <p style="margin:0;font-size:19px;line-height:1.8;color:#1f2937;font-family:Georgia,'Times New Roman',serif;">${safeSpotlightText}</p>
                 </div>` : ''}
                 <div style="margin:0;">${messageBlock}</div>
+                ${resourceLinks.length > 0 ? `
+                <div style="margin:24px 0 0;padding:22px;border-radius:18px;background:#ffffff;border:1px solid #e2e8f0;">
+                  <p style="margin:0 0 14px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:${accentColor};font-weight:800;">Event Resources</p>
+                  ${resourceLinks
+                    .map((resource) => {
+                      const kindLabel = escapeTemplateHtml(formatResourceKindLabel(resource.kind));
+                      const actionLabel = escapeTemplateHtml(buildResourceActionLabel(resource.kind));
+                      return `
+                  <div style="margin:0 0 14px 0;padding:16px;border-radius:16px;background:${surfaceColor};border:1px solid ${accentColor}22;">
+                    <p style="margin:0 0 8px 0;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;font-weight:800;">${kindLabel}</p>
+                    <p style="margin:0 0 8px 0;font-size:17px;line-height:1.5;color:#0f172a;font-weight:800;">${escapeTemplateHtml(resource.label)}</p>
+                    ${resource.description ? `<p style="margin:0 0 12px 0;font-size:14px;line-height:1.7;color:#475569;">${escapeTemplateHtml(resource.description)}</p>` : ''}
+                    <a href="${escapeTemplateHtml(resource.url)}" style="display:inline-block;padding:12px 18px;border-radius:999px;background:#ffffff;color:${accentColor};font-size:14px;font-weight:800;text-decoration:none;border:1px solid ${accentColor}33;">
+                      ${actionLabel}
+                    </a>
+                  </div>`;
+                    })
+                    .join('')}
+                </div>` : ''}
                 ${safeCtaLabel && safeCtaUrl ? `
                 <p style="margin:22px 0 0;">
                   <a href="${safeCtaUrl}" style="display:inline-block;padding:13px 20px;border-radius:999px;background:${accentColor};color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">
@@ -462,6 +569,7 @@ export function buildFormEmailTextBody(opts: {
   calendarLabel?: string;
   calendarUrl?: string;
   calendarEvent?: FormEmailCalendarEvent;
+  resourceLinks?: FormEmailResourceLink[];
   includeRegistrationCode?: boolean;
   includeCalendarOptIn?: boolean;
   spotlightLabel?: string;
@@ -471,6 +579,7 @@ export function buildFormEmailTextBody(opts: {
   const includeRegistrationCode = opts.includeRegistrationCode !== false;
   const includeCalendarOptIn = opts.includeCalendarOptIn === true || Boolean(opts.calendarUrl?.trim());
   const calendarSummaryRows = buildCalendarSummaryRows(opts.calendarEvent);
+  const resourceLinks = prepareResourceLinks(opts.resourceLinks);
   const messageText = opts.messageHtml?.trim()
     ? convertEmailHtmlToText(opts.messageHtml)
     : opts.message?.trim() || 'Thank you for registering.';
@@ -503,6 +612,21 @@ export function buildFormEmailTextBody(opts: {
   }
 
   lines.push('', 'Hello {{.RecipientName}},', '', messageText);
+
+  if (resourceLinks.length > 0) {
+    lines.push('', 'Event Resources');
+    resourceLinks.forEach((resource) => {
+      lines.push(`${formatResourceKindLabel(resource.kind)}: ${resource.label}`);
+      if (resource.description) {
+        lines.push(resource.description);
+      }
+      lines.push(`${buildResourceActionLabel(resource.kind)}: ${resource.url}`);
+      lines.push('');
+    });
+    while (lines[lines.length - 1] === '') {
+      lines.pop();
+    }
+  }
 
   if (opts.ctaLabel?.trim() && opts.ctaUrl?.trim()) {
     lines.push('', `${opts.ctaLabel.trim()}: ${opts.ctaUrl.trim()}`);

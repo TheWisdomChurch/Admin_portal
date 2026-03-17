@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Copy, Download, Palette, Save, Send } from 'lucide-react';
+import { ArrowLeft, Copy, Download, Palette, Plus, Save, Send, Trash2 } from 'lucide-react';
 
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { PageHeader } from '@/layouts';
@@ -26,6 +26,7 @@ import {
   stripTemplateMeta,
   toEmailPreview,
   type FormEmailCalendarEvent,
+  type FormEmailResourceLink,
   type StoredFormEmailTemplateMeta,
 } from '@/lib/formEmailTemplates';
 import {
@@ -58,6 +59,9 @@ type PersistedCampaign = {
   textBody: string;
   calendarUrl?: string;
   calendarEvent?: FormEmailCalendarEvent;
+  resourceLinks?: FormEmailResourceLink[];
+  heroImageUrl?: string;
+  ctaUrl?: string;
 };
 
 const DEFAULT_MESSAGE_HTML = [
@@ -76,6 +80,22 @@ type CampaignCalendarDraft = {
   description: string;
   timeZone: string;
 };
+
+type CampaignResourceDraft = {
+  label: string;
+  url: string;
+  description: string;
+  kind: string;
+};
+
+function createEmptyResourceDraft(): CampaignResourceDraft {
+  return {
+    label: '',
+    url: '',
+    description: '',
+    kind: 'flyer',
+  };
+}
 
 function buildAudienceStats(
   submissions: FormSubmission[],
@@ -192,15 +212,78 @@ function normalizeCampaignCalendarDraft(
   };
 }
 
+function normalizeCampaignResourceDrafts(
+  drafts: CampaignResourceDraft[]
+): { resourceLinks: FormEmailResourceLink[]; error?: string } {
+  const resourceLinks: FormEmailResourceLink[] = [];
+
+  for (let index = 0; index < drafts.length; index += 1) {
+    const draft = drafts[index];
+    const label = draft.label.trim();
+    const url = draft.url.trim();
+    const description = draft.description.trim();
+    const kind = draft.kind.trim().toLowerCase() || 'resource';
+    const hasAnyValue = [label, url, description].some(Boolean);
+
+    if (!hasAnyValue) {
+      continue;
+    }
+    if (!label) {
+      return { resourceLinks: [], error: `Resource ${index + 1} needs a label.` };
+    }
+    if (!url) {
+      return { resourceLinks: [], error: `Resource ${index + 1} needs a URL.` };
+    }
+    if (label.length > 80) {
+      return { resourceLinks: [], error: `Resource ${index + 1} label must be 80 characters or fewer.` };
+    }
+    if (description.length > 200) {
+      return { resourceLinks: [], error: `Resource ${index + 1} description must be 200 characters or fewer.` };
+    }
+
+    const normalizedUrl = normalizeAbsoluteHttpUrl(url);
+    if (!normalizedUrl) {
+      return { resourceLinks: [], error: `Resource ${index + 1} URL is invalid. Use a full URL like https://...` };
+    }
+
+    resourceLinks.push({
+      label,
+      url: normalizedUrl,
+      description: description || undefined,
+      kind,
+    });
+  }
+
+  return { resourceLinks };
+}
+
 function appendCampaignTextFallback(
   value: string,
   opts: {
     calendarLabel?: string;
     includeCalendarOptIn?: boolean;
     includeRegistrationCode?: boolean;
+    resourceLinks?: FormEmailResourceLink[];
   }
 ) {
   let output = value.trim();
+
+  if (opts.resourceLinks?.length) {
+    const resourceLines = opts.resourceLinks.flatMap((resource) => {
+      const label = resource.label?.trim();
+      const url = resource.url?.trim();
+      if (!label || !url) return [];
+      const description = resource.description?.trim();
+      return [
+        `${label}: ${url}`,
+        ...(description ? [description] : []),
+      ];
+    });
+
+    if (resourceLines.length > 0) {
+      output = `${output}\n\nEvent resources:\n${resourceLines.join('\n')}`.trim();
+    }
+  }
 
   if (opts.includeCalendarOptIn && !output.includes('{{.CalendarOptInURL}}')) {
     output = `${output}\n\nCalendar reminder: open your calendar now and save the event.\n${opts.calendarLabel || 'Add event to calendar'}: {{.CalendarOptInURL}}`.trim();
@@ -249,6 +332,7 @@ function RegistrantCampaignPage() {
   const [calendarLocation, setCalendarLocation] = useState('');
   const [calendarDescription, setCalendarDescription] = useState('');
   const [calendarTimeZone, setCalendarTimeZone] = useState('');
+  const [resourceLinks, setResourceLinks] = useState<CampaignResourceDraft[]>([]);
   const [accentColor, setAccentColor] = useState(DEFAULT_EMAIL_ACCENT_COLOR);
   const [surfaceColor, setSurfaceColor] = useState(DEFAULT_EMAIL_SURFACE_COLOR);
 
@@ -274,6 +358,7 @@ function RegistrantCampaignPage() {
       }),
     [calendarDescription, calendarEndAt, calendarLocation, calendarStartAt, calendarTimeZone, calendarTitle]
   );
+  const normalizedResources = useMemo(() => normalizeCampaignResourceDrafts(resourceLinks), [resourceLinks]);
 
   const templateKeyPreview = useMemo(() => {
     const existing = form?.settings?.campaignEmailTemplateKey?.trim();
@@ -297,6 +382,7 @@ function RegistrantCampaignPage() {
         imageUrl: imagePreview || imageUrl || undefined,
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: ctaUrl.trim() || undefined,
+        resourceLinks: normalizedResources.resourceLinks,
         includeRegistrationCode: true,
         includeCalendarOptIn: Boolean(calendarUrl.trim() || normalizedCalendar.event),
         calendarLabel: calendarLabel.trim() || undefined,
@@ -329,6 +415,7 @@ function RegistrantCampaignPage() {
       spotlightLabel,
       spotlightText,
       surfaceColor,
+      normalizedResources.resourceLinks,
     ]
   );
 
@@ -343,6 +430,7 @@ function RegistrantCampaignPage() {
         messageHtml,
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: ctaUrl.trim() || undefined,
+        resourceLinks: normalizedResources.resourceLinks,
         calendarLabel: calendarLabel.trim() || undefined,
         calendarUrl: normalizeAbsoluteHttpUrl(calendarUrl) || undefined,
         calendarEvent: normalizedCalendar.event,
@@ -366,6 +454,7 @@ function RegistrantCampaignPage() {
       messageText,
       spotlightLabel,
       spotlightText,
+      normalizedResources.resourceLinks,
     ]
   );
 
@@ -377,9 +466,10 @@ function RegistrantCampaignPage() {
             calendarLabel: calendarLabel.trim() || undefined,
             includeCalendarOptIn: Boolean(calendarUrl.trim() || normalizedCalendar.event),
             includeRegistrationCode: true,
+            resourceLinks: normalizedResources.resourceLinks,
           })
         : generatedText,
-    [calendarLabel, calendarUrl, customHtmlBody, generatedText, normalizedCalendar.event]
+    [calendarLabel, calendarUrl, customHtmlBody, generatedText, normalizedCalendar.event, normalizedResources.resourceLinks]
   );
   const previewHTML = useMemo(() => toEmailPreview(activeHtmlBody), [activeHtmlBody]);
 
@@ -453,6 +543,7 @@ function RegistrantCampaignPage() {
         } else {
           setCalendarTitle((current) => current || loadedForm.title || '');
         }
+        setResourceLinks([]);
 
         const active = templatesResponse.data.find((item) => item.isActive);
         const latest = [...templatesResponse.data].sort((a, b) => (a.updatedAt > b.updatedAt ? -1 : 1))[0];
@@ -481,6 +572,16 @@ function RegistrantCampaignPage() {
             if (meta.calendarEvent.location) setCalendarLocation(meta.calendarEvent.location);
             if (meta.calendarEvent.description) setCalendarDescription(meta.calendarEvent.description);
             if (meta.calendarEvent.timeZone?.trim()) setCalendarTimeZone(meta.calendarEvent.timeZone.trim());
+          }
+          if (meta?.resourceLinks?.length) {
+            setResourceLinks(
+              meta.resourceLinks.map((resource) => ({
+                label: resource.label || '',
+                url: resource.url || '',
+                description: resource.description || '',
+                kind: resource.kind || 'resource',
+              }))
+            );
           }
           if (meta?.spotlightLabel) setSpotlightLabel(meta.spotlightLabel);
           if (meta?.spotlightText) setSpotlightText(meta.spotlightText);
@@ -533,6 +634,27 @@ function RegistrantCampaignPage() {
     setImagePreview(URL.createObjectURL(file));
   };
 
+  const addResourceLink = () => {
+    setResourceLinks((current) => [...current, createEmptyResourceDraft()]);
+  };
+
+  const updateResourceLink = (index: number, field: keyof CampaignResourceDraft, value: string) => {
+    setResourceLinks((current) =>
+      current.map((resource, resourceIndex) =>
+        resourceIndex === index
+          ? {
+              ...resource,
+              [field]: value,
+            }
+          : resource
+      )
+    );
+  };
+
+  const removeResourceLink = (index: number) => {
+    setResourceLinks((current) => current.filter((_, resourceIndex) => resourceIndex !== index));
+  };
+
   const persistCampaignTemplate = async (showSuccessToast = true): Promise<PersistedCampaign> => {
     if (!form) {
       throw new Error('Form not found.');
@@ -548,6 +670,9 @@ function RegistrantCampaignPage() {
     }
     if (normalizedCalendar.error) {
       throw new Error(normalizedCalendar.error);
+    }
+    if (normalizedResources.error) {
+      throw new Error(normalizedResources.error);
     }
 
     setSaving(true);
@@ -592,6 +717,7 @@ function RegistrantCampaignPage() {
         imageUrl: nextImageUrl || undefined,
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: nextCtaUrl || undefined,
+        resourceLinks: normalizedResources.resourceLinks,
         includeRegistrationCode: true,
         includeCalendarOptIn: Boolean(nextCalendarUrl || normalizedCalendar.event),
         calendarLabel: calendarLabel.trim() || undefined,
@@ -613,6 +739,7 @@ function RegistrantCampaignPage() {
         messageHtml: trimmedMessageHtml,
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: nextCtaUrl || undefined,
+        resourceLinks: normalizedResources.resourceLinks,
         calendarLabel: calendarLabel.trim() || undefined,
         calendarUrl: nextCalendarUrl || undefined,
         calendarEvent: normalizedCalendar.event,
@@ -626,6 +753,7 @@ function RegistrantCampaignPage() {
             calendarLabel: calendarLabel.trim() || undefined,
             includeCalendarOptIn: Boolean(nextCalendarUrl || normalizedCalendar.event),
             includeRegistrationCode: true,
+            resourceLinks: normalizedResources.resourceLinks,
           })
         : builtTextBody;
       const htmlBody = embedTemplateMeta(mergedHTML, {
@@ -641,6 +769,7 @@ function RegistrantCampaignPage() {
         calendarLabel: calendarLabel.trim() || undefined,
         calendarUrl: nextCalendarUrl || undefined,
         calendarEvent: normalizedCalendar.event,
+        resourceLinks: normalizedResources.resourceLinks,
         spotlightLabel: spotlightLabel.trim() || undefined,
         spotlightText: spotlightText.trim() || undefined,
         accentColor,
@@ -708,6 +837,9 @@ function RegistrantCampaignPage() {
         textBody,
         calendarUrl: nextCalendarUrl || undefined,
         calendarEvent: normalizedCalendar.event,
+        resourceLinks: normalizedResources.resourceLinks,
+        heroImageUrl: nextImageUrl || undefined,
+        ctaUrl: nextCtaUrl || undefined,
       };
     } finally {
       setSaving(false);
@@ -735,8 +867,19 @@ function RegistrantCampaignPage() {
         previewText: preheader.trim() || undefined,
         heroEyebrow: eyebrow.trim() || undefined,
         heroTitle: heading.trim() || undefined,
+        heroSubtitle: toPlainText(messageHtml).slice(0, 240) || undefined,
+        heroImageUrl: persisted.heroImageUrl,
         htmlBody: persisted.htmlBody,
         textBody: persisted.textBody,
+        primaryCta:
+          ctaLabel.trim() && persisted.ctaUrl
+            ? {
+                label: ctaLabel.trim(),
+                url: persisted.ctaUrl,
+              }
+            : undefined,
+        footerNote: footerNote.trim() || undefined,
+        resourceLinks: persisted.resourceLinks,
         includeCalendarLinks,
       });
 
@@ -1044,6 +1187,97 @@ function RegistrantCampaignPage() {
               </div>
 
               <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 md:col-span-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium text-[var(--color-text-primary)]">Event Resources</div>
+                    <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                      Add DigitalOcean or public download links for e-flyers, schedules, documents, or other event resources.
+                    </p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={addResourceLink} icon={<Plus className="h-4 w-4" />}>
+                    Add Resource
+                  </Button>
+                </div>
+
+                {resourceLinks.length > 0 ? (
+                  <div className="space-y-4">
+                    {resourceLinks.map((resource, index) => (
+                      <div
+                        key={`${index}-${resource.label}-${resource.url}`}
+                        className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4"
+                      >
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <Input
+                            label={`Resource ${index + 1} label`}
+                            value={resource.label}
+                            onChange={(e) => updateResourceLink(index, 'label', e.target.value)}
+                            placeholder="WPC 26 e-flyer"
+                          />
+                          <label className="space-y-2 text-sm font-medium text-[var(--color-text-secondary)]">
+                            Resource type
+                            <select
+                              value={resource.kind}
+                              onChange={(e) => updateResourceLink(index, 'kind', e.target.value)}
+                              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                            >
+                              <option value="flyer">Flyer</option>
+                              <option value="document">Document</option>
+                              <option value="guide">Guide</option>
+                              <option value="schedule">Schedule</option>
+                              <option value="resource">General resource</option>
+                            </select>
+                          </label>
+                          <div className="md:col-span-2">
+                            <Input
+                              label="Download URL"
+                              value={resource.url}
+                              onChange={(e) => updateResourceLink(index, 'url', e.target.value)}
+                              placeholder="https://churchasset.fra1.digitaloceanspaces.com/.../wpc26-flyer.pdf"
+                            />
+                          </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                              Short description (optional)
+                            </label>
+                            <textarea
+                              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                              rows={2}
+                              value={resource.description}
+                              onChange={(e) => updateResourceLink(index, 'description', e.target.value)}
+                              placeholder="Share what the recipient will find after they open or download this file."
+                            />
+                          </div>
+                        </div>
+                        <div className="mt-3 flex justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeResourceLink(index)}
+                            icon={<Trash2 className="h-4 w-4" />}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-5 text-sm text-[var(--color-text-tertiary)]">
+                    No resource links added yet.
+                  </div>
+                )}
+
+                {normalizedResources.error ? (
+                  <p className="text-xs font-medium text-red-600">{normalizedResources.error}</p>
+                ) : (
+                  <p className="text-xs text-[var(--color-text-tertiary)]">
+                    These links render as a professional resource block inside the email and are also sent to the backend for fallback campaign rendering.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 md:col-span-2">
                 <div className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-primary)]">
                   <Palette className="h-4 w-4" />
                   Campaign Theme
@@ -1133,7 +1367,7 @@ function RegistrantCampaignPage() {
                   placeholder="Paste full HTML only if you want to override the structured builder completely. Supported placeholders: {{.RecipientName}}, {{.RegistrationCode}}, {{.SubscribeURL}}, {{.UnsubscribeURL}}, {{.CalendarOptInURL}}"
                 />
                 <p className="text-xs text-[var(--color-text-tertiary)]">
-                  Leave this empty to use the structured editor, highlighted scripture section, and campaign theme controls above.
+                  Leave this empty to use the structured editor, event resource cards, highlighted section, and campaign theme controls above.
                 </p>
               </div>
             </div>
