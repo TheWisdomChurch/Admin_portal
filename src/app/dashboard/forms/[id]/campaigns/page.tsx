@@ -545,6 +545,30 @@ function RegistrantCampaignPage() {
     });
   };
 
+  const loadStructuredHtmlIntoEditor = () => {
+    setCustomHtmlBody(generatedHtml);
+    showActionDialog({
+      mode: 'success',
+      title: 'Structured HTML loaded',
+      description: 'The current email template markup is now in the custom HTML editor, so you can edit the raw HTML directly.',
+      badge: 'Custom editor',
+      details: [
+        { label: 'Source', value: 'Structured campaign builder' },
+        { label: 'Mode', value: 'Raw HTML editing enabled' },
+      ],
+    });
+  };
+
+  const clearCustomHtmlOverride = () => {
+    setCustomHtmlBody('');
+    showActionDialog({
+      mode: 'success',
+      title: 'Custom HTML cleared',
+      description: 'The campaign preview is back on the structured builder. CTA, calendar, resources, and theme controls are active again.',
+      badge: 'Structured builder',
+    });
+  };
+
   useEffect(() => {
     return () => {
       if (logoPreview) URL.revokeObjectURL(logoPreview);
@@ -602,12 +626,14 @@ function RegistrantCampaignPage() {
             loadedEvent?.image?.trim() ||
             ''
         );
-        setCtaUrl(
+        const defaultCtaUrl =
           loadedEvent?.registerLink?.trim() ||
-            buildPublicFormUrl(loadedForm.slug, loadedForm.publicUrl) ||
-            ''
-        );
-        setCtaLabel((current) => current || (loadedEvent?.registerLink ? 'View event details' : 'Open registration page'));
+          buildPublicFormUrl(loadedForm.slug, loadedForm.publicUrl) ||
+          '';
+        const defaultCtaLabel = loadedEvent?.registerLink ? 'View event details' : 'Open registration page';
+
+        setCtaUrl(defaultCtaUrl);
+        setCtaLabel(defaultCtaLabel);
         if (fallbackCalendarEvent) {
           setCalendarTitle(fallbackCalendarEvent.title);
           setCalendarStartAt(toDateTimeLocalValue(fallbackCalendarEvent.startAt));
@@ -636,8 +662,10 @@ function RegistrantCampaignPage() {
           else if (meta?.message?.trim()) setMessageHtml(toRichTextHtml(meta.message));
           if (meta?.logoUrl) setLogoUrl(meta.logoUrl);
           if (meta?.imageUrl) setImageUrl(meta.imageUrl);
-          if (meta?.ctaLabel) setCtaLabel(meta.ctaLabel);
-          if (meta?.ctaUrl) setCtaUrl(meta.ctaUrl);
+          const hasSavedCtaLabel = Object.prototype.hasOwnProperty.call(meta || {}, 'ctaLabel');
+          const hasSavedCtaUrl = Object.prototype.hasOwnProperty.call(meta || {}, 'ctaUrl');
+          if (hasSavedCtaLabel) setCtaLabel(meta?.ctaLabel || '');
+          if (hasSavedCtaUrl) setCtaUrl(meta?.ctaUrl || '');
           if (meta?.calendarLabel) setCalendarLabel(meta.calendarLabel);
           if (meta?.calendarUrl) setCalendarUrl(meta.calendarUrl);
           if (meta?.calendarEvent) {
@@ -903,8 +931,8 @@ function RegistrantCampaignPage() {
         messageHtml: trimmedMessageHtml,
         logoUrl: nextLogoUrl || undefined,
         imageUrl: nextImageUrl || undefined,
-        ctaLabel: ctaLabel.trim() || undefined,
-        ctaUrl: nextCtaUrl || undefined,
+        ctaLabel: ctaLabel.trim(),
+        ctaUrl: nextCtaUrl || '',
         calendarLabel: calendarLabel.trim() || undefined,
         calendarUrl: nextManualCalendarUrl || undefined,
         calendarEvent: normalizedCalendar.event,
@@ -1383,13 +1411,14 @@ function RegistrantCampaignPage() {
                 value={ctaLabel}
                 onChange={(e) => setCtaLabel(e.target.value)}
                 placeholder="View program details"
+                helperText="Clear both CTA fields if you do not want a button in this email."
               />
               <Input
                 label="Call-to-action URL (optional)"
                 value={ctaUrl}
                 onChange={(e) => setCtaUrl(e.target.value)}
                 placeholder="https://your-domain.com/event-details"
-                helperText="Use a full URL if you want a button inside the email."
+                helperText="Use a full URL if you want a button inside the email. Leave this and the label empty to remove it."
               />
               <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 md:col-span-2">
                 <div className="text-sm font-medium text-[var(--color-text-primary)]">Calendar Reminder</div>
@@ -1684,18 +1713,34 @@ function RegistrantCampaignPage() {
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
-                  Custom HTML template (optional)
-                </label>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                    Custom HTML template (optional)
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={loadStructuredHtmlIntoEditor}>
+                      Load Structured HTML
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearCustomHtmlOverride}
+                      disabled={!customHtmlBody.trim()}
+                    >
+                      Clear Override
+                    </Button>
+                  </div>
+                </div>
                 <textarea
                   className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 font-mono text-xs text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
                   rows={10}
                   value={customHtmlBody}
                   onChange={(e) => setCustomHtmlBody(e.target.value)}
-                  placeholder="Paste full HTML only if you want to override the structured builder completely. Supported placeholders: {{.RecipientName}}, {{.RegistrationCode}}, {{.SubscribeURL}}, {{.UnsubscribeURL}}, {{.CalendarOptInURL}}"
+                  placeholder="Paste full HTML only if you want to override the structured builder completely. Supported placeholders: {{.RecipientName}}, {{.FirstName}}, {{.RegistrationCode}}, {{.SubscribeURL}}, {{.UnsubscribeURL}}, {{.CalendarOptInURL}}, {{.GoogleCalendarURL}}, {{.CalendarICSURL}}"
                 />
                 <p className="text-xs text-[var(--color-text-tertiary)]">
-                  Leave this empty to use the structured editor, event resource cards, highlighted section, and campaign theme controls above.
+                  Use “Load Structured HTML” to pull the current campaign markup into this editor, then adjust the raw HTML directly. Leave this empty to use the structured editor, event resource cards, highlighted section, and campaign theme controls above.
                 </p>
               </div>
             </div>
