@@ -42,6 +42,11 @@ export type SendFormCampaignResult = {
   eventTitle?: string;
   subject: string;
   templateSource: string;
+  failureReason?: string;
+  failedRecipientDetails?: Array<{
+    email: string;
+    error: string;
+  }>;
   totalRecipients: number;
   targeted: number;
   sent: number;

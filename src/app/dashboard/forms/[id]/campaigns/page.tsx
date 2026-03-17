@@ -9,7 +9,7 @@ import { RichTextEditor } from '@/components/RichTextEditor';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
 import { buildCampaignCalendarEventFromEventData, buildCampaignDefaultCopy } from '@/lib/formCampaignCalendar';
-import { sendFormCampaign } from '@/lib/formCampaigns';
+import { sendFormCampaign, type SendFormCampaignResult } from '@/lib/formCampaigns';
 import {
   ACCEPTED_EMAIL_IMAGE_TYPES,
   DEFAULT_EMAIL_ACCENT_COLOR,
@@ -335,6 +335,8 @@ function RegistrantCampaignPage() {
   const [resourceLinks, setResourceLinks] = useState<CampaignResourceDraft[]>([]);
   const [accentColor, setAccentColor] = useState(DEFAULT_EMAIL_ACCENT_COLOR);
   const [surfaceColor, setSurfaceColor] = useState(DEFAULT_EMAIL_SURFACE_COLOR);
+  const [lastSendResult, setLastSendResult] = useState<SendFormCampaignResult | null>(null);
+  const [lastDeliveryError, setLastDeliveryError] = useState<string | null>(null);
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -945,6 +947,7 @@ function RegistrantCampaignPage() {
     }
 
     setSending(true);
+    setLastDeliveryError(null);
     try {
       const persisted = await persistCampaignTemplate(false);
       const includeCalendarLinks = Boolean(persisted.calendarUrl || persisted.calendarEvent || form.eventId);
@@ -970,10 +973,19 @@ function RegistrantCampaignPage() {
         targetSubmissionIds: selectedRecipientIds,
         includeCalendarLinks,
       });
+      setLastSendResult(result);
+
+      const firstFailureDetail = result.failedRecipientDetails?.find(
+        (detail) => detail?.error?.trim() && detail?.email?.trim()
+      );
+      const failureHint =
+        result.failureReason?.trim() ||
+        firstFailureDetail?.error?.trim() ||
+        undefined;
 
       if (result.failed > 0) {
         toast.error(
-          `Campaign sent to ${result.sent} of ${result.totalRecipients} recipients. ${result.failed} failed${result.skipped > 0 ? `, ${result.skipped} skipped` : ''}.`
+          `Campaign sent to ${result.sent} of ${result.totalRecipients} recipients. ${result.failed} failed${result.skipped > 0 ? `, ${result.skipped} skipped` : ''}.${failureHint ? ` ${failureHint}` : ''}`
         );
       } else {
         toast.success(
@@ -981,7 +993,10 @@ function RegistrantCampaignPage() {
         );
       }
     } catch (err) {
-      toast.error(getServerErrorMessage(err, 'Failed to send campaign.'));
+      const message = getServerErrorMessage(err, 'Failed to send campaign.');
+      setLastSendResult(null);
+      setLastDeliveryError(message);
+      toast.error(message);
     } finally {
       setSending(false);
     }
@@ -1491,6 +1506,52 @@ function RegistrantCampaignPage() {
                   SMTP must be configured in the deployment environment for send to succeed. The current template is saved automatically before delivery so uploaded images, resource links, reminder copy, generated calendar links, and `.ics` invites are preserved in the email recipients receive.
                 </p>
               </div>
+              {lastDeliveryError ? (
+                <div className="rounded-[var(--radius-card)] border border-red-300 bg-red-50 p-4">
+                  <div className="text-sm font-semibold text-red-700">Last backend delivery error</div>
+                  <p className="mt-2 text-sm text-red-700">{lastDeliveryError}</p>
+                </div>
+              ) : null}
+              {lastSendResult ? (
+                <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+                  <div className="text-sm font-semibold text-[var(--color-text-primary)]">Last delivery result</div>
+                  <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+                    Sent {lastSendResult.sent} of {lastSendResult.totalRecipients} targeted recipients
+                    {lastSendResult.skipped > 0 ? `, with ${lastSendResult.skipped} skipped` : ''}.
+                  </p>
+                  {lastSendResult.failureReason ? (
+                    <p className="mt-2 text-sm text-red-700">Backend reported: {lastSendResult.failureReason}</p>
+                  ) : null}
+                  {lastSendResult.failedRecipientDetails && lastSendResult.failedRecipientDetails.length > 0 ? (
+                    <div className="mt-3 space-y-2">
+                      <div className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">
+                        Failed recipients
+                      </div>
+                      <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
+                        {lastSendResult.failedRecipientDetails.slice(0, 5).map((detail) => (
+                          <div
+                            key={`${detail.email}-${detail.error}`}
+                            className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2"
+                          >
+                            <div className="font-medium text-[var(--color-text-primary)]">{detail.email}</div>
+                            <div className="mt-1 text-xs text-red-700">{detail.error}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : lastSendResult.failedRecipients.length > 0 ? (
+                    <div className="mt-3">
+                      <div className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">
+                        Failed recipients
+                      </div>
+                      <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+                        {lastSendResult.failedRecipients.slice(0, 8).join(', ')}
+                        {lastSendResult.failedRecipients.length > 8 ? ' ...' : ''}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </Card>
         </div>
