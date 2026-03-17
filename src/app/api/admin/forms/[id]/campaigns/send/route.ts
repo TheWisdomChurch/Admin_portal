@@ -1,7 +1,11 @@
 import nodemailer from 'nodemailer';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { renderTemplateVariables } from '@/lib/formEmailTemplates';
+import {
+  normalizeAbsoluteHttpUrl,
+  renderTemplateVariables,
+  type FormEmailCalendarEvent,
+} from '@/lib/formEmailTemplates';
 import { extractFormCampaignRecipients } from '@/lib/formSubmissions';
 import type { AdminForm, ApiResponse, FormSubmission, SimplePaginatedResponse, User } from '@/lib/types';
 import type { SendFormCampaignRequest, SendFormCampaignResult } from '@/lib/formCampaigns';
@@ -168,6 +172,151 @@ function resolveSmtpConfig(): SmtpConfig {
   };
 }
 
+function hasAnyCalendarEventFields(value: unknown) {
+  if (!isRecord(value)) return false;
+  return Object.values(value).some((entry) => typeof entry === 'string' && entry.trim().length > 0);
+}
+
+function parseCalendarEvent(
+  value: unknown
+): { event?: FormEmailCalendarEvent; error?: string } {
+  if (!isRecord(value)) return {};
+  if (!hasAnyCalendarEventFields(value)) return {};
+
+  const title = typeof value.title === 'string' ? value.title.trim() : '';
+  const startAtRaw = typeof value.startAt === 'string' ? value.startAt.trim() : '';
+  const endAtRaw = typeof value.endAt === 'string' ? value.endAt.trim() : '';
+  const location = typeof value.location === 'string' ? value.location.trim() : '';
+  const description = typeof value.description === 'string' ? value.description.trim() : '';
+  const timeZone = typeof value.timeZone === 'string' ? value.timeZone.trim() : '';
+
+  if (!title) {
+    return { error: 'Calendar event title is required when calendar details are provided.' };
+  }
+  if (!startAtRaw) {
+    return { error: 'Calendar event start time is required when calendar details are provided.' };
+  }
+
+  const startAt = new Date(startAtRaw);
+  if (Number.isNaN(startAt.getTime())) {
+    return { error: 'Calendar event start time is invalid.' };
+  }
+
+  let endAt: Date | undefined;
+  if (endAtRaw) {
+    endAt = new Date(endAtRaw);
+    if (Number.isNaN(endAt.getTime())) {
+      return { error: 'Calendar event end time is invalid.' };
+    }
+    if (endAt.getTime() <= startAt.getTime()) {
+      return { error: 'Calendar event end time must be after the start time.' };
+    }
+  }
+
+  return {
+    event: {
+      title,
+      startAt: startAt.toISOString(),
+      endAt: endAt ? endAt.toISOString() : undefined,
+      location: location || undefined,
+      description: description || undefined,
+      timeZone: timeZone || undefined,
+    },
+  };
+}
+
+function resolveCalendarWindow(event: FormEmailCalendarEvent) {
+  const start = new Date(event.startAt);
+  if (Number.isNaN(start.getTime())) {
+    throw new Error('Calendar event start time is invalid.');
+  }
+
+  const parsedEnd = event.endAt ? new Date(event.endAt) : null;
+  const end =
+    parsedEnd && !Number.isNaN(parsedEnd.getTime()) && parsedEnd.getTime() > start.getTime()
+      ? parsedEnd
+      : new Date(start.getTime() + 60 * 60 * 1000);
+
+  return { start, end };
+}
+
+function formatCalendarTimestamp(date: Date) {
+  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+function escapeIcsText(value: string) {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/\r?\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;');
+}
+
+function foldIcsLine(line: string) {
+  if (line.length <= 74) return line;
+
+  const segments: string[] = [];
+  for (let index = 0; index < line.length; index += 74) {
+    const part = line.slice(index, index + 74);
+    segments.push(index === 0 ? part : ` ${part}`);
+  }
+  return segments.join('\r\n');
+}
+
+function sanitizeFilenamePart(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-|-$/g, '') || 'event';
+}
+
+function buildCalendarInvite(event: FormEmailCalendarEvent, form: AdminForm) {
+  const { start, end } = resolveCalendarWindow(event);
+  const generatedUrl = new URL('https://calendar.google.com/calendar/render');
+  generatedUrl.searchParams.set('action', 'TEMPLATE');
+  generatedUrl.searchParams.set('text', event.title);
+  generatedUrl.searchParams.set('dates', `${formatCalendarTimestamp(start)}/${formatCalendarTimestamp(end)}`);
+  if (event.description?.trim()) {
+    generatedUrl.searchParams.set('details', event.description.trim());
+  }
+  if (event.location?.trim()) {
+    generatedUrl.searchParams.set('location', event.location.trim());
+  }
+  if (event.timeZone?.trim()) {
+    generatedUrl.searchParams.set('ctz', event.timeZone.trim());
+  }
+
+  const uid = `${form.id}-${formatCalendarTimestamp(start)}@wisdomhouse.local`;
+  const icsLines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Wisdom House//Form Campaign//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${formatCalendarTimestamp(new Date())}`,
+    `DTSTART:${formatCalendarTimestamp(start)}`,
+    `DTEND:${formatCalendarTimestamp(end)}`,
+    `SUMMARY:${escapeIcsText(event.title)}`,
+    event.description?.trim() ? `DESCRIPTION:${escapeIcsText(event.description.trim())}` : '',
+    event.location?.trim() ? `LOCATION:${escapeIcsText(event.location.trim())}` : '',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ]
+    .filter(Boolean)
+    .map((line) => foldIcsLine(line))
+    .join('\r\n');
+
+  return {
+    generatedUrl: generatedUrl.toString(),
+    icsContent: icsLines,
+    filename: `${sanitizeFilenamePart(event.title)}-invite.ics`,
+  };
+}
+
 function buildUnsubscribeUrl(request: NextRequest, email: string) {
   const publicOrigin =
     (process.env.NEXT_PUBLIC_PUBLIC_URL || process.env.APP_PUBLIC_URL || request.nextUrl.origin).replace(/\/+$/, '');
@@ -184,7 +333,9 @@ function validatePayload(payload: unknown): payload is SendFormCampaignRequest {
     typeof payload.htmlBody === 'string' &&
     payload.htmlBody.trim().length > 0 &&
     typeof payload.textBody === 'string' &&
-    payload.textBody.trim().length > 0
+    payload.textBody.trim().length > 0 &&
+    (typeof payload.calendarUrl === 'undefined' || typeof payload.calendarUrl === 'string') &&
+    (typeof payload.calendarEvent === 'undefined' || isRecord(payload.calendarEvent))
   );
 }
 
@@ -194,13 +345,25 @@ async function sendCampaignEmails(
   request: NextRequest,
   form: AdminForm,
   recipients: ReturnType<typeof extractFormCampaignRecipients>,
-  payload: SendFormCampaignRequest
+  payload: SendFormCampaignRequest,
+  calendarUrl?: string,
+  calendarInvite?: ReturnType<typeof buildCalendarInvite>
 ) {
   let sent = 0;
   let failed = 0;
   const failedRecipients: string[] = [];
   let index = 0;
   const concurrency = Math.min(4, recipients.length);
+  const resolvedCalendarUrl = calendarUrl || calendarInvite?.generatedUrl || '';
+  const attachments = calendarInvite
+    ? [
+        {
+          filename: calendarInvite.filename,
+          content: calendarInvite.icsContent,
+          contentType: 'text/calendar; charset=utf-8; method=PUBLISH',
+        },
+      ]
+    : undefined;
 
   const worker = async () => {
     while (index < recipients.length) {
@@ -213,7 +376,7 @@ async function sendCampaignEmails(
         RegistrationCode: current.registrationCode || '',
         SubscribeURL: '',
         UnsubscribeURL: unsubscribeUrl,
-        CalendarOptInURL: '',
+        CalendarOptInURL: resolvedCalendarUrl,
       } as const;
 
       try {
@@ -227,7 +390,10 @@ async function sendCampaignEmails(
             'X-Form-ID': form.id,
             'X-Form-Title': form.title || '',
             'X-Campaign-Title': payload.title.trim(),
+            'List-Unsubscribe': `<${unsubscribeUrl}>`,
+            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
           },
+          attachments,
         });
         sent += 1;
       } catch {
@@ -255,6 +421,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!validatePayload(payload)) {
       return NextResponse.json({ message: 'Subject, title, HTML body, and text body are required.' }, { status: 400 });
     }
+    const normalizedCalendarUrl = payload.calendarUrl?.trim()
+      ? normalizeAbsoluteHttpUrl(payload.calendarUrl)
+      : '';
+    if (payload.calendarUrl?.trim() && !normalizedCalendarUrl) {
+      return NextResponse.json({ message: 'Calendar URL is invalid. Use a full URL like https://...' }, { status: 400 });
+    }
+    const parsedCalendarEvent = parseCalendarEvent(payload.calendarEvent);
+    if (parsedCalendarEvent.error) {
+      return NextResponse.json({ message: parsedCalendarEvent.error }, { status: 400 });
+    }
 
     const form = await backendFetch<AdminForm>(request, `/admin/forms/${encodeURIComponent(formId)}`, {
       method: 'GET',
@@ -275,9 +451,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
     });
 
     await transporter.verify();
+    const calendarInvite = parsedCalendarEvent.event
+      ? buildCalendarInvite(parsedCalendarEvent.event, form)
+      : undefined;
 
     const startedAt = new Date().toISOString();
-    const outcome = await sendCampaignEmails(transporter, smtpConfig, request, form, recipients, payload);
+    const outcome = await sendCampaignEmails(
+      transporter,
+      smtpConfig,
+      request,
+      form,
+      recipients,
+      payload,
+      normalizedCalendarUrl || undefined,
+      calendarInvite
+    );
     const completedAt = new Date().toISOString();
 
     const result: SendFormCampaignResult = {
