@@ -39,7 +39,6 @@ import {
 } from '@/lib/formSubmissions';
 import { getServerErrorMessage } from '@/lib/serverValidation';
 import type { AdminForm, EmailTemplate, EventData, FormSubmission, UpdateFormRequest } from '@/lib/types';
-import { buildPublicFormUrl } from '@/lib/utils';
 import { withAuth } from '@/providers/withAuth';
 import { ActionStatusModal, type ActionStatusDetail, type ActionStatusMode } from '@/ui/ActionStatusModal';
 import { Button } from '@/ui/Button';
@@ -334,6 +333,7 @@ function RegistrantCampaignPage() {
   const [footerNote, setFooterNote] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [ctaEnabled, setCtaEnabled] = useState(false);
   const [ctaLabel, setCtaLabel] = useState('');
   const [ctaUrl, setCtaUrl] = useState('');
   const [calendarLabel, setCalendarLabel] = useState(DEFAULT_CALENDAR_LABEL);
@@ -364,6 +364,7 @@ function RegistrantCampaignPage() {
   const [recipientQuery, setRecipientQuery] = useState('');
   const [selectionCount, setSelectionCount] = useState('');
   const [selectionInitialized, setSelectionInitialized] = useState(false);
+  const [previewMode, setPreviewMode] = useState<'rendered' | 'html' | 'text'>('rendered');
 
   const recipients = useMemo(() => extractFormCampaignRecipients(submissions), [submissions]);
   const audienceStats = useMemo(() => buildAudienceStats(submissions, recipients), [submissions, recipients]);
@@ -432,8 +433,8 @@ function RegistrantCampaignPage() {
         messageHtml,
         logoUrl: logoPreview || logoUrl || undefined,
         imageUrl: imagePreview || imageUrl || undefined,
-        ctaLabel: ctaLabel.trim() || undefined,
-        ctaUrl: ctaUrl.trim() || undefined,
+        ctaLabel: ctaEnabled ? ctaLabel.trim() || undefined : undefined,
+        ctaUrl: ctaEnabled ? ctaUrl.trim() || undefined : undefined,
         calendarUrl: effectiveCalendarUrl || undefined,
         resourceLinks: normalizedResources.resourceLinks,
         includeRegistrationCode: true,
@@ -452,6 +453,7 @@ function RegistrantCampaignPage() {
       calendarLabel,
       effectiveCalendarUrl,
       normalizedCalendar.event,
+      ctaEnabled,
       ctaLabel,
       ctaUrl,
       eyebrow,
@@ -481,8 +483,8 @@ function RegistrantCampaignPage() {
         heading,
         message: messageText,
         messageHtml,
-        ctaLabel: ctaLabel.trim() || undefined,
-        ctaUrl: ctaUrl.trim() || undefined,
+        ctaLabel: ctaEnabled ? ctaLabel.trim() || undefined : undefined,
+        ctaUrl: ctaEnabled ? ctaUrl.trim() || undefined : undefined,
         resourceLinks: normalizedResources.resourceLinks,
         calendarLabel: calendarLabel.trim() || undefined,
         calendarUrl: effectiveCalendarUrl || undefined,
@@ -497,6 +499,7 @@ function RegistrantCampaignPage() {
       calendarLabel,
       effectiveCalendarUrl,
       normalizedCalendar.event,
+      ctaEnabled,
       ctaLabel,
       ctaUrl,
       eyebrow,
@@ -626,14 +629,9 @@ function RegistrantCampaignPage() {
             loadedEvent?.image?.trim() ||
             ''
         );
-        const defaultCtaUrl =
-          loadedEvent?.registerLink?.trim() ||
-          buildPublicFormUrl(loadedForm.slug, loadedForm.publicUrl) ||
-          '';
-        const defaultCtaLabel = loadedEvent?.registerLink ? 'View event details' : 'Open registration page';
-
-        setCtaUrl(defaultCtaUrl);
-        setCtaLabel(defaultCtaLabel);
+        setCtaEnabled(false);
+        setCtaUrl('');
+        setCtaLabel('');
         if (fallbackCalendarEvent) {
           setCalendarTitle(fallbackCalendarEvent.title);
           setCalendarStartAt(toDateTimeLocalValue(fallbackCalendarEvent.startAt));
@@ -662,8 +660,10 @@ function RegistrantCampaignPage() {
           else if (meta?.message?.trim()) setMessageHtml(toRichTextHtml(meta.message));
           if (meta?.logoUrl) setLogoUrl(meta.logoUrl);
           if (meta?.imageUrl) setImageUrl(meta.imageUrl);
+          const hasSavedCtaEnabled = Object.prototype.hasOwnProperty.call(meta || {}, 'ctaEnabled');
           const hasSavedCtaLabel = Object.prototype.hasOwnProperty.call(meta || {}, 'ctaLabel');
           const hasSavedCtaUrl = Object.prototype.hasOwnProperty.call(meta || {}, 'ctaUrl');
+          if (hasSavedCtaEnabled) setCtaEnabled(Boolean(meta?.ctaEnabled));
           if (hasSavedCtaLabel) setCtaLabel(meta?.ctaLabel || '');
           if (hasSavedCtaUrl) setCtaUrl(meta?.ctaUrl || '');
           if (meta?.calendarLabel) setCalendarLabel(meta.calendarLabel);
@@ -852,7 +852,7 @@ function RegistrantCampaignPage() {
       if (imageUrl.trim() && !nextImageUrl) {
         throw new Error('Template image URL is invalid. Use a full URL like https://...png');
       }
-      if (ctaUrl.trim() && !nextCtaUrl) {
+      if (ctaEnabled && ctaUrl.trim() && !nextCtaUrl) {
         throw new Error('CTA URL is invalid. Use a full URL like https://...');
       }
       if (calendarUrl.trim() && !nextManualCalendarUrl) {
@@ -880,8 +880,8 @@ function RegistrantCampaignPage() {
         messageHtml: trimmedMessageHtml,
         logoUrl: nextLogoUrl || undefined,
         imageUrl: nextImageUrl || undefined,
-        ctaLabel: ctaLabel.trim() || undefined,
-        ctaUrl: nextCtaUrl || undefined,
+        ctaLabel: ctaEnabled ? ctaLabel.trim() || undefined : undefined,
+        ctaUrl: ctaEnabled ? nextCtaUrl || undefined : undefined,
         calendarUrl: nextEffectiveCalendarUrl || undefined,
         resourceLinks: normalizedResources.resourceLinks,
         includeRegistrationCode: true,
@@ -903,8 +903,8 @@ function RegistrantCampaignPage() {
         heading: heading.trim(),
         message: toPlainText(trimmedMessageHtml),
         messageHtml: trimmedMessageHtml,
-        ctaLabel: ctaLabel.trim() || undefined,
-        ctaUrl: nextCtaUrl || undefined,
+        ctaLabel: ctaEnabled ? ctaLabel.trim() || undefined : undefined,
+        ctaUrl: ctaEnabled ? nextCtaUrl || undefined : undefined,
         resourceLinks: normalizedResources.resourceLinks,
         calendarLabel: calendarLabel.trim() || undefined,
         calendarUrl: nextEffectiveCalendarUrl || undefined,
@@ -931,6 +931,7 @@ function RegistrantCampaignPage() {
         messageHtml: trimmedMessageHtml,
         logoUrl: nextLogoUrl || undefined,
         imageUrl: nextImageUrl || undefined,
+        ctaEnabled,
         ctaLabel: ctaLabel.trim(),
         ctaUrl: nextCtaUrl || '',
         calendarLabel: calendarLabel.trim() || undefined,
@@ -1002,7 +1003,7 @@ function RegistrantCampaignPage() {
         calendarEvent: normalizedCalendar.event,
         resourceLinks: normalizedResources.resourceLinks,
         heroImageUrl: nextImageUrl || undefined,
-        ctaUrl: nextCtaUrl || undefined,
+        ctaUrl: ctaEnabled ? nextCtaUrl || undefined : undefined,
       };
     } finally {
       setSaving(false);
@@ -1084,7 +1085,7 @@ function RegistrantCampaignPage() {
         htmlBody: persisted.htmlBody,
         textBody: persisted.textBody,
         primaryCta:
-          ctaLabel.trim() && persisted.ctaUrl
+          ctaEnabled && ctaLabel.trim() && persisted.ctaUrl
             ? {
                 label: ctaLabel.trim(),
                 url: persisted.ctaUrl,
@@ -1406,20 +1407,43 @@ function RegistrantCampaignPage() {
                 onChange={(e) => setImageUrl(e.target.value)}
                 placeholder="https://.../flyer.png"
               />
-              <Input
-                label="Call-to-action label (optional)"
-                value={ctaLabel}
-                onChange={(e) => setCtaLabel(e.target.value)}
-                placeholder="View program details"
-                helperText="Clear both CTA fields if you do not want a button in this email."
-              />
-              <Input
-                label="Call-to-action URL (optional)"
-                value={ctaUrl}
-                onChange={(e) => setCtaUrl(e.target.value)}
-                placeholder="https://your-domain.com/event-details"
-                helperText="Use a full URL if you want a button inside the email. Leave this and the label empty to remove it."
-              />
+              <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 md:col-span-2">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium text-[var(--color-text-primary)]">Call-to-action Button</div>
+                    <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                      This is now opt-in. The outreach template will not show a registration button unless you enable it here.
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-secondary)]">
+                    <input
+                      type="checkbox"
+                      checked={ctaEnabled}
+                      onChange={(e) => setCtaEnabled(e.target.checked)}
+                      className="h-4 w-4 rounded border-[var(--color-border-primary)] text-[var(--color-accent-primary)] focus:ring-[var(--color-border-focus)]"
+                    />
+                    Enable CTA
+                  </label>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input
+                    label="Call-to-action label (optional)"
+                    value={ctaLabel}
+                    onChange={(e) => setCtaLabel(e.target.value)}
+                    placeholder="View program details"
+                    helperText={ctaEnabled ? 'Use the label you want on the email button.' : 'Turn on Enable CTA if you want a button in the email.'}
+                    disabled={!ctaEnabled}
+                  />
+                  <Input
+                    label="Call-to-action URL (optional)"
+                    value={ctaUrl}
+                    onChange={(e) => setCtaUrl(e.target.value)}
+                    placeholder="https://your-domain.com/event-details"
+                    helperText={ctaEnabled ? 'Use a full URL like https://your-domain.com/event-details' : 'CTA is disabled, so no registration button will appear in the email.'}
+                    disabled={!ctaEnabled}
+                  />
+                </div>
+              </div>
               <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 md:col-span-2">
                 <div className="text-sm font-medium text-[var(--color-text-primary)]">Calendar Reminder</div>
                 <p className="text-xs text-[var(--color-text-tertiary)]">
@@ -1740,7 +1764,7 @@ function RegistrantCampaignPage() {
                   placeholder="Paste full HTML only if you want to override the structured builder completely. Supported placeholders: {{.RecipientName}}, {{.FirstName}}, {{.RegistrationCode}}, {{.SubscribeURL}}, {{.UnsubscribeURL}}, {{.CalendarOptInURL}}, {{.GoogleCalendarURL}}, {{.CalendarICSURL}}"
                 />
                 <p className="text-xs text-[var(--color-text-tertiary)]">
-                  Use “Load Structured HTML” to pull the current campaign markup into this editor, then adjust the raw HTML directly. Leave this empty to use the structured editor, event resource cards, highlighted section, and campaign theme controls above.
+                  Use “Load Structured HTML” to pull the current campaign markup into this editor, then adjust the raw HTML directly. The preview panel updates from this override automatically, so you can inspect the rendered email and the raw HTML side by side. Leave this empty to use the structured editor, event resource cards, highlighted section, and campaign theme controls above.
                 </p>
               </div>
             </div>
@@ -1930,8 +1954,47 @@ function RegistrantCampaignPage() {
           </Card>
 
           <Card title="Template Preview">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs text-[var(--color-text-tertiary)]">
+                {customHtmlBody.trim()
+                  ? 'Previewing your full HTML override.'
+                  : 'Previewing the structured campaign builder.'}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={previewMode === 'rendered' ? 'primary' : 'outline'}
+                  onClick={() => setPreviewMode('rendered')}
+                >
+                  Rendered
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={previewMode === 'html' ? 'primary' : 'outline'}
+                  onClick={() => setPreviewMode('html')}
+                >
+                  HTML
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={previewMode === 'text' ? 'primary' : 'outline'}
+                  onClick={() => setPreviewMode('text')}
+                >
+                  Text
+                </Button>
+              </div>
+            </div>
             <div className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-white">
-              <iframe title="campaign-email-preview" srcDoc={previewHTML} className="h-[720px] w-full" />
+              {previewMode === 'rendered' ? (
+                <iframe title="campaign-email-preview" srcDoc={previewHTML} className="h-[720px] w-full" />
+              ) : (
+                <pre className="h-[720px] overflow-auto whitespace-pre-wrap bg-[var(--color-background-primary)] p-4 font-mono text-xs text-[var(--color-text-primary)]">
+                  {previewMode === 'html' ? activeHtmlBody : activeTextBody}
+                </pre>
+              )}
             </div>
             <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">
               The preview uses sample recipient values. Delivery uses the same HTML structure and personalizes each message with the recipient name and registration code.
