@@ -341,10 +341,12 @@ function RegistrantCampaignPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [customHtmlBody, setCustomHtmlBody] = useState('');
+  const [recipientQuery, setRecipientQuery] = useState('');
+  const [selectionCount, setSelectionCount] = useState('');
+  const [selectionInitialized, setSelectionInitialized] = useState(false);
 
   const recipients = useMemo(() => extractFormCampaignRecipients(submissions), [submissions]);
   const audienceStats = useMemo(() => buildAudienceStats(submissions, recipients), [submissions, recipients]);
-  const latestRecipients = useMemo(() => recipients.slice(0, 8), [recipients]);
   const messageText = useMemo(() => toPlainText(messageHtml), [messageHtml]);
   const normalizedCalendar = useMemo(
     () =>
@@ -359,6 +361,28 @@ function RegistrantCampaignPage() {
     [calendarDescription, calendarEndAt, calendarLocation, calendarStartAt, calendarTimeZone, calendarTitle]
   );
   const normalizedResources = useMemo(() => normalizeCampaignResourceDrafts(resourceLinks), [resourceLinks]);
+  const filteredRecipients = useMemo(() => {
+    const term = recipientQuery.trim().toLowerCase();
+    if (!term) return recipients;
+
+    return recipients.filter((recipient) =>
+      [recipient.name, recipient.email, recipient.registrationCode, new Date(recipient.submittedAt).toLocaleString()]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(term)
+    );
+  }, [recipientQuery, recipients]);
+  const [selectedRecipientIds, setSelectedRecipientIds] = useState<string[]>([]);
+  const selectedRecipientIdSet = useMemo(() => new Set(selectedRecipientIds), [selectedRecipientIds]);
+  const selectedRecipients = useMemo(
+    () => recipients.filter((recipient) => selectedRecipientIdSet.has(recipient.submissionId)),
+    [recipients, selectedRecipientIdSet]
+  );
+  const selectedFilteredRecipientsCount = useMemo(
+    () => filteredRecipients.filter((recipient) => selectedRecipientIdSet.has(recipient.submissionId)).length,
+    [filteredRecipients, selectedRecipientIdSet]
+  );
 
   const templateKeyPreview = useMemo(() => {
     const existing = form?.settings?.campaignEmailTemplateKey?.trim();
@@ -493,6 +517,14 @@ function RegistrantCampaignPage() {
 
   useEffect(() => {
     if (!formId) return;
+    setLoading(true);
+    setForm(null);
+    setTemplate(null);
+    setSubmissions([]);
+    setSelectionInitialized(false);
+    setSelectedRecipientIds([]);
+    setRecipientQuery('');
+    setSelectionCount('');
 
     (async () => {
       try {
@@ -600,6 +632,23 @@ function RegistrantCampaignPage() {
     })();
   }, [formId, router]);
 
+  useEffect(() => {
+    if (recipients.length === 0) {
+      setSelectedRecipientIds([]);
+      setSelectionInitialized(false);
+      return;
+    }
+
+    if (!selectionInitialized) {
+      setSelectedRecipientIds(recipients.map((recipient) => recipient.submissionId));
+      setSelectionInitialized(true);
+      return;
+    }
+
+    const availableIds = new Set(recipients.map((recipient) => recipient.submissionId));
+    setSelectedRecipientIds((current) => current.filter((id) => availableIds.has(id)));
+  }, [recipients, selectionInitialized]);
+
   const handleLogoFile = (file?: File) => {
     if (!file) {
       if (logoPreview) URL.revokeObjectURL(logoPreview);
@@ -653,6 +702,40 @@ function RegistrantCampaignPage() {
 
   const removeResourceLink = (index: number) => {
     setResourceLinks((current) => current.filter((_, resourceIndex) => resourceIndex !== index));
+  };
+
+  const toggleRecipientSelection = (submissionId: string) => {
+    setSelectedRecipientIds((current) =>
+      current.includes(submissionId)
+        ? current.filter((id) => id !== submissionId)
+        : [...current, submissionId]
+    );
+  };
+
+  const selectAllRecipients = () => {
+    setSelectedRecipientIds(recipients.map((recipient) => recipient.submissionId));
+  };
+
+  const clearRecipientSelection = () => {
+    setSelectedRecipientIds([]);
+  };
+
+  const selectFilteredRecipients = () => {
+    setSelectedRecipientIds(filteredRecipients.map((recipient) => recipient.submissionId));
+  };
+
+  const selectFirstRecipients = () => {
+    const count = Number.parseInt(selectionCount, 10);
+    if (!Number.isFinite(count) || count <= 0) {
+      toast.error('Enter a valid number of recipients to select.');
+      return;
+    }
+    if (filteredRecipients.length === 0) {
+      toast.error('No recipients match the current filter.');
+      return;
+    }
+
+    setSelectedRecipientIds(filteredRecipients.slice(0, count).map((recipient) => recipient.submissionId));
   };
 
   const persistCampaignTemplate = async (showSuccessToast = true): Promise<PersistedCampaign> => {
@@ -856,6 +939,10 @@ function RegistrantCampaignPage() {
 
   const sendCampaign = async () => {
     if (!form) return;
+    if (selectedRecipientIds.length === 0) {
+      toast.error('Select at least one recipient before sending.');
+      return;
+    }
 
     setSending(true);
     try {
@@ -880,6 +967,7 @@ function RegistrantCampaignPage() {
             : undefined,
         footerNote: footerNote.trim() || undefined,
         resourceLinks: persisted.resourceLinks,
+        targetSubmissionIds: selectedRecipientIds,
         includeCalendarLinks,
       });
 
@@ -987,8 +1075,13 @@ function RegistrantCampaignPage() {
           <Button onClick={saveTemplate} loading={saving} icon={<Save className="h-4 w-4" />}>
             Save Campaign
           </Button>
-          <Button onClick={sendCampaign} loading={sending} icon={<Send className="h-4 w-4" />}>
-            Send Campaign
+          <Button
+            onClick={sendCampaign}
+            loading={sending}
+            disabled={selectedRecipientIds.length === 0}
+            icon={<Send className="h-4 w-4" />}
+          >
+            {selectedRecipientIds.length > 0 ? `Send to ${selectedRecipientIds.length}` : 'Select recipients'}
           </Button>
         </div>
       </div>
@@ -1376,7 +1469,7 @@ function RegistrantCampaignPage() {
           <Card title="Campaign Delivery">
             <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
               <p>
-                This send flow is registrant-specific. It derives the audience directly from this form&apos;s submissions, deduplicates addresses, and sends one personalized email per recipient from a protected server route.
+                This send flow is registrant-specific. It derives the audience directly from this form&apos;s submissions, lets you target a selected segment, deduplicates addresses, and sends one personalized email per selected recipient from a protected server route.
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={copyCampaignHtml} icon={<Copy className="h-4 w-4" />}>
@@ -1395,7 +1488,7 @@ function RegistrantCampaignPage() {
                   Delivery controls
                 </div>
                 <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">
-                  SMTP must be configured in the deployment environment for send to succeed. The current template is saved automatically before delivery so uploaded images, reminder copy, generated calendar links, and `.ics` invites are preserved in the email recipients receive.
+                  SMTP must be configured in the deployment environment for send to succeed. The current template is saved automatically before delivery so uploaded images, resource links, reminder copy, generated calendar links, and `.ics` invites are preserved in the email recipients receive.
                 </p>
               </div>
             </div>
@@ -1403,28 +1496,98 @@ function RegistrantCampaignPage() {
         </div>
 
         <div className="space-y-6">
-          <Card title="Audience Snapshot">
-            {latestRecipients.length > 0 ? (
-              <div className="space-y-3">
-                {latestRecipients.map((recipient) => (
-                  <div
-                    key={`${recipient.email}-${recipient.submissionId}`}
-                    className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3"
-                  >
-                    <div className="text-sm font-medium text-[var(--color-text-primary)]">{recipient.name}</div>
-                    <div className="text-xs text-[var(--color-text-secondary)]">{recipient.email}</div>
-                    <div className="mt-1 text-xs text-[var(--color-text-tertiary)]">
-                      {recipient.registrationCode ? `Reg: ${recipient.registrationCode} · ` : ''}
-                      {new Date(recipient.submittedAt).toLocaleString()}
-                    </div>
+          <Card title="Audience Targeting">
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                <Input
+                  label="Search recipients"
+                  value={recipientQuery}
+                  onChange={(e) => setRecipientQuery(e.target.value)}
+                  placeholder="Search by name, email, or registration code"
+                />
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                    Select first N recipients
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      value={selectionCount}
+                      onChange={(e) => setSelectionCount(e.target.value)}
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                      placeholder="25"
+                    />
+                    <Button type="button" variant="outline" onClick={selectFirstRecipients}>
+                      Apply
+                    </Button>
                   </div>
-                ))}
+                </div>
               </div>
-            ) : (
-              <p className="text-sm text-[var(--color-text-tertiary)]">
-                No valid email addresses have been captured from this form yet.
-              </p>
-            )}
+
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={selectAllRecipients}>
+                  Select all
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={selectFilteredRecipients}>
+                  Select filtered
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={clearRecipientSelection}>
+                  Clear selection
+                </Button>
+              </div>
+
+              <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-sm">
+                <div className="font-medium text-[var(--color-text-primary)]">
+                  {selectedRecipients.length} selected of {recipients.length} available recipients
+                </div>
+                <div className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                  {recipientQuery.trim()
+                    ? `${filteredRecipients.length} recipients match your current search and ${selectedFilteredRecipientsCount} of them are selected.`
+                    : 'Audience selection is deduplicated by email, so each person only receives one campaign.'}
+                </div>
+              </div>
+
+              {filteredRecipients.length > 0 ? (
+                <div className="max-h-[440px] space-y-2 overflow-y-auto pr-1">
+                  {filteredRecipients.map((recipient) => {
+                    const checked = selectedRecipientIdSet.has(recipient.submissionId);
+
+                    return (
+                      <label
+                        key={`${recipient.email}-${recipient.submissionId}`}
+                        className={`flex cursor-pointer items-start gap-3 rounded-[var(--radius-card)] border px-4 py-3 transition-colors ${
+                          checked
+                            ? 'border-[var(--color-accent-primary)] bg-[var(--color-background-secondary)]'
+                            : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleRecipientSelection(recipient.submissionId)}
+                          className="mt-1 h-4 w-4 rounded border-[var(--color-border-primary)] text-[var(--color-accent-primary)] focus:ring-[var(--color-border-focus)]"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium text-[var(--color-text-primary)]">{recipient.name}</div>
+                          <div className="truncate text-xs text-[var(--color-text-secondary)]">{recipient.email}</div>
+                          <div className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                            {recipient.registrationCode ? `Reg: ${recipient.registrationCode} · ` : ''}
+                            {new Date(recipient.submittedAt).toLocaleString()}
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-[var(--color-text-tertiary)]">
+                  {recipients.length === 0
+                    ? 'No valid email addresses have been captured from this form yet.'
+                    : 'No recipients match your current search.'}
+                </p>
+              )}
+            </div>
           </Card>
 
           <Card title="Template Preview">
