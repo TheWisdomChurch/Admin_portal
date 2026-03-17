@@ -1,8 +1,12 @@
+import type { FormEmailCalendarEvent } from './formEmailTemplates';
+
 export type SendFormCampaignRequest = {
   subject: string;
   title: string;
   htmlBody: string;
   textBody: string;
+  calendarUrl?: string;
+  calendarEvent?: FormEmailCalendarEvent;
 };
 
 export type SendFormCampaignResult = {

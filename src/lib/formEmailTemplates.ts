@@ -7,7 +7,17 @@ export const DEFAULT_EMAIL_SURFACE_COLOR = '#fff7ed';
 const META_PREFIX = '<!--WH_FORM_TEMPLATE_META:';
 const META_SUFFIX = '-->';
 
+export type FormEmailCalendarEvent = {
+  title: string;
+  startAt: string;
+  endAt?: string;
+  location?: string;
+  description?: string;
+  timeZone?: string;
+};
+
 export type StoredFormEmailTemplateMeta = {
+  preheader?: string;
   eyebrow?: string;
   heading?: string;
   message?: string;
@@ -17,6 +27,9 @@ export type StoredFormEmailTemplateMeta = {
   customHtml?: string;
   ctaLabel?: string;
   ctaUrl?: string;
+  calendarLabel?: string;
+  calendarUrl?: string;
+  calendarEvent?: FormEmailCalendarEvent;
   spotlightLabel?: string;
   spotlightText?: string;
   accentColor?: string;
@@ -94,6 +107,85 @@ function normalizeHexColor(rawValue: string | undefined, fallback: string) {
     return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
   }
   return fallback;
+}
+
+function parseCalendarDate(value?: string) {
+  if (!value?.trim()) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatCalendarValue(
+  value: Date,
+  options: Intl.DateTimeFormatOptions,
+  timeZone?: string
+) {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      ...options,
+      ...(timeZone ? { timeZone } : {}),
+    }).format(value);
+  } catch {
+    return new Intl.DateTimeFormat(undefined, options).format(value);
+  }
+}
+
+function buildCalendarSummaryRows(event?: FormEmailCalendarEvent) {
+  if (!event) return [] as Array<{ label: string; value: string }>;
+
+  const rows: Array<{ label: string; value: string }> = [];
+  const title = event.title?.trim();
+  const location = event.location?.trim();
+  const timeZone = event.timeZone?.trim() || undefined;
+  const start = parseCalendarDate(event.startAt);
+  const end = parseCalendarDate(event.endAt);
+
+  if (title) {
+    rows.push({ label: 'Event', value: title });
+  }
+
+  if (start) {
+    const startDateLabel = formatCalendarValue(
+      start,
+      { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' },
+      timeZone
+    );
+    const endDateLabel = end
+      ? formatCalendarValue(
+          end,
+          { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' },
+          timeZone
+        )
+      : '';
+
+    rows.push({
+      label: 'Date',
+      value: endDateLabel && endDateLabel !== startDateLabel ? `${startDateLabel} - ${endDateLabel}` : startDateLabel,
+    });
+
+    const startTimeLabel = formatCalendarValue(
+      start,
+      { hour: 'numeric', minute: '2-digit', timeZoneName: timeZone ? 'short' : undefined },
+      timeZone
+    );
+
+    if (end) {
+      const endTimeLabel = formatCalendarValue(
+        end,
+        { hour: 'numeric', minute: '2-digit', timeZoneName: timeZone ? 'short' : undefined },
+        timeZone
+      );
+      rows.push({ label: 'Time', value: `${startTimeLabel} - ${endTimeLabel}` });
+    } else {
+      rows.push({ label: 'Time', value: startTimeLabel });
+    }
+  }
+
+  if (location) {
+    rows.push({ label: 'Venue', value: location });
+  }
+
+  return rows;
 }
 
 function applyInlineStyle(markup: string, tagName: string, inlineStyle: string) {
@@ -228,6 +320,7 @@ export function toEmailPreview(html: string) {
 
 export function buildFormEmailHTML(opts: {
   title: string;
+  preheader?: string;
   eyebrow?: string;
   heading: string;
   message: string;
@@ -236,6 +329,8 @@ export function buildFormEmailHTML(opts: {
   imageUrl?: string;
   ctaLabel?: string;
   ctaUrl?: string;
+  calendarLabel?: string;
+  calendarEvent?: FormEmailCalendarEvent;
   includeRegistrationCode?: boolean;
   includeCalendarOptIn?: boolean;
   greeting?: string;
@@ -246,6 +341,7 @@ export function buildFormEmailHTML(opts: {
   footerNote?: string;
 }) {
   const safeTitle = escapeTemplateHtml(opts.title || 'Registration');
+  const safePreheader = escapeTemplateHtml(opts.preheader || '');
   const safeEyebrow = escapeTemplateHtml(opts.eyebrow || '');
   const safeHeading = escapeTemplateHtml(opts.heading || 'Registration Confirmed');
   const safeGreeting = escapeTemplateHtml(opts.greeting || 'Hello {{.RecipientName}},');
@@ -253,6 +349,7 @@ export function buildFormEmailHTML(opts: {
   const safeImageUrl = opts.imageUrl ? escapeTemplateHtml(opts.imageUrl) : '';
   const safeCtaLabel = opts.ctaLabel ? escapeTemplateHtml(opts.ctaLabel) : '';
   const safeCtaUrl = opts.ctaUrl ? escapeTemplateHtml(opts.ctaUrl) : '';
+  const safeCalendarLabel = escapeTemplateHtml(opts.calendarLabel || 'Add event to calendar');
   const safeSpotlightLabel = escapeTemplateHtml(opts.spotlightLabel || '');
   const safeSpotlightText = escapeTemplateHtml(opts.spotlightText || '').replace(/\n/g, '<br />');
   const safeFooterNote = escapeTemplateHtml(opts.footerNote || '').replace(/\n/g, '<br />');
@@ -260,6 +357,7 @@ export function buildFormEmailHTML(opts: {
   const includeCalendarOptIn = opts.includeCalendarOptIn === true;
   const accentColor = normalizeHexColor(opts.accentColor, DEFAULT_EMAIL_ACCENT_COLOR);
   const surfaceColor = normalizeHexColor(opts.surfaceColor, DEFAULT_EMAIL_SURFACE_COLOR);
+  const calendarSummaryRows = buildCalendarSummaryRows(opts.calendarEvent);
   const formattedMessageHtml = opts.messageHtml?.trim()
     ? styleRichEmailMarkup(opts.messageHtml, accentColor)
     : plainTextToHtmlParagraphs(opts.message || 'Thank you for registering.');
@@ -269,6 +367,9 @@ export function buildFormEmailHTML(opts: {
 <!doctype html>
 <html>
   <body style="margin:0;padding:0;background:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;color:#111827;">
+    <div style="display:none;overflow:hidden;max-height:0;max-width:0;opacity:0;color:transparent;font-size:1px;line-height:1px;">
+      ${safePreheader || safeHeading}
+    </div>
     <table width="100%" cellpadding="0" cellspacing="0" style="padding:28px 12px;background:#f8fafc;">
       <tr>
         <td align="center">
@@ -292,6 +393,19 @@ export function buildFormEmailHTML(opts: {
             <tr>
               <td style="padding:22px 28px 28px 28px;">
                 <p style="margin:0 0 16px 0;font-size:16px;line-height:1.7;color:#111827;">${safeGreeting}</p>
+                ${calendarSummaryRows.length > 0 ? `
+                <div style="margin:0 0 20px 0;padding:20px;border-radius:18px;background:${surfaceColor};border:1px solid ${accentColor}22;">
+                  <p style="margin:0 0 14px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:${accentColor};font-weight:800;">Event Reminder</p>
+                  ${calendarSummaryRows
+                    .map(
+                      (row) => `
+                  <div style="margin:0 0 12px 0;">
+                    <p style="margin:0 0 4px 0;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;font-weight:800;">${escapeTemplateHtml(row.label)}</p>
+                    <p style="margin:0;font-size:15px;line-height:1.6;color:#0f172a;font-weight:700;">${escapeTemplateHtml(row.value)}</p>
+                  </div>`
+                    )
+                    .join('')}
+                </div>` : ''}
                 ${safeSpotlightText ? `
                 <div style="margin:0 0 20px 0;padding:20px;border-radius:18px;background:${surfaceColor};border:1px solid ${accentColor}22;">
                   ${safeSpotlightLabel ? `<p style="margin:0 0 10px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:${accentColor};font-weight:800;">${safeSpotlightLabel}</p>` : ''}
@@ -312,9 +426,17 @@ export function buildFormEmailHTML(opts: {
                 {{end}}` : ''}
                 ${includeCalendarOptIn ? `
                 {{if .CalendarOptInURL}}
-                <p style="margin:16px 0 0;font-size:13px;color:#111827;">
-                  <a href="{{.CalendarOptInURL}}" style="color:${accentColor};text-decoration:underline;font-weight:700;">Add event to calendar</a>
-                </p>
+                <div style="margin-top:24px;padding:20px;border-radius:18px;background:#0f172a;color:#ffffff;">
+                  <p style="margin:0 0 8px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#fcd34d;font-weight:800;">
+                    Save the date
+                  </p>
+                  <p style="margin:0 0 14px 0;font-size:15px;line-height:1.7;color:#ffffff;">
+                    Open your calendar now and lock this event into your schedule before the email gets buried.
+                  </p>
+                  <a href="{{.CalendarOptInURL}}" style="display:inline-block;padding:12px 18px;border-radius:999px;background:#ffffff;color:#0f172a;font-size:14px;font-weight:800;text-decoration:none;">
+                    ${safeCalendarLabel}
+                  </a>
+                </div>
                 {{end}}` : ''}
                 ${safeFooterNote ? `<p style="margin:22px 0 0;font-size:13px;line-height:1.7;color:#64748b;">${safeFooterNote}</p>` : ''}
               </td>
@@ -330,26 +452,46 @@ export function buildFormEmailHTML(opts: {
 
 export function buildFormEmailTextBody(opts: {
   title: string;
+  preheader?: string;
   eyebrow?: string;
   heading: string;
   message: string;
   messageHtml?: string;
   ctaLabel?: string;
   ctaUrl?: string;
+  calendarLabel?: string;
+  calendarUrl?: string;
+  calendarEvent?: FormEmailCalendarEvent;
+  includeRegistrationCode?: boolean;
+  includeCalendarOptIn?: boolean;
   spotlightLabel?: string;
   spotlightText?: string;
   footerNote?: string;
 }) {
+  const includeRegistrationCode = opts.includeRegistrationCode !== false;
+  const includeCalendarOptIn = opts.includeCalendarOptIn === true || Boolean(opts.calendarUrl?.trim());
+  const calendarSummaryRows = buildCalendarSummaryRows(opts.calendarEvent);
   const messageText = opts.messageHtml?.trim()
     ? convertEmailHtmlToText(opts.messageHtml)
     : opts.message?.trim() || 'Thank you for registering.';
   const lines = [opts.title?.trim() || 'Registration'];
+
+  if (opts.preheader?.trim()) {
+    lines.push('', opts.preheader.trim());
+  }
 
   if (opts.eyebrow?.trim()) {
     lines.push('', opts.eyebrow.trim());
   }
 
   lines.push('', opts.heading?.trim() || 'Registration Confirmed');
+
+  if (calendarSummaryRows.length > 0) {
+    lines.push('', 'Event Details');
+    calendarSummaryRows.forEach((row) => {
+      lines.push(`${row.label}: ${row.value}`);
+    });
+  }
 
   if (opts.spotlightLabel?.trim() || opts.spotlightText?.trim()) {
     if (opts.spotlightLabel?.trim()) {
@@ -366,10 +508,20 @@ export function buildFormEmailTextBody(opts: {
     lines.push('', `${opts.ctaLabel.trim()}: ${opts.ctaUrl.trim()}`);
   }
 
+  if (includeCalendarOptIn) {
+    lines.push(
+      '',
+      'Calendar reminder: open your calendar now and save the event.',
+      `${opts.calendarLabel?.trim() || 'Add event to calendar'}: ${opts.calendarUrl?.trim() || '{{.CalendarOptInURL}}'}`
+    );
+  }
+
   if (opts.footerNote?.trim()) {
     lines.push('', opts.footerNote.trim());
   }
 
-  lines.push('', 'Registration Number: {{.RegistrationCode}}');
+  if (includeRegistrationCode) {
+    lines.push('', 'Registration Number: {{.RegistrationCode}}');
+  }
   return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }

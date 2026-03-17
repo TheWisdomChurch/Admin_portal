@@ -24,6 +24,7 @@ import {
   parseTemplateMeta,
   stripTemplateMeta,
   toEmailPreview,
+  type FormEmailCalendarEvent,
   type StoredFormEmailTemplateMeta,
 } from '@/lib/formEmailTemplates';
 import {
@@ -54,12 +55,26 @@ type PersistedCampaign = {
   savedTemplate: EmailTemplate;
   htmlBody: string;
   textBody: string;
+  calendarUrl?: string;
+  calendarEvent?: FormEmailCalendarEvent;
 };
 
 const DEFAULT_MESSAGE_HTML = [
   '<p>Thank you for registering. We are sharing this update so you have the latest details, announcements, and event resources before the day.</p>',
   '<p>Please review the information below and keep this email for quick reference.</p>',
 ].join('');
+
+const DEFAULT_PREHEADER = 'Important event update for registered guests. Open this email and save the date in your calendar.';
+const DEFAULT_CALENDAR_LABEL = 'Add event to calendar';
+
+type CampaignCalendarDraft = {
+  title: string;
+  startAt: string;
+  endAt: string;
+  location: string;
+  description: string;
+  timeZone: string;
+};
 
 function buildAudienceStats(
   submissions: FormSubmission[],
@@ -120,6 +135,83 @@ function toPlainText(value: string) {
     .trim();
 }
 
+function toDateTimeLocalValue(value?: string) {
+  if (!value?.trim()) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+
+  const localTime = new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60_000);
+  return localTime.toISOString().slice(0, 16);
+}
+
+function normalizeCampaignCalendarDraft(
+  draft: CampaignCalendarDraft
+): { event?: FormEmailCalendarEvent; error?: string } {
+  const title = draft.title.trim();
+  const location = draft.location.trim();
+  const description = draft.description.trim();
+  const timeZone = draft.timeZone.trim();
+  const startAtRaw = draft.startAt.trim();
+  const endAtRaw = draft.endAt.trim();
+  const hasAnyValue = [title, location, description, timeZone, startAtRaw, endAtRaw].some(Boolean);
+
+  if (!hasAnyValue) return {};
+  if (!title) {
+    return { error: 'Calendar event title is required once you add calendar details.' };
+  }
+  if (!startAtRaw) {
+    return { error: 'Calendar start time is required once you add calendar details.' };
+  }
+
+  const startAt = new Date(startAtRaw);
+  if (Number.isNaN(startAt.getTime())) {
+    return { error: 'Calendar start time is invalid.' };
+  }
+
+  let endAt: Date | undefined;
+  if (endAtRaw) {
+    endAt = new Date(endAtRaw);
+    if (Number.isNaN(endAt.getTime())) {
+      return { error: 'Calendar end time is invalid.' };
+    }
+    if (endAt.getTime() <= startAt.getTime()) {
+      return { error: 'Calendar end time must be after the start time.' };
+    }
+  }
+
+  return {
+    event: {
+      title,
+      startAt: startAt.toISOString(),
+      endAt: endAt ? endAt.toISOString() : undefined,
+      location: location || undefined,
+      description: description || undefined,
+      timeZone: timeZone || undefined,
+    },
+  };
+}
+
+function appendCampaignTextFallback(
+  value: string,
+  opts: {
+    calendarLabel?: string;
+    includeCalendarOptIn?: boolean;
+    includeRegistrationCode?: boolean;
+  }
+) {
+  let output = value.trim();
+
+  if (opts.includeCalendarOptIn && !output.includes('{{.CalendarOptInURL}}')) {
+    output = `${output}\n\nCalendar reminder: open your calendar now and save the event.\n${opts.calendarLabel || 'Add event to calendar'}: {{.CalendarOptInURL}}`.trim();
+  }
+
+  if (opts.includeRegistrationCode && !output.includes('{{.RegistrationCode}}')) {
+    output = `${output}\n\nRegistration Number: {{.RegistrationCode}}`.trim();
+  }
+
+  return output;
+}
+
 function RegistrantCampaignPage() {
   const params = useParams();
   const router = useRouter();
@@ -137,6 +229,7 @@ function RegistrantCampaignPage() {
   const [submissions, setSubmissions] = useState<FormSubmission[]>([]);
 
   const [subject, setSubject] = useState('');
+  const [preheader, setPreheader] = useState(DEFAULT_PREHEADER);
   const [eyebrow, setEyebrow] = useState('Campaign Update');
   const [heading, setHeading] = useState('A special update for our registered guests');
   const [messageHtml, setMessageHtml] = useState(DEFAULT_MESSAGE_HTML);
@@ -147,6 +240,14 @@ function RegistrantCampaignPage() {
   const [imageUrl, setImageUrl] = useState('');
   const [ctaLabel, setCtaLabel] = useState('');
   const [ctaUrl, setCtaUrl] = useState('');
+  const [calendarLabel, setCalendarLabel] = useState(DEFAULT_CALENDAR_LABEL);
+  const [calendarUrl, setCalendarUrl] = useState('');
+  const [calendarTitle, setCalendarTitle] = useState('');
+  const [calendarStartAt, setCalendarStartAt] = useState('');
+  const [calendarEndAt, setCalendarEndAt] = useState('');
+  const [calendarLocation, setCalendarLocation] = useState('');
+  const [calendarDescription, setCalendarDescription] = useState('');
+  const [calendarTimeZone, setCalendarTimeZone] = useState('');
   const [accentColor, setAccentColor] = useState(DEFAULT_EMAIL_ACCENT_COLOR);
   const [surfaceColor, setSurfaceColor] = useState(DEFAULT_EMAIL_SURFACE_COLOR);
 
@@ -160,6 +261,18 @@ function RegistrantCampaignPage() {
   const audienceStats = useMemo(() => buildAudienceStats(submissions, recipients), [submissions, recipients]);
   const latestRecipients = useMemo(() => recipients.slice(0, 8), [recipients]);
   const messageText = useMemo(() => toPlainText(messageHtml), [messageHtml]);
+  const normalizedCalendar = useMemo(
+    () =>
+      normalizeCampaignCalendarDraft({
+        title: calendarTitle,
+        startAt: calendarStartAt,
+        endAt: calendarEndAt,
+        location: calendarLocation,
+        description: calendarDescription,
+        timeZone: calendarTimeZone,
+      }),
+    [calendarDescription, calendarEndAt, calendarLocation, calendarStartAt, calendarTimeZone, calendarTitle]
+  );
 
   const templateKeyPreview = useMemo(() => {
     const existing = form?.settings?.campaignEmailTemplateKey?.trim();
@@ -174,6 +287,7 @@ function RegistrantCampaignPage() {
     () =>
       buildFormEmailHTML({
         title: form?.title || 'Registrant Outreach',
+        preheader: preheader.trim() || undefined,
         eyebrow,
         heading,
         message: messageText,
@@ -183,7 +297,9 @@ function RegistrantCampaignPage() {
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: ctaUrl.trim() || undefined,
         includeRegistrationCode: true,
-        includeCalendarOptIn: false,
+        includeCalendarOptIn: Boolean(calendarUrl.trim() || normalizedCalendar.event),
+        calendarLabel: calendarLabel.trim() || undefined,
+        calendarEvent: normalizedCalendar.event,
         greeting: 'Hello {{.RecipientName}},',
         spotlightLabel: spotlightLabel.trim() || undefined,
         spotlightText: spotlightText.trim() || undefined,
@@ -193,6 +309,9 @@ function RegistrantCampaignPage() {
       }),
     [
       accentColor,
+      calendarLabel,
+      calendarUrl,
+      normalizedCalendar.event,
       ctaLabel,
       ctaUrl,
       eyebrow,
@@ -205,6 +324,7 @@ function RegistrantCampaignPage() {
       logoUrl,
       messageHtml,
       messageText,
+      preheader,
       spotlightLabel,
       spotlightText,
       surfaceColor,
@@ -215,23 +335,50 @@ function RegistrantCampaignPage() {
     () =>
       buildFormEmailTextBody({
         title: form?.title || 'Registrant Outreach',
+        preheader: preheader.trim() || undefined,
         eyebrow,
         heading,
         message: messageText,
         messageHtml,
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: ctaUrl.trim() || undefined,
+        calendarLabel: calendarLabel.trim() || undefined,
+        calendarUrl: normalizeAbsoluteHttpUrl(calendarUrl) || undefined,
+        calendarEvent: normalizedCalendar.event,
+        includeCalendarOptIn: Boolean(calendarUrl.trim() || normalizedCalendar.event),
         spotlightLabel: spotlightLabel.trim() || undefined,
         spotlightText: spotlightText.trim() || undefined,
         footerNote: footerNote.trim() || undefined,
       }),
-    [ctaLabel, ctaUrl, eyebrow, footerNote, form?.title, heading, messageHtml, messageText, spotlightLabel, spotlightText]
+    [
+      preheader,
+      calendarLabel,
+      calendarUrl,
+      normalizedCalendar.event,
+      ctaLabel,
+      ctaUrl,
+      eyebrow,
+      footerNote,
+      form?.title,
+      heading,
+      messageHtml,
+      messageText,
+      spotlightLabel,
+      spotlightText,
+    ]
   );
 
   const activeHtmlBody = useMemo(() => customHtmlBody.trim() || generatedHtml, [customHtmlBody, generatedHtml]);
   const activeTextBody = useMemo(
-    () => (customHtmlBody.trim() ? toPlainText(customHtmlBody) : generatedText),
-    [customHtmlBody, generatedText]
+    () =>
+      customHtmlBody.trim()
+        ? appendCampaignTextFallback(toPlainText(customHtmlBody), {
+            calendarLabel: calendarLabel.trim() || undefined,
+            includeCalendarOptIn: Boolean(calendarUrl.trim() || normalizedCalendar.event),
+            includeRegistrationCode: true,
+          })
+        : generatedText,
+    [calendarLabel, calendarUrl, customHtmlBody, generatedText, normalizedCalendar.event]
   );
   const previewHTML = useMemo(() => toEmailPreview(activeHtmlBody), [activeHtmlBody]);
 
@@ -246,6 +393,12 @@ function RegistrantCampaignPage() {
       if (imagePreview) URL.revokeObjectURL(imagePreview);
     };
   }, [logoPreview, imagePreview]);
+
+  useEffect(() => {
+    const detectedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!detectedTimeZone) return;
+    setCalendarTimeZone((current) => current || detectedTimeZone);
+  }, []);
 
   useEffect(() => {
     if (!formId) return;
@@ -271,6 +424,7 @@ function RegistrantCampaignPage() {
         setSubject(subjectFallback);
         setImageUrl(loadedForm.settings?.campaignEmailTemplateUrl?.trim() || '');
         setCtaUrl(buildPublicFormUrl(loadedForm.slug, loadedForm.publicUrl) || '');
+        setCalendarTitle((current) => current || loadedForm.title || '');
 
         const active = templatesResponse.data.find((item) => item.isActive);
         const latest = [...templatesResponse.data].sort((a, b) => (a.updatedAt > b.updatedAt ? -1 : 1))[0];
@@ -281,6 +435,7 @@ function RegistrantCampaignPage() {
           if (tpl.subject?.trim()) setSubject(tpl.subject.trim());
 
           const meta = parseTemplateMeta(tpl.htmlBody);
+          if (meta?.preheader) setPreheader(meta.preheader);
           if (meta?.eyebrow) setEyebrow(meta.eyebrow);
           if (meta?.heading) setHeading(meta.heading);
           if (meta?.messageHtml?.trim()) setMessageHtml(meta.messageHtml.trim());
@@ -289,6 +444,16 @@ function RegistrantCampaignPage() {
           if (meta?.imageUrl) setImageUrl(meta.imageUrl);
           if (meta?.ctaLabel) setCtaLabel(meta.ctaLabel);
           if (meta?.ctaUrl) setCtaUrl(meta.ctaUrl);
+          if (meta?.calendarLabel) setCalendarLabel(meta.calendarLabel);
+          if (meta?.calendarUrl) setCalendarUrl(meta.calendarUrl);
+          if (meta?.calendarEvent) {
+            if (meta.calendarEvent.title?.trim()) setCalendarTitle(meta.calendarEvent.title.trim());
+            if (meta.calendarEvent.startAt) setCalendarStartAt(toDateTimeLocalValue(meta.calendarEvent.startAt));
+            if (meta.calendarEvent.endAt) setCalendarEndAt(toDateTimeLocalValue(meta.calendarEvent.endAt));
+            if (meta.calendarEvent.location) setCalendarLocation(meta.calendarEvent.location);
+            if (meta.calendarEvent.description) setCalendarDescription(meta.calendarEvent.description);
+            if (meta.calendarEvent.timeZone?.trim()) setCalendarTimeZone(meta.calendarEvent.timeZone.trim());
+          }
           if (meta?.spotlightLabel) setSpotlightLabel(meta.spotlightLabel);
           if (meta?.spotlightText) setSpotlightText(meta.spotlightText);
           if (meta?.accentColor) setAccentColor(meta.accentColor);
@@ -353,12 +518,16 @@ function RegistrantCampaignPage() {
     if (recipients.length === 0) {
       throw new Error('No valid recipient emails were found for this form yet.');
     }
+    if (normalizedCalendar.error) {
+      throw new Error(normalizedCalendar.error);
+    }
 
     setSaving(true);
     try {
       let nextLogoUrl = normalizeAbsoluteHttpUrl(logoUrl);
       let nextImageUrl = normalizeAbsoluteHttpUrl(imageUrl);
       const nextCtaUrl = normalizeAbsoluteHttpUrl(ctaUrl);
+      const nextCalendarUrl = normalizeAbsoluteHttpUrl(calendarUrl);
 
       if (logoUrl.trim() && !nextLogoUrl) {
         throw new Error('Logo URL is invalid. Use a full URL like https://...png');
@@ -368,6 +537,9 @@ function RegistrantCampaignPage() {
       }
       if (ctaUrl.trim() && !nextCtaUrl) {
         throw new Error('CTA URL is invalid. Use a full URL like https://...');
+      }
+      if (calendarUrl.trim() && !nextCalendarUrl) {
+        throw new Error('Calendar URL is invalid. Use a full URL like https://...');
       }
 
       if (logoFile) {
@@ -383,6 +555,7 @@ function RegistrantCampaignPage() {
       const trimmedMessageHtml = messageHtml.trim() || DEFAULT_MESSAGE_HTML;
       const builtHtml = buildFormEmailHTML({
         title: form.title || 'Registrant Outreach',
+        preheader: preheader.trim() || undefined,
         eyebrow: eyebrow.trim() || undefined,
         heading: heading.trim(),
         message: toPlainText(trimmedMessageHtml),
@@ -392,7 +565,9 @@ function RegistrantCampaignPage() {
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: nextCtaUrl || undefined,
         includeRegistrationCode: true,
-        includeCalendarOptIn: false,
+        includeCalendarOptIn: Boolean(nextCalendarUrl || normalizedCalendar.event),
+        calendarLabel: calendarLabel.trim() || undefined,
+        calendarEvent: normalizedCalendar.event,
         greeting: 'Hello {{.RecipientName}},',
         spotlightLabel: spotlightLabel.trim() || undefined,
         spotlightText: spotlightText.trim() || undefined,
@@ -403,18 +578,30 @@ function RegistrantCampaignPage() {
       const mergedHTML = customHtmlBody.trim() || builtHtml;
       const builtTextBody = buildFormEmailTextBody({
         title: form.title || 'Registrant Outreach',
+        preheader: preheader.trim() || undefined,
         eyebrow: eyebrow.trim() || undefined,
         heading: heading.trim(),
         message: toPlainText(trimmedMessageHtml),
         messageHtml: trimmedMessageHtml,
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: nextCtaUrl || undefined,
+        calendarLabel: calendarLabel.trim() || undefined,
+        calendarUrl: nextCalendarUrl || undefined,
+        calendarEvent: normalizedCalendar.event,
+        includeCalendarOptIn: Boolean(nextCalendarUrl || normalizedCalendar.event),
         spotlightLabel: spotlightLabel.trim() || undefined,
         spotlightText: spotlightText.trim() || undefined,
         footerNote: footerNote.trim() || undefined,
       });
-      const textBody = customHtmlBody.trim() ? toPlainText(customHtmlBody) : builtTextBody;
+      const textBody = customHtmlBody.trim()
+        ? appendCampaignTextFallback(toPlainText(customHtmlBody), {
+            calendarLabel: calendarLabel.trim() || undefined,
+            includeCalendarOptIn: Boolean(nextCalendarUrl || normalizedCalendar.event),
+            includeRegistrationCode: true,
+          })
+        : builtTextBody;
       const htmlBody = embedTemplateMeta(mergedHTML, {
+        preheader: preheader.trim() || undefined,
         eyebrow: eyebrow.trim() || undefined,
         heading: heading.trim(),
         message: toPlainText(trimmedMessageHtml) || undefined,
@@ -423,6 +610,9 @@ function RegistrantCampaignPage() {
         imageUrl: nextImageUrl || undefined,
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: nextCtaUrl || undefined,
+        calendarLabel: calendarLabel.trim() || undefined,
+        calendarUrl: nextCalendarUrl || undefined,
+        calendarEvent: normalizedCalendar.event,
         spotlightLabel: spotlightLabel.trim() || undefined,
         spotlightText: spotlightText.trim() || undefined,
         accentColor,
@@ -473,6 +663,7 @@ function RegistrantCampaignPage() {
       setLogoUrl(nextLogoUrl);
       setImageUrl(nextImageUrl);
       setCtaUrl(nextCtaUrl);
+      setCalendarUrl(nextCalendarUrl);
       setLogoFile(null);
       setImageFile(null);
       setLogoPreview(null);
@@ -487,6 +678,8 @@ function RegistrantCampaignPage() {
         savedTemplate,
         htmlBody: mergedHTML,
         textBody,
+        calendarUrl: nextCalendarUrl || undefined,
+        calendarEvent: normalizedCalendar.event,
       };
     } finally {
       setSaving(false);
@@ -512,6 +705,8 @@ function RegistrantCampaignPage() {
         title: heading.trim(),
         htmlBody: persisted.htmlBody,
         textBody: persisted.textBody,
+        calendarUrl: persisted.calendarUrl,
+        calendarEvent: persisted.calendarEvent,
       });
 
       if (result.failed > 0) {
@@ -664,6 +859,13 @@ function RegistrantCampaignPage() {
                 helperText="This key keeps the campaign template attached to this form."
               />
               <Input
+                label="Inbox preview text (optional)"
+                value={preheader}
+                onChange={(e) => setPreheader(e.target.value)}
+                placeholder="Open this update and save the event in your calendar."
+                helperText="This appears as preview text in many inboxes before the email is opened."
+              />
+              <Input
                 label="Eyebrow label"
                 value={eyebrow}
                 onChange={(e) => setEyebrow(e.target.value)}
@@ -700,6 +902,85 @@ function RegistrantCampaignPage() {
                 placeholder="https://your-domain.com/event-details"
                 helperText="Use a full URL if you want a button inside the email."
               />
+              <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 md:col-span-2">
+                <div className="text-sm font-medium text-[var(--color-text-primary)]">Calendar Reminder</div>
+                <p className="text-xs text-[var(--color-text-tertiary)]">
+                  Add the event details once here. The email preview will show a structured reminder card, and the backend can generate a calendar link plus an `.ics` invite for recipients.
+                </p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input
+                    label="Calendar button label"
+                    value={calendarLabel}
+                    onChange={(e) => setCalendarLabel(e.target.value)}
+                    placeholder="Add event to calendar"
+                  />
+                  <Input
+                    label="Manual calendar URL (optional)"
+                    value={calendarUrl}
+                    onChange={(e) => setCalendarUrl(e.target.value)}
+                    placeholder="https://calendar.google.com/... or https://.../invite.ics"
+                    helperText="Leave empty to let the backend generate the calendar link from the event details below."
+                  />
+                  <Input
+                    label="Event title"
+                    value={calendarTitle}
+                    onChange={(e) => setCalendarTitle(e.target.value)}
+                    placeholder="WPC 26"
+                  />
+                  <Input
+                    label="Time zone"
+                    value={calendarTimeZone}
+                    onChange={(e) => setCalendarTimeZone(e.target.value)}
+                    placeholder="Africa/Lagos"
+                    helperText="Used for the reminder card and generated calendar link."
+                  />
+                  <label className="space-y-2 text-sm font-medium text-[var(--color-text-secondary)]">
+                    Event start
+                    <input
+                      type="datetime-local"
+                      value={calendarStartAt}
+                      onChange={(e) => setCalendarStartAt(e.target.value)}
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                    />
+                  </label>
+                  <label className="space-y-2 text-sm font-medium text-[var(--color-text-secondary)]">
+                    Event end (optional)
+                    <input
+                      type="datetime-local"
+                      value={calendarEndAt}
+                      onChange={(e) => setCalendarEndAt(e.target.value)}
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                    />
+                  </label>
+                  <div className="md:col-span-2">
+                    <Input
+                      label="Venue / location (optional)"
+                      value={calendarLocation}
+                      onChange={(e) => setCalendarLocation(e.target.value)}
+                      placeholder="Wisdom House, Abuja"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                      Calendar description (optional)
+                    </label>
+                    <textarea
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                      rows={3}
+                      value={calendarDescription}
+                      onChange={(e) => setCalendarDescription(e.target.value)}
+                      placeholder="Short event summary for the generated calendar invite."
+                    />
+                  </div>
+                </div>
+                {normalizedCalendar.error ? (
+                  <p className="text-xs font-medium text-red-600">{normalizedCalendar.error}</p>
+                ) : (
+                  <p className="text-xs text-[var(--color-text-tertiary)]">
+                    When event details are provided, each outbound email can include a generated add-to-calendar link and attached `.ics` file.
+                  </p>
+                )}
+              </div>
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Upload logo (optional)</label>
                 <input
@@ -814,7 +1095,7 @@ function RegistrantCampaignPage() {
                   rows={10}
                   value={customHtmlBody}
                   onChange={(e) => setCustomHtmlBody(e.target.value)}
-                  placeholder="Paste full HTML only if you want to override the structured builder completely. Supported placeholders: {{.RecipientName}}, {{.RegistrationCode}}, {{.SubscribeURL}}, {{.UnsubscribeURL}}"
+                  placeholder="Paste full HTML only if you want to override the structured builder completely. Supported placeholders: {{.RecipientName}}, {{.RegistrationCode}}, {{.SubscribeURL}}, {{.UnsubscribeURL}}, {{.CalendarOptInURL}}"
                 />
                 <p className="text-xs text-[var(--color-text-tertiary)]">
                   Leave this empty to use the structured editor, highlighted scripture section, and campaign theme controls above.
@@ -845,7 +1126,7 @@ function RegistrantCampaignPage() {
                   Delivery controls
                 </div>
                 <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">
-                  SMTP must be configured in the deployment environment for send to succeed. The current template is saved automatically before delivery so uploaded images and final URLs are used in the email recipients receive.
+                  SMTP must be configured in the deployment environment for send to succeed. The current template is saved automatically before delivery so uploaded images, reminder copy, generated calendar links, and `.ics` invites are preserved in the email recipients receive.
                 </p>
               </div>
             </div>
