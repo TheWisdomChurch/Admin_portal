@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Copy, Download, Palette, Save, Send } from 'lucide-react';
+import { ArrowLeft, Copy, Download, Palette, Plus, Save, Send, Trash2 } from 'lucide-react';
 
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
+import { buildCampaignCalendarEventFromEventData, buildCampaignDefaultCopy } from '@/lib/formCampaignCalendar';
 import { sendFormCampaign } from '@/lib/formCampaigns';
 import {
   ACCEPTED_EMAIL_IMAGE_TYPES,
@@ -24,6 +25,8 @@ import {
   parseTemplateMeta,
   stripTemplateMeta,
   toEmailPreview,
+  type FormEmailCalendarEvent,
+  type FormEmailResourceLink,
   type StoredFormEmailTemplateMeta,
 } from '@/lib/formEmailTemplates';
 import {
@@ -34,7 +37,7 @@ import {
   type FormCampaignRecipient,
 } from '@/lib/formSubmissions';
 import { getServerErrorMessage } from '@/lib/serverValidation';
-import type { AdminForm, EmailTemplate, FormSubmission, UpdateFormRequest } from '@/lib/types';
+import type { AdminForm, EmailTemplate, EventData, FormSubmission, UpdateFormRequest } from '@/lib/types';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { withAuth } from '@/providers/withAuth';
 import { Button } from '@/ui/Button';
@@ -54,12 +57,45 @@ type PersistedCampaign = {
   savedTemplate: EmailTemplate;
   htmlBody: string;
   textBody: string;
+  calendarUrl?: string;
+  calendarEvent?: FormEmailCalendarEvent;
+  resourceLinks?: FormEmailResourceLink[];
+  heroImageUrl?: string;
+  ctaUrl?: string;
 };
 
 const DEFAULT_MESSAGE_HTML = [
   '<p>Thank you for registering. We are sharing this update so you have the latest details, announcements, and event resources before the day.</p>',
   '<p>Please review the information below and keep this email for quick reference.</p>',
 ].join('');
+
+const DEFAULT_PREHEADER = 'Important event update for registered guests. Open this email and save the date in your calendar.';
+const DEFAULT_CALENDAR_LABEL = 'Add event to calendar';
+
+type CampaignCalendarDraft = {
+  title: string;
+  startAt: string;
+  endAt: string;
+  location: string;
+  description: string;
+  timeZone: string;
+};
+
+type CampaignResourceDraft = {
+  label: string;
+  url: string;
+  description: string;
+  kind: string;
+};
+
+function createEmptyResourceDraft(): CampaignResourceDraft {
+  return {
+    label: '',
+    url: '',
+    description: '',
+    kind: 'flyer',
+  };
+}
 
 function buildAudienceStats(
   submissions: FormSubmission[],
@@ -120,6 +156,146 @@ function toPlainText(value: string) {
     .trim();
 }
 
+function toDateTimeLocalValue(value?: string) {
+  if (!value?.trim()) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+
+  const localTime = new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60_000);
+  return localTime.toISOString().slice(0, 16);
+}
+
+function normalizeCampaignCalendarDraft(
+  draft: CampaignCalendarDraft
+): { event?: FormEmailCalendarEvent; error?: string } {
+  const title = draft.title.trim();
+  const location = draft.location.trim();
+  const description = draft.description.trim();
+  const timeZone = draft.timeZone.trim();
+  const startAtRaw = draft.startAt.trim();
+  const endAtRaw = draft.endAt.trim();
+  const hasAnyValue = [title, location, description, timeZone, startAtRaw, endAtRaw].some(Boolean);
+
+  if (!hasAnyValue) return {};
+  if (!title) {
+    return { error: 'Calendar event title is required once you add calendar details.' };
+  }
+  if (!startAtRaw) {
+    return { error: 'Calendar start time is required once you add calendar details.' };
+  }
+
+  const startAt = new Date(startAtRaw);
+  if (Number.isNaN(startAt.getTime())) {
+    return { error: 'Calendar start time is invalid.' };
+  }
+
+  let endAt: Date | undefined;
+  if (endAtRaw) {
+    endAt = new Date(endAtRaw);
+    if (Number.isNaN(endAt.getTime())) {
+      return { error: 'Calendar end time is invalid.' };
+    }
+    if (endAt.getTime() <= startAt.getTime()) {
+      return { error: 'Calendar end time must be after the start time.' };
+    }
+  }
+
+  return {
+    event: {
+      title,
+      startAt: startAt.toISOString(),
+      endAt: endAt ? endAt.toISOString() : undefined,
+      location: location || undefined,
+      description: description || undefined,
+      timeZone: timeZone || undefined,
+    },
+  };
+}
+
+function normalizeCampaignResourceDrafts(
+  drafts: CampaignResourceDraft[]
+): { resourceLinks: FormEmailResourceLink[]; error?: string } {
+  const resourceLinks: FormEmailResourceLink[] = [];
+
+  for (let index = 0; index < drafts.length; index += 1) {
+    const draft = drafts[index];
+    const label = draft.label.trim();
+    const url = draft.url.trim();
+    const description = draft.description.trim();
+    const kind = draft.kind.trim().toLowerCase() || 'resource';
+    const hasAnyValue = [label, url, description].some(Boolean);
+
+    if (!hasAnyValue) {
+      continue;
+    }
+    if (!label) {
+      return { resourceLinks: [], error: `Resource ${index + 1} needs a label.` };
+    }
+    if (!url) {
+      return { resourceLinks: [], error: `Resource ${index + 1} needs a URL.` };
+    }
+    if (label.length > 80) {
+      return { resourceLinks: [], error: `Resource ${index + 1} label must be 80 characters or fewer.` };
+    }
+    if (description.length > 200) {
+      return { resourceLinks: [], error: `Resource ${index + 1} description must be 200 characters or fewer.` };
+    }
+
+    const normalizedUrl = normalizeAbsoluteHttpUrl(url);
+    if (!normalizedUrl) {
+      return { resourceLinks: [], error: `Resource ${index + 1} URL is invalid. Use a full URL like https://...` };
+    }
+
+    resourceLinks.push({
+      label,
+      url: normalizedUrl,
+      description: description || undefined,
+      kind,
+    });
+  }
+
+  return { resourceLinks };
+}
+
+function appendCampaignTextFallback(
+  value: string,
+  opts: {
+    calendarLabel?: string;
+    includeCalendarOptIn?: boolean;
+    includeRegistrationCode?: boolean;
+    resourceLinks?: FormEmailResourceLink[];
+  }
+) {
+  let output = value.trim();
+
+  if (opts.resourceLinks?.length) {
+    const resourceLines = opts.resourceLinks.flatMap((resource) => {
+      const label = resource.label?.trim();
+      const url = resource.url?.trim();
+      if (!label || !url) return [];
+      const description = resource.description?.trim();
+      return [
+        `${label}: ${url}`,
+        ...(description ? [description] : []),
+      ];
+    });
+
+    if (resourceLines.length > 0) {
+      output = `${output}\n\nEvent resources:\n${resourceLines.join('\n')}`.trim();
+    }
+  }
+
+  if (opts.includeCalendarOptIn && !output.includes('{{.CalendarOptInURL}}')) {
+    output = `${output}\n\nCalendar reminder: open your calendar now and save the event.\n${opts.calendarLabel || 'Add event to calendar'}: {{.CalendarOptInURL}}`.trim();
+  }
+
+  if (opts.includeRegistrationCode && !output.includes('{{.RegistrationCode}}')) {
+    output = `${output}\n\nRegistration Number: {{.RegistrationCode}}`.trim();
+  }
+
+  return output;
+}
+
 function RegistrantCampaignPage() {
   const params = useParams();
   const router = useRouter();
@@ -137,6 +313,7 @@ function RegistrantCampaignPage() {
   const [submissions, setSubmissions] = useState<FormSubmission[]>([]);
 
   const [subject, setSubject] = useState('');
+  const [preheader, setPreheader] = useState(DEFAULT_PREHEADER);
   const [eyebrow, setEyebrow] = useState('Campaign Update');
   const [heading, setHeading] = useState('A special update for our registered guests');
   const [messageHtml, setMessageHtml] = useState(DEFAULT_MESSAGE_HTML);
@@ -147,6 +324,15 @@ function RegistrantCampaignPage() {
   const [imageUrl, setImageUrl] = useState('');
   const [ctaLabel, setCtaLabel] = useState('');
   const [ctaUrl, setCtaUrl] = useState('');
+  const [calendarLabel, setCalendarLabel] = useState(DEFAULT_CALENDAR_LABEL);
+  const [calendarUrl, setCalendarUrl] = useState('');
+  const [calendarTitle, setCalendarTitle] = useState('');
+  const [calendarStartAt, setCalendarStartAt] = useState('');
+  const [calendarEndAt, setCalendarEndAt] = useState('');
+  const [calendarLocation, setCalendarLocation] = useState('');
+  const [calendarDescription, setCalendarDescription] = useState('');
+  const [calendarTimeZone, setCalendarTimeZone] = useState('');
+  const [resourceLinks, setResourceLinks] = useState<CampaignResourceDraft[]>([]);
   const [accentColor, setAccentColor] = useState(DEFAULT_EMAIL_ACCENT_COLOR);
   const [surfaceColor, setSurfaceColor] = useState(DEFAULT_EMAIL_SURFACE_COLOR);
 
@@ -155,11 +341,48 @@ function RegistrantCampaignPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [customHtmlBody, setCustomHtmlBody] = useState('');
+  const [recipientQuery, setRecipientQuery] = useState('');
+  const [selectionCount, setSelectionCount] = useState('');
+  const [selectionInitialized, setSelectionInitialized] = useState(false);
 
   const recipients = useMemo(() => extractFormCampaignRecipients(submissions), [submissions]);
   const audienceStats = useMemo(() => buildAudienceStats(submissions, recipients), [submissions, recipients]);
-  const latestRecipients = useMemo(() => recipients.slice(0, 8), [recipients]);
   const messageText = useMemo(() => toPlainText(messageHtml), [messageHtml]);
+  const normalizedCalendar = useMemo(
+    () =>
+      normalizeCampaignCalendarDraft({
+        title: calendarTitle,
+        startAt: calendarStartAt,
+        endAt: calendarEndAt,
+        location: calendarLocation,
+        description: calendarDescription,
+        timeZone: calendarTimeZone,
+      }),
+    [calendarDescription, calendarEndAt, calendarLocation, calendarStartAt, calendarTimeZone, calendarTitle]
+  );
+  const normalizedResources = useMemo(() => normalizeCampaignResourceDrafts(resourceLinks), [resourceLinks]);
+  const filteredRecipients = useMemo(() => {
+    const term = recipientQuery.trim().toLowerCase();
+    if (!term) return recipients;
+
+    return recipients.filter((recipient) =>
+      [recipient.name, recipient.email, recipient.registrationCode, new Date(recipient.submittedAt).toLocaleString()]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(term)
+    );
+  }, [recipientQuery, recipients]);
+  const [selectedRecipientIds, setSelectedRecipientIds] = useState<string[]>([]);
+  const selectedRecipientIdSet = useMemo(() => new Set(selectedRecipientIds), [selectedRecipientIds]);
+  const selectedRecipients = useMemo(
+    () => recipients.filter((recipient) => selectedRecipientIdSet.has(recipient.submissionId)),
+    [recipients, selectedRecipientIdSet]
+  );
+  const selectedFilteredRecipientsCount = useMemo(
+    () => filteredRecipients.filter((recipient) => selectedRecipientIdSet.has(recipient.submissionId)).length,
+    [filteredRecipients, selectedRecipientIdSet]
+  );
 
   const templateKeyPreview = useMemo(() => {
     const existing = form?.settings?.campaignEmailTemplateKey?.trim();
@@ -174,6 +397,7 @@ function RegistrantCampaignPage() {
     () =>
       buildFormEmailHTML({
         title: form?.title || 'Registrant Outreach',
+        preheader: preheader.trim() || undefined,
         eyebrow,
         heading,
         message: messageText,
@@ -182,8 +406,11 @@ function RegistrantCampaignPage() {
         imageUrl: imagePreview || imageUrl || undefined,
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: ctaUrl.trim() || undefined,
+        resourceLinks: normalizedResources.resourceLinks,
         includeRegistrationCode: true,
-        includeCalendarOptIn: false,
+        includeCalendarOptIn: Boolean(calendarUrl.trim() || normalizedCalendar.event),
+        calendarLabel: calendarLabel.trim() || undefined,
+        calendarEvent: normalizedCalendar.event,
         greeting: 'Hello {{.RecipientName}},',
         spotlightLabel: spotlightLabel.trim() || undefined,
         spotlightText: spotlightText.trim() || undefined,
@@ -193,6 +420,9 @@ function RegistrantCampaignPage() {
       }),
     [
       accentColor,
+      calendarLabel,
+      calendarUrl,
+      normalizedCalendar.event,
       ctaLabel,
       ctaUrl,
       eyebrow,
@@ -205,9 +435,11 @@ function RegistrantCampaignPage() {
       logoUrl,
       messageHtml,
       messageText,
+      preheader,
       spotlightLabel,
       spotlightText,
       surfaceColor,
+      normalizedResources.resourceLinks,
     ]
   );
 
@@ -215,23 +447,53 @@ function RegistrantCampaignPage() {
     () =>
       buildFormEmailTextBody({
         title: form?.title || 'Registrant Outreach',
+        preheader: preheader.trim() || undefined,
         eyebrow,
         heading,
         message: messageText,
         messageHtml,
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: ctaUrl.trim() || undefined,
+        resourceLinks: normalizedResources.resourceLinks,
+        calendarLabel: calendarLabel.trim() || undefined,
+        calendarUrl: normalizeAbsoluteHttpUrl(calendarUrl) || undefined,
+        calendarEvent: normalizedCalendar.event,
+        includeCalendarOptIn: Boolean(calendarUrl.trim() || normalizedCalendar.event),
         spotlightLabel: spotlightLabel.trim() || undefined,
         spotlightText: spotlightText.trim() || undefined,
         footerNote: footerNote.trim() || undefined,
       }),
-    [ctaLabel, ctaUrl, eyebrow, footerNote, form?.title, heading, messageHtml, messageText, spotlightLabel, spotlightText]
+    [
+      preheader,
+      calendarLabel,
+      calendarUrl,
+      normalizedCalendar.event,
+      ctaLabel,
+      ctaUrl,
+      eyebrow,
+      footerNote,
+      form?.title,
+      heading,
+      messageHtml,
+      messageText,
+      spotlightLabel,
+      spotlightText,
+      normalizedResources.resourceLinks,
+    ]
   );
 
   const activeHtmlBody = useMemo(() => customHtmlBody.trim() || generatedHtml, [customHtmlBody, generatedHtml]);
   const activeTextBody = useMemo(
-    () => (customHtmlBody.trim() ? toPlainText(customHtmlBody) : generatedText),
-    [customHtmlBody, generatedText]
+    () =>
+      customHtmlBody.trim()
+        ? appendCampaignTextFallback(toPlainText(customHtmlBody), {
+            calendarLabel: calendarLabel.trim() || undefined,
+            includeCalendarOptIn: Boolean(calendarUrl.trim() || normalizedCalendar.event),
+            includeRegistrationCode: true,
+            resourceLinks: normalizedResources.resourceLinks,
+          })
+        : generatedText,
+    [calendarLabel, calendarUrl, customHtmlBody, generatedText, normalizedCalendar.event, normalizedResources.resourceLinks]
   );
   const previewHTML = useMemo(() => toEmailPreview(activeHtmlBody), [activeHtmlBody]);
 
@@ -248,12 +510,26 @@ function RegistrantCampaignPage() {
   }, [logoPreview, imagePreview]);
 
   useEffect(() => {
+    const detectedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!detectedTimeZone) return;
+    setCalendarTimeZone((current) => current || detectedTimeZone);
+  }, []);
+
+  useEffect(() => {
     if (!formId) return;
+    setLoading(true);
+    setForm(null);
+    setTemplate(null);
+    setSubmissions([]);
+    setSelectionInitialized(false);
+    setSelectedRecipientIds([]);
+    setRecipientQuery('');
+    setSelectionCount('');
 
     (async () => {
       try {
-        const [loadedForm, allSubmissions, templatesResponse] = await Promise.all([
-          apiClient.getAdminForm(formId),
+        const loadedForm = await apiClient.getAdminForm(formId);
+        const [allSubmissions, templatesResponse, loadedEvent] = await Promise.all([
           fetchAllFormSubmissions(formId),
           apiClient.listAdminEmailTemplates({
             page: 1,
@@ -261,16 +537,45 @@ function RegistrantCampaignPage() {
             ownerType: 'form_campaign',
             ownerId: formId,
           }),
+          loadedForm.eventId ? apiClient.getAdminEvent(loadedForm.eventId).catch(() => null) : Promise.resolve(null),
         ]);
+        const smartDefaults = buildCampaignDefaultCopy(loadedForm.title, loadedEvent as EventData | null);
+        const fallbackCalendarEvent = buildCampaignCalendarEventFromEventData(
+          loadedEvent as EventData | null,
+          Intl.DateTimeFormat().resolvedOptions().timeZone || undefined
+        );
 
         setForm(loadedForm);
         setSubmissions(allSubmissions);
 
         const subjectFallback =
-          loadedForm.settings?.campaignEmailSubject?.trim() || `Update for ${loadedForm.title}`;
+          loadedForm.settings?.campaignEmailSubject?.trim() || smartDefaults.subject;
         setSubject(subjectFallback);
-        setImageUrl(loadedForm.settings?.campaignEmailTemplateUrl?.trim() || '');
-        setCtaUrl(buildPublicFormUrl(loadedForm.slug, loadedForm.publicUrl) || '');
+        setPreheader(smartDefaults.preheader);
+        setHeading(smartDefaults.heading);
+        setImageUrl(
+          loadedForm.settings?.campaignEmailTemplateUrl?.trim() ||
+            loadedEvent?.bannerImage?.trim() ||
+            loadedEvent?.image?.trim() ||
+            ''
+        );
+        setCtaUrl(
+          loadedEvent?.registerLink?.trim() ||
+            buildPublicFormUrl(loadedForm.slug, loadedForm.publicUrl) ||
+            ''
+        );
+        setCtaLabel((current) => current || (loadedEvent?.registerLink ? 'View event details' : 'Open registration page'));
+        if (fallbackCalendarEvent) {
+          setCalendarTitle(fallbackCalendarEvent.title);
+          setCalendarStartAt(toDateTimeLocalValue(fallbackCalendarEvent.startAt));
+          setCalendarEndAt(toDateTimeLocalValue(fallbackCalendarEvent.endAt));
+          setCalendarLocation(fallbackCalendarEvent.location || '');
+          setCalendarDescription(fallbackCalendarEvent.description || '');
+          setCalendarTimeZone((current) => current || fallbackCalendarEvent.timeZone || '');
+        } else {
+          setCalendarTitle((current) => current || loadedForm.title || '');
+        }
+        setResourceLinks([]);
 
         const active = templatesResponse.data.find((item) => item.isActive);
         const latest = [...templatesResponse.data].sort((a, b) => (a.updatedAt > b.updatedAt ? -1 : 1))[0];
@@ -281,6 +586,7 @@ function RegistrantCampaignPage() {
           if (tpl.subject?.trim()) setSubject(tpl.subject.trim());
 
           const meta = parseTemplateMeta(tpl.htmlBody);
+          if (meta?.preheader) setPreheader(meta.preheader);
           if (meta?.eyebrow) setEyebrow(meta.eyebrow);
           if (meta?.heading) setHeading(meta.heading);
           if (meta?.messageHtml?.trim()) setMessageHtml(meta.messageHtml.trim());
@@ -289,6 +595,26 @@ function RegistrantCampaignPage() {
           if (meta?.imageUrl) setImageUrl(meta.imageUrl);
           if (meta?.ctaLabel) setCtaLabel(meta.ctaLabel);
           if (meta?.ctaUrl) setCtaUrl(meta.ctaUrl);
+          if (meta?.calendarLabel) setCalendarLabel(meta.calendarLabel);
+          if (meta?.calendarUrl) setCalendarUrl(meta.calendarUrl);
+          if (meta?.calendarEvent) {
+            if (meta.calendarEvent.title?.trim()) setCalendarTitle(meta.calendarEvent.title.trim());
+            if (meta.calendarEvent.startAt) setCalendarStartAt(toDateTimeLocalValue(meta.calendarEvent.startAt));
+            if (meta.calendarEvent.endAt) setCalendarEndAt(toDateTimeLocalValue(meta.calendarEvent.endAt));
+            if (meta.calendarEvent.location) setCalendarLocation(meta.calendarEvent.location);
+            if (meta.calendarEvent.description) setCalendarDescription(meta.calendarEvent.description);
+            if (meta.calendarEvent.timeZone?.trim()) setCalendarTimeZone(meta.calendarEvent.timeZone.trim());
+          }
+          if (meta?.resourceLinks?.length) {
+            setResourceLinks(
+              meta.resourceLinks.map((resource) => ({
+                label: resource.label || '',
+                url: resource.url || '',
+                description: resource.description || '',
+                kind: resource.kind || 'resource',
+              }))
+            );
+          }
           if (meta?.spotlightLabel) setSpotlightLabel(meta.spotlightLabel);
           if (meta?.spotlightText) setSpotlightText(meta.spotlightText);
           if (meta?.accentColor) setAccentColor(meta.accentColor);
@@ -305,6 +631,23 @@ function RegistrantCampaignPage() {
       }
     })();
   }, [formId, router]);
+
+  useEffect(() => {
+    if (recipients.length === 0) {
+      setSelectedRecipientIds([]);
+      setSelectionInitialized(false);
+      return;
+    }
+
+    if (!selectionInitialized) {
+      setSelectedRecipientIds(recipients.map((recipient) => recipient.submissionId));
+      setSelectionInitialized(true);
+      return;
+    }
+
+    const availableIds = new Set(recipients.map((recipient) => recipient.submissionId));
+    setSelectedRecipientIds((current) => current.filter((id) => availableIds.has(id)));
+  }, [recipients, selectionInitialized]);
 
   const handleLogoFile = (file?: File) => {
     if (!file) {
@@ -340,6 +683,61 @@ function RegistrantCampaignPage() {
     setImagePreview(URL.createObjectURL(file));
   };
 
+  const addResourceLink = () => {
+    setResourceLinks((current) => [...current, createEmptyResourceDraft()]);
+  };
+
+  const updateResourceLink = (index: number, field: keyof CampaignResourceDraft, value: string) => {
+    setResourceLinks((current) =>
+      current.map((resource, resourceIndex) =>
+        resourceIndex === index
+          ? {
+              ...resource,
+              [field]: value,
+            }
+          : resource
+      )
+    );
+  };
+
+  const removeResourceLink = (index: number) => {
+    setResourceLinks((current) => current.filter((_, resourceIndex) => resourceIndex !== index));
+  };
+
+  const toggleRecipientSelection = (submissionId: string) => {
+    setSelectedRecipientIds((current) =>
+      current.includes(submissionId)
+        ? current.filter((id) => id !== submissionId)
+        : [...current, submissionId]
+    );
+  };
+
+  const selectAllRecipients = () => {
+    setSelectedRecipientIds(recipients.map((recipient) => recipient.submissionId));
+  };
+
+  const clearRecipientSelection = () => {
+    setSelectedRecipientIds([]);
+  };
+
+  const selectFilteredRecipients = () => {
+    setSelectedRecipientIds(filteredRecipients.map((recipient) => recipient.submissionId));
+  };
+
+  const selectFirstRecipients = () => {
+    const count = Number.parseInt(selectionCount, 10);
+    if (!Number.isFinite(count) || count <= 0) {
+      toast.error('Enter a valid number of recipients to select.');
+      return;
+    }
+    if (filteredRecipients.length === 0) {
+      toast.error('No recipients match the current filter.');
+      return;
+    }
+
+    setSelectedRecipientIds(filteredRecipients.slice(0, count).map((recipient) => recipient.submissionId));
+  };
+
   const persistCampaignTemplate = async (showSuccessToast = true): Promise<PersistedCampaign> => {
     if (!form) {
       throw new Error('Form not found.');
@@ -353,12 +751,19 @@ function RegistrantCampaignPage() {
     if (recipients.length === 0) {
       throw new Error('No valid recipient emails were found for this form yet.');
     }
+    if (normalizedCalendar.error) {
+      throw new Error(normalizedCalendar.error);
+    }
+    if (normalizedResources.error) {
+      throw new Error(normalizedResources.error);
+    }
 
     setSaving(true);
     try {
       let nextLogoUrl = normalizeAbsoluteHttpUrl(logoUrl);
       let nextImageUrl = normalizeAbsoluteHttpUrl(imageUrl);
       const nextCtaUrl = normalizeAbsoluteHttpUrl(ctaUrl);
+      const nextCalendarUrl = normalizeAbsoluteHttpUrl(calendarUrl);
 
       if (logoUrl.trim() && !nextLogoUrl) {
         throw new Error('Logo URL is invalid. Use a full URL like https://...png');
@@ -368,6 +773,9 @@ function RegistrantCampaignPage() {
       }
       if (ctaUrl.trim() && !nextCtaUrl) {
         throw new Error('CTA URL is invalid. Use a full URL like https://...');
+      }
+      if (calendarUrl.trim() && !nextCalendarUrl) {
+        throw new Error('Calendar URL is invalid. Use a full URL like https://...');
       }
 
       if (logoFile) {
@@ -383,6 +791,7 @@ function RegistrantCampaignPage() {
       const trimmedMessageHtml = messageHtml.trim() || DEFAULT_MESSAGE_HTML;
       const builtHtml = buildFormEmailHTML({
         title: form.title || 'Registrant Outreach',
+        preheader: preheader.trim() || undefined,
         eyebrow: eyebrow.trim() || undefined,
         heading: heading.trim(),
         message: toPlainText(trimmedMessageHtml),
@@ -391,8 +800,11 @@ function RegistrantCampaignPage() {
         imageUrl: nextImageUrl || undefined,
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: nextCtaUrl || undefined,
+        resourceLinks: normalizedResources.resourceLinks,
         includeRegistrationCode: true,
-        includeCalendarOptIn: false,
+        includeCalendarOptIn: Boolean(nextCalendarUrl || normalizedCalendar.event),
+        calendarLabel: calendarLabel.trim() || undefined,
+        calendarEvent: normalizedCalendar.event,
         greeting: 'Hello {{.RecipientName}},',
         spotlightLabel: spotlightLabel.trim() || undefined,
         spotlightText: spotlightText.trim() || undefined,
@@ -403,18 +815,32 @@ function RegistrantCampaignPage() {
       const mergedHTML = customHtmlBody.trim() || builtHtml;
       const builtTextBody = buildFormEmailTextBody({
         title: form.title || 'Registrant Outreach',
+        preheader: preheader.trim() || undefined,
         eyebrow: eyebrow.trim() || undefined,
         heading: heading.trim(),
         message: toPlainText(trimmedMessageHtml),
         messageHtml: trimmedMessageHtml,
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: nextCtaUrl || undefined,
+        resourceLinks: normalizedResources.resourceLinks,
+        calendarLabel: calendarLabel.trim() || undefined,
+        calendarUrl: nextCalendarUrl || undefined,
+        calendarEvent: normalizedCalendar.event,
+        includeCalendarOptIn: Boolean(nextCalendarUrl || normalizedCalendar.event),
         spotlightLabel: spotlightLabel.trim() || undefined,
         spotlightText: spotlightText.trim() || undefined,
         footerNote: footerNote.trim() || undefined,
       });
-      const textBody = customHtmlBody.trim() ? toPlainText(customHtmlBody) : builtTextBody;
+      const textBody = customHtmlBody.trim()
+        ? appendCampaignTextFallback(toPlainText(customHtmlBody), {
+            calendarLabel: calendarLabel.trim() || undefined,
+            includeCalendarOptIn: Boolean(nextCalendarUrl || normalizedCalendar.event),
+            includeRegistrationCode: true,
+            resourceLinks: normalizedResources.resourceLinks,
+          })
+        : builtTextBody;
       const htmlBody = embedTemplateMeta(mergedHTML, {
+        preheader: preheader.trim() || undefined,
         eyebrow: eyebrow.trim() || undefined,
         heading: heading.trim(),
         message: toPlainText(trimmedMessageHtml) || undefined,
@@ -423,6 +849,10 @@ function RegistrantCampaignPage() {
         imageUrl: nextImageUrl || undefined,
         ctaLabel: ctaLabel.trim() || undefined,
         ctaUrl: nextCtaUrl || undefined,
+        calendarLabel: calendarLabel.trim() || undefined,
+        calendarUrl: nextCalendarUrl || undefined,
+        calendarEvent: normalizedCalendar.event,
+        resourceLinks: normalizedResources.resourceLinks,
         spotlightLabel: spotlightLabel.trim() || undefined,
         spotlightText: spotlightText.trim() || undefined,
         accentColor,
@@ -473,6 +903,7 @@ function RegistrantCampaignPage() {
       setLogoUrl(nextLogoUrl);
       setImageUrl(nextImageUrl);
       setCtaUrl(nextCtaUrl);
+      setCalendarUrl(nextCalendarUrl);
       setLogoFile(null);
       setImageFile(null);
       setLogoPreview(null);
@@ -487,6 +918,11 @@ function RegistrantCampaignPage() {
         savedTemplate,
         htmlBody: mergedHTML,
         textBody,
+        calendarUrl: nextCalendarUrl || undefined,
+        calendarEvent: normalizedCalendar.event,
+        resourceLinks: normalizedResources.resourceLinks,
+        heroImageUrl: nextImageUrl || undefined,
+        ctaUrl: nextCtaUrl || undefined,
       };
     } finally {
       setSaving(false);
@@ -503,21 +939,46 @@ function RegistrantCampaignPage() {
 
   const sendCampaign = async () => {
     if (!form) return;
+    if (selectedRecipientIds.length === 0) {
+      toast.error('Select at least one recipient before sending.');
+      return;
+    }
 
     setSending(true);
     try {
       const persisted = await persistCampaignTemplate(false);
+      const includeCalendarLinks = Boolean(persisted.calendarUrl || persisted.calendarEvent || form.eventId);
       const result = await sendFormCampaign(form.id, {
-        subject: subject.trim(),
-        title: heading.trim(),
+        subject: subject.trim() || undefined,
+        title: heading.trim() || undefined,
+        previewText: preheader.trim() || undefined,
+        heroEyebrow: eyebrow.trim() || undefined,
+        heroTitle: heading.trim() || undefined,
+        heroSubtitle: toPlainText(messageHtml).slice(0, 240) || undefined,
+        heroImageUrl: persisted.heroImageUrl,
         htmlBody: persisted.htmlBody,
         textBody: persisted.textBody,
+        primaryCta:
+          ctaLabel.trim() && persisted.ctaUrl
+            ? {
+                label: ctaLabel.trim(),
+                url: persisted.ctaUrl,
+              }
+            : undefined,
+        footerNote: footerNote.trim() || undefined,
+        resourceLinks: persisted.resourceLinks,
+        targetSubmissionIds: selectedRecipientIds,
+        includeCalendarLinks,
       });
 
       if (result.failed > 0) {
-        toast.error(`Campaign sent to ${result.sent} of ${result.totalRecipients} recipients. ${result.failed} failed.`);
+        toast.error(
+          `Campaign sent to ${result.sent} of ${result.totalRecipients} recipients. ${result.failed} failed${result.skipped > 0 ? `, ${result.skipped} skipped` : ''}.`
+        );
       } else {
-        toast.success(`Campaign sent successfully to ${result.sent} recipients.`);
+        toast.success(
+          `Campaign sent successfully to ${result.sent} recipients${result.skipped > 0 ? `, ${result.skipped} skipped` : ''}.`
+        );
       }
     } catch (err) {
       toast.error(getServerErrorMessage(err, 'Failed to send campaign.'));
@@ -614,8 +1075,13 @@ function RegistrantCampaignPage() {
           <Button onClick={saveTemplate} loading={saving} icon={<Save className="h-4 w-4" />}>
             Save Campaign
           </Button>
-          <Button onClick={sendCampaign} loading={sending} icon={<Send className="h-4 w-4" />}>
-            Send Campaign
+          <Button
+            onClick={sendCampaign}
+            loading={sending}
+            disabled={selectedRecipientIds.length === 0}
+            icon={<Send className="h-4 w-4" />}
+          >
+            {selectedRecipientIds.length > 0 ? `Send to ${selectedRecipientIds.length}` : 'Select recipients'}
           </Button>
         </div>
       </div>
@@ -664,6 +1130,13 @@ function RegistrantCampaignPage() {
                 helperText="This key keeps the campaign template attached to this form."
               />
               <Input
+                label="Inbox preview text (optional)"
+                value={preheader}
+                onChange={(e) => setPreheader(e.target.value)}
+                placeholder="Open this update and save the event in your calendar."
+                helperText="This appears as preview text in many inboxes before the email is opened."
+              />
+              <Input
                 label="Eyebrow label"
                 value={eyebrow}
                 onChange={(e) => setEyebrow(e.target.value)}
@@ -700,6 +1173,85 @@ function RegistrantCampaignPage() {
                 placeholder="https://your-domain.com/event-details"
                 helperText="Use a full URL if you want a button inside the email."
               />
+              <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 md:col-span-2">
+                <div className="text-sm font-medium text-[var(--color-text-primary)]">Calendar Reminder</div>
+                <p className="text-xs text-[var(--color-text-tertiary)]">
+                  Add the event details once here. The email preview will show a structured reminder card, and the backend can generate a calendar link plus an `.ics` invite for recipients.
+                </p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input
+                    label="Calendar button label"
+                    value={calendarLabel}
+                    onChange={(e) => setCalendarLabel(e.target.value)}
+                    placeholder="Add event to calendar"
+                  />
+                  <Input
+                    label="Manual calendar URL (optional)"
+                    value={calendarUrl}
+                    onChange={(e) => setCalendarUrl(e.target.value)}
+                    placeholder="https://calendar.google.com/... or https://.../invite.ics"
+                    helperText="Leave empty to let the backend generate the calendar link from the event details below."
+                  />
+                  <Input
+                    label="Event title"
+                    value={calendarTitle}
+                    onChange={(e) => setCalendarTitle(e.target.value)}
+                    placeholder="WPC 26"
+                  />
+                  <Input
+                    label="Time zone"
+                    value={calendarTimeZone}
+                    onChange={(e) => setCalendarTimeZone(e.target.value)}
+                    placeholder="Africa/Lagos"
+                    helperText="Used for the reminder card and generated calendar link."
+                  />
+                  <label className="space-y-2 text-sm font-medium text-[var(--color-text-secondary)]">
+                    Event start
+                    <input
+                      type="datetime-local"
+                      value={calendarStartAt}
+                      onChange={(e) => setCalendarStartAt(e.target.value)}
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                    />
+                  </label>
+                  <label className="space-y-2 text-sm font-medium text-[var(--color-text-secondary)]">
+                    Event end (optional)
+                    <input
+                      type="datetime-local"
+                      value={calendarEndAt}
+                      onChange={(e) => setCalendarEndAt(e.target.value)}
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                    />
+                  </label>
+                  <div className="md:col-span-2">
+                    <Input
+                      label="Venue / location (optional)"
+                      value={calendarLocation}
+                      onChange={(e) => setCalendarLocation(e.target.value)}
+                      placeholder="Wisdom House, Abuja"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                      Calendar description (optional)
+                    </label>
+                    <textarea
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                      rows={3}
+                      value={calendarDescription}
+                      onChange={(e) => setCalendarDescription(e.target.value)}
+                      placeholder="Short event summary for the generated calendar invite."
+                    />
+                  </div>
+                </div>
+                {normalizedCalendar.error ? (
+                  <p className="text-xs font-medium text-red-600">{normalizedCalendar.error}</p>
+                ) : (
+                  <p className="text-xs text-[var(--color-text-tertiary)]">
+                    When event details are provided, each outbound email can include a generated add-to-calendar link and attached `.ics` file.
+                  </p>
+                )}
+              </div>
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Upload logo (optional)</label>
                 <input
@@ -725,6 +1277,97 @@ function RegistrantCampaignPage() {
                 <p className="text-xs text-[var(--color-text-tertiary)]">
                   Max {MAX_EMAIL_IMAGE_MB}MB. JPEG, PNG, WebP.
                 </p>
+              </div>
+
+              <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 md:col-span-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium text-[var(--color-text-primary)]">Event Resources</div>
+                    <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                      Add DigitalOcean or public download links for e-flyers, schedules, documents, or other event resources.
+                    </p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={addResourceLink} icon={<Plus className="h-4 w-4" />}>
+                    Add Resource
+                  </Button>
+                </div>
+
+                {resourceLinks.length > 0 ? (
+                  <div className="space-y-4">
+                    {resourceLinks.map((resource, index) => (
+                      <div
+                        key={`${index}-${resource.label}-${resource.url}`}
+                        className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4"
+                      >
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <Input
+                            label={`Resource ${index + 1} label`}
+                            value={resource.label}
+                            onChange={(e) => updateResourceLink(index, 'label', e.target.value)}
+                            placeholder="WPC 26 e-flyer"
+                          />
+                          <label className="space-y-2 text-sm font-medium text-[var(--color-text-secondary)]">
+                            Resource type
+                            <select
+                              value={resource.kind}
+                              onChange={(e) => updateResourceLink(index, 'kind', e.target.value)}
+                              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                            >
+                              <option value="flyer">Flyer</option>
+                              <option value="document">Document</option>
+                              <option value="guide">Guide</option>
+                              <option value="schedule">Schedule</option>
+                              <option value="resource">General resource</option>
+                            </select>
+                          </label>
+                          <div className="md:col-span-2">
+                            <Input
+                              label="Download URL"
+                              value={resource.url}
+                              onChange={(e) => updateResourceLink(index, 'url', e.target.value)}
+                              placeholder="https://churchasset.fra1.digitaloceanspaces.com/.../wpc26-flyer.pdf"
+                            />
+                          </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                              Short description (optional)
+                            </label>
+                            <textarea
+                              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                              rows={2}
+                              value={resource.description}
+                              onChange={(e) => updateResourceLink(index, 'description', e.target.value)}
+                              placeholder="Share what the recipient will find after they open or download this file."
+                            />
+                          </div>
+                        </div>
+                        <div className="mt-3 flex justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeResourceLink(index)}
+                            icon={<Trash2 className="h-4 w-4" />}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-5 text-sm text-[var(--color-text-tertiary)]">
+                    No resource links added yet.
+                  </div>
+                )}
+
+                {normalizedResources.error ? (
+                  <p className="text-xs font-medium text-red-600">{normalizedResources.error}</p>
+                ) : (
+                  <p className="text-xs text-[var(--color-text-tertiary)]">
+                    These links render as a professional resource block inside the email and are also sent to the backend for fallback campaign rendering.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 md:col-span-2">
@@ -814,10 +1457,10 @@ function RegistrantCampaignPage() {
                   rows={10}
                   value={customHtmlBody}
                   onChange={(e) => setCustomHtmlBody(e.target.value)}
-                  placeholder="Paste full HTML only if you want to override the structured builder completely. Supported placeholders: {{.RecipientName}}, {{.RegistrationCode}}, {{.SubscribeURL}}, {{.UnsubscribeURL}}"
+                  placeholder="Paste full HTML only if you want to override the structured builder completely. Supported placeholders: {{.RecipientName}}, {{.RegistrationCode}}, {{.SubscribeURL}}, {{.UnsubscribeURL}}, {{.CalendarOptInURL}}"
                 />
                 <p className="text-xs text-[var(--color-text-tertiary)]">
-                  Leave this empty to use the structured editor, highlighted scripture section, and campaign theme controls above.
+                  Leave this empty to use the structured editor, event resource cards, highlighted section, and campaign theme controls above.
                 </p>
               </div>
             </div>
@@ -826,7 +1469,7 @@ function RegistrantCampaignPage() {
           <Card title="Campaign Delivery">
             <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
               <p>
-                This send flow is registrant-specific. It derives the audience directly from this form&apos;s submissions, deduplicates addresses, and sends one personalized email per recipient from a protected server route.
+                This send flow is registrant-specific. It derives the audience directly from this form&apos;s submissions, lets you target a selected segment, deduplicates addresses, and sends one personalized email per selected recipient from a protected server route.
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={copyCampaignHtml} icon={<Copy className="h-4 w-4" />}>
@@ -845,7 +1488,7 @@ function RegistrantCampaignPage() {
                   Delivery controls
                 </div>
                 <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">
-                  SMTP must be configured in the deployment environment for send to succeed. The current template is saved automatically before delivery so uploaded images and final URLs are used in the email recipients receive.
+                  SMTP must be configured in the deployment environment for send to succeed. The current template is saved automatically before delivery so uploaded images, resource links, reminder copy, generated calendar links, and `.ics` invites are preserved in the email recipients receive.
                 </p>
               </div>
             </div>
@@ -853,28 +1496,98 @@ function RegistrantCampaignPage() {
         </div>
 
         <div className="space-y-6">
-          <Card title="Audience Snapshot">
-            {latestRecipients.length > 0 ? (
-              <div className="space-y-3">
-                {latestRecipients.map((recipient) => (
-                  <div
-                    key={`${recipient.email}-${recipient.submissionId}`}
-                    className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3"
-                  >
-                    <div className="text-sm font-medium text-[var(--color-text-primary)]">{recipient.name}</div>
-                    <div className="text-xs text-[var(--color-text-secondary)]">{recipient.email}</div>
-                    <div className="mt-1 text-xs text-[var(--color-text-tertiary)]">
-                      {recipient.registrationCode ? `Reg: ${recipient.registrationCode} · ` : ''}
-                      {new Date(recipient.submittedAt).toLocaleString()}
-                    </div>
+          <Card title="Audience Targeting">
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                <Input
+                  label="Search recipients"
+                  value={recipientQuery}
+                  onChange={(e) => setRecipientQuery(e.target.value)}
+                  placeholder="Search by name, email, or registration code"
+                />
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                    Select first N recipients
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      value={selectionCount}
+                      onChange={(e) => setSelectionCount(e.target.value)}
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                      placeholder="25"
+                    />
+                    <Button type="button" variant="outline" onClick={selectFirstRecipients}>
+                      Apply
+                    </Button>
                   </div>
-                ))}
+                </div>
               </div>
-            ) : (
-              <p className="text-sm text-[var(--color-text-tertiary)]">
-                No valid email addresses have been captured from this form yet.
-              </p>
-            )}
+
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={selectAllRecipients}>
+                  Select all
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={selectFilteredRecipients}>
+                  Select filtered
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={clearRecipientSelection}>
+                  Clear selection
+                </Button>
+              </div>
+
+              <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-sm">
+                <div className="font-medium text-[var(--color-text-primary)]">
+                  {selectedRecipients.length} selected of {recipients.length} available recipients
+                </div>
+                <div className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                  {recipientQuery.trim()
+                    ? `${filteredRecipients.length} recipients match your current search and ${selectedFilteredRecipientsCount} of them are selected.`
+                    : 'Audience selection is deduplicated by email, so each person only receives one campaign.'}
+                </div>
+              </div>
+
+              {filteredRecipients.length > 0 ? (
+                <div className="max-h-[440px] space-y-2 overflow-y-auto pr-1">
+                  {filteredRecipients.map((recipient) => {
+                    const checked = selectedRecipientIdSet.has(recipient.submissionId);
+
+                    return (
+                      <label
+                        key={`${recipient.email}-${recipient.submissionId}`}
+                        className={`flex cursor-pointer items-start gap-3 rounded-[var(--radius-card)] border px-4 py-3 transition-colors ${
+                          checked
+                            ? 'border-[var(--color-accent-primary)] bg-[var(--color-background-secondary)]'
+                            : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleRecipientSelection(recipient.submissionId)}
+                          className="mt-1 h-4 w-4 rounded border-[var(--color-border-primary)] text-[var(--color-accent-primary)] focus:ring-[var(--color-border-focus)]"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium text-[var(--color-text-primary)]">{recipient.name}</div>
+                          <div className="truncate text-xs text-[var(--color-text-secondary)]">{recipient.email}</div>
+                          <div className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                            {recipient.registrationCode ? `Reg: ${recipient.registrationCode} · ` : ''}
+                            {new Date(recipient.submittedAt).toLocaleString()}
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-[var(--color-text-tertiary)]">
+                  {recipients.length === 0
+                    ? 'No valid email addresses have been captured from this form yet.'
+                    : 'No recipients match your current search.'}
+                </p>
+              )}
+            </div>
           </Card>
 
           <Card title="Template Preview">

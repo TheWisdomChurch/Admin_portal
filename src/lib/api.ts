@@ -952,6 +952,11 @@ export const apiClient = {
     return unwrapData<EventData>(res, 'Invalid event payload');
   },
 
+  async getAdminEvent(id: string): Promise<EventData> {
+    const res = await apiFetch<{ data: EventData }>(`/admin/events/${encodeURIComponent(id)}`, { method: 'GET' });
+    return unwrapData<EventData>(res, 'Invalid admin event payload');
+  },
+
   async createEvent(data: EventPayload): Promise<EventData> {
     const res = await apiFetch<{ data: EventData }>('/admin/events', {
       method: 'POST',
