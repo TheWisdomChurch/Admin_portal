@@ -41,6 +41,7 @@ export type StoredFormEmailTemplateMeta = {
   logoUrl?: string;
   imageUrl?: string;
   customHtml?: string;
+  ctaEnabled?: boolean;
   ctaLabel?: string;
   ctaUrl?: string;
   calendarLabel?: string;
