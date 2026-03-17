@@ -29,6 +29,7 @@ export type SendFormCampaignRequest = {
   highlights?: FormCampaignHighlight[];
   footerNote?: string;
   resourceLinks?: FormEmailResourceLink[];
+  targetSubmissionIds?: string[];
   includeCalendarLinks?: boolean;
   templateId?: string;
   templateKey?: string;
