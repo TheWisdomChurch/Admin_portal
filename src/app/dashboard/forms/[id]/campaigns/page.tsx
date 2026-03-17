@@ -40,6 +40,7 @@ import { getServerErrorMessage } from '@/lib/serverValidation';
 import type { AdminForm, EmailTemplate, EventData, FormSubmission, UpdateFormRequest } from '@/lib/types';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { withAuth } from '@/providers/withAuth';
+import { ActionStatusModal, type ActionStatusDetail, type ActionStatusMode } from '@/ui/ActionStatusModal';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
@@ -50,6 +51,15 @@ type AudienceStats = {
   uniqueRecipients: number;
   duplicateEmails: number;
   missingOrInvalidEmail: number;
+};
+
+type CampaignActionDialogState = {
+  open: boolean;
+  mode: ActionStatusMode;
+  title: string;
+  description: string;
+  badge?: string;
+  details?: ActionStatusDetail[];
 };
 
 type PersistedCampaign = {
@@ -337,6 +347,12 @@ function RegistrantCampaignPage() {
   const [surfaceColor, setSurfaceColor] = useState(DEFAULT_EMAIL_SURFACE_COLOR);
   const [lastSendResult, setLastSendResult] = useState<SendFormCampaignResult | null>(null);
   const [lastDeliveryError, setLastDeliveryError] = useState<string | null>(null);
+  const [actionDialog, setActionDialog] = useState<CampaignActionDialogState>({
+    open: false,
+    mode: 'info',
+    title: '',
+    description: '',
+  });
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -503,6 +519,19 @@ function RegistrantCampaignPage() {
     const label = form?.slug || form?.title || form?.id || 'registrant-outreach';
     return `${normalizeTemplateSlug(label)}-campaign.html`;
   }, [form?.id, form?.slug, form?.title]);
+
+  const closeActionDialog = () => {
+    setActionDialog((current) =>
+      current.mode === 'progress' ? current : { ...current, open: false }
+    );
+  };
+
+  const showActionDialog = (next: Omit<CampaignActionDialogState, 'open'>) => {
+    setActionDialog({
+      open: true,
+      ...next,
+    });
+  };
 
   useEffect(() => {
     return () => {
@@ -729,18 +758,28 @@ function RegistrantCampaignPage() {
   const selectFirstRecipients = () => {
     const count = Number.parseInt(selectionCount, 10);
     if (!Number.isFinite(count) || count <= 0) {
-      toast.error('Enter a valid number of recipients to select.');
+      showActionDialog({
+        mode: 'error',
+        title: 'Selection count is invalid',
+        description: 'Enter a valid number of recipients before applying the audience selection.',
+        badge: 'Audience targeting',
+      });
       return;
     }
     if (filteredRecipients.length === 0) {
-      toast.error('No recipients match the current filter.');
+      showActionDialog({
+        mode: 'error',
+        title: 'No recipients match your filter',
+        description: 'Adjust the search term or clear the filter, then try the audience selection again.',
+        badge: 'Audience targeting',
+      });
       return;
     }
 
     setSelectedRecipientIds(filteredRecipients.slice(0, count).map((recipient) => recipient.submissionId));
   };
 
-  const persistCampaignTemplate = async (showSuccessToast = true): Promise<PersistedCampaign> => {
+  const persistCampaignTemplate = async (): Promise<PersistedCampaign> => {
     if (!form) {
       throw new Error('Form not found.');
     }
@@ -911,10 +950,6 @@ function RegistrantCampaignPage() {
       setLogoPreview(null);
       setImagePreview(null);
 
-      if (showSuccessToast) {
-        toast.success('Registrant outreach template saved.');
-      }
-
       return {
         updatedForm,
         savedTemplate,
@@ -932,24 +967,68 @@ function RegistrantCampaignPage() {
   };
 
   const saveTemplate = async () => {
+    showActionDialog({
+      mode: 'progress',
+      title: 'Saving campaign',
+      description: 'We are validating your content, uploading any selected assets, and syncing the live campaign template.',
+      badge: 'Campaign editor',
+      details: [
+        { label: 'Subject', value: subject.trim() || 'Untitled campaign' },
+        { label: 'Audience', value: `${recipients.length} available recipients` },
+      ],
+    });
+
     try {
-      await persistCampaignTemplate(true);
+      const persisted = await persistCampaignTemplate();
+      showActionDialog({
+        mode: 'success',
+        title: 'Campaign saved',
+        description: 'Your campaign structure is now stored and ready for delivery.',
+        badge: 'Campaign ready',
+        details: [
+          { label: 'Subject', value: subject.trim() || 'Untitled campaign' },
+          { label: 'Template', value: templateKeyPreview || persisted.savedTemplate.templateKey || persisted.savedTemplate.id },
+          { label: 'Resources', value: `${persisted.resourceLinks?.length || 0}` },
+          { label: 'Calendar', value: persisted.calendarUrl || persisted.calendarEvent ? 'Included' : 'Not included' },
+        ],
+      });
     } catch (err) {
-      toast.error(getServerErrorMessage(err, 'Failed to save outreach template.'));
+      const message = getServerErrorMessage(err, 'Failed to save outreach template.');
+      showActionDialog({
+        mode: 'error',
+        title: 'Campaign save failed',
+        description: message,
+        badge: 'Campaign editor',
+      });
     }
   };
 
   const sendCampaign = async () => {
     if (!form) return;
     if (selectedRecipientIds.length === 0) {
-      toast.error('Select at least one recipient before sending.');
+      showActionDialog({
+        mode: 'error',
+        title: 'No recipients selected',
+        description: 'Select at least one recipient before sending this campaign.',
+        badge: 'Delivery blocked',
+      });
       return;
     }
 
     setSending(true);
     setLastDeliveryError(null);
+    showActionDialog({
+      mode: 'progress',
+      title: 'Sending campaign',
+      description: 'We are saving the latest template state, personalizing each email, and handing delivery to the backend mail service.',
+      badge: 'Delivery in progress',
+      details: [
+        { label: 'Recipients', value: `${selectedRecipientIds.length}` },
+        { label: 'Subject', value: subject.trim() || 'Untitled campaign' },
+      ],
+    });
     try {
-      const persisted = await persistCampaignTemplate(false);
+      const persisted = await persistCampaignTemplate();
       const includeCalendarLinks = Boolean(persisted.calendarUrl || persisted.calendarEvent || form.eventId);
       const result = await sendFormCampaign(form.id, {
         subject: subject.trim() || undefined,
@@ -984,19 +1063,48 @@ function RegistrantCampaignPage() {
         undefined;
 
       if (result.failed > 0) {
-        toast.error(
-          `Campaign sent to ${result.sent} of ${result.totalRecipients} recipients. ${result.failed} failed${result.skipped > 0 ? `, ${result.skipped} skipped` : ''}.${failureHint ? ` ${failureHint}` : ''}`
-        );
+        showActionDialog({
+          mode: 'error',
+          title: 'Campaign delivery completed with failures',
+          description:
+            failureHint ||
+            'Some recipients could not be reached. Review the delivery details below and correct the backend mail setup if needed.',
+          badge: 'Delivery review',
+          details: [
+            { label: 'Targeted', value: `${result.totalRecipients}` },
+            { label: 'Sent', value: `${result.sent}` },
+            { label: 'Failed', value: `${result.failed}` },
+            { label: 'Skipped', value: `${result.skipped}` },
+          ],
+        });
       } else {
-        toast.success(
-          `Campaign sent successfully to ${result.sent} recipients${result.skipped > 0 ? `, ${result.skipped} skipped` : ''}.`
-        );
+        showActionDialog({
+          mode: 'success',
+          title: 'Campaign sent successfully',
+          description: 'The backend accepted the delivery request and started sending personalized emails to your selected registrants.',
+          badge: 'Delivery complete',
+          details: [
+            { label: 'Targeted', value: `${result.totalRecipients}` },
+            { label: 'Sent', value: `${result.sent}` },
+            { label: 'Template source', value: result.templateSource || 'structured editor' },
+            { label: 'Subject', value: result.subject || subject.trim() || 'Untitled campaign' },
+          ],
+        });
       }
     } catch (err) {
       const message = getServerErrorMessage(err, 'Failed to send campaign.');
       setLastSendResult(null);
       setLastDeliveryError(message);
-      toast.error(message);
+      showActionDialog({
+        mode: 'error',
+        title: 'Campaign delivery failed',
+        description: message,
+        badge: 'Backend response',
+        details: [
+          { label: 'Recipients', value: `${selectedRecipientIds.length}` },
+          { label: 'Subject', value: subject.trim() || 'Untitled campaign' },
+        ],
+      });
     } finally {
       setSending(false);
     }
@@ -1005,18 +1113,46 @@ function RegistrantCampaignPage() {
   const copyCampaignHtml = async () => {
     try {
       await navigator.clipboard.writeText(activeHtmlBody);
-      toast.success('Campaign HTML copied.');
+      showActionDialog({
+        mode: 'success',
+        title: 'Campaign HTML copied',
+        description: 'The full HTML markup has been copied to your clipboard.',
+        badge: 'Clipboard ready',
+        details: [
+          { label: 'Template file', value: campaignHtmlFilename },
+          { label: 'Content type', value: 'HTML email markup' },
+        ],
+      });
     } catch {
-      toast.error('Failed to copy campaign HTML.');
+      showActionDialog({
+        mode: 'error',
+        title: 'Could not copy campaign HTML',
+        description: 'The browser blocked clipboard access for this action. Try again or use the download button.',
+        badge: 'Clipboard error',
+      });
     }
   };
 
   const copyCampaignText = async () => {
     try {
       await navigator.clipboard.writeText(activeTextBody);
-      toast.success('Campaign text copied.');
+      showActionDialog({
+        mode: 'success',
+        title: 'Campaign text copied',
+        description: 'The plain-text version of this campaign has been copied to your clipboard.',
+        badge: 'Clipboard ready',
+        details: [
+          { label: 'Audience', value: `${recipients.length} available recipients` },
+          { label: 'Content type', value: 'Plain-text email copy' },
+        ],
+      });
     } catch {
-      toast.error('Failed to copy campaign text.');
+      showActionDialog({
+        mode: 'error',
+        title: 'Could not copy campaign text',
+        description: 'The browser blocked clipboard access for this action. Try again after granting clipboard permission.',
+        badge: 'Clipboard error',
+      });
     }
   };
 
@@ -1030,30 +1166,72 @@ function RegistrantCampaignPage() {
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 0);
-    toast.success('Campaign HTML downloaded.');
+    showActionDialog({
+      mode: 'success',
+      title: 'Campaign HTML downloaded',
+      description: 'The email template file has been generated and downloaded for review or external delivery use.',
+      badge: 'Download complete',
+      details: [
+        { label: 'File', value: campaignHtmlFilename },
+        { label: 'Format', value: 'HTML' },
+      ],
+    });
   };
 
   const copyAudienceEmails = async () => {
     if (recipients.length === 0) {
-      toast.error('No valid recipient emails found.');
+      showActionDialog({
+        mode: 'error',
+        title: 'No audience emails available',
+        description: 'This form does not currently have any valid recipient email addresses to copy.',
+        badge: 'Audience unavailable',
+      });
       return;
     }
 
     try {
       await navigator.clipboard.writeText(recipients.map((recipient) => recipient.email).join(', '));
-      toast.success('Recipient emails copied.');
+      showActionDialog({
+        mode: 'success',
+        title: 'Audience emails copied',
+        description: 'The deduplicated recipient email list has been copied to your clipboard.',
+        badge: 'Clipboard ready',
+        details: [
+          { label: 'Recipients', value: `${recipients.length}` },
+          { label: 'Source', value: form?.title || 'Registrant audience' },
+        ],
+      });
     } catch {
-      toast.error('Failed to copy recipient emails.');
+      showActionDialog({
+        mode: 'error',
+        title: 'Could not copy audience emails',
+        description: 'The browser blocked clipboard access for the audience list.',
+        badge: 'Clipboard error',
+      });
     }
   };
 
   const exportAudience = () => {
     if (!form || recipients.length === 0) {
-      toast.error('No valid recipient emails found.');
+      showActionDialog({
+        mode: 'error',
+        title: 'No audience available to export',
+        description: 'This form does not currently have any valid recipient email addresses to export.',
+        badge: 'Export unavailable',
+      });
       return;
     }
     exportFormCampaignRecipientsCsv(recipients, form.title || form.id);
-    toast.success('Audience CSV exported.');
+    showActionDialog({
+      mode: 'success',
+      title: 'Audience exported',
+      description: 'The campaign audience has been exported as a CSV file for offline review or reporting.',
+      badge: 'Export complete',
+      details: [
+        { label: 'Recipients', value: `${recipients.length}` },
+        { label: 'Form', value: form.title || form.id },
+      ],
+    });
   };
 
   if (loading) {
@@ -1068,6 +1246,16 @@ function RegistrantCampaignPage() {
 
   return (
     <div className="space-y-6">
+      <ActionStatusModal
+        open={actionDialog.open}
+        mode={actionDialog.mode}
+        title={actionDialog.title}
+        description={actionDialog.description}
+        badge={actionDialog.badge}
+        details={actionDialog.details}
+        onClose={closeActionDialog}
+      />
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
           title="Registrant Outreach"
