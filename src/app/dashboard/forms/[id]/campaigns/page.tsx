@@ -8,6 +8,7 @@ import { ArrowLeft, Copy, Download, Palette, Save, Send } from 'lucide-react';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
+import { buildCampaignCalendarEventFromEventData, buildCampaignDefaultCopy } from '@/lib/formCampaignCalendar';
 import { sendFormCampaign } from '@/lib/formCampaigns';
 import {
   ACCEPTED_EMAIL_IMAGE_TYPES,
@@ -35,7 +36,7 @@ import {
   type FormCampaignRecipient,
 } from '@/lib/formSubmissions';
 import { getServerErrorMessage } from '@/lib/serverValidation';
-import type { AdminForm, EmailTemplate, FormSubmission, UpdateFormRequest } from '@/lib/types';
+import type { AdminForm, EmailTemplate, EventData, FormSubmission, UpdateFormRequest } from '@/lib/types';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { withAuth } from '@/providers/withAuth';
 import { Button } from '@/ui/Button';
@@ -405,8 +406,8 @@ function RegistrantCampaignPage() {
 
     (async () => {
       try {
-        const [loadedForm, allSubmissions, templatesResponse] = await Promise.all([
-          apiClient.getAdminForm(formId),
+        const loadedForm = await apiClient.getAdminForm(formId);
+        const [allSubmissions, templatesResponse, loadedEvent] = await Promise.all([
           fetchAllFormSubmissions(formId),
           apiClient.listAdminEmailTemplates({
             page: 1,
@@ -414,17 +415,44 @@ function RegistrantCampaignPage() {
             ownerType: 'form_campaign',
             ownerId: formId,
           }),
+          loadedForm.eventId ? apiClient.getAdminEvent(loadedForm.eventId).catch(() => null) : Promise.resolve(null),
         ]);
+        const smartDefaults = buildCampaignDefaultCopy(loadedForm.title, loadedEvent as EventData | null);
+        const fallbackCalendarEvent = buildCampaignCalendarEventFromEventData(
+          loadedEvent as EventData | null,
+          Intl.DateTimeFormat().resolvedOptions().timeZone || undefined
+        );
 
         setForm(loadedForm);
         setSubmissions(allSubmissions);
 
         const subjectFallback =
-          loadedForm.settings?.campaignEmailSubject?.trim() || `Update for ${loadedForm.title}`;
+          loadedForm.settings?.campaignEmailSubject?.trim() || smartDefaults.subject;
         setSubject(subjectFallback);
-        setImageUrl(loadedForm.settings?.campaignEmailTemplateUrl?.trim() || '');
-        setCtaUrl(buildPublicFormUrl(loadedForm.slug, loadedForm.publicUrl) || '');
-        setCalendarTitle((current) => current || loadedForm.title || '');
+        setPreheader(smartDefaults.preheader);
+        setHeading(smartDefaults.heading);
+        setImageUrl(
+          loadedForm.settings?.campaignEmailTemplateUrl?.trim() ||
+            loadedEvent?.bannerImage?.trim() ||
+            loadedEvent?.image?.trim() ||
+            ''
+        );
+        setCtaUrl(
+          loadedEvent?.registerLink?.trim() ||
+            buildPublicFormUrl(loadedForm.slug, loadedForm.publicUrl) ||
+            ''
+        );
+        setCtaLabel((current) => current || (loadedEvent?.registerLink ? 'View event details' : 'Open registration page'));
+        if (fallbackCalendarEvent) {
+          setCalendarTitle(fallbackCalendarEvent.title);
+          setCalendarStartAt(toDateTimeLocalValue(fallbackCalendarEvent.startAt));
+          setCalendarEndAt(toDateTimeLocalValue(fallbackCalendarEvent.endAt));
+          setCalendarLocation(fallbackCalendarEvent.location || '');
+          setCalendarDescription(fallbackCalendarEvent.description || '');
+          setCalendarTimeZone((current) => current || fallbackCalendarEvent.timeZone || '');
+        } else {
+          setCalendarTitle((current) => current || loadedForm.title || '');
+        }
 
         const active = templatesResponse.data.find((item) => item.isActive);
         const latest = [...templatesResponse.data].sort((a, b) => (a.updatedAt > b.updatedAt ? -1 : 1))[0];
@@ -700,19 +728,26 @@ function RegistrantCampaignPage() {
     setSending(true);
     try {
       const persisted = await persistCampaignTemplate(false);
+      const includeCalendarLinks = Boolean(persisted.calendarUrl || persisted.calendarEvent || form.eventId);
       const result = await sendFormCampaign(form.id, {
-        subject: subject.trim(),
-        title: heading.trim(),
+        subject: subject.trim() || undefined,
+        title: heading.trim() || undefined,
+        previewText: preheader.trim() || undefined,
+        heroEyebrow: eyebrow.trim() || undefined,
+        heroTitle: heading.trim() || undefined,
         htmlBody: persisted.htmlBody,
         textBody: persisted.textBody,
-        calendarUrl: persisted.calendarUrl,
-        calendarEvent: persisted.calendarEvent,
+        includeCalendarLinks,
       });
 
       if (result.failed > 0) {
-        toast.error(`Campaign sent to ${result.sent} of ${result.totalRecipients} recipients. ${result.failed} failed.`);
+        toast.error(
+          `Campaign sent to ${result.sent} of ${result.totalRecipients} recipients. ${result.failed} failed${result.skipped > 0 ? `, ${result.skipped} skipped` : ''}.`
+        );
       } else {
-        toast.success(`Campaign sent successfully to ${result.sent} recipients.`);
+        toast.success(
+          `Campaign sent successfully to ${result.sent} recipients${result.skipped > 0 ? `, ${result.skipped} skipped` : ''}.`
+        );
       }
     } catch (err) {
       toast.error(getServerErrorMessage(err, 'Failed to send campaign.'));
