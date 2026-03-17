@@ -1,3 +1,4 @@
+import { apiFetch } from './api';
 import type { FormEmailResourceLink } from './formEmailTemplates';
 
 export type FormCampaignCTA = {
@@ -56,28 +57,12 @@ export async function sendFormCampaign(
   formId: string,
   payload: SendFormCampaignRequest
 ): Promise<SendFormCampaignResult> {
-  const response = await fetch(`/api/v1/admin/forms/${encodeURIComponent(formId)}/campaigns/send`, {
+  const body = await apiFetch<
+    { data?: SendFormCampaignResult; message?: string; error?: string } | SendFormCampaignResult
+  >(`/admin/forms/${encodeURIComponent(formId)}/campaigns/send`, {
     method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
     body: JSON.stringify(payload),
   });
-
-  const body = (await response.json().catch(() => null)) as
-    | { data?: SendFormCampaignResult; message?: string; error?: string }
-    | SendFormCampaignResult
-    | null;
-
-  if (!response.ok) {
-    const message =
-      (body && 'message' in body && typeof body.message === 'string' && body.message.trim()) ||
-      (body && 'error' in body && typeof body.error === 'string' && body.error.trim()) ||
-      'Failed to send form campaign.';
-    throw new Error(message);
-  }
 
   if (body && 'data' in body && body.data) {
     return body.data;
