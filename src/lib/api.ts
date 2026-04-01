@@ -59,6 +59,13 @@ import type {
   AdminNotificationInbox,
   TOTPSetupResponse,
   FormReportLinkPayload,
+  AdminEmailMarketingFormItem,
+  AdminEmailMarketingSummary,
+  AdminEmailAudiencePreview,
+  AdminEmailRecipientInput,
+  SendAdminComposeEmailRequest,
+  SendAdminComposeEmailResponse,
+  AdminEmailDeliveryHistoryItem,
   MFAMethod,
 } from './types';
 
@@ -1169,6 +1176,48 @@ export const apiClient = {
     const qs = toQueryString(params);
     const res = await apiFetch<ApiResponse<FormStatsResponse>>(`/admin/forms/stats${qs}`, { method: 'GET' });
     return unwrapData<FormStatsResponse>(res, 'Invalid form stats payload');
+  },
+
+  async getEmailMarketingSummary(): Promise<AdminEmailMarketingSummary> {
+    const res = await apiFetch<ApiResponse<AdminEmailMarketingSummary>>('/admin/email/marketing/summary', { method: 'GET' });
+    return unwrapData<AdminEmailMarketingSummary>(res, 'Invalid email marketing summary payload');
+  },
+
+  async listEmailMarketingForms(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<AdminEmailMarketingFormItem>> {
+    const qs = toQueryString(params);
+    const res = await apiFetch(`/admin/email/marketing/forms${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<AdminEmailMarketingFormItem>(res, 'Invalid email marketing forms payload');
+  },
+
+  async previewEmailMarketingAudience(formIds: string[], limit = 25): Promise<AdminEmailAudiencePreview> {
+    const params = new URLSearchParams();
+    formIds.forEach((formId) => {
+      const normalized = formId.trim();
+      if (normalized) params.append('formIds', normalized);
+    });
+    if (limit > 0) {
+      params.set('limit', String(limit));
+    }
+    const qs = params.toString();
+    const res = await apiFetch<ApiResponse<AdminEmailAudiencePreview>>(
+      `/admin/email/marketing/audience/preview${qs ? `?${qs}` : ''}`,
+      { method: 'GET' }
+    );
+    return unwrapData<AdminEmailAudiencePreview>(res, 'Invalid email marketing audience preview payload');
+  },
+
+  async sendAdminComposeEmail(payload: SendAdminComposeEmailRequest): Promise<SendAdminComposeEmailResponse> {
+    const res = await apiFetch<ApiResponse<SendAdminComposeEmailResponse>>('/admin/email/compose/send', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<SendAdminComposeEmailResponse>(res, 'Invalid admin compose email payload');
+  },
+
+  async listAdminComposeHistory(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<AdminEmailDeliveryHistoryItem>> {
+    const qs = toQueryString(params);
+    const res = await apiFetch(`/admin/email/compose/history${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<AdminEmailDeliveryHistoryItem>(res, 'Invalid admin compose history payload');
   },
 
   /* ===================== FORMS (PUBLIC) ===================== */

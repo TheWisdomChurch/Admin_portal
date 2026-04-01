@@ -643,6 +643,121 @@ export interface FormReportLinkPayload {
   exportPdfUrl: string;
 }
 
+export interface AdminEmailAudienceFormSummary {
+  formId: string;
+  formTitle: string;
+  totalSubmissions: number;
+  validRecipients: number;
+  uniqueRecipients: number;
+}
+
+export interface AdminEmailMarketingFormItem {
+  formId: string;
+  formTitle: string;
+  status: string;
+  isPublished: boolean;
+  publicUrl?: string;
+  publishedAt?: string;
+  updatedAt: string;
+  lastSubmissionAt?: string;
+  totalSubmissions: number;
+  validRecipients: number;
+  uniqueRecipients: number;
+}
+
+export interface AdminEmailMarketingSummary {
+  totalForms: number;
+  publishedForms: number;
+  draftForms: number;
+  totalSubmissions: number;
+  reachableRecipients: number;
+  totalCampaigns: number;
+  topForms?: AdminEmailMarketingFormItem[];
+  recentCampaigns?: AdminEmailDeliveryHistoryItem[];
+}
+
+export interface AdminEmailAudienceRecipientSource {
+  formId: string;
+  formTitle: string;
+}
+
+export interface AdminEmailAudiencePreviewRecipient {
+  email: string;
+  name?: string;
+  sourceForms?: AdminEmailAudienceRecipientSource[];
+}
+
+export interface AdminEmailAudiencePreview {
+  forms: AdminEmailMarketingFormItem[];
+  totalForms: number;
+  totalSubmissions: number;
+  validRecipients: number;
+  uniqueRecipients: number;
+  skipped: number;
+  previewCount: number;
+  recipients: AdminEmailAudiencePreviewRecipient[];
+}
+
+export interface AdminEmailRecipientInput {
+  name?: string;
+  email: string;
+}
+
+export interface SendAdminComposeEmailRequest {
+  subject?: string;
+  htmlBody?: string;
+  textBody?: string;
+  templateId?: string;
+  templateKey?: string;
+  manualRecipients?: AdminEmailRecipientInput[];
+  formIds?: string[];
+}
+
+export interface SendAdminComposeEmailResponse {
+  deliveryId?: string;
+  subject: string;
+  templateSource: string;
+  audienceSource: string;
+  manualRecipients: number;
+  formRecipients: number;
+  sourceForms?: AdminEmailAudienceFormSummary[];
+  totalRecipients: number;
+  targeted: number;
+  sent: number;
+  skipped: number;
+  failed: number;
+  failedRecipients?: string[];
+  startedAt: string;
+  completedAt: string;
+  sentAt: string;
+}
+
+export interface AdminEmailDeliveryHistoryItem {
+  id: string;
+  subject: string;
+  templateSource: string;
+  templateId?: string;
+  templateKey?: string;
+  audienceSource: string;
+  manualRecipients: number;
+  formRecipients: number;
+  sourceForms?: AdminEmailAudienceFormSummary[];
+  status: string;
+  totalRecipients: number;
+  targeted: number;
+  sent: number;
+  skipped: number;
+  failed: number;
+  failedRecipients?: string[];
+  startedAt: string;
+  completedAt?: string;
+  createdByUserId?: string;
+  createdByEmail?: string;
+  createdByRole?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /* =========================
    WORKFORCE
 ========================= */
