@@ -21,6 +21,7 @@ import {
   BellRing,
   FileText,
   LineChart,
+  Mail,
   Sparkles
 } from 'lucide-react';
 import { useAuthContext } from '@/providers/AuthProviders';
@@ -34,6 +35,7 @@ const adminNavItems = [
   { href: '/dashboard/reels', label: 'Reels', icon: Video, description: 'Video content management' },
   { href: '/dashboard/testimonials', label: 'Testimonials', icon: MessageSquare, description: 'Member testimonials' },
   { href: '/dashboard/forms', label: 'Forms', icon: ClipboardList, description: 'Create registration links' },
+  { href: '/dashboard/email-marketing', label: 'Email Marketing', icon: Mail, description: 'Build campaigns from form audiences' },
   { href: '/dashboard/registrations', label: 'Registrations', icon: Users, description: 'Registered people list' },
   { href: '/dashboard/notifications', label: 'Notifications', icon: BellRing, description: 'Alerts and approvals' },
   { href: '/dashboard/test', label: 'Test', icon: Sparkles, description: 'Playground page' },
@@ -46,6 +48,7 @@ const superNavItems = [
   { href: '/dashboard/super', label: 'Dashbord', icon: LayoutDashboard, description: 'Approvals & analytics' },
   { href: '/dashboard/super/requests', label: 'Requests', icon: BellRing, description: 'Pending approvals' },
   { href: '/dashboard/super/analytics', label: 'Analytics', icon: LineChart, description: 'Charts & trends' },
+  { href: '/dashboard/email-marketing', label: 'Email Marketing', icon: Mail, description: 'Audience campaigns & outreach' },
   { href: '/dashboard/super/reports', label: 'Reports', icon: FileText, description: 'Monthly exports' },
   { href: '/dashboard/super/notifications', label: 'Notifications', icon: BarChart3, description: 'Alerts and updates' },
 ];

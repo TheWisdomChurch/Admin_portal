@@ -1,430 +1,370 @@
-// src/app/(dashboard)/page.tsx
 'use client';
 
-import { useEffect, useState, useCallback, type ReactNode } from 'react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import {
-  Calendar,
-  Users,
-  TrendingUp,
-  Video,
-  AlertCircle,
-  ArrowUpRight,
+  ArrowRight,
+  CalendarDays,
   ClipboardList,
-  FileText,
+  Mail,
+  Megaphone,
+  Sparkles,
+  Users,
 } from 'lucide-react';
-import { Card } from '@/ui/Card';
-import { Badge } from '@/ui/Badge';
-import { Button } from '@/ui/Button';
 import toast from 'react-hot-toast';
+
 import { apiClient } from '@/lib/api';
-import { buildPublicFormUrl } from '@/lib/utils';
+import type { AdminEmailMarketingSummary, DashboardAnalytics, EventData, FormStatsResponse } from '@/lib/types';
 import { useAuthContext } from '@/providers/AuthProviders';
-import { EventData, DashboardAnalytics, AdminForm, FormStatsResponse } from '@/lib/types';
 
-const toArray = <T,>(value: unknown): T[] => {
-  if (Array.isArray(value)) return value as T[];
-  if (value && typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    if (Array.isArray(record.data)) return record.data as T[];
-    if (Array.isArray(record.items)) return record.items as T[];
-    const nested = record.data;
-    if (nested && typeof nested === 'object') {
-      const nestedRecord = nested as Record<string, unknown>;
-      if (Array.isArray(nestedRecord.items)) return nestedRecord.items as T[];
-      if (Array.isArray(nestedRecord.data)) return nestedRecord.data as T[];
-    }
-  }
-  return [];
-};
+import styles from './dashboard.module.scss';
 
-const readTotal = (value: unknown, fallback: number): number => {
-  if (value && typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    if (typeof record.total === 'number') return record.total;
-    const nested = record.data;
-    if (nested && typeof nested === 'object') {
-      const nestedRecord = nested as Record<string, unknown>;
-      if (typeof nestedRecord.total === 'number') return nestedRecord.total;
-    }
-  }
-  return fallback;
-};
+const numberFormatter = new Intl.NumberFormat('en-US');
+
+function formatNumber(value: number): string {
+  return numberFormatter.format(value);
+}
+
+function formatDate(value?: string): string {
+  if (!value) return 'No date';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function truncate(value: string, max = 96): string {
+  if (value.length <= max) return value;
+  return `${value.slice(0, max - 1)}…`;
+}
 
 export default function DashboardPage() {
   const auth = useAuthContext();
-
-  const [stats, setStats] = useState<DashboardAnalytics | null>(null);
-
-  const [recentEvents, setRecentEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [approvedTestimonials, setApprovedTestimonials] = useState<{ id: string; full_name?: string; testimony?: string }[]>([]);
-  const [formOverview, setFormOverview] = useState<{ total: number; recent: AdminForm[] }>({
-    total: 0,
-    recent: [],
-  });
+  const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
+  const [events, setEvents] = useState<EventData[]>([]);
   const [formStats, setFormStats] = useState<FormStatsResponse | null>(null);
-
-  const loadDashboardData = useCallback(async () => {
-    try {
-      setLoading(true);
-
-      // Try to fetch real data, fall back to mock data if it fails
-      const [analyticsResult, eventsResult, testimonialsResult, formsResult, formStatsResult] = await Promise.allSettled([
-        apiClient.getAnalytics(),
-        apiClient.getEvents({ limit: 5, page: 1 }),
-        apiClient.getAllTestimonials({ approved: true }),
-        apiClient.getAdminForms({ page: 1, limit: 4 }),
-        apiClient.getFormStats(),
-      ]);
-
-      if (analyticsResult.status === 'fulfilled') {
-        setStats(analyticsResult.value);
-      } else {
-        console.warn('Analytics unavailable:', analyticsResult.reason);
-        setStats(null);
-      }
-
-      if (eventsResult.status === 'fulfilled') {
-        const eventsList = toArray<EventData>(eventsResult.value);
-        setRecentEvents(eventsList);
-      } else {
-        console.warn('Events unavailable:', eventsResult.reason);
-        setRecentEvents([]);
-      }
-
-      if (testimonialsResult.status === 'fulfilled') {
-        const list = toArray<{ id: string; full_name?: string; testimony?: string }>(testimonialsResult.value);
-        setApprovedTestimonials(list.slice(0, 4));
-      } else {
-        console.warn('Testimonials unavailable:', testimonialsResult.reason);
-        setApprovedTestimonials([]);
-      }
-
-      if (formsResult.status === 'fulfilled') {
-        const list = toArray<AdminForm>(formsResult.value);
-        const total = readTotal(formsResult.value, list.length);
-        setFormOverview({ total, recent: list });
-      } else {
-        console.warn('Forms unavailable:', formsResult.reason);
-        setFormOverview({ total: 0, recent: [] });
-      }
-
-      if (formStatsResult.status === 'fulfilled') {
-        setFormStats(formStatsResult.value);
-      } else {
-        console.warn('Form stats unavailable:', formStatsResult.reason);
-        setFormStats(null);
-      }
-    } catch (error) {
-      console.error('Dashboard error:', error);
-      toast.error('Failed to load dashboard data');
-      setFormStats(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const [marketing, setMarketing] = useState<AdminEmailMarketingSummary | null>(null);
 
   useEffect(() => {
-    loadDashboardData();
-  }, [loadDashboardData]);
+    let active = true;
+
+    async function loadDashboard() {
+      setLoading(true);
+      try {
+        const [analyticsResult, eventsResult, formStatsResult, marketingResult] = await Promise.allSettled([
+          apiClient.getAnalytics(),
+          apiClient.getEvents({ limit: 4, page: 1 }),
+          apiClient.getFormStats(),
+          apiClient.getEmailMarketingSummary(),
+        ]);
+
+        if (!active) return;
+
+        setAnalytics(analyticsResult.status === 'fulfilled' ? analyticsResult.value : null);
+        setEvents(eventsResult.status === 'fulfilled' ? eventsResult.value.data : []);
+        setFormStats(formStatsResult.status === 'fulfilled' ? formStatsResult.value : null);
+        setMarketing(marketingResult.status === 'fulfilled' ? marketingResult.value : null);
+      } catch (error) {
+        console.error(error);
+        if (active) {
+          toast.error('Failed to load dashboard data');
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadDashboard();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto" />
-          <p className="mt-4 text-[var(--color-text-tertiary)]">Loading dashboard...</p>
-        </div>
+      <div className={styles.loadingShell}>
+        <div className={styles.loadingOrb} />
+        <p>Loading dashboard...</p>
       </div>
     );
   }
 
-  const categoryValues = Object.values(stats?.eventsByCategory ?? {});
-  const maxCategoryValue = categoryValues.length > 0 ? Math.max(...categoryValues) : 1;
   const firstName = auth.user?.first_name || 'Admin';
-  const categoriesByCount = Object.entries(stats?.eventsByCategory ?? {}).sort((a, b) => b[1] - a[1]);
-  const topCategory = categoriesByCount[0];
+  const categoryEntries = Object.entries(analytics?.eventsByCategory ?? {}).sort((a, b) => b[1] - a[1]);
+  const maxCategoryValue = categoryEntries.length > 0 ? Math.max(...categoryEntries.map(([, count]) => count)) : 1;
+  const topForms = marketing?.topForms ?? [];
+  const recentCampaigns = marketing?.recentCampaigns ?? [];
+  const recentSubmissions = formStats?.recent ?? [];
+  const maxAudience = topForms.length > 0 ? Math.max(...topForms.map((item) => item.uniqueRecipients)) : 1;
+
+  const metricCards = [
+    {
+      label: 'Reachable recipients',
+      value: formatNumber(marketing?.reachableRecipients ?? 0),
+      hint: 'deduplicated emails collected from form submissions',
+      icon: <Mail className="h-5 w-5" />,
+    },
+    {
+      label: 'Active forms',
+      value: formatNumber(marketing?.publishedForms ?? 0),
+      hint: `${formatNumber(marketing?.totalForms ?? 0)} forms currently tracked`,
+      icon: <ClipboardList className="h-5 w-5" />,
+    },
+    {
+      label: 'Campaigns sent',
+      value: formatNumber(Number(marketing?.totalCampaigns ?? 0)),
+      hint: 'compose history stored by the backend',
+      icon: <Megaphone className="h-5 w-5" />,
+    },
+    {
+      label: 'Registrations captured',
+      value: formatNumber(formStats?.totalSubmissions ?? 0),
+      hint: 'fresh submissions ready for follow-up',
+      icon: <Users className="h-5 w-5" />,
+    },
+  ];
 
   return (
-    <div className="relative space-y-6">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-24 -right-20 h-64 w-64 rounded-full bg-amber-200/40 blur-3xl dark:bg-amber-500/10" />
-        <div className="absolute top-1/3 -left-24 h-72 w-72 rounded-full bg-sky-200/40 blur-3xl dark:bg-sky-500/10" />
-        <div className="absolute bottom-0 right-1/4 h-64 w-64 rounded-full bg-rose-200/30 blur-3xl dark:bg-rose-500/10" />
-      </div>
+    <div className={styles.dashboard}>
+      <section className={styles.hero}>
+        <div className={styles.heroCopy}>
+          <p className={styles.eyebrow}>Wisdom Church Control Room</p>
+          <h1>Turn fresh form responses into follow-up, outreach, and movement.</h1>
+          <p className={styles.heroText}>
+            Welcome back, {firstName}. Your admin workspace now ties form activity and email marketing
+            together, so you can see who is responding and move straight into campaign delivery.
+          </p>
 
-      {/* Header */}
-      <Card className="relative overflow-hidden bg-gradient-to-br from-[var(--color-background-secondary)] via-[var(--color-background-tertiary)] to-transparent shadow-lg">
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-text-tertiary)]">Wisdom Church Admin</p>
-            <h1 className="font-display mt-3 text-3xl font-semibold text-[var(--color-text-primary)] md:text-4xl">
-              Dashboard Overview
-            </h1>
-            <p className="mt-2 text-base text-[var(--color-text-secondary)]">
-              Welcome back, {firstName}! Here is the latest activity at a glance.
-            </p>
+          <div className={styles.actionRow}>
+            <Link href="/dashboard/email-marketing" className={styles.primaryAction}>
+              Launch Email Marketing
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link href="/dashboard/forms" className={styles.secondaryAction}>
+              Open Form Builder
+            </Link>
+          </div>
+        </div>
 
-            <div className="mt-5 flex flex-wrap gap-3">
-              <Badge variant="outline" size="lg" className="bg-[var(--color-background-primary)] text-[var(--color-text-secondary)]">
-                Role: <span className="ml-1 font-semibold capitalize">{auth.user?.role?.replace('_', ' ')}</span>
-              </Badge>
-              <Badge variant="secondary" size="lg" className="bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]">
-                {auth.user?.email}
-              </Badge>
+        <aside className={styles.heroPanel}>
+          <p className={styles.panelKicker}>Live pulse</p>
+          <div className={styles.heroMetric}>
+            <span>Audience reach</span>
+            <strong>{formatNumber(marketing?.reachableRecipients ?? 0)}</strong>
+          </div>
+          <div className={styles.heroMetric}>
+            <span>Latest campaign</span>
+            <strong>{recentCampaigns[0] ? truncate(recentCampaigns[0].subject, 42) : 'No campaigns yet'}</strong>
+          </div>
+          <div className={styles.heroMetric}>
+            <span>Upcoming events</span>
+            <strong>{formatNumber(analytics?.upcomingEvents ?? 0)}</strong>
+          </div>
+        </aside>
+      </section>
+
+      <section className={styles.metricGrid}>
+        {metricCards.map((item) => (
+          <article key={item.label} className={styles.metricCard}>
+            <span className={styles.metricIcon}>{item.icon}</span>
+            <p className={styles.metricLabel}>{item.label}</p>
+            <strong className={styles.metricValue}>{item.value}</strong>
+            <p className={styles.metricHint}>{item.hint}</p>
+          </article>
+        ))}
+      </section>
+
+      <div className={styles.storyGrid}>
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <div>
+              <p className={styles.panelKicker}>Audience leaders</p>
+              <h2>Forms with the strongest email reach</h2>
             </div>
+            <Link href="/dashboard/email-marketing" className={styles.panelLink}>
+              Review all
+            </Link>
           </div>
 
-          <Button variant="outline" onClick={auth.logout}>
-            Logout
-          </Button>
-        </div>
-      </Card>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 fade-up">
-        <StatCard
-          title="Total Events"
-          value={stats ? stats.totalEvents : '—'}
-          icon={<Calendar className="h-5 w-5 text-[var(--color-text-primary)]" />}
-        />
-        <StatCard
-          title="Upcoming Events"
-          value={stats ? stats.upcomingEvents : '—'}
-          icon={<AlertCircle className="h-5 w-5 text-[var(--color-text-primary)]" />}
-        />
-        <StatCard
-          title="Total Attendees"
-          value={stats ? stats.totalAttendees.toLocaleString() : '—'}
-          icon={<Users className="h-5 w-5 text-[var(--color-text-primary)]" />}
-        />
-        <StatCard
-          title="Categories"
-          value={stats ? Object.keys(stats.eventsByCategory).length : '—'}
-          icon={<Video className="h-5 w-5 text-[var(--color-text-primary)]" />}
-        />
-        <StatCard
-          title="Forms"
-          value={formOverview.total}
-          icon={<ClipboardList className="h-5 w-5 text-[var(--color-text-primary)]" />}
-        />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-        {/* Recent Events */}
-        <Card title="Recent Events" className="fade-up">
-          <div className="space-y-4">
-            {recentEvents.length > 0 ? (
-              recentEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="flex flex-col gap-4 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 transition duration-200 hover:-translate-y-0.5 hover:bg-[var(--color-background-primary)] md:flex-row md:items-center md:justify-between"
-                >
-                  <div>
-                    <h4 className="text-lg font-semibold text-[var(--color-text-primary)]">{event.title}</h4>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[var(--color-text-tertiary)]">
-                      <Badge variant="info" className="bg-sky-100 text-sky-700 border-sky-200">
-                        {event.category || 'Uncategorized'}
-                      </Badge>
-                      <span>
-                        {event.date ? new Date(event.date).toLocaleDateString() : 'No date'} ·{' '}
-                        {event.time || 'Time TBD'}
-                      </span>
-                      <span className="text-[var(--color-text-tertiary)]">|</span>
-                      <span>{event.location || 'Location TBD'}</span>
+          {topForms.length > 0 ? (
+            <div className={styles.audienceList}>
+              {topForms.map((form) => (
+                <article key={form.formId} className={styles.audienceCard}>
+                  <div className={styles.audienceTop}>
+                    <div>
+                      <h3>{form.formTitle}</h3>
+                      <p>
+                        {form.isPublished ? 'Published' : 'Draft'} · Updated {formatDate(form.updatedAt)}
+                      </p>
                     </div>
+                    <strong>{formatNumber(form.uniqueRecipients)}</strong>
                   </div>
-                  <Badge
-                    variant={
-                      event.status === 'upcoming'
-                        ? 'success'
-                        : event.status === 'happening'
-                          ? 'warning'
-                          : 'default'
-                    }
-                    className="capitalize"
-                  >
-                    {event.status || 'unknown'}
-                  </Badge>
-                </div>
-              ))
-            ) : (
-                <p className="text-center text-[var(--color-text-tertiary)] py-6">
-                  No recent events found
-                </p>
-            )}
-          </div>
-        </Card>
 
-        <div className="space-y-6">
-          <Card title="Latest Forms" className="fade-up">
-            {formOverview.recent.length > 0 ? (
-              <div className="space-y-3">
-                {formOverview.recent.map((form) => (
-                  <div
-                    key={form.id}
-                    className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3"
-                  >
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{form.title}</p>
-                    <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
-                      {buildPublicFormUrl(form.slug, form.publicUrl) || 'Not published yet'}
-                    </p>
-                    <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-text-tertiary)]">
-                      <span>{form.isPublished ? 'Published' : 'Draft'}</span>
-                      <span>{form.updatedAt ? new Date(form.updatedAt).toLocaleDateString() : '—'}</span>
-                    </div>
+                  <div className={styles.progressTrack}>
+                    <span
+                      className={styles.progressValue}
+                      style={{ width: `${(form.uniqueRecipients / maxAudience) * 100}%` }}
+                    />
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-[var(--color-text-tertiary)]">No forms created yet.</p>
-            )}
-          </Card>
-          <Card title="Approved Testimonials" className="fade-up">
-            {approvedTestimonials.length > 0 ? (
-              <div className="space-y-3">
-                {approvedTestimonials.map((t) => (
-                  <div key={t.id} className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3">
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{t.full_name || 'Anonymous'}</p>
-                    <p className="mt-1 line-clamp-2 text-xs text-[var(--color-text-tertiary)]">{t.testimony || 'No text provided'}</p>
-                    <div className="mt-3 flex justify-between">
-                      <Badge variant="success">Approved</Badge>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => toast.success('Published to site (hook backend here)')}
-                      >
-                        Publish
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-[var(--color-text-tertiary)]">No approved testimonials yet.</p>
-            )}
-          </Card>
-          {/* Category Distribution */}
-          <Card title="Events by Category" className="fade-up animation-delay-500">
-            <div className="space-y-4">
-              {categoriesByCount.length > 0 ? (
-                categoriesByCount.map(([category, count]) => (
-                  <div key={category}>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-[var(--color-text-secondary)] font-medium">{category}</span>
-                      <span className="text-[var(--color-text-tertiary)]">{count} events</span>
-                    </div>
-                    <div className="h-2.5 bg-[var(--color-background-tertiary)] rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400 rounded-full transition-all"
-                        style={{ width: `${(count / maxCategoryValue) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-center text-[var(--color-text-tertiary)] py-6">
-                  {stats ? 'No category data available' : 'Analytics unavailable'}
-                </p>
-              )}
-            </div>
-          </Card>
 
-          <Card className="relative overflow-hidden bg-[var(--color-text-primary)] text-[var(--color-text-inverse)] fade-up animation-delay-1000">
-            <div className="absolute -right-10 -top-12 h-32 w-32 rounded-full bg-amber-400/30 blur-2xl" />
-            <div className="relative space-y-3">
-              <p className="text-xs uppercase tracking-[0.3em] text-amber-200">Spotlight</p>
-              <h3 className="font-display text-2xl font-semibold">
-                {topCategory ? topCategory[0] : 'Your Next Big Event'}
-              </h3>
-              <p className="text-sm text-slate-200">
-                {topCategory
-                  ? `${topCategory[1]} events are already trending in this category.`
-                  : 'Start building momentum by scheduling new events.'}
-              </p>
-              <div className="flex items-center gap-2 text-sm text-amber-200">
-                <TrendingUp className="h-4 w-4" />
-                <span>Momentum snapshot</span>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <Card title="Form Activity" className="fade-up">
-          {formStats?.recent?.length ? (
-            <div className="space-y-3">
-              {formStats.recent.slice(0, 6).map((item) => (
-                <div key={item.id} className="flex items-center justify-between text-sm">
-                  <div className="min-w-0">
-                    <div className="font-medium text-[var(--color-text-primary)] truncate">
-                      {item.formTitle || 'Form'}
-                    </div>
-                    <div className="text-[var(--color-text-tertiary)] truncate">
-                      {item.name || item.email || 'Anonymous'}
-                    </div>
+                  <div className={styles.audienceMeta}>
+                    <span>{formatNumber(form.totalSubmissions)} submissions</span>
+                    <span>{formatNumber(form.validRecipients)} valid emails</span>
+                    <span>{form.lastSubmissionAt ? `Last response ${formatDate(form.lastSubmissionAt)}` : 'No responses yet'}</span>
                   </div>
-                  <span className="text-xs text-[var(--color-text-tertiary)]">
-                    {new Date(item.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
+                </article>
               ))}
             </div>
           ) : (
-            <div className="text-sm text-[var(--color-text-tertiary)]">No recent submissions yet.</div>
+            <p className={styles.emptyState}>
+              No form audiences are available yet. Publish forms and collect registrations to build reach.
+            </p>
           )}
-        </Card>
+        </section>
 
-        <Card className="fade-up">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-amber-100 p-2 text-amber-700">
-              <FileText className="h-5 w-5" />
-            </div>
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
             <div>
-              <p className="text-sm text-[var(--color-text-tertiary)]">Total Form Submissions</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">
-                {formStats?.totalSubmissions ?? 0}
-              </p>
+              <p className={styles.panelKicker}>Campaign log</p>
+              <h2>Recent email marketing activity</h2>
             </div>
+            <span className={styles.panelLinkStatic}>{formatNumber(Number(marketing?.totalCampaigns ?? 0))} total</span>
           </div>
-          <p className="mt-3 text-xs text-[var(--color-text-tertiary)]">
-            Track registrations by opening a form and viewing its submissions.
-          </p>
-        </Card>
-      </div>
-    </div>
-  );
-}
 
-function StatCard({
-  title,
-  value,
-  icon,
-}: {
-  title: string;
-  value: ReactNode;
-  icon: ReactNode;
-}) {
-  return (
-    <Card
-      className="group relative overflow-hidden bg-[var(--color-background-secondary)] shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
-      contentClassName="p-4"
-    >
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">{title}</p>
-          <p className="font-display mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">{value}</p>
-          <div className="mt-2 flex items-center gap-1 text-[0.7rem] font-medium text-emerald-500">
-            <ArrowUpRight className="h-3.5 w-3.5" />
-            <span>Active</span>
-          </div>
-        </div>
-        <div className="h-10 w-10 rounded-2xl bg-[var(--color-background-tertiary)] flex items-center justify-center">
-          {icon}
-        </div>
+          {recentCampaigns.length > 0 ? (
+            <div className={styles.campaignList}>
+              {recentCampaigns.map((item) => (
+                <article key={item.id} className={styles.campaignItem}>
+                  <div className={styles.campaignHeader}>
+                    <h3>{item.subject}</h3>
+                    <span className={styles.statusChip} data-status={item.status}>
+                      {item.status}
+                    </span>
+                  </div>
+                  <p>{item.targeted} targeted · {item.sent} sent · {item.failed} failed</p>
+                  <span className={styles.metaLine}>Started {formatDate(item.startedAt)}</span>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className={styles.emptyState}>
+              Campaign history will appear here after the first marketing send.
+            </p>
+          )}
+        </section>
       </div>
-      <div className="pointer-events-none absolute -right-10 -top-12 h-24 w-24 rounded-full bg-amber-200/40 blur-2xl transition-opacity group-hover:opacity-80" />
-    </Card>
+
+      <div className={styles.storyGrid}>
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <div>
+              <p className={styles.panelKicker}>Submission pulse</p>
+              <h2>Most recent form responses</h2>
+            </div>
+            <span className={styles.panelLinkStatic}>
+              {formatNumber(formStats?.totalSubmissions ?? 0)} total
+            </span>
+          </div>
+
+          {recentSubmissions.length > 0 ? (
+            <div className={styles.timeline}>
+              {recentSubmissions.slice(0, 6).map((item) => (
+                <article key={item.id} className={styles.timelineItem}>
+                  <span className={styles.timelineDot} />
+                  <div>
+                    <h3>{item.formTitle || 'Untitled form'}</h3>
+                    <p>{item.name || item.email || 'Anonymous response'}</p>
+                  </div>
+                  <span className={styles.metaLine}>{formatDate(item.createdAt)}</span>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className={styles.emptyState}>
+              No submission activity yet.
+            </p>
+          )}
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <div>
+              <p className={styles.panelKicker}>Event mix</p>
+              <h2>What is filling the calendar</h2>
+            </div>
+            <Sparkles className="h-4 w-4" />
+          </div>
+
+          {categoryEntries.length > 0 ? (
+            <div className={styles.categoryList}>
+              {categoryEntries.map(([category, count]) => (
+                <article key={category} className={styles.categoryItem}>
+                  <div className={styles.categoryMeta}>
+                    <span>{category}</span>
+                    <strong>{count}</strong>
+                  </div>
+                  <div className={styles.categoryTrack}>
+                    <span
+                      className={styles.categoryValue}
+                      style={{ width: `${(count / maxCategoryValue) * 100}%` }}
+                    />
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className={styles.emptyState}>
+              Analytics are not available yet.
+            </p>
+          )}
+        </section>
+      </div>
+
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div>
+            <p className={styles.panelKicker}>Calendar watch</p>
+            <h2>Recent and upcoming events</h2>
+          </div>
+          <span className={styles.panelLinkStatic}>
+            {formatNumber(analytics?.totalEvents ?? 0)} tracked
+          </span>
+        </div>
+
+        {events.length > 0 ? (
+          <div className={styles.eventGrid}>
+            {events.map((event) => (
+              <article key={event.id} className={styles.eventCard}>
+                <div className={styles.eventHeader}>
+                  <span className={styles.eventIcon}>
+                    <CalendarDays className="h-4 w-4" />
+                  </span>
+                  <span className={styles.statusChip} data-status={event.status}>
+                    {event.status}
+                  </span>
+                </div>
+                <h3>{event.title}</h3>
+                <p>{truncate(event.description || event.shortDescription || 'No description available.', 130)}</p>
+                <div className={styles.eventMeta}>
+                  <span>{formatDate(event.date || event.startDate)}</span>
+                  <span>{event.location || 'Location TBD'}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className={styles.emptyState}>
+            No event records are available yet.
+          </p>
+        )}
+      </section>
+    </div>
   );
 }
