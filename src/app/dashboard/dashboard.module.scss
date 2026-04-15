@@ -11,6 +11,10 @@
   display: grid;
   gap: 1.5rem;
   position: relative;
+  padding: clamp(1.25rem, 2vw, 2.25rem);
+  max-width: 1600px;
+  margin: 0 auto;
+  color: var(--color-text-primary);
 }
 
 .loadingShell {
@@ -34,10 +38,13 @@
   @include panel-surface;
   display: grid;
   gap: 1.5rem;
-  grid-template-columns: minmax(0, 1.6fr) minmax(18rem, 0.95fr);
+  grid-template-columns: minmax(0, 1.7fr) minmax(20rem, 0.76fr);
   overflow: hidden;
-  padding: clamp(1.5rem, 3vw, 2.5rem);
+  padding: clamp(1.75rem, 3vw, 3rem);
   position: relative;
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.8), rgba(30, 41, 59, 0.95));
+  color: #ffffff;
+  box-shadow: 0 12px 32px rgba(8, 15, 29, 0.2);
 
   &::before {
     content: '';
@@ -64,6 +71,12 @@
 .heroPanel {
   position: relative;
   z-index: 1;
+  color: #fff;
+}
+
+.heroCopy h1,
+.heroCopy p {
+  color: #fff;
 }
 
 .eyebrow,
@@ -142,7 +155,9 @@
   align-content: start;
   display: grid;
   gap: 1rem;
-  padding: 1.2rem;
+  padding: 1.3rem;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
 .heroMetric {
@@ -172,12 +187,60 @@
   gap: 1.5rem;
 }
 
+.quickActionsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.quickActionCard {
+  @include panel-surface;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem;
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.1), rgba(34, 211, 238, 0.1));
+  color: var(--color-text-primary);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  text-decoration: none;
+  transition: transform 240ms ease, border-color 240ms ease, box-shadow 240ms ease;
+
+  &:hover,
+  &:focus-visible {
+    transform: translateY(-2px);
+    border-color: rgba(253, 224, 71, 0.9);
+    box-shadow: 0 10px 30px rgba(30, 64, 175, 0.2);
+    outline: none;
+  }
+
+  p {
+    margin: 0;
+    font-weight: 700;
+  }
+
+  span {
+    color: var(--color-text-tertiary);
+    font-size: 0.86rem;
+  }
+}
+
 .metricGrid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .metricCard {
-  padding: 1.25rem;
+  padding: 1.35rem;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--color-border-primary) 80%, transparent);
+  transition: transform 240ms ease, box-shadow 240ms ease, border-color 240ms ease;
+
+  &:hover,
+  &:focus-within {
+    transform: translateY(-3px);
+    border-color: rgba(251, 191, 36, 0.9);
+    box-shadow: 0 16px 28px rgba(15, 23, 42, 0.16);
+  }
 }
 
 .metricIcon {

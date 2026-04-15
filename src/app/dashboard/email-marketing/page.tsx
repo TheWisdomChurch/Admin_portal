@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   CheckCircle2,
@@ -115,12 +115,13 @@ export default function EmailMarketingPage() {
   const [textBody, setTextBody] = useState(DEFAULT_TEXT_TEMPLATE);
   const [manualRecipientsRaw, setManualRecipientsRaw] = useState('');
   const [lastResult, setLastResult] = useState<SendAdminComposeEmailResponse | null>(null);
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     let active = true;
 
     async function loadWorkspace() {
-      if (summary) {
+      if (hasLoadedRef.current) {
         setRefreshing(true);
       } else {
         setLoading(true);
@@ -148,6 +149,7 @@ export default function EmailMarketingPage() {
         if (active) {
           setLoading(false);
           setRefreshing(false);
+          hasLoadedRef.current = true;
         }
       }
     }

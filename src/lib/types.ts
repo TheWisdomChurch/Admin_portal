@@ -943,6 +943,93 @@ export interface AdminNotificationInbox {
 }
 
 /* =========================
+   STORE
+========================= */
+
+export type StoreOrderStatus =
+  | 'pending'
+  | 'processing'
+  | 'shipped'
+  | 'delivered'
+  | 'cancelled';
+
+export interface StoreProductAdmin {
+  id: number;
+  name: string;
+  category: string;
+  price: string;
+  originalPrice?: string | null;
+  image: string;
+  description: string;
+  sizes: string[];
+  colors: string[];
+  tags: string[];
+  stock: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertStoreProductRequest {
+  name: string;
+  category: string;
+  price: string;
+  originalPrice?: string;
+  image: string;
+  description: string;
+  sizes: string[];
+  colors: string[];
+  tags: string[];
+  stock: number;
+  isActive?: boolean;
+}
+
+export interface StoreOrderItemAdmin {
+  id: string;
+  productId?: number;
+  name: string;
+  price: string;
+  quantity: number;
+  selectedSize: string;
+  selectedColor: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface StoreOrderAdmin {
+  orderId: string;
+  orderDate: string;
+  status: StoreOrderStatus;
+  paymentMethod: string;
+  subtotal: number;
+  deliveryFee: number;
+  total: number;
+  items: StoreOrderItemAdmin[];
+  customer: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    address?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zipCode?: string | null;
+  };
+  bankDetails?: {
+    customerAccountName?: string | null;
+    customerBankName?: string | null;
+  };
+}
+
+export interface StoreOrdersPaginated {
+  data: StoreOrderAdmin[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/* =========================
    MISC
 ========================= */
 
