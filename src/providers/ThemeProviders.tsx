@@ -15,6 +15,25 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+const THEME_COOKIE = 'theme';
+
+const readThemeCookie = (): ThemeMode | null => {
+  if (typeof document === 'undefined') return null;
+  const cookie = document.cookie
+    .split('; ')
+    .find((entry) => entry.startsWith(`${THEME_COOKIE}=`));
+  if (!cookie) return null;
+  const value = decodeURIComponent(cookie.split('=')[1] || '');
+  if (value === 'light' || value === 'dark' || value === 'system') {
+    return value;
+  }
+  return null;
+};
+
+const writeThemeCookie = (theme: ThemeMode) => {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${THEME_COOKIE}=${encodeURIComponent(theme)}; Path=/; Max-Age=31536000; SameSite=Lax`;
+};
 
 export const useTheme = () => {
   const context = useContext(ThemeContext);
@@ -35,7 +54,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
 }) => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
     if (typeof window === 'undefined') return defaultTheme;
-    const saved = localStorage.getItem('theme') as ThemeMode | null;
+    const saved = readThemeCookie();
     if (defaultTheme !== 'system') return defaultTheme;
     return saved || defaultTheme;
   });
@@ -101,8 +120,8 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
       // Apply CSS variables
       applyCSSVariables(newResolvedTheme);
 
-      // Store preference
-      localStorage.setItem('theme', theme);
+      // Persist preference without using localStorage/sessionStorage.
+      writeThemeCookie(theme);
     };
 
     updateResolvedTheme();
