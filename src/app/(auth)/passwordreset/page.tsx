@@ -1,7 +1,7 @@
 // src/app/(auth)/passwordreset/page.tsx
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useForm, useWatch, type SubmitHandler } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -34,7 +34,7 @@ const schema = yup
   })
   .required();
 
-export default function PasswordResetPage() {
+function PasswordResetInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -347,5 +347,14 @@ export default function PasswordResetPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function PasswordResetPage() {
+  // Required by Next when using useSearchParams() in a client page.
+  return (
+    <Suspense fallback={null}>
+      <PasswordResetInner />
+    </Suspense>
   );
 }
