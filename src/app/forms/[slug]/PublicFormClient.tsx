@@ -485,17 +485,6 @@ async function fetchPublicFormClient(slug: string): Promise<PublicFormPayload | 
 }
 
 export default function PublicFormClient({ slug }: PublicFormClientProps) {
-  const cachedPayload = useMemo(() => {
-    if (typeof window === 'undefined' || !slug) return null;
-    try {
-      const raw = sessionStorage.getItem(`public-form:${slug}`);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw) as PublicFormPayload;
-      return parsed?.form ? parsed : null;
-    } catch {
-      return null;
-    }
-  }, [slug]);
   const [payload, setPayload] = useState<PublicFormPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
@@ -508,9 +497,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [values, setValues] = useState<ValuesState>(() =>
-    buildInitialValues(cachedPayload?.form?.fields ?? [])
-  );
+  const [values, setValues] = useState<ValuesState>(() => buildInitialValues([]));
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
   const [formError, setFormError] = useState('');
@@ -550,15 +537,6 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     },
     []
   );
-
-  useEffect(() => {
-    if (!payload || typeof window === 'undefined' || !slug) return;
-    try {
-      sessionStorage.setItem(`public-form:${slug}`, JSON.stringify(payload));
-    } catch {
-      // ignore storage errors
-    }
-  }, [payload, slug]);
 
   useEffect(() => {
     if (!slug) {
@@ -605,13 +583,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
         return;
       }
 
-      if (cachedPayload?.form) {
-        setPayload(cachedPayload);
-        resetFormState(cachedPayload.form.fields ?? []);
-        setLoadError('Showing the last saved version because the newest form could not be loaded.');
-      } else {
-        setLoadError('Unable to load this form right now. Please refresh and try again.');
-      }
+      setLoadError('Unable to load this form right now. Please refresh and try again.');
 
       setLoading(false);
       setRetrying(false);
@@ -623,7 +595,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
       alive = false;
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [cachedPayload, resetFormState, slug]);
+  }, [resetFormState, slug]);
 
   const valueToString = (value: FieldValue): string => {
     if (typeof value === 'string') return value.trim();

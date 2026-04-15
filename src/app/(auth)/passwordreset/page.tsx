@@ -8,7 +8,7 @@ import * as yup from 'yup';
 import { ArrowRight, CheckCircle, Lock, Mail, ShieldCheck } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 
 import { Footer } from '@/components/Footer';
@@ -34,14 +34,9 @@ const schema = yup
   })
   .required();
 
-const RESET_STORAGE = {
-  email: 'reset_email',
-  code: 'reset_otp',
-  purpose: 'reset_purpose',
-};
-
 export default function PasswordResetPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -70,24 +65,16 @@ export default function PasswordResetPage() {
   const newPassword = useWatch({ control, name: 'newPassword' });
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const storedEmail = sessionStorage.getItem(RESET_STORAGE.email) || '';
-    const storedCode = sessionStorage.getItem(RESET_STORAGE.code) || '';
-    const storedPurpose = sessionStorage.getItem(RESET_STORAGE.purpose) || 'password_reset';
+    const queryEmail = (searchParams.get('email') || '').trim().toLowerCase();
+    const queryCode = (searchParams.get('code') || '').trim();
+    const queryPurpose = (searchParams.get('purpose') || 'password_reset').trim();
 
-    if (storedEmail) setEmail(storedEmail);
-    if (storedCode) setCode(storedCode);
-    if (storedPurpose) setPurpose(storedPurpose);
+    if (queryEmail) setEmail(queryEmail);
+    if (queryCode) setCode(queryCode);
+    if (queryPurpose) setPurpose(queryPurpose);
 
-    setStep(storedEmail && storedCode ? 'reset' : 'verify');
-  }, []);
-
-  const clearResetSession = () => {
-    if (typeof window === 'undefined') return;
-    sessionStorage.removeItem(RESET_STORAGE.email);
-    sessionStorage.removeItem(RESET_STORAGE.code);
-    sessionStorage.removeItem(RESET_STORAGE.purpose);
-  };
+    setStep(queryEmail && queryCode ? 'reset' : 'verify');
+  }, [searchParams]);
 
   const handleVerifyOtp = async () => {
     const trimmedEmail = email.trim().toLowerCase();
@@ -110,12 +97,9 @@ export default function PasswordResetPage() {
         code: trimmedCode,
         purpose: 'password_reset',
       });
-
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem(RESET_STORAGE.email, trimmedEmail);
-        sessionStorage.setItem(RESET_STORAGE.code, trimmedCode);
-        sessionStorage.setItem(RESET_STORAGE.purpose, 'password_reset');
-      }
+      router.replace(
+        `/passwordreset?email=${encodeURIComponent(trimmedEmail)}&code=${encodeURIComponent(trimmedCode)}&purpose=password_reset`
+      );
 
       toast.success('Code verified. Set your new password.');
       setStep('reset');
@@ -172,7 +156,6 @@ export default function PasswordResetPage() {
         confirmPassword: data.confirmPassword,
       });
 
-      clearResetSession();
       reset();
       setStep('success');
       toast.success('Password updated successfully.');
@@ -349,7 +332,6 @@ export default function PasswordResetPage() {
                   variant="outline"
                   className="w-full"
                   onClick={() => {
-                    clearResetSession();
                     setEmail('');
                     setCode('');
                     setStep('verify');
