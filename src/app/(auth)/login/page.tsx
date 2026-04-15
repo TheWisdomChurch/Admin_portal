@@ -258,20 +258,19 @@ function LoginInner() {
       }
 
       if (forgotStep === 'otp') {
+        const trimmedEmail = forgotEmail.trim().toLowerCase();
+        const trimmedCode = forgotOtp.trim();
         await apiClient.verifyOtp({
-          email: forgotEmail.trim(),
-          code: forgotOtp.trim(),
+          email: trimmedEmail,
+          code: trimmedCode,
           purpose: 'password_reset',
         });
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('reset_email', forgotEmail.trim().toLowerCase());
-          sessionStorage.setItem('reset_otp', forgotOtp.trim());
-          sessionStorage.setItem('reset_purpose', 'password_reset');
-        }
         toast.success('Code verified. Set a new password.');
         setShowForgot(false);
         resetForgotState();
-        router.push('/passwordreset');
+        router.push(
+          `/passwordreset?email=${encodeURIComponent(trimmedEmail)}&code=${encodeURIComponent(trimmedCode)}&purpose=password_reset`
+        );
         return;
       }
     } catch (err) {

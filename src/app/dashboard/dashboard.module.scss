@@ -1,0 +1,491 @@
+@mixin panel-surface {
+  border: 1px solid color-mix(in srgb, var(--color-border-primary) 72%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-background-secondary) 94%, white 6%), color-mix(in srgb, var(--color-background-primary) 96%, transparent));
+  border-radius: 28px;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.dashboard {
+  display: grid;
+  gap: 1.5rem;
+  position: relative;
+  padding: clamp(1.25rem, 2vw, 2.25rem);
+  max-width: 1600px;
+  margin: 0 auto;
+  color: var(--color-text-primary);
+}
+
+.loadingShell {
+  min-height: 60vh;
+  display: grid;
+  place-items: center;
+  gap: 1rem;
+  color: var(--color-text-secondary);
+}
+
+.loadingOrb {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 999px;
+  border: 4px solid color-mix(in srgb, var(--color-border-primary) 85%, transparent);
+  border-top-color: var(--color-accent-primary);
+  animation: spin 0.85s linear infinite;
+}
+
+.hero {
+  @include panel-surface;
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1.7fr) minmax(20rem, 0.76fr);
+  overflow: hidden;
+  padding: clamp(1.75rem, 3vw, 3rem);
+  position: relative;
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.8), rgba(30, 41, 59, 0.95));
+  color: #ffffff;
+  box-shadow: 0 12px 32px rgba(8, 15, 29, 0.2);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: auto auto -10rem -6rem;
+    width: 18rem;
+    height: 18rem;
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.18), transparent 70%);
+    pointer-events: none;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -8rem -4rem auto auto;
+    width: 20rem;
+    height: 20rem;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.14), transparent 70%);
+    pointer-events: none;
+  }
+}
+
+.heroCopy,
+.heroPanel {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+}
+
+.heroCopy h1,
+.heroCopy p {
+  color: #fff;
+}
+
+.eyebrow,
+.panelKicker {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.eyebrow {
+  color: #9a3412;
+}
+
+.heroCopy {
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.1rem, 4vw, 3.6rem);
+    line-height: 1.05;
+    margin: 0.85rem 0 0;
+    max-width: 12ch;
+  }
+}
+
+.heroText {
+  color: var(--color-text-secondary);
+  font-size: 1rem;
+  line-height: 1.75;
+  margin: 1rem 0 0;
+  max-width: 60ch;
+}
+
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin-top: 1.6rem;
+}
+
+.primaryAction,
+.secondaryAction,
+.panelLink,
+.panelLinkStatic {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 0.5rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.primaryAction {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  color: #111827;
+  padding: 0.9rem 1.2rem;
+}
+
+.secondaryAction {
+  border: 1px solid color-mix(in srgb, var(--color-border-primary) 80%, transparent);
+  color: var(--color-text-primary);
+  padding: 0.9rem 1.2rem;
+}
+
+.heroPanel,
+.metricCard,
+.panel,
+.eventCard,
+.audienceCard,
+.campaignItem {
+  @include panel-surface;
+}
+
+.heroPanel {
+  align-content: start;
+  display: grid;
+  gap: 1rem;
+  padding: 1.3rem;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.heroMetric {
+  border-radius: 22px;
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--color-background-primary) 84%, transparent);
+
+  span {
+    color: var(--color-text-tertiary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+
+  strong {
+    font-size: 1.1rem;
+    line-height: 1.4;
+  }
+}
+
+.metricGrid,
+.storyGrid,
+.eventGrid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.quickActionsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.quickActionCard {
+  @include panel-surface;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem;
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.1), rgba(34, 211, 238, 0.1));
+  color: var(--color-text-primary);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  text-decoration: none;
+  transition: transform 240ms ease, border-color 240ms ease, box-shadow 240ms ease;
+
+  &:hover,
+  &:focus-visible {
+    transform: translateY(-2px);
+    border-color: rgba(253, 224, 71, 0.9);
+    box-shadow: 0 10px 30px rgba(30, 64, 175, 0.2);
+    outline: none;
+  }
+
+  p {
+    margin: 0;
+    font-weight: 700;
+  }
+
+  span {
+    color: var(--color-text-tertiary);
+    font-size: 0.86rem;
+  }
+}
+
+.metricGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.metricCard {
+  padding: 1.35rem;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--color-border-primary) 80%, transparent);
+  transition: transform 240ms ease, box-shadow 240ms ease, border-color 240ms ease;
+
+  &:hover,
+  &:focus-within {
+    transform: translateY(-3px);
+    border-color: rgba(251, 191, 36, 0.9);
+    box-shadow: 0 16px 28px rgba(15, 23, 42, 0.16);
+  }
+}
+
+.metricIcon {
+  align-items: center;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(249, 115, 22, 0.18));
+  border-radius: 18px;
+  color: #9a3412;
+  display: inline-flex;
+  height: 2.85rem;
+  justify-content: center;
+  width: 2.85rem;
+}
+
+.metricLabel {
+  color: var(--color-text-tertiary);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  margin: 1rem 0 0;
+  text-transform: uppercase;
+}
+
+.metricValue {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  margin-top: 0.45rem;
+}
+
+.metricHint,
+.metaLine,
+.eventMeta,
+.audienceMeta,
+.campaignItem p,
+.timelineItem p,
+.emptyState {
+  color: var(--color-text-tertiary);
+}
+
+.metricHint {
+  line-height: 1.7;
+  margin: 0.45rem 0 0;
+}
+
+.storyGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.panel {
+  padding: 1.35rem;
+}
+
+.panelHeader {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1.1rem;
+
+  h2 {
+    font-size: 1.25rem;
+    margin: 0.3rem 0 0;
+  }
+}
+
+.panelLink,
+.panelLinkStatic {
+  color: var(--color-text-secondary);
+}
+
+.panelLinkStatic {
+  background: color-mix(in srgb, var(--color-background-secondary) 85%, transparent);
+  padding: 0.55rem 0.85rem;
+}
+
+.audienceList,
+.campaignList,
+.categoryList {
+  display: grid;
+  gap: 1rem;
+}
+
+.audienceCard,
+.campaignItem,
+.eventCard {
+  padding: 1rem;
+}
+
+.audienceTop,
+.campaignHeader,
+.categoryMeta,
+.eventHeader,
+.timelineItem {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.audienceTop {
+  align-items: start;
+
+  h3 {
+    margin: 0;
+  }
+
+  p {
+    color: var(--color-text-tertiary);
+    margin: 0.35rem 0 0;
+  }
+
+  strong {
+    font-size: 1.45rem;
+  }
+}
+
+.progressTrack,
+.categoryTrack {
+  background: color-mix(in srgb, var(--color-background-tertiary) 88%, transparent);
+  border-radius: 999px;
+  height: 0.7rem;
+  margin-top: 0.9rem;
+  overflow: hidden;
+}
+
+.progressValue,
+.categoryValue {
+  background: linear-gradient(90deg, #f59e0b, #f97316);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+}
+
+.audienceMeta,
+.eventMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-top: 0.85rem;
+}
+
+.statusChip {
+  background: color-mix(in srgb, var(--color-background-tertiary) 88%, transparent);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.35rem 0.7rem;
+  text-transform: capitalize;
+
+  &[data-status='completed'],
+  &[data-status='upcoming'] {
+    background: rgba(16, 185, 129, 0.16);
+    color: #047857;
+  }
+
+  &[data-status='partial'],
+  &[data-status='happening'] {
+    background: rgba(245, 158, 11, 0.18);
+    color: #b45309;
+  }
+
+  &[data-status='failed'],
+  &[data-status='past'] {
+    background: rgba(239, 68, 68, 0.16);
+    color: #b91c1c;
+  }
+}
+
+.timeline {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.timelineItem {
+  align-items: start;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border-primary) 70%, transparent);
+  padding-bottom: 0.9rem;
+
+  &:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  h3 {
+    margin: 0;
+  }
+
+  p {
+    margin: 0.3rem 0 0;
+  }
+}
+
+.timelineDot,
+.eventIcon {
+  align-items: center;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.22), rgba(59, 130, 246, 0.18));
+  border-radius: 999px;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 2.25rem;
+  justify-content: center;
+  width: 2.25rem;
+}
+
+.eventGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.eventCard {
+  display: grid;
+  gap: 0.8rem;
+
+  h3,
+  p {
+    margin: 0;
+  }
+
+  p {
+    color: var(--color-text-secondary);
+    line-height: 1.75;
+  }
+}
+
+.emptyState {
+  line-height: 1.7;
+  margin: 0;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1200px) {
+  .metricGrid,
+  .eventGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .hero,
+  .storyGrid,
+  .eventGrid,
+  .metricGrid {
+    grid-template-columns: 1fr;
+  }
+}

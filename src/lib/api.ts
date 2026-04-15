@@ -59,6 +59,17 @@ import type {
   AdminNotificationInbox,
   TOTPSetupResponse,
   FormReportLinkPayload,
+  AdminEmailMarketingFormItem,
+  AdminEmailMarketingSummary,
+  AdminEmailAudiencePreview,
+  SendAdminComposeEmailRequest,
+  SendAdminComposeEmailResponse,
+  AdminEmailDeliveryHistoryItem,
+  StoreProductAdmin,
+  UpsertStoreProductRequest,
+  StoreOrdersPaginated,
+  StoreOrderAdmin,
+  StoreOrderStatus,
   MFAMethod,
 } from './types';
 
@@ -119,8 +130,8 @@ const UPLOAD_V1_BASE_URL = USE_API_PROXY
       '[api] Missing NEXT_PUBLIC_UPLOAD_BASE_URL or API origin while NEXT_PUBLIC_API_PROXY=false.'
     )}/api/v1`;
 
-const AUTH_USER_KEY = 'wisdomhouse_auth_user';
-const AUTH_REMEMBER_KEY = 'wisdomhouse_auth_remember';
+let authUserCache: User | null = null;
+let authRememberPreference = false;
 
 /* ============================================================================
    Error Utilities (WITH validationErrors)
@@ -401,53 +412,25 @@ function sanitizeFormPayload<T extends CreateFormRequest | UpdateFormRequest>(pa
 ============================================================================ */
 
 export function getAuthUser(): User | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const stored =
-      localStorage.getItem(AUTH_USER_KEY) ??
-      sessionStorage.getItem(AUTH_USER_KEY);
-    return stored ? (JSON.parse(stored) as User) : null;
-  } catch {
-    clearAuthStorage();
-    return null;
-  }
+  return authUserCache;
 }
 
 export function setAuthUser(user: User, rememberMe = false): void {
-  if (typeof window === 'undefined') return;
-  const targetStorage = rememberMe ? localStorage : sessionStorage;
-  const otherStorage = rememberMe ? sessionStorage : localStorage;
-  otherStorage.removeItem(AUTH_USER_KEY);
-  targetStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  authUserCache = user;
+  authRememberPreference = !!rememberMe;
 }
 
 export function getAuthRememberPreference(): boolean {
-  if (typeof window === 'undefined') return false;
-  if (localStorage.getItem(AUTH_REMEMBER_KEY) === '1') return true;
-  if (sessionStorage.getItem(AUTH_REMEMBER_KEY) === '0') return false;
-  return false;
+  return authRememberPreference;
 }
 
 export function setAuthRememberPreference(rememberMe: boolean): void {
-  if (typeof window === 'undefined') return;
-
-  if (rememberMe) {
-    localStorage.setItem(AUTH_REMEMBER_KEY, '1');
-    sessionStorage.removeItem(AUTH_REMEMBER_KEY);
-    return;
-  }
-
-  localStorage.removeItem(AUTH_REMEMBER_KEY);
-  sessionStorage.setItem(AUTH_REMEMBER_KEY, '0');
+  authRememberPreference = !!rememberMe;
 }
 
 export function clearAuthStorage(): void {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem(AUTH_USER_KEY);
-  sessionStorage.removeItem(AUTH_USER_KEY);
-  localStorage.removeItem(AUTH_REMEMBER_KEY);
-  sessionStorage.removeItem(AUTH_REMEMBER_KEY);
-  sessionStorage.removeItem('redirect_after_login');
+  authUserCache = null;
+  authRememberPreference = false;
 }
 
 /* ============================================================================
@@ -1171,6 +1154,48 @@ export const apiClient = {
     return unwrapData<FormStatsResponse>(res, 'Invalid form stats payload');
   },
 
+  async getEmailMarketingSummary(): Promise<AdminEmailMarketingSummary> {
+    const res = await apiFetch<ApiResponse<AdminEmailMarketingSummary>>('/admin/email/marketing/summary', { method: 'GET' });
+    return unwrapData<AdminEmailMarketingSummary>(res, 'Invalid email marketing summary payload');
+  },
+
+  async listEmailMarketingForms(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<AdminEmailMarketingFormItem>> {
+    const qs = toQueryString(params);
+    const res = await apiFetch(`/admin/email/marketing/forms${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<AdminEmailMarketingFormItem>(res, 'Invalid email marketing forms payload');
+  },
+
+  async previewEmailMarketingAudience(formIds: string[], limit = 25): Promise<AdminEmailAudiencePreview> {
+    const params = new URLSearchParams();
+    formIds.forEach((formId) => {
+      const normalized = formId.trim();
+      if (normalized) params.append('formIds', normalized);
+    });
+    if (limit > 0) {
+      params.set('limit', String(limit));
+    }
+    const qs = params.toString();
+    const res = await apiFetch<ApiResponse<AdminEmailAudiencePreview>>(
+      `/admin/email/marketing/audience/preview${qs ? `?${qs}` : ''}`,
+      { method: 'GET' }
+    );
+    return unwrapData<AdminEmailAudiencePreview>(res, 'Invalid email marketing audience preview payload');
+  },
+
+  async sendAdminComposeEmail(payload: SendAdminComposeEmailRequest): Promise<SendAdminComposeEmailResponse> {
+    const res = await apiFetch<ApiResponse<SendAdminComposeEmailResponse>>('/admin/email/compose/send', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<SendAdminComposeEmailResponse>(res, 'Invalid admin compose email payload');
+  },
+
+  async listAdminComposeHistory(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<AdminEmailDeliveryHistoryItem>> {
+    const qs = toQueryString(params);
+    const res = await apiFetch(`/admin/email/compose/history${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<AdminEmailDeliveryHistoryItem>(res, 'Invalid admin compose history payload');
+  },
+
   /* ===================== FORMS (PUBLIC) ===================== */
 
   async getPublicForm(slug: string): Promise<PublicFormPayload> {
@@ -1361,6 +1386,72 @@ export const apiClient = {
       method: 'POST',
     });
     return unwrapData<LeadershipMember>(res, 'Invalid leadership decline payload');
+  },
+
+  /* ===================== STORE ===================== */
+
+  async listStoreProductsAdmin(includeInactive = true): Promise<StoreProductAdmin[]> {
+    const qs = toQueryString({ includeInactive });
+    const res = await apiFetch<ApiResponse<StoreProductAdmin[]> | StoreProductAdmin[]>(`/admin/store/products${qs}`, {
+      method: 'GET',
+    });
+    if (Array.isArray(res)) return res;
+    const payload = unwrapData<unknown>(res, 'Invalid store products payload');
+    if (Array.isArray(payload)) return payload as StoreProductAdmin[];
+    if (isRecord(payload) && Array.isArray(payload.data)) return payload.data as StoreProductAdmin[];
+    return [];
+  },
+
+  async createStoreProduct(payload: UpsertStoreProductRequest): Promise<StoreProductAdmin> {
+    const res = await apiFetch<ApiResponse<StoreProductAdmin>>('/admin/store/products', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<StoreProductAdmin>(res, 'Invalid store product payload');
+  },
+
+  async updateStoreProduct(id: number, payload: UpsertStoreProductRequest): Promise<StoreProductAdmin> {
+    const res = await apiFetch<ApiResponse<StoreProductAdmin>>(`/admin/store/products/${encodeURIComponent(String(id))}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<StoreProductAdmin>(res, 'Invalid store product payload');
+  },
+
+  async updateStoreProductStock(id: number, stock: number): Promise<StoreProductAdmin> {
+    const res = await apiFetch<ApiResponse<StoreProductAdmin>>(`/admin/store/products/${encodeURIComponent(String(id))}/stock`, {
+      method: 'PATCH',
+      body: JSON.stringify({ stock }),
+    });
+    return unwrapData<StoreProductAdmin>(res, 'Invalid store stock payload');
+  },
+
+  async updateStoreProductActive(id: number, isActive: boolean): Promise<StoreProductAdmin> {
+    const res = await apiFetch<ApiResponse<StoreProductAdmin>>(`/admin/store/products/${encodeURIComponent(String(id))}/active`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isActive }),
+    });
+    return unwrapData<StoreProductAdmin>(res, 'Invalid store product active payload');
+  },
+
+  async listStoreOrders(params?: {
+    page?: number;
+    limit?: number;
+    status?: StoreOrderStatus | '';
+  }): Promise<StoreOrdersPaginated> {
+    const qs = toQueryString(params || {});
+    const res = await apiFetch<ApiResponse<StoreOrdersPaginated> | StoreOrdersPaginated>(`/admin/store/orders${qs}`, {
+      method: 'GET',
+    });
+    return unwrapData<StoreOrdersPaginated>(res, 'Invalid store orders payload');
+  },
+
+  async updateStoreOrderStatus(orderId: string, status: StoreOrderStatus): Promise<StoreOrderAdmin> {
+    const res = await apiFetch<ApiResponse<StoreOrderAdmin>>(`/admin/store/orders/${encodeURIComponent(orderId)}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+    return unwrapData<StoreOrderAdmin>(res, 'Invalid store order status payload');
   },
 
   /* ===================== WORKFORCE (BIRTHDAYS) ===================== */
