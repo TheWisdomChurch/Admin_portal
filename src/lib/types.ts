@@ -827,6 +827,7 @@ export interface WorkforceMember {
   email?: string;
   phone?: string;
   department: string;
+  sourceChannel?: string;
   status: WorkforceStatus;
   notes?: string;
   birthdayMonth?: number;
@@ -912,6 +913,8 @@ export interface WorkforceStatsResponse {
   total: number;
   byStatus: Record<string, number>;
   byDepartment: Record<string, number>;
+  bySource?: Record<string, number>;
+  frontendByDepartment?: Record<string, number>;
   byDeptAndStatus: WorkforceBucket[];
 }
 
