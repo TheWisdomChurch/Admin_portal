@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCw, Save, Sparkles, MessageSquareText, HeartHandshake, HandCoins } from 'lucide-react';
+import { RefreshCw, Save, Sparkles, MessageSquareText, HeartHandshake, HandCoins, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
@@ -9,6 +9,7 @@ import { PageHeader } from '@/layouts';
 import apiClient from '@/lib/api';
 import type {
   ConfessionPopupContent,
+  EmailTemplate,
   GivingIntentAdmin,
   HomepageAdContent,
   PastoralCareRequestAdmin,
@@ -38,6 +39,37 @@ const defaultConfession: ConfessionPopupContent = {
     'We begin to prosper, we continue to prosper, until we become very prosperous.',
   motto: 'We begin to prosper, we continue to prosper, until we become very prosperous.',
 };
+
+const AUTOMATION_TEMPLATE_DEFS = [
+  {
+    key: 'pastoral_care_request_confirmation',
+    title: 'Pastoral Care Confirmation',
+    subject: 'Pastoral care request received',
+    htmlBody:
+      '<h2>Pastoral Care Request Received</h2><p>Hello {{.RecipientName}}, we have received your request.</p><p>Reference: <strong>{{.ReferenceID}}</strong></p><p>Request type: {{.EventType}}</p><p>Date: {{.EventDate}}</p>',
+  },
+  {
+    key: 'giving_intent_confirmation',
+    title: 'Giving Intent Confirmation',
+    subject: 'Giving request received',
+    htmlBody:
+      '<h2>Giving Request Received</h2><p>Hello {{.RecipientName}}, thank you for your willingness to give.</p><p>Reference: <strong>{{.ReferenceID}}</strong></p><p>Category: {{.Title}}</p>',
+  },
+  {
+    key: 'workforce_application_confirmation',
+    title: 'Workforce Application Confirmation',
+    subject: 'Workforce registration received',
+    htmlBody:
+      '<h2>Workforce Registration Received</h2><p>Hello {{.RecipientName}}, your workforce application has been received.</p><p>Reference: <strong>{{.ReferenceID}}</strong></p><p>Department: {{.Department}}</p><p>Status: {{.StatusLabel}}</p>',
+  },
+  {
+    key: 'workforce_serving_confirmation',
+    title: 'Workforce Serving Confirmation',
+    subject: 'Workforce serving profile received',
+    htmlBody:
+      '<h2>Serving Profile Received</h2><p>Hello {{.RecipientName}}, your serving profile has been recorded.</p><p>Reference: <strong>{{.ReferenceID}}</strong></p><p>Department: {{.Department}}</p><p>Status: {{.StatusLabel}}</p>',
+  },
+] as const;
 
 function asArray<T>(value: unknown): T[] {
   if (Array.isArray(value)) return value as T[];
@@ -82,6 +114,32 @@ export default function ContentPage() {
   const [loading, setLoading] = useState(false);
   const [savingAd, setSavingAd] = useState(false);
   const [savingConfession, setSavingConfession] = useState(false);
+  const [templateStatus, setTemplateStatus] = useState<Record<string, { id?: string; active: boolean; version?: number }>>({});
+  const [syncingTemplates, setSyncingTemplates] = useState(false);
+  const [templateBusyKey, setTemplateBusyKey] = useState<string | null>(null);
+
+  const loadTemplateStatus = useCallback(async () => {
+    const rows = await Promise.all(
+      AUTOMATION_TEMPLATE_DEFS.map(async (def) => {
+        const response = await apiClient.listAdminEmailTemplates({ templateKey: def.key, limit: 20 });
+        const templates = asArray<EmailTemplate>(response);
+        const active = templates.find((item) => item.isActive) || null;
+        const latest = templates[0] || null;
+        return {
+          key: def.key,
+          id: active?.id ?? latest?.id,
+          active: Boolean(active),
+          version: active?.version ?? latest?.version,
+        };
+      })
+    );
+
+    const next: Record<string, { id?: string; active: boolean; version?: number }> = {};
+    rows.forEach((row) => {
+      next[row.key] = { id: row.id, active: row.active, version: row.version };
+    });
+    setTemplateStatus(next);
+  }, []);
 
   const loadContent = useCallback(async () => {
     setLoading(true);
@@ -92,6 +150,7 @@ export default function ContentPage() {
         apiClient.getConfessionPopupContent(),
         apiClient.listPastoralCareRequests({ page: 1, limit: 10 }),
         apiClient.listGivingIntents({ page: 1, limit: 10 }),
+        loadTemplateStatus(),
       ]);
 
       setHomepageAd({ ...defaultHomepageAd, ...adRes });
@@ -144,6 +203,56 @@ export default function ContentPage() {
     }),
     [pastoralRequests.length, givingIntents.length]
   );
+
+  const ensureTemplate = async (key: string) => {
+    const def = AUTOMATION_TEMPLATE_DEFS.find((item) => item.key === key);
+    if (!def) return;
+
+    setTemplateBusyKey(key);
+    try {
+      const listResponse = await apiClient.listAdminEmailTemplates({ templateKey: key, limit: 20 });
+      const templates = asArray<EmailTemplate>(listResponse);
+      const active = templates.find((item) => item.isActive);
+
+      if (active) {
+        toast.success(`${def.title} already active.`);
+        return;
+      }
+
+      if (templates.length === 0) {
+        await apiClient.createAdminEmailTemplate({
+          templateKey: def.key,
+          subject: def.subject,
+          htmlBody: def.htmlBody,
+          status: 'active',
+          activate: true,
+        });
+      } else {
+        await apiClient.activateAdminEmailTemplate(templates[0].id);
+      }
+
+      await loadTemplateStatus();
+      toast.success(`${def.title} activated.`);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, `Failed to activate ${def.title}`));
+    } finally {
+      setTemplateBusyKey(null);
+    }
+  };
+
+  const ensureAllTemplates = async () => {
+    setSyncingTemplates(true);
+    try {
+      for (const def of AUTOMATION_TEMPLATE_DEFS) {
+        // eslint-disable-next-line no-await-in-loop
+        await ensureTemplate(def.key);
+      }
+      await loadTemplateStatus();
+      toast.success('Automation templates synchronized.');
+    } finally {
+      setSyncingTemplates(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -349,6 +458,50 @@ export default function ContentPage() {
           </div>
         </Card>
       </div>
+
+      <Card
+        title="Automation Email Templates"
+        actions={
+          <Button
+            icon={<ShieldCheck className="h-4 w-4" />}
+            onClick={() => void ensureAllTemplates()}
+            loading={syncingTemplates}
+          >
+            Activate Required Templates
+          </Button>
+        }
+      >
+        <div className="space-y-3">
+          {AUTOMATION_TEMPLATE_DEFS.map((def) => {
+            const state = templateStatus[def.key];
+            const isActive = Boolean(state?.active);
+            return (
+              <div
+                key={def.key}
+                className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] p-3"
+              >
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{def.title}</p>
+                    <p className="text-xs text-[var(--color-text-tertiary)]">{def.key}</p>
+                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                      Status: {isActive ? 'Active' : 'Missing/Inactive'} {state?.version ? `• v${state.version}` : ''}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={isActive ? 'secondary' : 'primary'}
+                    onClick={() => void ensureTemplate(def.key)}
+                    loading={templateBusyKey === def.key}
+                  >
+                    {isActive ? 'Re-check' : 'Activate'}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
     </div>
   );
 }

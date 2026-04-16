@@ -1,6 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import clsx from 'clsx';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
@@ -8,173 +10,204 @@ import { Input } from '@/ui/input';
 import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
 import { useDashboardSearch } from '@/hooks/useDashboardSearch';
-import { BarChart3, CheckCircle, Clock, Filter, RefreshCcw, Search, Send, TicketX } from 'lucide-react';
+import { apiClient } from '@/lib/api';
+import type {
+  ApprovalRequest,
+  ApprovalRequestStatus,
+  ApprovalRequestType,
+  ApprovalRequestsTimeline,
+} from '@/lib/types';
+import { Activity, CheckCircle2, Clock3, Filter, RefreshCcw, Search } from 'lucide-react';
+import toast from 'react-hot-toast';
 
-type RequestCategory = 'access' | 'report' | 'event' | 'budget';
-type RequestStatus = 'open' | 'in_review' | 'closed';
-type RequestPriority = 'high' | 'medium' | 'low';
-
-interface RequestItem {
-  id: string;
-  title: string;
-  owner: string;
-  category: RequestCategory;
-  status: RequestStatus;
-  priority: RequestPriority;
-  submittedAt: string;
-  summary: string;
-}
-
-const defaultRequests: RequestItem[] = [
-  {
-    id: 'req-001',
-    title: 'Approve event collaboration',
-    owner: 'Lola James',
-    category: 'event',
-    status: 'open',
-    priority: 'high',
-    submittedAt: new Date().toISOString(),
-    summary: 'Requesting approval to co-host the Easter outreach with media team support.',
-  },
-  {
-    id: 'req-002',
-    title: 'Budget top-up for sound',
-    owner: 'Emeka Obi',
-    category: 'budget',
-    status: 'in_review',
-    priority: 'medium',
-    submittedAt: new Date(Date.now() - 1000 * 60 * 60 * 18).toISOString(),
-    summary: 'Need ₦250,000 additional funds for hired speakers due to higher turnout.',
-  },
-  {
-    id: 'req-003',
-    title: 'Analytics export',
-    owner: 'Bisola Adeyemi',
-    category: 'report',
-    status: 'open',
-    priority: 'low',
-    submittedAt: new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString(),
-    summary: 'Export attendee breakdown for Q1 report and attach to board deck.',
-  },
-  {
-    id: 'req-004',
-    title: 'Access to approvals dashboard',
-    owner: 'John Mensah',
-    category: 'access',
-    status: 'closed',
-    priority: 'low',
-    submittedAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-    summary: 'Needs read-only access for compliance audit scheduled next week.',
-  },
-  {
-    id: 'req-005',
-    title: 'Volunteer training session',
-    owner: 'Seyi Babalola',
-    category: 'event',
-    status: 'in_review',
-    priority: 'high',
-    submittedAt: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
-    summary: 'Schedule training for 12 new volunteers and request projector booking.',
-  },
-];
-
-const priorityWeight: Record<RequestPriority, number> = {
-  high: 3,
-  medium: 2,
-  low: 1,
+const typeLabel: Record<ApprovalRequestType, string> = {
+  testimonial: 'Testimonial',
+  event: 'Event',
+  admin_user: 'Admin Access',
 };
 
+const statusVariant: Record<ApprovalRequestStatus, 'warning' | 'success' | 'danger'> = {
+  pending: 'warning',
+  approved: 'success',
+  deleted: 'danger',
+};
+
+function fallbackMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return fallback;
+}
+
+function openPathByType(type: ApprovalRequestType): string {
+  if (type === 'testimonial') return '/dashboard/testimonials';
+  if (type === 'event') return '/dashboard/event';
+  return '/dashboard';
+}
+
 function RequestsPage() {
+  const router = useRouter();
   const { searchTerm, setSearchTerm } = useDashboardSearch('');
-  const [requests, setRequests] = useState<RequestItem[]>(defaultRequests);
-  const [categoryFilter, setCategoryFilter] = useState<'all' | RequestCategory>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | RequestStatus>('all');
-  const [sortBy, setSortBy] = useState<'recent' | 'priority' | 'owner'>('recent');
+  const [loading, setLoading] = useState(false);
+  const [requests, setRequests] = useState<ApprovalRequest[]>([]);
+  const [timeline, setTimeline] = useState<ApprovalRequestsTimeline | null>(null);
+  const [typeFilter, setTypeFilter] = useState<'all' | ApprovalRequestType>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | ApprovalRequestStatus>('all');
+  const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'requester'>('recent');
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [requestsRes, timelineRes] = await Promise.all([
+        apiClient.listApprovalRequests({ limit: 120 }),
+        apiClient.getApprovalRequestsTimeline(14),
+      ]);
+      setRequests(Array.isArray(requestsRes) ? requestsRes : []);
+      setTimeline(timelineRes);
+    } catch (error: unknown) {
+      toast.error(fallbackMessage(error, 'Failed to load super-admin requests.'));
+      setRequests([]);
+      setTimeline(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   const filteredRequests = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
-
+    const query = searchTerm.trim().toLowerCase();
     return requests
-      .filter((item) => (categoryFilter === 'all' ? true : item.category === categoryFilter))
+      .filter((item) => (typeFilter === 'all' ? true : item.type === typeFilter))
       .filter((item) => (statusFilter === 'all' ? true : item.status === statusFilter))
       .filter((item) => {
-        if (!normalizedSearch) return true;
-        const haystack = `${item.title} ${item.owner} ${item.summary}`.toLowerCase();
-        return haystack.includes(normalizedSearch);
+        if (!query) return true;
+        const haystack = `${item.ticketCode} ${item.entityLabel ?? ''} ${item.requestedByName ?? ''} ${item.requestedByEmail ?? ''}`.toLowerCase();
+        return haystack.includes(query);
       })
       .sort((a, b) => {
-        if (sortBy === 'owner') return a.owner.localeCompare(b.owner);
-        if (sortBy === 'priority') return priorityWeight[b.priority] - priorityWeight[a.priority];
-        return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+        if (sortBy === 'requester') {
+          return (a.requestedByName || a.requestedByEmail || '').localeCompare(
+            b.requestedByName || b.requestedByEmail || ''
+          );
+        }
+        if (sortBy === 'oldest') {
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
-  }, [categoryFilter, requests, searchTerm, sortBy, statusFilter]);
+  }, [requests, searchTerm, sortBy, statusFilter, typeFilter]);
 
-  const updateStatus = (id: string, status: RequestStatus) => {
-    setRequests((prev) => prev.map((req) => (req.id === id ? { ...req, status } : req)));
-  };
+  const timelinePoints = useMemo(() => {
+    if (!timeline) return [];
+    const approvedByDay = new Map<string, number>(
+      timeline.approved.map((item) => [new Date(item.day).toISOString().slice(0, 10), item.count])
+    );
+    return timeline.created.map((item) => {
+      const key = new Date(item.day).toISOString().slice(0, 10);
+      return {
+        day: key,
+        created: item.count,
+        approved: approvedByDay.get(key) || 0,
+      };
+    });
+  }, [timeline]);
+
+  const timelineMax = useMemo(() => {
+    return Math.max(1, ...timelinePoints.map((item) => Math.max(item.created, item.approved)));
+  }, [timelinePoints]);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Requests"
-        subtitle="Track every super-admin request separately from approvals."
+        subtitle="Live super-admin request stream from approval tickets and workflow events."
         actions={
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" className="text-xs px-3" onClick={() => setSearchTerm('')}>
               Clear search
             </Button>
-            <Button variant="outline" size="sm" className="text-xs px-3" onClick={() => setRequests(defaultRequests)}>
+            <Button variant="outline" size="sm" className="text-xs px-3" onClick={() => void loadData()} loading={loading}>
               <RefreshCcw className="h-4 w-4 mr-2" />
-              Reset queue
+              Refresh
             </Button>
           </div>
         }
       />
 
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Total tickets</p>
+          <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{requests.length}</p>
+        </Card>
+        <Card>
+          <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending</p>
+          <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">
+            {requests.filter((item) => item.status === 'pending').length}
+          </p>
+        </Card>
+        <Card>
+          <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Approved</p>
+          <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">
+            {requests.filter((item) => item.status === 'approved').length}
+          </p>
+        </Card>
+      </div>
+
+      <Card title="Request Timeline" actions={<Activity className="h-4 w-4 text-[var(--color-text-tertiary)]" />}>
+        {timelinePoints.length === 0 ? (
+          <p className="text-sm text-[var(--color-text-tertiary)]">No timeline data yet.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-7">
+            {timelinePoints.map((point) => {
+              const createdHeight = Math.max(8, Math.round((point.created / timelineMax) * 70));
+              const approvedHeight = Math.max(8, Math.round((point.approved / timelineMax) * 70));
+              return (
+                <div key={point.day} className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] p-3">
+                  <p className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">{point.day.slice(5)}</p>
+                  <div className="mt-2 flex h-20 items-end gap-2">
+                    <div className="w-3 rounded-sm bg-amber-400/80" style={{ height: `${createdHeight}px` }} title={`Created: ${point.created}`} />
+                    <div className="w-3 rounded-sm bg-emerald-400/80" style={{ height: `${approvedHeight}px` }} title={`Approved: ${point.approved}`} />
+                  </div>
+                  <p className="mt-2 text-[10px] text-[var(--color-text-tertiary)]">C:{point.created} • A:{point.approved}</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
       <Card>
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              className="text-xs px-3"
-              variant={categoryFilter === 'all' ? 'primary' : 'ghost'}
-              icon={<Filter className="h-4 w-4" />}
-              onClick={() => setCategoryFilter('all')}
-            >
+            <Button size="sm" className="text-xs px-3" variant={typeFilter === 'all' ? 'primary' : 'ghost'} icon={<Filter className="h-4 w-4" />} onClick={() => setTypeFilter('all')}>
               All
             </Button>
-            <Button size="sm" className="text-xs px-3" variant={categoryFilter === 'event' ? 'primary' : 'ghost'} onClick={() => setCategoryFilter('event')}>
+            <Button size="sm" className="text-xs px-3" variant={typeFilter === 'event' ? 'primary' : 'ghost'} onClick={() => setTypeFilter('event')}>
               Events
             </Button>
-            <Button size="sm" className="text-xs px-3" variant={categoryFilter === 'report' ? 'primary' : 'ghost'} onClick={() => setCategoryFilter('report')}>
-              Reports
+            <Button size="sm" className="text-xs px-3" variant={typeFilter === 'testimonial' ? 'primary' : 'ghost'} onClick={() => setTypeFilter('testimonial')}>
+              Testimonials
             </Button>
-            <Button size="sm" className="text-xs px-3" variant={categoryFilter === 'budget' ? 'primary' : 'ghost'} onClick={() => setCategoryFilter('budget')}>
-              Budget
+            <Button size="sm" className="text-xs px-3" variant={typeFilter === 'admin_user' ? 'primary' : 'ghost'} onClick={() => setTypeFilter('admin_user')}>
+              Admin Access
             </Button>
-            <Button size="sm" className="text-xs px-3" variant={categoryFilter === 'access' ? 'primary' : 'ghost'} onClick={() => setCategoryFilter('access')}>
-              Access
+
+            <Button size="sm" className="text-xs px-3" variant={statusFilter === 'pending' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('pending')}>
+              Pending
             </Button>
-            <Button size="sm" className="text-xs px-3" variant={statusFilter === 'open' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('open')}>
-              Open
+            <Button size="sm" className="text-xs px-3" variant={statusFilter === 'approved' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('approved')}>
+              Approved
             </Button>
-            <Button size="sm" className="text-xs px-3" variant={statusFilter === 'in_review' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('in_review')}>
-              Review
-            </Button>
-            <Button size="sm" className="text-xs px-3" variant={statusFilter === 'closed' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('closed')}>
-              Closed
+            <Button size="sm" className="text-xs px-3" variant={statusFilter === 'deleted' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('deleted')}>
+              Deleted
             </Button>
           </div>
 
-          <div className="flex items-center gap-2 w-full md:w-96">
+          <div className="flex items-center gap-2 w-full md:w-[28rem]">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
-              <Input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search requests..."
-                className="pl-10"
-              />
+              <Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search by ticket, requester, label..." className="pl-10" />
             </div>
             <select
               value={sortBy}
@@ -182,91 +215,67 @@ function RequestsPage() {
               className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs md:text-sm"
             >
               <option value="recent">Newest</option>
-              <option value="priority">Priority</option>
-              <option value="owner">Owner</option>
+              <option value="oldest">Oldest</option>
+              <option value="requester">Requester</option>
             </select>
           </div>
         </div>
 
         <div className="mt-4 space-y-3">
-          {filteredRequests.map((req) => (
-            <div
-              key={req.id}
-              className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
-            >
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">{req.title}</p>
-                  <Badge variant="outline" size="sm">{req.category}</Badge>
-                  <Badge
-                    variant={req.priority === 'high' ? 'danger' : req.priority === 'medium' ? 'warning' : 'secondary'}
-                    size="sm"
-                  >
-                    {req.priority} priority
-                  </Badge>
-                  <Badge
-                    variant={req.status === 'closed' ? 'success' : req.status === 'in_review' ? 'info' : 'warning'}
-                    size="sm"
-                  >
-                    {req.status.replace('_', ' ')}
-                  </Badge>
+          {filteredRequests.length === 0 ? (
+            <p className="text-sm text-[var(--color-text-tertiary)]">No requests match these filters.</p>
+          ) : (
+            filteredRequests.map((req) => (
+              <div
+                key={req.id}
+                className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4"
+              >
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div className="space-y-1.5 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">{req.ticketCode}</p>
+                      <Badge variant="outline" size="sm">{typeLabel[req.type]}</Badge>
+                      <Badge variant={statusVariant[req.status]} size="sm">{req.status}</Badge>
+                    </div>
+                    <p className="text-sm text-[var(--color-text-secondary)] truncate">{req.entityLabel || 'No label provided'}</p>
+                    <p className="text-xs text-[var(--color-text-tertiary)] flex items-center gap-2">
+                      <Clock3 className="h-3.5 w-3.5" />
+                      {new Date(req.createdAt).toLocaleString()}
+                    </p>
+                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                      Requested by: {req.requestedByName || req.requestedByEmail || 'System'}
+                    </p>
+                    {req.approvedAt && (
+                      <p className="text-xs text-emerald-500 flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Approved {new Date(req.approvedAt).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className={clsx('text-xs px-3')}
+                      onClick={() => router.push(openPathByType(req.type))}
+                    >
+                      Open Related
+                    </Button>
+                    {req.entityId && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs px-3"
+                        onClick={() => setSearchTerm(req.entityId || '')}
+                      >
+                        Track ID
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <p className="text-[11px] md:text-xs text-[var(--color-text-tertiary)] flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  {new Date(req.submittedAt).toLocaleString()} • Owner: {req.owner}
-                </p>
-                <p className="text-sm md:text-base text-[var(--color-text-secondary)]">{req.summary}</p>
               </div>
-
-              <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="text-xs px-3"
-                  onClick={() => updateStatus(req.id, 'in_review')}
-                  icon={<BarChart3 className="h-4 w-4" />}
-                >
-                  Review
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs px-3"
-                  onClick={() => updateStatus(req.id, 'closed')}
-                  icon={<CheckCircle className="h-4 w-4" />}
-                >
-                  Close
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-xs px-3"
-                  onClick={() => updateStatus(req.id, 'open')}
-                  icon={<TicketX className="h-4 w-4" />}
-                >
-                  Reopen
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {filteredRequests.length === 0 && (
-          <p className="text-sm text-[var(--color-text-tertiary)]">No requests match these filters.</p>
-        )}
-      </Card>
-
-      <Card title="Quick actions">
-        <div className="flex flex-wrap gap-3">
-          <Button variant="primary" size="sm" className="text-xs px-3" icon={<Send className="h-4 w-4" />}>
-            Follow-up
-          </Button>
-          <Button variant="secondary" size="sm" className="text-xs px-3" icon={<BarChart3 className="h-4 w-4" />}>
-            Analytics
-          </Button>
-          <Button variant="outline" size="sm" className="text-xs px-3" icon={<RefreshCcw className="h-4 w-4" />} onClick={() => setRequests(defaultRequests)}>
-            Reload
-          </Button>
+            ))
+          )}
         </div>
       </Card>
     </div>
@@ -274,3 +283,4 @@ function RequestsPage() {
 }
 
 export default withAuth(RequestsPage, { requiredRole: 'super_admin' });
+
