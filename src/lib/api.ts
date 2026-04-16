@@ -65,6 +65,10 @@ import type {
   SendAdminComposeEmailRequest,
   SendAdminComposeEmailResponse,
   AdminEmailDeliveryHistoryItem,
+  HomepageAdContent,
+  ConfessionPopupContent,
+  PastoralCareRequestAdmin,
+  GivingIntentAdmin,
   StoreProductAdmin,
   UpsertStoreProductRequest,
   StoreOrdersPaginated,
@@ -1273,6 +1277,44 @@ export const apiClient = {
       body: JSON.stringify(payload),
     });
     return unwrapData<VerifyOTPResponse>(res, 'Invalid OTP verify response');
+  },
+
+  /* ===================== CONTENT ===================== */
+
+  async getHomepageAdContent(): Promise<HomepageAdContent> {
+    const res = await apiFetch<ApiResponse<HomepageAdContent>>('/admin/content/homepage-ad', { method: 'GET' });
+    return unwrapData<HomepageAdContent>(res, 'Invalid homepage ad content payload');
+  },
+
+  async updateHomepageAdContent(payload: HomepageAdContent): Promise<HomepageAdContent> {
+    const res = await apiFetch<ApiResponse<HomepageAdContent>>('/admin/content/homepage-ad', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<HomepageAdContent>(res, 'Invalid homepage ad content payload');
+  },
+
+  async getConfessionPopupContent(): Promise<ConfessionPopupContent> {
+    const res = await apiFetch<ApiResponse<ConfessionPopupContent>>('/admin/content/confession-popup', { method: 'GET' });
+    return unwrapData<ConfessionPopupContent>(res, 'Invalid confession popup content payload');
+  },
+
+  async updateConfessionPopupContent(payload: ConfessionPopupContent): Promise<ConfessionPopupContent> {
+    const res = await apiFetch<ApiResponse<ConfessionPopupContent>>('/admin/content/confession-popup', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<ConfessionPopupContent>(res, 'Invalid confession popup content payload');
+  },
+
+  async listPastoralCareRequests(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<PastoralCareRequestAdmin>> {
+    const qs = toQueryString(params);
+    return apiFetch(`/admin/pastoral-care/requests${qs}`, { method: 'GET' });
+  },
+
+  async listGivingIntents(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<GivingIntentAdmin>> {
+    const qs = toQueryString(params);
+    return apiFetch(`/admin/giving/intents${qs}`, { method: 'GET' });
   },
 
   /* ===================== WORKFORCE ===================== */
