@@ -26,6 +26,7 @@ import type {
   LeadershipRole,
   Member,
   WorkforceMember,
+  WorkforceStatsResponse,
 } from '@/lib/types';
 
 type TabKey = 'workforce' | 'members' | 'leadership';
@@ -94,6 +95,7 @@ export default function AdministrationPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('workforce');
 
   const [workforce, setWorkforce] = useState<WorkforceMember[]>([]);
+  const [workforceStatsApi, setWorkforceStatsApi] = useState<WorkforceStatsResponse | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [leaders, setLeaders] = useState<LeadershipMember[]>([]);
   const [loading, setLoading] = useState(false);
@@ -128,19 +130,22 @@ export default function AdministrationPage() {
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [workforceRes, membersRes, leadershipRes] = await Promise.all([
+      const [workforceRes, workforceStatsRes, membersRes, leadershipRes] = await Promise.all([
         apiClient.listWorkforce({ page: 1, limit: 200 }),
+        apiClient.getWorkforceStats(),
         apiClient.listMembers({ page: 1, limit: 200 }),
         apiClient.listLeadership({ page: 1, limit: 200 }),
       ]);
 
       setWorkforce(toArray<WorkforceMember>(workforceRes));
+      setWorkforceStatsApi(workforceStatsRes);
       setMembers(toArray<Member>(membersRes));
       setLeaders(toArray<LeadershipMember>(leadershipRes));
     } catch (error) {
       console.error('Failed to load administration data:', error);
       toast.error('Unable to load administration records');
       setWorkforce([]);
+      setWorkforceStatsApi(null);
       setMembers([]);
       setLeaders([]);
     } finally {
@@ -161,6 +166,22 @@ export default function AdministrationPage() {
       {} as Record<string, number>
     );
   }, [workforce]);
+
+  const workforceSections = useMemo(() => {
+    const fromApi = workforceStatsApi?.frontendByDepartment || {};
+    const hasApiData = Object.keys(fromApi).length > 0;
+    const source = hasApiData
+      ? fromApi
+      : workforce.reduce<Record<string, number>>((acc, row) => {
+          const key = row.department?.trim() || 'Unspecified';
+          acc[key] = (acc[key] || 0) + 1;
+          return acc;
+        }, {});
+
+    return Object.entries(source)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8);
+  }, [workforce, workforceStatsApi]);
 
   const addMember = useCallback(async () => {
     if (!memberForm.firstName.trim() || !memberForm.lastName.trim() || !memberForm.email.trim()) {
@@ -309,6 +330,27 @@ export default function AdministrationPage() {
               <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">{workforceStats.pending || 0}</p>
             </Card>
           </div>
+
+          <Card>
+            <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Frontend Registrations by Section</p>
+            {workforceSections.length === 0 ? (
+              <p className="mt-3 text-sm text-[var(--color-text-tertiary)]">
+                {loading ? 'Loading section metrics...' : 'No section data yet.'}
+              </p>
+            ) : (
+              <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+                {workforceSections.map(([section, count]) => (
+                  <div
+                    key={section}
+                    className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3"
+                  >
+                    <p className="truncate text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">{section}</p>
+                    <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{count}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
 
           <div className="space-y-3">
             {workforce.length === 0 ? (
@@ -524,4 +566,3 @@ export default function AdministrationPage() {
     </div>
   );
 }
-
