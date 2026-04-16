@@ -1,7 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCw, Save, Sparkles, MessageSquareText, HeartHandshake, HandCoins, ShieldCheck } from 'lucide-react';
+import {
+  RefreshCw,
+  Save,
+  Sparkles,
+  MessageSquareText,
+  HeartHandshake,
+  HandCoins,
+  ShieldCheck,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
@@ -71,6 +79,12 @@ const AUTOMATION_TEMPLATE_DEFS = [
   },
 ] as const;
 
+type TemplateStatus = {
+  id?: string;
+  active: boolean;
+  version?: number;
+};
+
 function asArray<T>(value: unknown): T[] {
   if (Array.isArray(value)) return value as T[];
 
@@ -114,17 +128,21 @@ export default function ContentPage() {
   const [loading, setLoading] = useState(false);
   const [savingAd, setSavingAd] = useState(false);
   const [savingConfession, setSavingConfession] = useState(false);
-  const [templateStatus, setTemplateStatus] = useState<Record<string, { id?: string; active: boolean; version?: number }>>({});
+  const [templateStatus, setTemplateStatus] = useState<Record<string, TemplateStatus>>({});
   const [syncingTemplates, setSyncingTemplates] = useState(false);
   const [templateBusyKey, setTemplateBusyKey] = useState<string | null>(null);
 
   const loadTemplateStatus = useCallback(async () => {
     const rows = await Promise.all(
       AUTOMATION_TEMPLATE_DEFS.map(async (def) => {
-        const response = await apiClient.listAdminEmailTemplates({ templateKey: def.key, limit: 20 });
+        const response = await apiClient.listAdminEmailTemplates({
+          templateKey: def.key,
+          limit: 20,
+        });
         const templates = asArray<EmailTemplate>(response);
         const active = templates.find((item) => item.isActive) || null;
         const latest = templates[0] || null;
+
         return {
           key: def.key,
           id: active?.id ?? latest?.id,
@@ -134,10 +152,15 @@ export default function ContentPage() {
       })
     );
 
-    const next: Record<string, { id?: string; active: boolean; version?: number }> = {};
+    const next: Record<string, TemplateStatus> = {};
     rows.forEach((row) => {
-      next[row.key] = { id: row.id, active: row.active, version: row.version };
+      next[row.key] = {
+        id: row.id,
+        active: row.active,
+        version: row.version,
+      };
     });
+
     setTemplateStatus(next);
   }, []);
 
@@ -162,7 +185,7 @@ export default function ContentPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadTemplateStatus]);
 
   useEffect(() => {
     void loadContent();
@@ -209,8 +232,12 @@ export default function ContentPage() {
     if (!def) return;
 
     setTemplateBusyKey(key);
+
     try {
-      const listResponse = await apiClient.listAdminEmailTemplates({ templateKey: key, limit: 20 });
+      const listResponse = await apiClient.listAdminEmailTemplates({
+        templateKey: key,
+        limit: 20,
+      });
       const templates = asArray<EmailTemplate>(listResponse);
       const active = templates.find((item) => item.isActive);
 
@@ -242,13 +269,18 @@ export default function ContentPage() {
 
   const ensureAllTemplates = async () => {
     setSyncingTemplates(true);
+
     try {
-      for (const def of AUTOMATION_TEMPLATE_DEFS) {
-        // eslint-disable-next-line no-await-in-loop
-        await ensureTemplate(def.key);
-      }
+      await Promise.all(
+        AUTOMATION_TEMPLATE_DEFS.map(async (def) => {
+          await ensureTemplate(def.key);
+        })
+      );
+
       await loadTemplateStatus();
       toast.success('Automation templates synchronized.');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to synchronize automation templates'));
     } finally {
       setSyncingTemplates(false);
     }
@@ -475,6 +507,7 @@ export default function ContentPage() {
           {AUTOMATION_TEMPLATE_DEFS.map((def) => {
             const state = templateStatus[def.key];
             const isActive = Boolean(state?.active);
+
             return (
               <div
                 key={def.key}
@@ -482,12 +515,16 @@ export default function ContentPage() {
               >
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{def.title}</p>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                      {def.title}
+                    </p>
                     <p className="text-xs text-[var(--color-text-tertiary)]">{def.key}</p>
                     <p className="text-xs text-[var(--color-text-tertiary)]">
-                      Status: {isActive ? 'Active' : 'Missing/Inactive'} {state?.version ? `• v${state.version}` : ''}
+                      Status: {isActive ? 'Active' : 'Missing/Inactive'}{' '}
+                      {state?.version ? `• v${state.version}` : ''}
                     </p>
                   </div>
+
                   <Button
                     size="sm"
                     variant={isActive ? 'secondary' : 'primary'}
