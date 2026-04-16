@@ -42,6 +42,8 @@ const categoryOptions: EventCategory[] = [
 
 const statusLabel: Record<EventStatus, string> = {
   upcoming: 'Upcoming',
+  ongoing: 'Ongoing',
+  completed: 'Completed',
   happening: 'Happening',
   past: 'Recent',
 };
@@ -69,9 +71,24 @@ function deriveStatus(dateStr: string, now = new Date()): EventStatus {
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const eventDay = new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
 
-  if (eventDay.getTime() === today.getTime()) return 'happening';
+  if (eventDay.getTime() === today.getTime()) return 'ongoing';
   if (eventDay.getTime() > today.getTime()) return 'upcoming';
-  return 'past';
+  return 'completed';
+}
+
+function normalizeStatus(status?: EventStatus, dateStr = ''): 'upcoming' | 'ongoing' | 'completed' {
+  if (status === 'ongoing' || status === 'happening') return 'ongoing';
+  if (status === 'completed' || status === 'past') return 'completed';
+  if (status === 'upcoming') return 'upcoming';
+  const derived = deriveStatus(dateStr);
+  return derived === 'upcoming' ? 'upcoming' : derived === 'ongoing' ? 'ongoing' : 'completed';
+}
+
+function toBackendStatus(status?: EventStatus, dateStr = ''): EventStatus {
+  const normalized = normalizeStatus(status, dateStr);
+  if (normalized === 'ongoing') return 'happening';
+  if (normalized === 'completed') return 'past';
+  return 'upcoming';
 }
 
 function isValidHttpURL(value: string): boolean {
@@ -92,7 +109,7 @@ function toEventPayload(event: EventData, overrides?: Partial<EventPayload>): Ev
     time: event.time,
     location: event.location,
     category: event.category,
-    status: event.status ?? deriveStatus(event.date),
+    status: toBackendStatus(event.status, event.date),
     isFeatured: event.isFeatured,
     tags: Array.isArray(event.tags) ? event.tags : [],
     registerLink: event.registerLink,
@@ -120,11 +137,11 @@ function EventPage() {
   const grouped = useMemo(() => {
     return events.reduce(
       (acc, ev) => {
-        const status = ev.status ?? deriveStatus(ev.date);
+        const status = normalizeStatus(ev.status, ev.date);
         acc[status].push(ev);
         return acc;
       },
-      { upcoming: [] as EventData[], happening: [] as EventData[], past: [] as EventData[] }
+      { upcoming: [] as EventData[], ongoing: [] as EventData[], completed: [] as EventData[] }
     );
   }, [events]);
 
@@ -273,7 +290,7 @@ function EventPage() {
       time: draft.time,
       location: draft.location.trim(),
       category: draft.category,
-      status: deriveStatus(draft.date),
+      status: toBackendStatus(deriveStatus(draft.date), draft.date),
       isFeatured: false,
       tags: [],
       registerLink: registerLink || undefined,
@@ -341,7 +358,7 @@ function EventPage() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-3">
-          {(['upcoming', 'happening', 'past'] as const).map((bucket) => (
+          {(['upcoming', 'ongoing', 'completed'] as const).map((bucket) => (
             <Card key={bucket} title={statusLabel[bucket]}>
               {grouped[bucket].length === 0 ? (
                 <p className="text-sm text-[var(--color-text-tertiary)]">
@@ -365,7 +382,7 @@ function EventPage() {
                       )}
                       <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--color-text-tertiary)]">
                         <span>{ev.category}</span>
-                        <span className="uppercase tracking-[0.2em]">{ev.status}</span>
+                        <span className="uppercase tracking-[0.2em]">{normalizeStatus(ev.status, ev.date)}</span>
                       </div>
                     </li>
                   ))}
