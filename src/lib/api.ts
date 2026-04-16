@@ -57,6 +57,8 @@ import type {
   CreateEmailTemplateRequest,
   UpdateEmailTemplateRequest,
   AdminNotificationInbox,
+  ApprovalRequest,
+  ApprovalRequestsTimeline,
   TOTPSetupResponse,
   FormReportLinkPayload,
   AdminEmailMarketingFormItem,
@@ -1259,6 +1261,29 @@ export const apiClient = {
 
   async markAllAdminNotificationsRead(): Promise<MessageResponse> {
     return apiFetch('/admin/notifications/read-all', { method: 'POST' });
+  },
+
+  async listApprovalRequests(params?: {
+    type?: string;
+    status?: string;
+    limit?: number;
+    start?: string;
+    end?: string;
+  }): Promise<ApprovalRequest[]> {
+    const qs = toQueryString(params as Record<string, unknown> | undefined);
+    const res = await apiFetch<ApiResponse<ApprovalRequest[]> | ApprovalRequest[]>(`/admin/requests${qs}`, {
+      method: 'GET',
+    });
+    if (Array.isArray(res)) return res;
+    return unwrapData<ApprovalRequest[]>(res, 'Invalid approval requests payload');
+  },
+
+  async getApprovalRequestsTimeline(days = 14): Promise<ApprovalRequestsTimeline> {
+    const res = await apiFetch<ApiResponse<ApprovalRequestsTimeline>>(
+      `/admin/requests/timeline?days=${encodeURIComponent(String(days))}`,
+      { method: 'GET' }
+    );
+    return unwrapData<ApprovalRequestsTimeline>(res, 'Invalid approval timeline payload');
   },
 
   /* ===================== OTP ===================== */

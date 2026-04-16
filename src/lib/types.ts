@@ -999,6 +999,43 @@ export interface AdminNotificationInbox {
 }
 
 /* =========================
+   APPROVAL REQUESTS
+========================= */
+
+export type ApprovalRequestType = 'testimonial' | 'event' | 'admin_user';
+export type ApprovalRequestStatus = 'pending' | 'approved' | 'deleted';
+
+export interface ApprovalRequest {
+  id: string;
+  ticketCode: string;
+  type: ApprovalRequestType;
+  status: ApprovalRequestStatus;
+  entityId?: string;
+  entityLabel?: string;
+  requestedById?: string;
+  requestedByName?: string;
+  requestedByEmail?: string;
+  approvedById?: string;
+  approvedByName?: string;
+  approvedByEmail?: string;
+  approvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApprovalTimelinePoint {
+  day: string;
+  count: number;
+}
+
+export interface ApprovalRequestsTimeline {
+  start: string;
+  end: string;
+  created: ApprovalTimelinePoint[];
+  approved: ApprovalTimelinePoint[];
+}
+
+/* =========================
    STORE
 ========================= */
 
