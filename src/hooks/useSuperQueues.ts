@@ -72,13 +72,20 @@ function mapWorkforceToApproval(member: Partial<WorkforceMember>): ApprovalItem 
 
   const name = `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim() || 'New workforce';
 
+  const mappedStatus: ApprovalItemStatus =
+    member.status === 'pending'
+      ? 'pending'
+      : member.status === 'new'
+        ? 'new'
+        : 'flagged';
+
   return {
     id: member.id ?? generateId(),
     type: 'workforce',
     name,
     summary: member.department || 'New department request',
     submittedAt,
-    status: (member.status as ApprovalItemStatus) || 'new',
+    status: mappedStatus,
     email: member.email,
     department: member.department,
     source: 'api',
@@ -136,7 +143,7 @@ export function useSuperQueues() {
       setLoading(true);
       const [testimonialsRes, workforceRes, leadershipRes] = await Promise.all([
         apiClient.getAllTestimonials({ approved: false }),
-        apiClient.listWorkforce({ status: 'new', limit: 25 }),
+        apiClient.listWorkforce({ status: 'pending', limit: 25 }),
         apiClient.listLeadership({ status: 'pending', limit: 25 }),
       ]);
 
@@ -172,7 +179,7 @@ export function useSuperQueues() {
           } else if (item.type === 'leadership') {
             await apiClient.approveLeadership(item.id);
           } else {
-            await apiClient.updateWorkforce(item.id, { status: 'serving' });
+            await apiClient.approveWorkforce(item.id);
           }
         }
 

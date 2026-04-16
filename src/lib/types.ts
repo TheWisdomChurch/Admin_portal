@@ -134,7 +134,7 @@ export type EventCategory =
   | 'Revival'
   | 'Summit';
 
-export type EventStatus = 'upcoming' | 'happening' | 'past';
+export type EventStatus = 'upcoming' | 'ongoing' | 'completed' | 'happening' | 'past';
 
 export interface EventSession {
   title: string;
