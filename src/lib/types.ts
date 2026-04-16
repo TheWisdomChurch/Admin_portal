@@ -759,6 +759,59 @@ export interface AdminEmailDeliveryHistoryItem {
 }
 
 /* =========================
+   SITE CONTENT + ENGAGEMENT
+========================= */
+
+export interface HomepageAdContent {
+  id: string;
+  title: string;
+  headline: string;
+  description: string;
+  startAt: string;
+  endAt: string;
+  time: string;
+  location: string;
+  image: string;
+  registerUrl: string;
+  ctaLabel: string;
+  note: string;
+}
+
+export interface ConfessionPopupContent {
+  welcomeTitle: string;
+  welcomeMessage: string;
+  confessionText: string;
+  motto: string;
+}
+
+export interface PastoralCareRequestAdmin {
+  id: string;
+  title: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+  address: string;
+  eventDate: string;
+  eventType: string;
+  churchRole: string;
+  customRole?: string;
+  comments?: string;
+  sourceChannel: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GivingIntentAdmin {
+  id: string;
+  title: string;
+  description?: string;
+  sourceChannel: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* =========================
    WORKFORCE
 ========================= */
 
