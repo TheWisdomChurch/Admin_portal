@@ -57,6 +57,8 @@ import type {
   CreateEmailTemplateRequest,
   UpdateEmailTemplateRequest,
   AdminNotificationInbox,
+  ApprovalRequest,
+  ApprovalRequestsTimeline,
   TOTPSetupResponse,
   FormReportLinkPayload,
   AdminEmailMarketingFormItem,
@@ -65,6 +67,10 @@ import type {
   SendAdminComposeEmailRequest,
   SendAdminComposeEmailResponse,
   AdminEmailDeliveryHistoryItem,
+  HomepageAdContent,
+  ConfessionPopupContent,
+  PastoralCareRequestAdmin,
+  GivingIntentAdmin,
   StoreProductAdmin,
   UpsertStoreProductRequest,
   StoreOrdersPaginated,
@@ -1257,6 +1263,29 @@ export const apiClient = {
     return apiFetch('/admin/notifications/read-all', { method: 'POST' });
   },
 
+  async listApprovalRequests(params?: {
+    type?: string;
+    status?: string;
+    limit?: number;
+    start?: string;
+    end?: string;
+  }): Promise<ApprovalRequest[]> {
+    const qs = toQueryString(params as Record<string, unknown> | undefined);
+    const res = await apiFetch<ApiResponse<ApprovalRequest[]> | ApprovalRequest[]>(`/admin/requests${qs}`, {
+      method: 'GET',
+    });
+    if (Array.isArray(res)) return res;
+    return unwrapData<ApprovalRequest[]>(res, 'Invalid approval requests payload');
+  },
+
+  async getApprovalRequestsTimeline(days = 14): Promise<ApprovalRequestsTimeline> {
+    const res = await apiFetch<ApiResponse<ApprovalRequestsTimeline>>(
+      `/admin/requests/timeline?days=${encodeURIComponent(String(days))}`,
+      { method: 'GET' }
+    );
+    return unwrapData<ApprovalRequestsTimeline>(res, 'Invalid approval timeline payload');
+  },
+
   /* ===================== OTP ===================== */
 
   async sendOtp(payload: SendOTPRequest): Promise<SendOTPResponse> {
@@ -1273,6 +1302,44 @@ export const apiClient = {
       body: JSON.stringify(payload),
     });
     return unwrapData<VerifyOTPResponse>(res, 'Invalid OTP verify response');
+  },
+
+  /* ===================== CONTENT ===================== */
+
+  async getHomepageAdContent(): Promise<HomepageAdContent> {
+    const res = await apiFetch<ApiResponse<HomepageAdContent>>('/admin/content/homepage-ad', { method: 'GET' });
+    return unwrapData<HomepageAdContent>(res, 'Invalid homepage ad content payload');
+  },
+
+  async updateHomepageAdContent(payload: HomepageAdContent): Promise<HomepageAdContent> {
+    const res = await apiFetch<ApiResponse<HomepageAdContent>>('/admin/content/homepage-ad', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<HomepageAdContent>(res, 'Invalid homepage ad content payload');
+  },
+
+  async getConfessionPopupContent(): Promise<ConfessionPopupContent> {
+    const res = await apiFetch<ApiResponse<ConfessionPopupContent>>('/admin/content/confession-popup', { method: 'GET' });
+    return unwrapData<ConfessionPopupContent>(res, 'Invalid confession popup content payload');
+  },
+
+  async updateConfessionPopupContent(payload: ConfessionPopupContent): Promise<ConfessionPopupContent> {
+    const res = await apiFetch<ApiResponse<ConfessionPopupContent>>('/admin/content/confession-popup', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<ConfessionPopupContent>(res, 'Invalid confession popup content payload');
+  },
+
+  async listPastoralCareRequests(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<PastoralCareRequestAdmin>> {
+    const qs = toQueryString(params);
+    return apiFetch(`/admin/pastoral-care/requests${qs}`, { method: 'GET' });
+  },
+
+  async listGivingIntents(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<GivingIntentAdmin>> {
+    const qs = toQueryString(params);
+    return apiFetch(`/admin/giving/intents${qs}`, { method: 'GET' });
   },
 
   /* ===================== WORKFORCE ===================== */
