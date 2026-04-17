@@ -22,6 +22,7 @@ import {
   FileText,
   LineChart,
   Mail,
+  CalendarDays,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
