@@ -12,6 +12,7 @@ import type {
   EventData,
   EventPayload,
   DashboardAnalytics,
+  SecurityOverview,
   ReelData,
   CreateReelData,
   AdminForm,
@@ -913,6 +914,11 @@ export const apiClient = {
   async getDashboardStats(): Promise<Record<string, unknown>> {
     const res = await apiFetch<ApiResponse<unknown>>('/admin/dashboard');
     return unwrapData<Record<string, unknown>>(res, 'Invalid dashboard stats');
+  },
+
+  async getSecurityOverview(): Promise<SecurityOverview> {
+    const res = await apiFetch<ApiResponse<SecurityOverview>>('/admin/security/overview');
+    return unwrapData<SecurityOverview>(res, 'Invalid security overview payload');
   },
 
   getAllUsers(params?: Record<string, string>) {

@@ -1711,7 +1711,7 @@ export default withAuth(function FormsPage() {
                       clearFieldError('responseEmailTemplateUrl');
                       setResponseEmailTemplateUrl(e.target.value);
                     }}
-                    placeholder="https://churchasset.fra1.cdn.digitaloceanspaces.com/email_template/WPC_26.png"
+                    placeholder="https://zecqbhqstwhiwwjpphep.storage.supabase.co/storage/v1/s3/email_template/WPC_26.png"
                     disabled={!responseEmailEnabled}
                     error={fieldErrors.responseEmailTemplateUrl}
                   />
