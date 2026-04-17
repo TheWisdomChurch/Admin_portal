@@ -3,11 +3,11 @@
 // This page mirrors the rich builder experience from /dashboard/test
 // so admins can create new forms from the canonical /dashboard/forms/new route.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Save, Plus, Trash2, Copy } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Copy, Wand2 } from 'lucide-react';
 
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
@@ -36,6 +36,8 @@ type FieldDraft = {
   options?: { label: string; value: string }[];
 };
 
+type FormPreset = 'testimonial' | 'member';
+
 const dateFormats = ['yyyy-mm-dd', 'mm/dd/yyyy', 'dd/mm/yyyy', 'dd/mm'] as const;
 type DateFormat = (typeof dateFormats)[number];
 
@@ -52,6 +54,38 @@ const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; lab
   { value: 'contact', label: 'Contact' },
   { value: 'general', label: 'General' },
 ];
+
+function buildPresetFields(preset: FormPreset): FieldDraft[] {
+  if (preset === 'testimonial') {
+    return [
+      { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
+      { key: 'email', label: 'Email Address', type: 'email', required: true, order: 2 },
+      { key: 'phone', label: 'Contact Number', type: 'tel', required: false, order: 3 },
+      { key: 'testimony', label: 'Your Testimony', type: 'textarea', required: true, order: 4 },
+      {
+        key: 'allow_sharing',
+        label: 'I consent to church sharing this testimony publicly',
+        type: 'checkbox',
+        required: true,
+        order: 5,
+      },
+    ];
+  }
+
+  return [
+    { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
+    { key: 'contact_number', label: 'Contact Number', type: 'tel', required: true, order: 2 },
+    { key: 'email', label: 'Email Address', type: 'email', required: true, order: 3 },
+    { key: 'date_of_birth', label: 'Date of Birth', type: 'date', required: true, order: 4 },
+    {
+      key: 'prayer_request',
+      label: 'Prayer Request (max 400 words)',
+      type: 'textarea',
+      required: false,
+      order: 5,
+    },
+  ];
+}
 
 const MAX_BANNER_MB = 5;
 const MAX_BANNER_BYTES = MAX_BANNER_MB * 1024 * 1024;
@@ -181,6 +215,7 @@ const renderStructuredLines = (value: string) => {
 // ------------------------------------
 export default withAuth(function NewFormPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const auth = useAuthContext();
 
   const authBlocked = useMemo(
@@ -229,6 +264,7 @@ export default withAuth(function NewFormPage() {
   const [responseTemplateFile, setResponseTemplateFile] = useState<File | null>(null);
   const [responseTemplatePreview, setResponseTemplatePreview] = useState<string | null>(null);
   const [responseTemplateUrl, setResponseTemplateUrl] = useState('');
+  const [selectedPreset, setSelectedPreset] = useState<FormPreset | ''>('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [removeFieldIndex, setRemoveFieldIndex] = useState<number | null>(null);
   const descriptionStructure = useMemo(() => renderStructuredLines(description), [description]);
@@ -329,6 +365,43 @@ export default withAuth(function NewFormPage() {
     { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
     { key: 'email', label: 'Email', type: 'email', required: true, order: 2 },
   ]);
+
+  const applyPreset = useCallback((preset: FormPreset) => {
+    if (preset === 'testimonial') {
+      setTitle((current) => current || 'Share Your Testimony');
+      setDescription((current) => current || 'Tell us what God has done in your life.');
+      setSlug((current) => current || 'share-testimony');
+      setFormType('general');
+      setSubmissionTarget('testimonial');
+      setSubmissionDepartment('');
+      setIntroTitle('Share Your Testimony');
+      setIntroSubtitle('Your testimony encourages others and strengthens faith.');
+      setIntroBullets('Tell your story clearly\nShare key details\nOur team will review before publishing');
+      setIntroBulletSubs('Be specific and truthful\nInclude names only if needed\nOnly approved testimonies go public');
+      setFields(buildPresetFields('testimonial'));
+      return;
+    }
+
+    setTitle((current) => current || 'Add New Member');
+    setDescription((current) => current || 'Collect new member details for follow-up and care.');
+    setSlug((current) => current || 'add-new-member');
+    setFormType('membership');
+    setSubmissionTarget('member');
+    setSubmissionDepartment('');
+    setIntroTitle('Add New Member');
+    setIntroSubtitle('Complete this membership intake form with accurate details.');
+    setIntroBullets('Provide valid contact details\nEnter accurate date of birth\nOptional prayer request up to 400 words');
+    setIntroBulletSubs('Used for follow-up and communication\nHelps pastoral care and records\nOnly authorized staff can review');
+    setFields(buildPresetFields('member'));
+  }, []);
+
+  useEffect(() => {
+    const preset = searchParams.get('preset');
+    if (preset === 'testimonial' || preset === 'member') {
+      setSelectedPreset(preset);
+      applyPreset(preset);
+    }
+  }, [applyPreset, searchParams]);
 
   const addField = () => {
     const order = fields.length + 1;
