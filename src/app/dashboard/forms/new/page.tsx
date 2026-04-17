@@ -3,11 +3,11 @@
 // This page mirrors the rich builder experience from /dashboard/test
 // so admins can create new forms from the canonical /dashboard/forms/new route.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Save, Plus, Trash2, Copy } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Copy, Wand2 } from 'lucide-react';
 
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
@@ -18,7 +18,7 @@ import { AlertModal } from '@/ui/AlertModal';
 import { apiClient } from '@/lib/api';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { createFormSchema } from '@/lib/validation/forms';
-import type { CreateFormRequest, EventData, FormFieldType } from '@/lib/types';
+import type { CreateFormRequest, EventData, FormFieldType, FormSettings } from '@/lib/types';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
@@ -36,11 +36,56 @@ type FieldDraft = {
   options?: { label: string; value: string }[];
 };
 
+type FormPreset = 'testimonial' | 'member';
+
 const dateFormats = ['yyyy-mm-dd', 'mm/dd/yyyy', 'dd/mm/yyyy', 'dd/mm'] as const;
 type DateFormat = (typeof dateFormats)[number];
 
 const submitButtonIcons = ['check', 'send', 'calendar', 'cursor', 'none'] as const;
 type SubmitButtonIcon = (typeof submitButtonIcons)[number];
+
+const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; label: string }> = [
+  { value: 'registration', label: 'Registration' },
+  { value: 'event', label: 'Event' },
+  { value: 'membership', label: 'Membership' },
+  { value: 'workforce', label: 'Workforce' },
+  { value: 'leadership', label: 'Leadership' },
+  { value: 'application', label: 'Application' },
+  { value: 'contact', label: 'Contact' },
+  { value: 'general', label: 'General' },
+];
+
+function buildPresetFields(preset: FormPreset): FieldDraft[] {
+  if (preset === 'testimonial') {
+    return [
+      { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
+      { key: 'email', label: 'Email Address', type: 'email', required: true, order: 2 },
+      { key: 'phone', label: 'Contact Number', type: 'tel', required: false, order: 3 },
+      { key: 'testimony', label: 'Your Testimony', type: 'textarea', required: true, order: 4 },
+      {
+        key: 'allow_sharing',
+        label: 'I consent to church sharing this testimony publicly',
+        type: 'checkbox',
+        required: true,
+        order: 5,
+      },
+    ];
+  }
+
+  return [
+    { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
+    { key: 'contact_number', label: 'Contact Number', type: 'tel', required: true, order: 2 },
+    { key: 'email', label: 'Email Address', type: 'email', required: true, order: 3 },
+    { key: 'date_of_birth', label: 'Date of Birth', type: 'date', required: true, order: 4 },
+    {
+      key: 'prayer_request',
+      label: 'Prayer Request (max 400 words)',
+      type: 'textarea',
+      required: false,
+      order: 5,
+    },
+  ];
+}
 
 const MAX_BANNER_MB = 5;
 const MAX_BANNER_BYTES = MAX_BANNER_MB * 1024 * 1024;
@@ -170,6 +215,7 @@ const renderStructuredLines = (value: string) => {
 // ------------------------------------
 export default withAuth(function NewFormPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const auth = useAuthContext();
 
   const authBlocked = useMemo(
@@ -185,6 +231,9 @@ export default withAuth(function NewFormPage() {
   const [events, setEvents] = useState<EventData[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventId, setEventId] = useState('');
+  const [formType, setFormType] = useState<FormSettings['formType'] | ''>('registration');
+  const [submissionTarget, setSubmissionTarget] = useState<FormSettings['submissionTarget'] | ''>('');
+  const [submissionDepartment, setSubmissionDepartment] = useState('');
   const [capacity, setCapacity] = useState('');
   const [closesAt, setClosesAt] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
@@ -215,9 +264,17 @@ export default withAuth(function NewFormPage() {
   const [responseTemplateFile, setResponseTemplateFile] = useState<File | null>(null);
   const [responseTemplatePreview, setResponseTemplatePreview] = useState<string | null>(null);
   const [responseTemplateUrl, setResponseTemplateUrl] = useState('');
+  const [selectedPreset, setSelectedPreset] = useState<FormPreset | ''>('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [removeFieldIndex, setRemoveFieldIndex] = useState<number | null>(null);
   const descriptionStructure = useMemo(() => renderStructuredLines(description), [description]);
+  const isWorkforceTarget = useMemo(
+    () =>
+      submissionTarget === 'workforce' ||
+      submissionTarget === 'workforce_new' ||
+      submissionTarget === 'workforce_serving',
+    [submissionTarget]
+  );
   const responseTemplateKeyPreview = useMemo(
     () => `forms/${normalizeSlug(slug || title || 'your-link')}`,
     [slug, title]
@@ -309,6 +366,43 @@ export default withAuth(function NewFormPage() {
     { key: 'email', label: 'Email', type: 'email', required: true, order: 2 },
   ]);
 
+  const applyPreset = useCallback((preset: FormPreset) => {
+    if (preset === 'testimonial') {
+      setTitle((current) => current || 'Share Your Testimony');
+      setDescription((current) => current || 'Tell us what God has done in your life.');
+      setSlug((current) => current || 'share-testimony');
+      setFormType('general');
+      setSubmissionTarget('testimonial');
+      setSubmissionDepartment('');
+      setIntroTitle('Share Your Testimony');
+      setIntroSubtitle('Your testimony encourages others and strengthens faith.');
+      setIntroBullets('Tell your story clearly\nShare key details\nOur team will review before publishing');
+      setIntroBulletSubs('Be specific and truthful\nInclude names only if needed\nOnly approved testimonies go public');
+      setFields(buildPresetFields('testimonial'));
+      return;
+    }
+
+    setTitle((current) => current || 'Add New Member');
+    setDescription((current) => current || 'Collect new member details for follow-up and care.');
+    setSlug((current) => current || 'add-new-member');
+    setFormType('membership');
+    setSubmissionTarget('member');
+    setSubmissionDepartment('');
+    setIntroTitle('Add New Member');
+    setIntroSubtitle('Complete this membership intake form with accurate details.');
+    setIntroBullets('Provide valid contact details\nEnter accurate date of birth\nOptional prayer request up to 400 words');
+    setIntroBulletSubs('Used for follow-up and communication\nHelps pastoral care and records\nOnly authorized staff can review');
+    setFields(buildPresetFields('member'));
+  }, []);
+
+  useEffect(() => {
+    const preset = searchParams.get('preset');
+    if (preset === 'testimonial' || preset === 'member') {
+      setSelectedPreset(preset);
+      applyPreset(preset);
+    }
+  }, [applyPreset, searchParams]);
+
   const addField = () => {
     const order = fields.length + 1;
     setFields((prev) => [
@@ -372,9 +466,12 @@ export default withAuth(function NewFormPage() {
         order: idx + 1,
       })),
       settings: {
+        formType: formType || undefined,
         capacity: capacity ? Number(capacity) : undefined,
         closesAt: toIso(closesAt),
         expiresAt: toIso(expiresAt),
+        submissionTarget: submissionTarget || undefined,
+        submissionDepartment: isWorkforceTarget ? submissionDepartment.trim() || undefined : undefined,
         responseEmailEnabled,
         responseEmailSubject: responseEmailSubject.trim() || undefined,
         responseEmailTemplateKey: responseEmailEnabled ? `forms/${normalizedSlug}` : undefined,
@@ -776,6 +873,35 @@ export default withAuth(function NewFormPage() {
           </div>
 
           <div className="md:col-span-2">
+            <div className="mb-4 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Quick presets</p>
+              <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                Autofill form structure for common workflows, then customize before publishing.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <select
+                  value={selectedPreset}
+                  onChange={(e) => setSelectedPreset(e.target.value as FormPreset | '')}
+                  className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                >
+                  <option value="">Choose preset</option>
+                  <option value="testimonial">Testimonial Intake</option>
+                  <option value="member">New Member Intake</option>
+                </select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  icon={<Wand2 className="h-4 w-4" />}
+                  disabled={!selectedPreset}
+                  onClick={() => {
+                    if (selectedPreset) applyPreset(selectedPreset);
+                  }}
+                >
+                  Apply Preset
+                </Button>
+              </div>
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs text-[var(--color-text-tertiary)]">
                 Build the form fields below, then create to generate the link.
@@ -817,6 +943,28 @@ export default withAuth(function NewFormPage() {
           Control capacity and registration window for this form.
         </p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Form Type</label>
+            <select
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+              value={formType}
+              onChange={(e) => {
+                clearFieldError('formType');
+                setFormType(e.target.value as FormSettings['formType'] | '');
+              }}
+            >
+              <option value="">Select a type</option>
+              {formTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {fieldErrors.formType && (
+              <p className="mt-1 text-sm text-red-500">{fieldErrors.formType}</p>
+            )}
+          </div>
+
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Linked Event</label>
             <select
@@ -855,6 +1003,41 @@ export default withAuth(function NewFormPage() {
             type="datetime-local"
             value={expiresAt}
             onChange={(e) => setExpiresAt(e.target.value)}
+          />
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Submission Target</label>
+            <select
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+              value={submissionTarget}
+              onChange={(e) => {
+                clearFieldError('submissionTarget');
+                setSubmissionTarget(e.target.value as FormSettings['submissionTarget'] | '');
+              }}
+            >
+              <option value="">Do not route</option>
+              <option value="workforce_new">Workforce (new workers)</option>
+              <option value="workforce_serving">Workforce (already serving)</option>
+              <option value="workforce">Workforce (legacy)</option>
+              <option value="member">Membership (members)</option>
+              <option value="leadership">Leadership applications</option>
+              <option value="testimonial">Testimonials</option>
+            </select>
+            {fieldErrors.submissionTarget && (
+              <p className="text-sm text-red-500">{fieldErrors.submissionTarget}</p>
+            )}
+          </div>
+
+          <Input
+            label="Department (workforce only)"
+            value={submissionDepartment}
+            onChange={(e) => {
+              clearFieldError('submissionDepartment');
+              setSubmissionDepartment(e.target.value);
+            }}
+            placeholder="e.g., Hospitality"
+            disabled={!isWorkforceTarget}
+            error={fieldErrors.submissionDepartment}
           />
         </div>
       </Card>

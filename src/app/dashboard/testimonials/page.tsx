@@ -2,8 +2,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { MessageSquareText, UserPlus, CheckCircle2, Clock, Pencil, Trash2 } from 'lucide-react';
+import { MessageSquareText, UserPlus, CheckCircle2, Clock, Pencil, Trash2, Copy, Link2 } from 'lucide-react';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
@@ -11,8 +12,9 @@ import { Input } from '@/ui/input';
 import { VerifyActionModal } from '@/ui/VerifyActionModal';
 import { GridLayout, PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
+import { buildPublicFormUrl } from '@/lib/utils';
 import { useAuthContext } from '@/providers/AuthProviders';
-import type { Testimonial } from '@/lib/types';
+import type { AdminForm, Testimonial } from '@/lib/types';
 
 const formatName = (t: Testimonial) => {
   if (t.fullName) return t.fullName;
@@ -148,6 +150,7 @@ function TestimonialTable({
 }
 
 export default function TestimonialsPage() {
+  const router = useRouter();
   const auth = useAuthContext();
   const canApprove = useMemo(() => isSuperAdminRole(auth.user?.role), [auth.user?.role]);
 
@@ -166,6 +169,8 @@ export default function TestimonialsPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Testimonial | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [testimonialForms, setTestimonialForms] = useState<AdminForm[]>([]);
+  const [formsLoading, setFormsLoading] = useState(false);
 
   const loadTestimonials = useCallback(async () => {
     try {
@@ -189,6 +194,82 @@ export default function TestimonialsPage() {
   useEffect(() => {
     loadTestimonials();
   }, [loadTestimonials]);
+
+  const loadTestimonialForms = useCallback(async () => {
+    try {
+      setFormsLoading(true);
+      const res = await apiClient.getAdminForms({ page: 1, limit: 250 });
+      const forms = Array.isArray(res.data) ? res.data : [];
+      setTestimonialForms(
+        forms.filter((form) => form.settings?.submissionTarget === 'testimonial')
+      );
+    } catch (error) {
+      console.error('Failed to load testimonial forms:', error);
+      setTestimonialForms([]);
+    } finally {
+      setFormsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTestimonialForms();
+  }, [loadTestimonialForms]);
+
+  const monthlySummary = useMemo(() => {
+    const bucket = new Map<string, { month: string; total: number; approved: number; pending: number }>();
+    const all = [...approved, ...pending];
+    all.forEach((item) => {
+      const dt = item.createdAt ? new Date(item.createdAt) : null;
+      if (!dt || Number.isNaN(dt.getTime())) return;
+      const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+      const month = dt.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+      const existing = bucket.get(key) || { month, total: 0, approved: 0, pending: 0 };
+      existing.total += 1;
+      if (item.isApproved) existing.approved += 1;
+      else existing.pending += 1;
+      bucket.set(key, existing);
+    });
+
+    return Array.from(bucket.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([, value]) => value);
+  }, [approved, pending]);
+
+  const currentMonthKey = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+
+  const currentMonthTotals = useMemo(() => {
+    const all = [...approved, ...pending];
+    return all.reduce(
+      (acc, item) => {
+        const dt = item.createdAt ? new Date(item.createdAt) : null;
+        if (!dt || Number.isNaN(dt.getTime())) return acc;
+        const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+        if (key !== currentMonthKey) return acc;
+        acc.total += 1;
+        if (item.isApproved) acc.approved += 1;
+        else acc.pending += 1;
+        return acc;
+      },
+      { total: 0, approved: 0, pending: 0 }
+    );
+  }, [approved, currentMonthKey, pending]);
+
+  const copyPublicFormLink = async (form: AdminForm) => {
+    const url = buildPublicFormUrl(form.slug, form.publicUrl);
+    if (!url) {
+      toast.error('Form link not available yet. Publish the form first.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Testimonial form link copied');
+    } catch {
+      toast.error('Unable to copy form link');
+    }
+  };
 
   const handleApprove = async (id: string) => {
     if (!canApprove) return;
@@ -263,7 +344,16 @@ export default function TestimonialsPage() {
       <PageHeader
         title="Testimonials"
         subtitle="Review submissions, approve highlights, and publish them to the website."
-        actions={<Button icon={<UserPlus className="h-4 w-4" />}>Invite Testimony</Button>}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              icon={<UserPlus className="h-4 w-4" />}
+              onClick={() => router.push('/dashboard/forms/new?preset=testimonial')}
+            >
+              Create Testimony Form
+            </Button>
+          </div>
+        }
       />
 
       <Card>
@@ -288,6 +378,110 @@ export default function TestimonialsPage() {
             </Badge>
           </div>
         </div>
+      </Card>
+
+      <GridLayout columns="grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">This month</p>
+          <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">{currentMonthTotals.total}</p>
+          <p className="text-xs text-[var(--color-text-tertiary)]">Total testimonies received</p>
+        </Card>
+        <Card>
+          <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">This month approved</p>
+          <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">{currentMonthTotals.approved}</p>
+          <p className="text-xs text-[var(--color-text-tertiary)]">Published testimonies</p>
+        </Card>
+        <Card>
+          <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">This month pending</p>
+          <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">{currentMonthTotals.pending}</p>
+          <p className="text-xs text-[var(--color-text-tertiary)]">Awaiting super-admin approval</p>
+        </Card>
+      </GridLayout>
+
+      <Card title="Testimonial Form Links">
+        {formsLoading ? (
+          <p className="text-sm text-[var(--color-text-tertiary)]">Loading forms...</p>
+        ) : testimonialForms.length === 0 ? (
+          <div className="space-y-3">
+            <p className="text-sm text-[var(--color-text-tertiary)]">
+              No testimonial form has been created yet.
+            </p>
+            <Button
+              icon={<UserPlus className="h-4 w-4" />}
+              onClick={() => router.push('/dashboard/forms/new?preset=testimonial')}
+            >
+              Create testimonial form
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {testimonialForms.map((form) => {
+              const url = buildPublicFormUrl(form.slug, form.publicUrl);
+              return (
+                <div
+                  key={form.id}
+                  className="flex flex-col gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] p-3 md:flex-row md:items-center md:justify-between"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-[var(--color-text-primary)]">{form.title}</p>
+                    <p className="truncate text-xs text-[var(--color-text-tertiary)]">
+                      {url || 'Publish this form to generate public link'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      icon={<Link2 className="h-4 w-4" />}
+                      disabled={!url}
+                      onClick={() => url && window.open(url, '_blank', 'noopener,noreferrer')}
+                    >
+                      Open
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      icon={<Copy className="h-4 w-4" />}
+                      disabled={!url}
+                      onClick={() => copyPublicFormLink(form)}
+                    >
+                      Copy Link
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
+      <Card title="Monthly Intake">
+        {monthlySummary.length === 0 ? (
+          <p className="text-sm text-[var(--color-text-tertiary)]">No monthly data available yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="text-left text-[var(--color-text-tertiary)]">
+                <tr>
+                  <th className="py-2 pr-4">Month</th>
+                  <th className="py-2 pr-4">Total</th>
+                  <th className="py-2 pr-4">Approved</th>
+                  <th className="py-2 pr-4">Pending</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlySummary.map((row) => (
+                  <tr key={row.month} className="border-t border-[var(--color-border-secondary)]">
+                    <td className="py-2 pr-4 text-[var(--color-text-primary)]">{row.month}</td>
+                    <td className="py-2 pr-4">{row.total}</td>
+                    <td className="py-2 pr-4">{row.approved}</td>
+                    <td className="py-2 pr-4">{row.pending}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
       <GridLayout columns="grid-cols-1 gap-6">
