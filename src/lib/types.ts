@@ -541,7 +541,7 @@ export interface FormSettings {
   campaignEmailTemplateKey?: string;
   campaignEmailTemplateUrl?: string;
   campaignEmailSubject?: string;
-  submissionTarget?: 'workforce' | 'workforce_new' | 'workforce_serving' | 'member';
+  submissionTarget?: 'workforce' | 'workforce_new' | 'workforce_serving' | 'member' | 'leadership' | 'testimonial';
   submissionDepartment?: string;
 
   // UI extras you added:
