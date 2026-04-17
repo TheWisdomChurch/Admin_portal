@@ -7,7 +7,6 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
-  Calendar,
   Video,
   Store,
   BarChart3,
@@ -23,7 +22,6 @@ import {
   FileText,
   LineChart,
   Mail,
-  Sparkles,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -41,8 +39,7 @@ const adminNavItems = [
   { href: '/dashboard/email-marketing', label: 'Email Marketing', icon: Mail, description: 'Build campaigns from form audiences' },
   { href: '/dashboard/registrations', label: 'Registrations', icon: Users, description: 'Registered people list' },
   { href: '/dashboard/notifications', label: 'Notifications', icon: BellRing, description: 'Alerts and approvals' },
-  { href: '/dashboard/test', label: 'Test', icon: Sparkles, description: 'Playground page' },
-  { href: '/dashboard/event', label: 'Event', icon: Calendar, description: 'Single event page' },
+  { href: '/dashboard/security', label: 'Security', icon: Shield, description: 'Access, MFA, and approvals' },
   { href: '/dashboard/content', label: 'Content', icon: FileText, description: 'Website content' },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings, description: 'System configuration' },
 ];
@@ -54,6 +51,7 @@ const superNavItems = [
   { href: '/dashboard/email-marketing', label: 'Email Marketing', icon: Mail, description: 'Audience campaigns & outreach' },
   { href: '/dashboard/super/reports', label: 'Reports', icon: FileText, description: 'Monthly exports' },
   { href: '/dashboard/super/notifications', label: 'Notifications', icon: BarChart3, description: 'Alerts and updates' },
+  { href: '/dashboard/security', label: 'Security', icon: Shield, description: 'Access controls and risk posture' },
 ];
 
 export function Sidebar() {

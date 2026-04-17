@@ -8,7 +8,6 @@ import { Input } from '@/ui/input';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { useRouter } from 'next/navigation';
 import { LogoutModal } from '@/ui/LogoutModal';
-import { Badge } from '@/ui/Badge';
 import { format } from 'date-fns';
 import { useTheme } from '@/providers/ThemeProviders';
 import { apiClient } from '@/lib/api';
@@ -117,10 +116,6 @@ export function Navbar() {
               </div>
             </div>
             
-            {/* Mobile menu and title */}
-            <div className="sm:hidden">
-              <h1 className="font-display text-lg font-semibold text-[var(--color-text-primary)]">Dashboard</h1>
-            </div>
           </div>
 
           {/* Center - Search */}
@@ -223,27 +218,6 @@ export function Navbar() {
                 <LogOut className="h-4 w-4" />
                 <span className="hidden lg:inline ml-2">Logout</span>
               </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick stats bar */}
-        <div className="hidden lg:flex items-center justify-between px-6 py-2 bg-gradient-to-r from-[var(--color-background-tertiary)] to-transparent border-t border-[var(--color-border-secondary)]">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs">
-                <Calendar className="h-3 w-3 mr-1" />
-                Today: {format(new Date(), 'MMM dd')}
-              </Badge>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="text-xs text-[var(--color-text-tertiary)]">
-              Server: <Badge variant="success" className="ml-1">Online</Badge>
-            </div>
-            <div className="text-xs text-[var(--color-text-tertiary)]">
-              Version: <span className="font-medium text-[var(--color-text-secondary)]">1.0.0</span>
             </div>
           </div>
         </div>
