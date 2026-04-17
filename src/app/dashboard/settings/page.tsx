@@ -17,7 +17,12 @@ import { PageHeader } from '@/layouts';
 import { OtpModal } from '@/ui/OtpModal';
 import { PasswordStrengthMeter } from '@/ui/PasswordStrengthMeter';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
-import type { AuthSecurityProfile, MFAMethod, TOTPSetupResponse } from '@/lib/types';
+import type {
+  AuthSecurityProfile,
+  MFAMethod,
+  SecurityOverview,
+  TOTPSetupResponse,
+} from '@/lib/types';
 
 interface ProfileFormData {
   username: string;
@@ -82,6 +87,7 @@ function SettingsPage() {
   const [totpEnableCode, setTotpEnableCode] = useState('');
   const [totpDisableCode, setTotpDisableCode] = useState('');
   const [totpQrCodeDataUrl, setTotpQrCodeDataUrl] = useState('');
+  const [securityOverview, setSecurityOverview] = useState<SecurityOverview | null>(null);
 
   // Initialize form data with user info
   useEffect(() => {
@@ -99,8 +105,12 @@ function SettingsPage() {
 
     try {
       setSecurityLoading(true);
-      const profile = await apiClient.getMFASecurityProfile();
+      const [profile, overview] = await Promise.all([
+        apiClient.getMFASecurityProfile(),
+        apiClient.getSecurityOverview(),
+      ]);
       setSecurityProfile(profile);
+      setSecurityOverview(overview);
     } catch (error) {
       toast.error(getServerErrorMessage(error, 'Failed to load security settings'));
     } finally {
@@ -514,6 +524,26 @@ function SettingsPage() {
 
             {/* Security Settings */}
             <Card>
+              <div id="security" className="p-6 pb-0">
+                <div className="grid gap-3 md:grid-cols-4">
+                  <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Security Score</p>
+                    <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{securityOverview?.securityScore ?? 0}%</p>
+                  </div>
+                  <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Pending Admin Approvals</p>
+                    <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{securityOverview?.pendingAdminApprovals ?? 0}</p>
+                  </div>
+                  <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Pending Queue</p>
+                    <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{securityOverview?.pendingApprovalRequests ?? 0}</p>
+                  </div>
+                  <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">TOTP Enabled Users</p>
+                    <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{securityOverview?.totpEnabledUsers ?? 0}</p>
+                  </div>
+                </div>
+              </div>
               <div className="p-6 space-y-6">
                 <div className="flex items-start gap-3">
                   <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]">

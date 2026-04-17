@@ -120,6 +120,37 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+async function fetchTemplateStatusMap(): Promise<Record<string, TemplateStatus>> {
+  const rows = await Promise.all(
+    AUTOMATION_TEMPLATE_DEFS.map(async (def) => {
+      const response = await apiClient.listAdminEmailTemplates({
+        templateKey: def.key,
+        limit: 20,
+      });
+      const templates = asArray<EmailTemplate>(response);
+      const active = templates.find((item) => item.isActive) || null;
+      const latest = templates[0] || null;
+
+      return {
+        key: def.key,
+        id: active?.id ?? latest?.id,
+        active: Boolean(active),
+        version: active?.version ?? latest?.version,
+      };
+    })
+  );
+
+  const next: Record<string, TemplateStatus> = {};
+  rows.forEach((row) => {
+    next[row.key] = {
+      id: row.id,
+      active: row.active,
+      version: row.version,
+    };
+  });
+  return next;
+}
+
 export default function ContentPage() {
   const [homepageAd, setHomepageAd] = useState<HomepageAdContent>(defaultHomepageAd);
   const [confession, setConfession] = useState<ConfessionPopupContent>(defaultConfession);
@@ -132,38 +163,6 @@ export default function ContentPage() {
   const [syncingTemplates, setSyncingTemplates] = useState(false);
   const [templateBusyKey, setTemplateBusyKey] = useState<string | null>(null);
 
-  const loadTemplateStatus = useCallback(async () => {
-    const rows = await Promise.all(
-      AUTOMATION_TEMPLATE_DEFS.map(async (def) => {
-        const response = await apiClient.listAdminEmailTemplates({
-          templateKey: def.key,
-          limit: 20,
-        });
-        const templates = asArray<EmailTemplate>(response);
-        const active = templates.find((item) => item.isActive) || null;
-        const latest = templates[0] || null;
-
-        return {
-          key: def.key,
-          id: active?.id ?? latest?.id,
-          active: Boolean(active),
-          version: active?.version ?? latest?.version,
-        };
-      })
-    );
-
-    const next: Record<string, TemplateStatus> = {};
-    rows.forEach((row) => {
-      next[row.key] = {
-        id: row.id,
-        active: row.active,
-        version: row.version,
-      };
-    });
-
-    setTemplateStatus(next);
-  }, []);
-
   const loadContent = useCallback(async () => {
     setLoading(true);
 
@@ -173,19 +172,20 @@ export default function ContentPage() {
         apiClient.getConfessionPopupContent(),
         apiClient.listPastoralCareRequests({ page: 1, limit: 10 }),
         apiClient.listGivingIntents({ page: 1, limit: 10 }),
-        loadTemplateStatus(),
+        fetchTemplateStatusMap(),
       ]);
 
       setHomepageAd({ ...defaultHomepageAd, ...adRes });
       setConfession({ ...defaultConfession, ...confessionRes });
       setPastoralRequests(asArray<PastoralCareRequestAdmin>(pastoralRes));
       setGivingIntents(asArray<GivingIntentAdmin>(givingRes));
+      setTemplateStatus(await fetchTemplateStatusMap());
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Failed to load content dashboard'));
     } finally {
       setLoading(false);
     }
-  }, [loadTemplateStatus]);
+  }, []);
 
   useEffect(() => {
     void loadContent();
@@ -258,7 +258,7 @@ export default function ContentPage() {
         await apiClient.activateAdminEmailTemplate(templates[0].id);
       }
 
-      await loadTemplateStatus();
+      setTemplateStatus(await fetchTemplateStatusMap());
       toast.success(`${def.title} activated.`);
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, `Failed to activate ${def.title}`));
@@ -277,7 +277,7 @@ export default function ContentPage() {
         })
       );
 
-      await loadTemplateStatus();
+      setTemplateStatus(await fetchTemplateStatusMap());
       toast.success('Automation templates synchronized.');
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Failed to synchronize automation templates'));

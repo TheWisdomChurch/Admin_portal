@@ -365,6 +365,17 @@ export interface DashboardAnalytics {
   monthlyStats: Array<{ month: string; events: number; attendees: number }>;
 }
 
+export interface SecurityOverview {
+  generatedAt: string;
+  totalUsers: number;
+  activeUsers: number;
+  adminUsers: number;
+  pendingAdminApprovals: number;
+  pendingApprovalRequests: number;
+  totpEnabledUsers: number;
+  securityScore: number;
+}
+
 /* =========================
    SUBSCRIBERS + NOTIFICATIONS
 ========================= */

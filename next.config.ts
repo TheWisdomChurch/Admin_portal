@@ -13,8 +13,6 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: 'https', hostname: '**.amazonaws.com' },
       { protocol: 'https', hostname: '**.cloudfront.net' },
-      { protocol: 'https', hostname: '**.digitaloceanspaces.com' },
-      { protocol: 'https', hostname: '**.cdn.digitaloceanspaces.com' },
     ],
   },
 
