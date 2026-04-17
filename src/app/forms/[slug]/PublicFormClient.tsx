@@ -4,6 +4,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Calendar, Check, MousePointer2, Send } from 'lucide-react';
 import { apiClient } from '@/lib/api';
@@ -40,6 +41,7 @@ const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // E.164: + plus 8-15 digits (basic)
 const e164Re = /^\+[1-9]\d{7,14}$/;
+const PRAYER_REQUEST_WORD_LIMIT = 400;
 
 const normalizeFieldType = (value?: string) => (value || '').toLowerCase();
 const normalizeTypeToken = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -147,6 +149,15 @@ function valuesEqual(a: unknown, b: unknown): boolean {
   }
 
   return String(a) === String(b);
+}
+
+function countWords(value: string): number {
+  return value.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function isPrayerRequestField(field: FormField): boolean {
+  const hay = `${field.key} ${field.label}`.toLowerCase();
+  return /prayer[-_\s]*request/.test(hay);
 }
 
 function valueInList(value: unknown, list?: unknown[]): boolean {
@@ -485,6 +496,7 @@ async function fetchPublicFormClient(slug: string): Promise<PublicFormPayload | 
 }
 
 export default function PublicFormClient({ slug }: PublicFormClientProps) {
+  const searchParams = useSearchParams();
   const [payload, setPayload] = useState<PublicFormPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
@@ -504,6 +516,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const [successOpen, setSuccessOpen] = useState(false);
   const [successDetails, setSuccessDetails] = useState<SuccessDetail[]>([]);
   const [successTokens, setSuccessTokens] = useState<Record<string, string>>({});
+  const [shouldAutoReturn, setShouldAutoReturn] = useState(false);
 
   // ✅ FIX: memoize fields so it doesn't become a new [] every render
   const fields = useMemo<FormField[]>(() => {
@@ -520,6 +533,27 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   }, [sortedFields, values]);
 
   const settings = payload?.form?.settings;
+  const returnTo = (searchParams.get('return_to') || '').trim();
+  const returnDelayMs = useMemo(() => {
+    const raw = Number(searchParams.get('return_delay_ms') || 1800);
+    if (Number.isNaN(raw)) return 1800;
+    return Math.max(600, Math.min(12000, raw));
+  }, [searchParams]);
+
+  const hasAutoReturnTarget = Boolean(returnTo);
+
+  const redirectToReturnUrl = useCallback(() => {
+    if (!returnTo || typeof window === 'undefined') return;
+    window.location.assign(returnTo);
+  }, [returnTo]);
+
+  useEffect(() => {
+    if (!successOpen || !shouldAutoReturn || !hasAutoReturnTarget) return;
+    const timer = setTimeout(() => {
+      redirectToReturnUrl();
+    }, returnDelayMs);
+    return () => clearTimeout(timer);
+  }, [hasAutoReturnTarget, redirectToReturnUrl, returnDelayMs, shouldAutoReturn, successOpen]);
 
   const updateValue = (key: string, next: FieldValue) => {
     setValues((prev) => ({ ...prev, [key]: next }));
@@ -679,6 +713,10 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     if (!raw) return field.required ? `${label} is required.` : null;
 
     if (fieldType === 'email' && !emailRe.test(raw)) return 'Please enter a valid email address.';
+
+    if (isPrayerRequestField(field) && countWords(raw) > PRAYER_REQUEST_WORD_LIMIT) {
+      return `Prayer request cannot exceed ${PRAYER_REQUEST_WORD_LIMIT} words.`;
+    }
 
     if (isPhoneField) {
       if (!e164Re.test(raw)) return 'Please enter a valid phone number (include country code), e.g. +2348012345678.';
@@ -1006,6 +1044,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
       setSuccessDetails([]);
       resetFormState();
       setSuccessOpen(true);
+      setShouldAutoReturn(hasAutoReturnTarget);
     } catch (err) {
       console.error(err);
       const serverFieldErrors = extractServerFieldErrors(err);
@@ -1282,11 +1321,29 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
         subtitle={successSubtitle}
         description={successDescription}
         details={successDetails}
-        onClose={() => setSuccessOpen(false)}
-        primaryAction={{ label: 'Done', onClick: () => setSuccessOpen(false) }}
+        onClose={() => {
+          if (hasAutoReturnTarget) {
+            redirectToReturnUrl();
+            return;
+          }
+          setShouldAutoReturn(false);
+          setSuccessOpen(false);
+        }}
+        primaryAction={{
+          label: hasAutoReturnTarget ? 'Return to website' : 'Done',
+          onClick: () => {
+            if (hasAutoReturnTarget) {
+              redirectToReturnUrl();
+              return;
+            }
+            setShouldAutoReturn(false);
+            setSuccessOpen(false);
+          },
+        }}
         secondaryAction={{
           label: 'Submit another response',
           onClick: () => {
+            setShouldAutoReturn(false);
             setSuccessOpen(false);
             resetFormState();
           },
