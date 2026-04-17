@@ -149,6 +149,9 @@ export default function DashboardPage() {
             <Link href="/dashboard/forms" className={styles.secondaryAction}>
               Open Form Builder
             </Link>
+            <Link href="/dashboard/event" className={styles.secondaryAction}>
+              Create Event
+            </Link>
           </div>
         </div>
 
