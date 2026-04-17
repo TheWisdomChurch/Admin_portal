@@ -1613,7 +1613,7 @@ function RegistrantCampaignPage() {
                               label="Download URL"
                               value={resource.url}
                               onChange={(e) => updateResourceLink(index, 'url', e.target.value)}
-                              placeholder="https://churchasset.fra1.digitaloceanspaces.com/.../wpc26-flyer.pdf"
+                              placeholder="https://zecqbhqstwhiwwjpphep.storage.supabase.co/storage/v1/s3/forms/wpc26-flyer.pdf"
                             />
                           </div>
                           <div className="space-y-2 md:col-span-2">

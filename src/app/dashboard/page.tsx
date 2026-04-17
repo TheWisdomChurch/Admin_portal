@@ -136,10 +136,9 @@ export default function DashboardPage() {
       <section className={styles.hero}>
         <div className={styles.heroCopy}>
           <p className={styles.eyebrow}>Wisdom Church Control Room</p>
-          <h1>Turn fresh form responses into follow-up, outreach, and movement.</h1>
+          <h1>Operational dashboard for outreach, forms, and approvals.</h1>
           <p className={styles.heroText}>
-            Welcome back, {firstName}. Your admin workspace now ties form activity and email marketing
-            together, so you can see who is responding and move straight into campaign delivery.
+            Welcome back, {firstName}. Track submissions, campaign performance, and operational activity in one place.
           </p>
 
           <div className={styles.actionRow}>
