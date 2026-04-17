@@ -18,7 +18,7 @@ import { AlertModal } from '@/ui/AlertModal';
 import { apiClient } from '@/lib/api';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { createFormSchema } from '@/lib/validation/forms';
-import type { CreateFormRequest, EventData, FormFieldType } from '@/lib/types';
+import type { CreateFormRequest, EventData, FormFieldType, FormSettings } from '@/lib/types';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
@@ -41,6 +41,17 @@ type DateFormat = (typeof dateFormats)[number];
 
 const submitButtonIcons = ['check', 'send', 'calendar', 'cursor', 'none'] as const;
 type SubmitButtonIcon = (typeof submitButtonIcons)[number];
+
+const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; label: string }> = [
+  { value: 'registration', label: 'Registration' },
+  { value: 'event', label: 'Event' },
+  { value: 'membership', label: 'Membership' },
+  { value: 'workforce', label: 'Workforce' },
+  { value: 'leadership', label: 'Leadership' },
+  { value: 'application', label: 'Application' },
+  { value: 'contact', label: 'Contact' },
+  { value: 'general', label: 'General' },
+];
 
 const MAX_BANNER_MB = 5;
 const MAX_BANNER_BYTES = MAX_BANNER_MB * 1024 * 1024;
@@ -185,6 +196,9 @@ export default withAuth(function NewFormPage() {
   const [events, setEvents] = useState<EventData[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventId, setEventId] = useState('');
+  const [formType, setFormType] = useState<FormSettings['formType'] | ''>('registration');
+  const [submissionTarget, setSubmissionTarget] = useState<FormSettings['submissionTarget'] | ''>('');
+  const [submissionDepartment, setSubmissionDepartment] = useState('');
   const [capacity, setCapacity] = useState('');
   const [closesAt, setClosesAt] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
@@ -218,6 +232,13 @@ export default withAuth(function NewFormPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [removeFieldIndex, setRemoveFieldIndex] = useState<number | null>(null);
   const descriptionStructure = useMemo(() => renderStructuredLines(description), [description]);
+  const isWorkforceTarget = useMemo(
+    () =>
+      submissionTarget === 'workforce' ||
+      submissionTarget === 'workforce_new' ||
+      submissionTarget === 'workforce_serving',
+    [submissionTarget]
+  );
   const responseTemplateKeyPreview = useMemo(
     () => `forms/${normalizeSlug(slug || title || 'your-link')}`,
     [slug, title]
@@ -372,9 +393,12 @@ export default withAuth(function NewFormPage() {
         order: idx + 1,
       })),
       settings: {
+        formType: formType || undefined,
         capacity: capacity ? Number(capacity) : undefined,
         closesAt: toIso(closesAt),
         expiresAt: toIso(expiresAt),
+        submissionTarget: submissionTarget || undefined,
+        submissionDepartment: isWorkforceTarget ? submissionDepartment.trim() || undefined : undefined,
         responseEmailEnabled,
         responseEmailSubject: responseEmailSubject.trim() || undefined,
         responseEmailTemplateKey: responseEmailEnabled ? `forms/${normalizedSlug}` : undefined,
@@ -817,6 +841,28 @@ export default withAuth(function NewFormPage() {
           Control capacity and registration window for this form.
         </p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Form Type</label>
+            <select
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+              value={formType}
+              onChange={(e) => {
+                clearFieldError('formType');
+                setFormType(e.target.value as FormSettings['formType'] | '');
+              }}
+            >
+              <option value="">Select a type</option>
+              {formTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {fieldErrors.formType && (
+              <p className="mt-1 text-sm text-red-500">{fieldErrors.formType}</p>
+            )}
+          </div>
+
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Linked Event</label>
             <select
@@ -855,6 +901,41 @@ export default withAuth(function NewFormPage() {
             type="datetime-local"
             value={expiresAt}
             onChange={(e) => setExpiresAt(e.target.value)}
+          />
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Submission Target</label>
+            <select
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+              value={submissionTarget}
+              onChange={(e) => {
+                clearFieldError('submissionTarget');
+                setSubmissionTarget(e.target.value as FormSettings['submissionTarget'] | '');
+              }}
+            >
+              <option value="">Do not route</option>
+              <option value="workforce_new">Workforce (new workers)</option>
+              <option value="workforce_serving">Workforce (already serving)</option>
+              <option value="workforce">Workforce (legacy)</option>
+              <option value="member">Membership (members)</option>
+              <option value="leadership">Leadership applications</option>
+              <option value="testimonial">Testimonials</option>
+            </select>
+            {fieldErrors.submissionTarget && (
+              <p className="text-sm text-red-500">{fieldErrors.submissionTarget}</p>
+            )}
+          </div>
+
+          <Input
+            label="Department (workforce only)"
+            value={submissionDepartment}
+            onChange={(e) => {
+              clearFieldError('submissionDepartment');
+              setSubmissionDepartment(e.target.value);
+            }}
+            placeholder="e.g., Hospitality"
+            disabled={!isWorkforceTarget}
+            error={fieldErrors.submissionDepartment}
           />
         </div>
       </Card>
