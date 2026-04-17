@@ -902,7 +902,9 @@ function EditFormPage() {
               <option value="workforce_new">Workforce (new workers)</option>
               <option value="workforce_serving">Workforce (already serving)</option>
               <option value="workforce">Workforce (legacy)</option>
-              <option value="member">Member</option>
+              <option value="member">Membership (members)</option>
+              <option value="leadership">Leadership applications</option>
+              <option value="testimonial">Testimonials</option>
             </select>
             {fieldErrors.submissionTarget && (
               <p className="text-sm text-red-500">{fieldErrors.submissionTarget}</p>
