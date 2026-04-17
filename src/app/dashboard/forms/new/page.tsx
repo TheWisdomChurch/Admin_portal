@@ -873,6 +873,35 @@ export default withAuth(function NewFormPage() {
           </div>
 
           <div className="md:col-span-2">
+            <div className="mb-4 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Quick presets</p>
+              <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                Autofill form structure for common workflows, then customize before publishing.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <select
+                  value={selectedPreset}
+                  onChange={(e) => setSelectedPreset(e.target.value as FormPreset | '')}
+                  className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                >
+                  <option value="">Choose preset</option>
+                  <option value="testimonial">Testimonial Intake</option>
+                  <option value="member">New Member Intake</option>
+                </select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  icon={<Wand2 className="h-4 w-4" />}
+                  disabled={!selectedPreset}
+                  onClick={() => {
+                    if (selectedPreset) applyPreset(selectedPreset);
+                  }}
+                >
+                  Apply Preset
+                </Button>
+              </div>
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs text-[var(--color-text-tertiary)]">
                 Build the form fields below, then create to generate the link.
