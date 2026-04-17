@@ -32,6 +32,7 @@ import { LogoutModal } from '@/ui/LogoutModal';
 const adminNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview and metrics' },
   { href: '/dashboard/administration', label: 'Administration', icon: Shield, description: 'Workforce, leadership, members' },
+  { href: '/dashboard/event', label: 'Events', icon: CalendarDays, description: 'Create and manage events' },
   { href: '/dashboard/reels', label: 'Reels', icon: Video, description: 'Video content management' },
   { href: '/dashboard/store', label: 'Store', icon: Store, description: 'Products, stock, and order flow' },
   { href: '/dashboard/testimonials', label: 'Testimonials', icon: MessageSquare, description: 'Member testimonials' },
