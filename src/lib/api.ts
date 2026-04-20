@@ -109,9 +109,8 @@ function requireOrigin(origin: string, message: string): string {
   return origin;
 }
 
-// In browsers, always force same-origin proxy to avoid CSP/CORS auth failures.
-const IS_BROWSER = typeof window !== 'undefined';
-const USE_API_PROXY = IS_BROWSER || process.env.NEXT_PUBLIC_API_PROXY !== 'false';
+// Default to the same-origin proxy unless explicitly disabled.
+const USE_API_PROXY = process.env.NEXT_PUBLIC_API_PROXY !== 'false';
 
 const RAW_API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL;
 const API_ORIGIN = RAW_API_ORIGIN ? normalizeOrigin(RAW_API_ORIGIN) : '';
@@ -456,30 +455,42 @@ async function safeParseJson(response: Response): Promise<unknown | null> {
 }
 
 export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${API_V1_BASE_URL}${endpoint}`;
+  const proxyUrl = API_V1_BASE_URL + endpoint;
+  const directUrl = API_ORIGIN ? API_ORIGIN + '/api/v1' + endpoint : '';
   const isFormData =
-    typeof FormData !== 'undefined' && options.body instanceof FormData;
+    typeof FormData !== "undefined" && options.body instanceof FormData;
 
   const headers: HeadersInit = {
-    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers || {}),
   };
 
-  try {
+  const execute = async (url: string): Promise<{ response: Response; payload: unknown }> => {
     const response = await fetch(url, {
       ...options,
       headers,
-      credentials: 'include',
+      credentials: "include",
     });
 
     const json = await safeParseJson(response);
     const payload: unknown =
-      json ?? { message: await response.text().catch(() => '') };
+      json ?? { message: await response.text().catch(() => "") };
+
+    return { response, payload };
+  };
+
+  try {
+    let { response, payload } = await execute(proxyUrl);
+
+    // If /api/v1 proxy is unavailable (404), retry direct API origin once.
+    if (response.status === 404 && USE_API_PROXY && directUrl) {
+      ({ response, payload } = await execute(directUrl));
+    }
 
     if (!response.ok) {
       const validationErrors = extractValidationErrors(payload);
       throw createApiError(
-        getMessageFromPayload(payload) || 'Request failed',
+        getMessageFromPayload(payload) || "Request failed",
         response.status,
         payload,
         validationErrors
