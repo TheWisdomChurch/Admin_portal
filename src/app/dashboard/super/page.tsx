@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { BarChart3, CheckCircle, Clock, Filter, RefreshCcw, Search, ShieldCheck, Sparkles, Users } from 'lucide-react';
+import { BarChart3, CalendarClock, CheckCircle, Clock, Filter, RefreshCcw, Search, ShieldCheck, Sparkles, Users } from 'lucide-react';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
@@ -10,13 +10,11 @@ import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
 import { useSuperQueues, ApprovalItem } from '@/hooks/useSuperQueues';
 import { useDashboardSearch } from '@/hooks/useDashboardSearch';
-import { useAuthContext } from '@/providers/AuthProviders';
 
 function SuperDashboard() {
-  const auth = useAuthContext();
   const { items, loading, refresh, approveItem, declineItem, stats } = useSuperQueues();
   const { searchTerm, setSearchTerm } = useDashboardSearch('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'testimonial' | 'workforce' | 'leadership'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'testimonial' | 'event' | 'admin_user'>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'name'>('recent');
   const [approvingId, setApprovingId] = useState<string | null>(null);
 
@@ -39,7 +37,7 @@ function SuperDashboard() {
       });
   }, [items, searchTerm, typeFilter, sortBy]);
 
-  const workforceSpotlight = filteredItems.filter((item) => item.type === 'workforce').slice(0, 3);
+  const spotlight = filteredItems.filter((item) => item.type !== 'testimonial').slice(0, 3);
 
   const handleApprove = async (item: ApprovalItem) => {
     setApprovingId(item.id);
@@ -101,12 +99,12 @@ function SuperDashboard() {
         <Card className="p-5 bg-gradient-to-br from-emerald-50 via-white to-green-50 border-emerald-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-500">Workforce</p>
-              <p className="mt-2 text-2xl md:text-3xl font-semibold text-[var(--color-text-primary)]">{stats.workforce}</p>
-              <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">new joiners to review</p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-500">Events</p>
+              <p className="mt-2 text-2xl md:text-3xl font-semibold text-[var(--color-text-primary)]">{stats.events}</p>
+              <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">event approvals pending</p>
             </div>
             <div className="h-12 w-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
-              <Users className="h-5 w-5" />
+              <CalendarClock className="h-5 w-5" />
             </div>
           </div>
         </Card>
@@ -114,11 +112,9 @@ function SuperDashboard() {
         <Card className="p-5 bg-gradient-to-br from-slate-50 via-white to-amber-50 border-slate-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Owner</p>
-              <p className="mt-2 text-lg md:text-xl font-semibold text-[var(--color-text-primary)]">
-                {auth.user?.first_name} {auth.user?.last_name}
-              </p>
-              <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">Super admin oversight</p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Admin Access</p>
+              <p className="mt-2 text-2xl md:text-3xl font-semibold text-[var(--color-text-primary)]">{stats.adminUsers}</p>
+              <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">accounts pending approval</p>
             </div>
             <div className="h-12 w-12 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center">
               <BarChart3 className="h-5 w-5" />
@@ -168,17 +164,17 @@ function SuperDashboard() {
             </Button>
             <Button
               size="sm"
-              variant={typeFilter === 'workforce' ? 'primary' : 'ghost'}
-              onClick={() => setTypeFilter('workforce')}
+              variant={typeFilter === 'event' ? 'primary' : 'ghost'}
+              onClick={() => setTypeFilter('event')}
             >
-              Workforce
+              Events
             </Button>
             <Button
               size="sm"
-              variant={typeFilter === 'leadership' ? 'primary' : 'ghost'}
-              onClick={() => setTypeFilter('leadership')}
+              variant={typeFilter === 'admin_user' ? 'primary' : 'ghost'}
+              onClick={() => setTypeFilter('admin_user')}
             >
-              Leadership
+              Admin Access
             </Button>
           </div>
 
@@ -210,23 +206,27 @@ function SuperDashboard() {
                       className={`h-11 w-11 rounded-[var(--radius-button)] flex items-center justify-center ${
                         item.type === 'testimonial'
                           ? 'bg-blue-50 text-blue-700'
-                          : 'bg-emerald-50 text-emerald-700'
+                          : item.type === 'event'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : 'bg-slate-50 text-slate-700'
                       }`}
                     >
                       {item.type === 'testimonial' ? (
                         <Sparkles className="h-5 w-5" />
+                      ) : item.type === 'event' ? (
+                        <CalendarClock className="h-5 w-5" />
                       ) : (
-                        <Users className="h-5 w-5" />
+                        <ShieldCheck className="h-5 w-5" />
                       )}
                     </div>
                     <div className="min-w-0 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm md:text-base font-semibold text-[var(--color-text-primary)]">{item.name}</p>
                         <Badge variant="outline" size="sm">
-                          {item.type === 'testimonial' ? 'Testimonial' : 'Workforce'}
+                          {item.type === 'testimonial' ? 'Testimonial' : item.type === 'event' ? 'Event' : 'Admin Access'}
                         </Badge>
                         <Badge
-                          variant={item.status === 'pending' ? 'warning' : 'info'}
+                          variant={item.status === 'pending' ? 'warning' : item.status === 'approved' ? 'success' : 'danger'}
                           size="sm"
                           className="flex items-center gap-1"
                         >
@@ -254,6 +254,7 @@ function SuperDashboard() {
                       variant="ghost"
                       onClick={() => handleDecline(item)}
                       loading={approvingId === item.id}
+                      disabled={item.type !== 'testimonial'}
                     >
                       Decline
                     </Button>
@@ -281,12 +282,12 @@ function SuperDashboard() {
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <Card title="Workforce spotlight">
-          {workforceSpotlight.length === 0 ? (
-            <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">No workforce submissions match the filters.</p>
+        <Card title="Priority Spotlight">
+          {spotlight.length === 0 ? (
+            <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">No event or admin-access requests match the filters.</p>
           ) : (
             <div className="space-y-3">
-              {workforceSpotlight.map((item) => (
+              {spotlight.map((item) => (
                 <div
                   key={item.id}
                   className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
@@ -297,7 +298,7 @@ function SuperDashboard() {
                       <Badge variant="success" size="sm">High priority</Badge>
                     </div>
                     <p className="text-[11px] md:text-xs text-[var(--color-text-tertiary)] mt-1">
-                      {new Date(item.submittedAt).toLocaleDateString()} • {item.department || 'General'}
+                      {new Date(item.submittedAt).toLocaleDateString()} • {item.type === 'event' ? 'Event' : 'Admin Access'}
                     </p>
                     <p className="mt-2 text-sm md:text-base text-[var(--color-text-secondary)]">{item.summary}</p>
                   </div>
@@ -305,7 +306,7 @@ function SuperDashboard() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setSearchTerm(item.department || item.name)}
+                      onClick={() => setSearchTerm(item.name)}
                     >
                       Filter similar
                     </Button>
