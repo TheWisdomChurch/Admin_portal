@@ -21,6 +21,52 @@ function stripCookieDomain(cookie: string): string {
   return cookie.replace(/;\s*Domain=[^;]+/i, '');
 }
 
+function pickForwardHeaders(req: NextRequest): Headers {
+  const headers = new Headers();
+  const passthrough = [
+    'accept',
+    'accept-language',
+    'cache-control',
+    'content-type',
+    'if-none-match',
+    'if-modified-since',
+    'pragma',
+    'authorization',
+    'cookie',
+    'user-agent',
+  ];
+
+  for (const key of passthrough) {
+    const value = req.headers.get(key);
+    if (value) headers.set(key, value);
+  }
+
+  const host = req.headers.get('host');
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  if (forwardedFor) headers.set('x-forwarded-for', forwardedFor);
+  if (host) headers.set('x-forwarded-host', host);
+  headers.set('x-forwarded-proto', req.nextUrl.protocol.replace(':', '') || 'https');
+
+  const requestId = req.headers.get('x-request-id');
+  if (requestId) headers.set('x-request-id', requestId);
+
+  return headers;
+}
+
+function isHopByHopHeader(key: string) {
+  const lower = key.toLowerCase();
+  return (
+    lower === 'connection' ||
+    lower === 'keep-alive' ||
+    lower === 'proxy-authenticate' ||
+    lower === 'proxy-authorization' ||
+    lower === 'te' ||
+    lower === 'trailer' ||
+    lower === 'transfer-encoding' ||
+    lower === 'upgrade'
+  );
+}
+
 // Optional: if your backend sets SameSite=Lax for auth cookies but you need cross-site,
 // you can force SameSite=None; Secure here. Usually not needed because proxy is same-site.
 // Uncomment only if needed.
@@ -38,27 +84,40 @@ async function proxy(req: NextRequest, pathSegments: string[]) {
 
   const method = req.method.toUpperCase();
   const body = method === 'GET' || method === 'HEAD' ? undefined : await req.arrayBuffer();
+  const headers = pickForwardHeaders(req);
 
-  const headers = new Headers(req.headers);
+  const controller = new AbortController();
+  const timeoutMs = 15000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  // Remove headers that should not be forwarded
-  headers.delete('host');
-  headers.delete('content-length');
-  headers.delete('origin'); // avoid confusing upstream CORS
+  let upstream: Response;
+  try {
+    upstream = await fetch(target, {
+      method,
+      headers,
+      body,
+      redirect: 'manual',
+      signal: controller.signal,
+    });
+  } catch {
+    return NextResponse.json(
+      { message: 'Upstream API request failed', statusCode: 502 },
+      { status: 502 },
+    );
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
-  // Add forwarding headers (useful for logs / security)
-  const ip = req.headers.get('x-forwarded-for') ?? '';
-  if (ip) headers.set('x-forwarded-for', ip);
-  if (!headers.get('x-forwarded-proto')) headers.set('x-forwarded-proto', 'https');
-if (!headers.get('x-forwarded-host')) headers.set('x-forwarded-host', req.headers.get('host') ?? '');
-  const upstream = await fetch(target, {
-    method,
-    headers,
-    body,
-    redirect: 'manual',
-  });
+  const responseHeaders = new Headers();
+  for (const [key, value] of upstream.headers.entries()) {
+    if (isHopByHopHeader(key)) continue;
+    if (key.toLowerCase() === 'set-cookie') continue;
+    responseHeaders.set(key, value);
+  }
 
-  const responseHeaders = new Headers(upstream.headers);
+  responseHeaders.set('x-content-type-options', 'nosniff');
+  responseHeaders.set('x-frame-options', 'DENY');
+  responseHeaders.set('referrer-policy', 'strict-origin-when-cross-origin');
 
   // Handle Set-Cookie (Node fetch exposes getSetCookie in undici)
   const getSetCookie = (upstream.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie;
