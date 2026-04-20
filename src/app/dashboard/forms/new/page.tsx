@@ -65,9 +65,13 @@ function buildPresetFields(preset: FormPreset): FieldDraft[] {
       {
         key: 'allow_sharing',
         label: 'I consent to church sharing this testimony publicly',
-        type: 'checkbox',
+        type: 'radio',
         required: true,
         order: 5,
+        options: [
+          { label: 'Yes, I consent', value: 'yes' },
+          { label: 'No, keep private', value: 'no' },
+        ],
       },
     ];
   }
@@ -265,6 +269,7 @@ export default withAuth(function NewFormPage() {
   const [responseTemplatePreview, setResponseTemplatePreview] = useState<string | null>(null);
   const [responseTemplateUrl, setResponseTemplateUrl] = useState('');
   const [selectedPreset, setSelectedPreset] = useState<FormPreset | ''>('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [removeFieldIndex, setRemoveFieldIndex] = useState<number | null>(null);
   const descriptionStructure = useMemo(() => renderStructuredLines(description), [description]);
@@ -625,6 +630,16 @@ export default withAuth(function NewFormPage() {
           title="Create Form"
           subtitle="Create a draft registration form. You can add/edit fields on the next screen."
         />
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAdvanced((prev) => !prev)}
+          >
+            {showAdvanced ? 'Hide advanced fields' : 'Show advanced fields'}
+          </Button>
+        </div>
       </div>
 
       <Card className="p-6">
@@ -672,7 +687,7 @@ export default withAuth(function NewFormPage() {
             <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">
               Tip: keep this concise. Use paragraphs and bullet points so visitors can scan quickly.
             </p>
-            {(descriptionStructure.paragraphs.length > 0 || descriptionStructure.bullets.length > 0) && (
+            {showAdvanced && (descriptionStructure.paragraphs.length > 0 || descriptionStructure.bullets.length > 0) && (
               <div className="mt-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
                   Description Preview
@@ -693,6 +708,7 @@ export default withAuth(function NewFormPage() {
             )}
           </div>
 
+          {showAdvanced && (
           <div className="md:col-span-2 grid gap-3 md:grid-cols-2">
             <Input
               label="Header image URL (optional)"
@@ -745,7 +761,9 @@ export default withAuth(function NewFormPage() {
               </div>
             )}
           </div>
+          )}
 
+          {showAdvanced && (
           <div className="md:col-span-2 grid gap-3 md:grid-cols-3">
             <Input
               label="Left column title"
@@ -789,7 +807,9 @@ export default withAuth(function NewFormPage() {
               />
             </div>
           </div>
+          )}
 
+          {showAdvanced && (
           <div className="md:col-span-2 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -871,6 +891,7 @@ export default withAuth(function NewFormPage() {
               </div>
             )}
           </div>
+          )}
 
           <div className="md:col-span-2">
             <div className="mb-4 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
@@ -907,27 +928,31 @@ export default withAuth(function NewFormPage() {
                 Build the form fields below, then create to generate the link.
               </p>
               <div className="flex flex-wrap gap-2">
-                <select
-                  value={layoutMode}
-                  onChange={(e) => setLayoutMode(e.target.value as 'split' | 'stack')}
-                  className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-                >
-                  <option value="split">Two column layout</option>
-                  <option value="stack">Single column layout</option>
-                </select>
-                <select
-                  value={dateFormat}
-                  onChange={(e) => {
-                    const next = e.target.value as DateFormat;
-                    if (dateFormats.includes(next)) setDateFormat(next);
-                  }}
-                  className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-                >
-                  <option value="yyyy-mm-dd">YYYY-MM-DD</option>
-                  <option value="mm/dd/yyyy">MM/DD/YYYY</option>
-                  <option value="dd/mm/yyyy">DD/MM/YYYY</option>
-                  <option value="dd/mm">DD/MM</option>
-                </select>
+                {showAdvanced && (
+                  <>
+                    <select
+                      value={layoutMode}
+                      onChange={(e) => setLayoutMode(e.target.value as 'split' | 'stack')}
+                      className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                    >
+                      <option value="split">Two column layout</option>
+                      <option value="stack">Single column layout</option>
+                    </select>
+                    <select
+                      value={dateFormat}
+                      onChange={(e) => {
+                        const next = e.target.value as DateFormat;
+                        if (dateFormats.includes(next)) setDateFormat(next);
+                      }}
+                      className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                    >
+                      <option value="yyyy-mm-dd">YYYY-MM-DD</option>
+                      <option value="mm/dd/yyyy">MM/DD/YYYY</option>
+                      <option value="dd/mm/yyyy">DD/MM/YYYY</option>
+                      <option value="dd/mm">DD/MM</option>
+                    </select>
+                  </>
+                )}
                 <Button onClick={save} loading={saving} disabled={saving} icon={<Save className="h-4 w-4" />}>
                   Create & Publish
                 </Button>
@@ -1116,6 +1141,7 @@ export default withAuth(function NewFormPage() {
         </div>
       </Card>
 
+      {showAdvanced && (
       <Card title="Live Preview">
         <div className={`grid gap-6 ${layoutMode === 'split' ? 'lg:grid-cols-[1.1fr_1fr]' : 'grid-cols-1'}`}>
           <div className="space-y-4 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-gradient-to-b from-[var(--color-background-secondary)]/80 to-[var(--color-background-primary)] p-4 shadow-sm">
@@ -1256,6 +1282,7 @@ export default withAuth(function NewFormPage() {
           </div>
         </div>
       </Card>
+      )}
 
       <Card title="Form Link">
         <div className="flex flex-wrap items-center gap-3">
@@ -1286,6 +1313,7 @@ export default withAuth(function NewFormPage() {
         </div>
       </Card>
 
+      {showAdvanced && (
       <Card title="Footer & Submit styling">
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-3">
@@ -1354,6 +1382,7 @@ export default withAuth(function NewFormPage() {
           </div>
         </div>
       </Card>
+      )}
 
       <AlertModal
         open={removeFieldIndex !== null}
