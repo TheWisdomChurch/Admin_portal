@@ -36,7 +36,7 @@ type FieldDraft = {
   options?: { label: string; value: string }[];
 };
 
-type FormPreset = 'testimonial' | 'member';
+type FormPreset = 'testimonial' | 'member' | 'leadership';
 
 const dateFormats = ['yyyy-mm-dd', 'mm/dd/yyyy', 'dd/mm/yyyy', 'dd/mm'] as const;
 type DateFormat = (typeof dateFormats)[number];
@@ -73,6 +73,30 @@ function buildPresetFields(preset: FormPreset): FieldDraft[] {
           { label: 'No, keep private', value: 'no' },
         ],
       },
+    ];
+  }
+
+  if (preset === 'leadership') {
+    return [
+      { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
+      { key: 'email', label: 'Email Address', type: 'email', required: true, order: 2 },
+      { key: 'phone', label: 'Contact Number', type: 'tel', required: true, order: 3 },
+      {
+        key: 'leadership_role',
+        label: 'Leadership Role',
+        type: 'select',
+        required: true,
+        order: 4,
+        options: [
+          { label: 'Pastor', value: 'pastor' },
+          { label: 'Associate Pastor', value: 'associate_pastor' },
+          { label: 'Reverend', value: 'reverend' },
+          { label: 'Deacon', value: 'deacon' },
+          { label: 'Deaconess', value: 'deaconess' },
+          { label: 'Ministry Lead', value: 'ministry_lead' },
+        ],
+      },
+      { key: 'bio', label: 'Short Bio', type: 'textarea', required: false, order: 5 },
     ];
   }
 
@@ -387,6 +411,21 @@ export default withAuth(function NewFormPage() {
       return;
     }
 
+    if (preset === 'leadership') {
+      setTitle((current) => current || 'Leadership Application');
+      setDescription((current) => current || 'Collect leadership profile details for review and approval.');
+      setSlug((current) => current || 'leadership-application');
+      setFormType('leadership');
+      setSubmissionTarget('leadership');
+      setSubmissionDepartment('');
+      setIntroTitle('Leadership Application');
+      setIntroSubtitle('Provide accurate details for leadership review.');
+      setIntroBullets('Share valid contact details\nChoose the role you are applying for\nSubmissions are reviewed before display');
+      setIntroBulletSubs('Used for direct follow-up\nHelps routing to the right team\nOnly approved profiles appear publicly');
+      setFields(buildPresetFields('leadership'));
+      return;
+    }
+
     setTitle((current) => current || 'Add New Member');
     setDescription((current) => current || 'Collect new member details for follow-up and care.');
     setSlug((current) => current || 'add-new-member');
@@ -402,7 +441,7 @@ export default withAuth(function NewFormPage() {
 
   useEffect(() => {
     const preset = searchParams.get('preset');
-    if (preset === 'testimonial' || preset === 'member') {
+    if (preset === 'testimonial' || preset === 'member' || preset === 'leadership') {
       setSelectedPreset(preset);
       applyPreset(preset);
     }
@@ -908,6 +947,7 @@ export default withAuth(function NewFormPage() {
                   <option value="">Choose preset</option>
                   <option value="testimonial">Testimonial Intake</option>
                   <option value="member">New Member Intake</option>
+                  <option value="leadership">Leadership Intake</option>
                 </select>
                 <Button
                   type="button"

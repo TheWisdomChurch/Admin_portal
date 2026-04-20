@@ -938,6 +938,10 @@ export const apiClient = {
     return apiFetch(`/admin/users${qs}`);
   },
 
+  approveAdminUser(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/users/${encodeURIComponent(id)}/approve`, { method: 'POST' });
+  },
+
   /* ===================== ANALYTICS ===================== */
 
   async getAnalytics(params?: Record<string, unknown>): Promise<DashboardAnalytics> {
@@ -982,6 +986,10 @@ export const apiClient = {
 
   async deleteEvent(id: string): Promise<MessageResponse> {
     return apiFetch(`/admin/events/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+
+  async approveEvent(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/events/${encodeURIComponent(id)}/approve`, { method: 'PATCH' });
   },
 
   async uploadEventImage(id: string, file: File): Promise<EventData> {

@@ -9,14 +9,14 @@ import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
 import { useDashboardSearch } from '@/hooks/useDashboardSearch';
 import { useSuperQueues, ApprovalItem } from '@/hooks/useSuperQueues';
-import { CheckCircle, Clock, Filter, RefreshCcw, Search, ShieldCheck, Users, XCircle } from 'lucide-react';
+import { CalendarClock, CheckCircle, Clock, Filter, RefreshCcw, Search, ShieldCheck, Users, XCircle } from 'lucide-react';
 
 function ApprovalsPage() {
   const { items, loading, refresh, approveItem, declineItem } = useSuperQueues();
   const { searchTerm, setSearchTerm } = useDashboardSearch('');
 
-  const [typeFilter, setTypeFilter] = useState<'all' | 'testimonial' | 'workforce' | 'leadership'>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'new' | 'flagged'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'testimonial' | 'event' | 'admin_user'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'deleted'>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'name'>('recent');
   const [approvingId, setApprovingId] = useState<string | null>(null);
 
@@ -56,7 +56,7 @@ function ApprovalsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Approvals"
-        subtitle="Deep dive into every testimonial and workforce approval."
+        subtitle="Backend-driven approval stream for testimonials, events, and admin access."
         actions={
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" className="text-xs px-3" onClick={() => setSearchTerm('')}>
@@ -91,19 +91,19 @@ function ApprovalsPage() {
             </Button>
             <Button
               size="sm"
-              variant={typeFilter === 'workforce' ? 'primary' : 'ghost'}
-              icon={<Users className="h-4 w-4" />}
-              onClick={() => setTypeFilter('workforce')}
+              variant={typeFilter === 'event' ? 'primary' : 'ghost'}
+              icon={<CalendarClock className="h-4 w-4" />}
+              onClick={() => setTypeFilter('event')}
             >
-              Workforce
+              Events
             </Button>
             <Button
               size="sm"
-              variant={typeFilter === 'leadership' ? 'primary' : 'ghost'}
+              variant={typeFilter === 'admin_user' ? 'primary' : 'ghost'}
               icon={<ShieldCheck className="h-4 w-4" />}
-              onClick={() => setTypeFilter('leadership')}
+              onClick={() => setTypeFilter('admin_user')}
             >
-              Leadership
+              Admin Access
             </Button>
             <Button
               size="sm"
@@ -114,17 +114,17 @@ function ApprovalsPage() {
             </Button>
             <Button
               size="sm"
-              variant={statusFilter === 'new' ? 'primary' : 'ghost'}
-              onClick={() => setStatusFilter('new')}
+              variant={statusFilter === 'approved' ? 'primary' : 'ghost'}
+              onClick={() => setStatusFilter('approved')}
             >
-              New
+              Approved
             </Button>
             <Button
               size="sm"
-              variant={statusFilter === 'flagged' ? 'primary' : 'ghost'}
-              onClick={() => setStatusFilter('flagged')}
+              variant={statusFilter === 'deleted' ? 'primary' : 'ghost'}
+              onClick={() => setStatusFilter('deleted')}
             >
-              Flagged
+              Deleted
             </Button>
             <Button
               size="sm"
@@ -142,7 +142,7 @@ function ApprovalsPage() {
               <Input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by name, email, department, story..."
+                placeholder="Search by requester, ticket, entity label..."
                 className="pl-10"
               />
             </div>
@@ -192,11 +192,11 @@ function ApprovalsPage() {
                     <td className="py-3 pr-4 font-semibold text-[var(--color-text-primary)]">{item.name}</td>
                     <td className="py-3 pr-4">
                       <Badge variant="outline" size="sm">
-                        {item.type === 'testimonial'
-                          ? 'Testimonial'
-                          : item.type === 'workforce'
-                            ? 'Workforce'
-                            : 'Leadership'}
+                          {item.type === 'testimonial'
+                            ? 'Testimonial'
+                            : item.type === 'event'
+                              ? 'Event'
+                              : 'Admin Access'}
                       </Badge>
                     </td>
                     <td className="py-3 pr-4 text-[var(--color-text-secondary)] max-w-lg">
@@ -212,7 +212,7 @@ function ApprovalsPage() {
                       </div>
                     </td>
                     <td className="py-3 pr-4">
-                      <Badge variant={item.status === 'pending' ? 'warning' : 'info'} size="sm">
+                      <Badge variant={item.status === 'pending' ? 'warning' : item.status === 'approved' ? 'success' : 'danger'} size="sm">
                         {item.status}
                       </Badge>
                     </td>
@@ -230,6 +230,7 @@ function ApprovalsPage() {
                           variant="ghost"
                           onClick={() => handleDecline(item)}
                           loading={approvingId === item.id}
+                          disabled={item.type !== 'testimonial' || item.status !== 'pending'}
                         >
                           Decline
                         </Button>
@@ -237,6 +238,7 @@ function ApprovalsPage() {
                           size="sm"
                           onClick={() => handleApprove(item)}
                           loading={approvingId === item.id}
+                          disabled={item.status !== 'pending'}
                           icon={<CheckCircle className="h-4 w-4" />}
                         >
                           Approve

@@ -1,126 +1,39 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
-import { LeadershipMember, Testimonial, WorkforceMember } from '@/lib/types';
+import { ApprovalRequest, ApprovalRequestStatus, ApprovalRequestType } from '@/lib/types';
 
-export type ApprovalItemType = 'testimonial' | 'workforce' | 'leadership';
-export type ApprovalItemStatus = 'pending' | 'new' | 'flagged';
+export type ApprovalItemType = ApprovalRequestType;
+export type ApprovalItemStatus = ApprovalRequestStatus;
 
 export interface ApprovalItem {
   id: string;
   type: ApprovalItemType;
+  entityId?: string;
+  ticketCode?: string;
   name: string;
   summary: string;
   submittedAt: string;
   status: ApprovalItemStatus;
+  approvedAt?: string;
   email?: string;
   department?: string;
   source: 'api';
 }
 
-const generateId = () => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `mock-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-};
-
-function mapTestimonialToApproval(testimonial: Partial<Testimonial>): ApprovalItem {
-  const raw = testimonial as {
-    created_at?: unknown;
-    created?: unknown;
-    full_name?: unknown;
-    first_name?: unknown;
-    last_name?: unknown;
-  };
-  const submittedAt =
-    (typeof raw.created_at === 'string' && raw.created_at) ||
-    testimonial.createdAt ||
-    (typeof raw.created === 'string' && raw.created) ||
-    new Date().toISOString();
-
-  const fullName =
-    (typeof raw.full_name === 'string' && raw.full_name) || testimonial.fullName;
-  const firstName =
-    (typeof raw.first_name === 'string' && raw.first_name) || testimonial.firstName || '';
-  const lastName =
-    (typeof raw.last_name === 'string' && raw.last_name) || testimonial.lastName || '';
-
-  const name =
-    fullName ||
-    `${firstName} ${lastName}`.trim() ||
-    'Anonymous';
-
+function mapRequestToApproval(req: ApprovalRequest): ApprovalItem {
+  const requestedBy = req.requestedByName || req.requestedByEmail || 'System';
   return {
-    id: testimonial.id ?? generateId(),
-    type: 'testimonial',
-    name: name.trim() || 'Anonymous',
-    summary: testimonial.testimony || 'Pending review',
-    submittedAt,
-    status: 'pending',
-    source: 'api',
-  };
-}
-
-function mapWorkforceToApproval(member: Partial<WorkforceMember>): ApprovalItem {
-  const raw = member as { created_at?: unknown };
-  const submittedAt =
-    member.createdAt ||
-    (typeof raw.created_at === 'string' && raw.created_at) ||
-    member.updatedAt ||
-    new Date().toISOString();
-
-  const name = `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim() || 'New workforce';
-
-  const mappedStatus: ApprovalItemStatus =
-    member.status === 'pending'
-      ? 'pending'
-      : member.status === 'new'
-        ? 'new'
-        : 'flagged';
-
-  return {
-    id: member.id ?? generateId(),
-    type: 'workforce',
-    name,
-    summary: member.department || 'New department request',
-    submittedAt,
-    status: mappedStatus,
-    email: member.email,
-    department: member.department,
-    source: 'api',
-  };
-}
-
-function roleLabel(role?: string): string {
-  switch (role) {
-    case 'senior_pastor':
-      return 'Senior Pastor';
-    case 'associate_pastor':
-      return 'Associate Pastor';
-    case 'reverend':
-      return 'Reverend';
-    case 'deacon':
-      return 'Deacon';
-    case 'deaconess':
-      return 'Deaconness';
-    default:
-      return role || 'Leadership';
-  }
-}
-
-function mapLeadershipToApproval(member: Partial<LeadershipMember>): ApprovalItem {
-  const submittedAt = member.createdAt || member.updatedAt || new Date().toISOString();
-  const name = `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim() || 'Leadership applicant';
-
-  return {
-    id: member.id ?? generateId(),
-    type: 'leadership',
-    name,
-    summary: roleLabel(member.role),
-    submittedAt,
-    status: 'pending',
-    email: member.email,
+    id: req.id,
+    type: req.type,
+    entityId: req.entityId,
+    ticketCode: req.ticketCode,
+    name: requestedBy,
+    summary: req.entityLabel || req.ticketCode,
+    submittedAt: req.createdAt,
+    status: req.status,
+    approvedAt: req.approvedAt,
+    email: req.requestedByEmail,
     source: 'api',
   };
 }
@@ -129,33 +42,13 @@ export function useSuperQueues() {
   const [items, setItems] = useState<ApprovalItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const getDataArray = useCallback(<T,>(value: unknown): T[] => {
-    if (Array.isArray(value)) return value as T[];
-    if (value && typeof value === 'object' && 'data' in value) {
-      const data = (value as { data?: unknown }).data;
-      if (Array.isArray(data)) return data as T[];
-    }
-    return [];
-  }, []);
-
   const loadQueues = useCallback(async () => {
     try {
       setLoading(true);
-      const [testimonialsRes, workforceRes, leadershipRes] = await Promise.all([
-        apiClient.getAllTestimonials({ approved: false }),
-        apiClient.listWorkforce({ status: 'pending', limit: 25 }),
-        apiClient.listLeadership({ status: 'pending', limit: 25 }),
-      ]);
-
-      const testimonials = getDataArray<Testimonial>(testimonialsRes);
-      const workforce = getDataArray<WorkforceMember>(workforceRes);
-      const leadership = getDataArray<LeadershipMember>(leadershipRes);
-
-      const approvals = [
-        ...testimonials.map(mapTestimonialToApproval),
-        ...workforce.map(mapWorkforceToApproval),
-        ...leadership.map(mapLeadershipToApproval),
-      ].sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+      const requests = await apiClient.listApprovalRequests({ limit: 250 });
+      const approvals = (Array.isArray(requests) ? requests : [])
+        .map(mapRequestToApproval)
+        .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
 
       setItems(approvals);
     } catch (error) {
@@ -164,7 +57,7 @@ export function useSuperQueues() {
     } finally {
       setLoading(false);
     }
-  }, [getDataArray]);
+  }, []);
 
   useEffect(() => {
     loadQueues();
@@ -173,17 +66,25 @@ export function useSuperQueues() {
   const approveItem = useCallback(
     async (item: ApprovalItem) => {
       try {
-        if (item.source === 'api') {
-          if (item.type === 'testimonial') {
-            await apiClient.approveTestimonial(item.id);
-          } else if (item.type === 'leadership') {
-            await apiClient.approveLeadership(item.id);
-          } else {
-            await apiClient.approveWorkforce(item.id);
-          }
+        if (item.source !== 'api') {
+          return;
         }
-
-        setItems((prev) => prev.filter((approval) => approval.id !== item.id));
+        if (!item.entityId) {
+          throw new Error('Request has no entity id');
+        }
+        if (item.status !== 'pending') {
+          throw new Error('Only pending requests can be approved');
+        }
+        if (item.type === 'testimonial') {
+          await apiClient.approveTestimonial(item.entityId);
+        } else if (item.type === 'event') {
+          await apiClient.approveEvent(item.entityId);
+        } else if (item.type === 'admin_user') {
+          await apiClient.approveAdminUser(item.entityId);
+        } else {
+          throw new Error('Unsupported approval type');
+        }
+        await loadQueues();
         toast.success(`${item.name} approved`);
       } catch (error) {
         console.error('Approval failed:', error);
@@ -191,22 +92,27 @@ export function useSuperQueues() {
         toast.error(message);
       }
     },
-    []
+    [loadQueues]
   );
 
   const declineItem = useCallback(
     async (item: ApprovalItem) => {
       try {
-        if (item.source === 'api') {
-          if (item.type === 'testimonial') {
-            await apiClient.deleteTestimonial(item.id);
-          } else if (item.type === 'leadership') {
-            await apiClient.declineLeadership(item.id);
-          } else {
-            await apiClient.updateWorkforce(item.id, { status: 'not_serving' });
-          }
+        if (item.source !== 'api') {
+          return;
         }
-        setItems((prev) => prev.filter((approval) => approval.id !== item.id));
+        if (!item.entityId) {
+          throw new Error('Request has no entity id');
+        }
+        if (item.status !== 'pending') {
+          throw new Error('Only pending requests can be declined');
+        }
+        if (item.type === 'testimonial') {
+          await apiClient.deleteTestimonial(item.entityId);
+        } else {
+          throw new Error('Decline is only enabled for testimonial requests');
+        }
+        await loadQueues();
         toast.success(`${item.name} declined`);
       } catch (error) {
         console.error('Decline failed:', error);
@@ -214,15 +120,15 @@ export function useSuperQueues() {
         toast.error(message);
       }
     },
-    []
+    [loadQueues]
   );
 
   const stats = useMemo(
     () => ({
-      total: items.length,
-      testimonials: items.filter((item) => item.type === 'testimonial').length,
-      workforce: items.filter((item) => item.type === 'workforce').length,
-      leadership: items.filter((item) => item.type === 'leadership').length,
+      total: items.filter((item) => item.status === 'pending').length,
+      testimonials: items.filter((item) => item.type === 'testimonial' && item.status === 'pending').length,
+      events: items.filter((item) => item.type === 'event' && item.status === 'pending').length,
+      adminUsers: items.filter((item) => item.type === 'admin_user' && item.status === 'pending').length,
     }),
     [items]
   );
