@@ -178,17 +178,17 @@ export function Sidebar() {
       {/* Mobile toggle button */}
       <button
         onClick={() => setIsMobileOpen(true)}
-        className="md:hidden fixed top-4 left-4 z-50 p-3 rounded-xl bg-background shadow-lg border border-border hover:bg-accent/50 transition-colors"
+        className="md:hidden fixed top-4 left-4 z-50 p-3 rounded-xl bg-black text-zinc-100 shadow-lg border border-zinc-800 hover:bg-zinc-900 transition-colors"
         aria-label="Open navigation menu"
       >
-        <Menu className="h-5 w-5 text-foreground" />
+        <Menu className="h-5 w-5 text-zinc-100" />
       </button>
 
       {/* Sidebar */}
       <aside
         className={`
           fixed left-0 top-0 z-50 h-screen border-r border-border
-          flex flex-col shadow-2xl bg-background
+          flex flex-col shadow-2xl bg-black text-zinc-100 md:bg-background md:text-foreground
           transition-all duration-300 ease-in-out
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
