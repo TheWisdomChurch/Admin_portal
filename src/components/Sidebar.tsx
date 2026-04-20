@@ -79,14 +79,19 @@ export function Sidebar() {
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {
     if (isMobileOpen) {
-      document.body.style.overflow = 'hidden';
+      document.body.style.setProperty('overflow', 'hidden');
     } else {
-      document.body.style.overflow = 'unset';
+      document.body.style.removeProperty('overflow');
     }
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.removeProperty('overflow');
     };
   }, [isMobileOpen]);
+
+  // Ensure drawer state resets after route transitions.
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [pathname]);
 
   // Collapse sidebar on tablets by default, expand on large screens.
   useEffect(() => {
@@ -183,7 +188,7 @@ export function Sidebar() {
       <aside
         className={`
           fixed left-0 top-0 z-50 h-screen border-r border-border
-          flex flex-col shadow-2xl bg-background/95 backdrop-blur-xl
+          flex flex-col shadow-2xl bg-background
           transition-all duration-300 ease-in-out
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
