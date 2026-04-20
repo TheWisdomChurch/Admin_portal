@@ -72,6 +72,9 @@ export function useSuperQueues() {
         if (!item.entityId) {
           throw new Error('Request has no entity id');
         }
+        if (item.status !== 'pending') {
+          throw new Error('Only pending requests can be approved');
+        }
         if (item.type === 'testimonial') {
           await apiClient.approveTestimonial(item.entityId);
         } else if (item.type === 'event') {
@@ -100,6 +103,9 @@ export function useSuperQueues() {
         }
         if (!item.entityId) {
           throw new Error('Request has no entity id');
+        }
+        if (item.status !== 'pending') {
+          throw new Error('Only pending requests can be declined');
         }
         if (item.type === 'testimonial') {
           await apiClient.deleteTestimonial(item.entityId);
