@@ -105,7 +105,7 @@ export function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-[var(--color-background-primary)]/95 backdrop-blur-sm border-b border-[var(--color-border-primary)] shadow-sm">
+      <header className="sticky top-0 z-40 bg-[var(--color-background-primary)] border-b border-[var(--color-border-primary)] shadow-sm">
         <div className="flex items-center justify-between gap-3 px-4 py-3 md:px-6">
           {/* Left side - Date and Breadcrumb */}
           <div className="flex items-center gap-6">
@@ -147,7 +147,7 @@ export function Navbar() {
               variant="ghost"
               size="sm"
               onClick={cycleTheme}
-              className="hidden sm:flex text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+              className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
               aria-label={themeLabel}
               title={themeLabel}
             >
@@ -155,7 +155,7 @@ export function Navbar() {
             </Button>
 
             {/* Notifications */}
-            <div className="relative hidden sm:block">
+            <div className="relative">
               <Button
                 variant="ghost"
                 size="sm"
