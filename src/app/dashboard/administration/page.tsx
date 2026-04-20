@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Calendar,
   Heart,
@@ -11,6 +12,10 @@ import {
   UploadCloud,
   UserPlus,
   Users,
+  Link2,
+  Copy,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card } from '@/ui/Card';
@@ -19,7 +24,9 @@ import { Input } from '@/ui/input';
 import { Badge } from '@/ui/Badge';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
+import { buildPublicFormUrl } from '@/lib/utils';
 import type {
+  AdminForm,
   CreateLeadershipRequest,
   CreateMemberRequest,
   LeadershipMember,
@@ -92,6 +99,7 @@ function AccordionRow({
 }
 
 export default function AdministrationPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabKey>('workforce');
 
   const [workforce, setWorkforce] = useState<WorkforceMember[]>([]);
@@ -99,6 +107,9 @@ export default function AdministrationPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [leaders, setLeaders] = useState<LeadershipMember[]>([]);
   const [loading, setLoading] = useState(false);
+  const [formsLoading, setFormsLoading] = useState(false);
+  const [memberForms, setMemberForms] = useState<AdminForm[]>([]);
+  const [leadershipForms, setLeadershipForms] = useState<AdminForm[]>([]);
 
   const [memberModalOpen, setMemberModalOpen] = useState(false);
   const [leaderModalOpen, setLeaderModalOpen] = useState(false);
@@ -129,18 +140,23 @@ export default function AdministrationPage() {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
+    setFormsLoading(true);
     try {
-      const [workforceRes, workforceStatsRes, membersRes, leadershipRes] = await Promise.all([
+      const [workforceRes, workforceStatsRes, membersRes, leadershipRes, formsRes] = await Promise.all([
         apiClient.listWorkforce({ page: 1, limit: 200 }),
         apiClient.getWorkforceStats(),
         apiClient.listMembers({ page: 1, limit: 200 }),
         apiClient.listLeadership({ page: 1, limit: 200 }),
+        apiClient.getAdminForms({ page: 1, limit: 300 }),
       ]);
 
       setWorkforce(toArray<WorkforceMember>(workforceRes));
       setWorkforceStatsApi(workforceStatsRes);
       setMembers(toArray<Member>(membersRes));
       setLeaders(toArray<LeadershipMember>(leadershipRes));
+      const forms = Array.isArray(formsRes.data) ? formsRes.data : [];
+      setMemberForms(forms.filter((form) => form.settings?.submissionTarget === 'member'));
+      setLeadershipForms(forms.filter((form) => form.settings?.submissionTarget === 'leadership'));
     } catch (error) {
       console.error('Failed to load administration data:', error);
       toast.error('Unable to load administration records');
@@ -148,8 +164,11 @@ export default function AdministrationPage() {
       setWorkforceStatsApi(null);
       setMembers([]);
       setLeaders([]);
+      setMemberForms([]);
+      setLeadershipForms([]);
     } finally {
       setLoading(false);
+      setFormsLoading(false);
     }
   }, []);
 
@@ -289,6 +308,33 @@ export default function AdministrationPage() {
     </button>
   );
 
+  const copyPublicFormLink = async (form: AdminForm) => {
+    const url = buildPublicFormUrl(form.slug, form.publicUrl);
+    if (!url) {
+      toast.error('Form link not available yet. Publish the form first.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Form link copied');
+    } catch {
+      toast.error('Unable to copy link');
+    }
+  };
+
+  const deleteForm = async (form: AdminForm) => {
+    const confirmed = window.confirm(`Delete "${form.title}"? This will disable its public submissions.`);
+    if (!confirmed) return;
+    try {
+      await apiClient.deleteAdminForm(form.id);
+      toast.success('Form deleted');
+      await loadAll();
+    } catch (error) {
+      console.error('Failed to delete form:', error);
+      toast.error('Failed to delete form');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -296,6 +342,12 @@ export default function AdministrationPage() {
         subtitle="Manage workforce, leadership, and member records with structured forms."
         actions={
           <div className="flex flex-wrap gap-2">
+            <Button variant="outline" icon={<Users className="h-4 w-4" />} onClick={() => router.push('/dashboard/forms/new?preset=member')}>
+              Create Member Form
+            </Button>
+            <Button variant="outline" icon={<Sparkles className="h-4 w-4" />} onClick={() => router.push('/dashboard/forms/new?preset=leadership')}>
+              Create Leadership Form
+            </Button>
             <Button variant="secondary" icon={<UserPlus className="h-4 w-4" />} onClick={() => setMemberModalOpen(true)}>
               Add Member
             </Button>
@@ -383,6 +435,52 @@ export default function AdministrationPage() {
 
       {activeTab === 'members' && (
         <div className="space-y-3">
+          <Card title="Member Form Links">
+            {formsLoading ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">Loading forms...</p>
+            ) : memberForms.length === 0 ? (
+              <div className="space-y-3">
+                <p className="text-sm text-[var(--color-text-tertiary)]">No member intake form created yet.</p>
+                <Button icon={<UserPlus className="h-4 w-4" />} onClick={() => router.push('/dashboard/forms/new?preset=member')}>
+                  Create member form
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {memberForms.map((form) => {
+                  const url = buildPublicFormUrl(form.slug, form.publicUrl);
+                  return (
+                    <div
+                      key={form.id}
+                      className="flex flex-col gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] p-3 md:flex-row md:items-center md:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-[var(--color-text-primary)]">{form.title}</p>
+                        <p className="truncate text-xs text-[var(--color-text-tertiary)]">
+                          {url || 'Publish this form to generate public link'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="outline" icon={<Pencil className="h-4 w-4" />} onClick={() => router.push(`/dashboard/forms/${form.id}/edit`)}>
+                          Edit
+                        </Button>
+                        <Button size="sm" variant="outline" icon={<Link2 className="h-4 w-4" />} disabled={!url} onClick={() => url && window.open(url, '_blank', 'noopener,noreferrer')}>
+                          Open
+                        </Button>
+                        <Button size="sm" variant="outline" icon={<Copy className="h-4 w-4" />} disabled={!url} onClick={() => copyPublicFormLink(form)}>
+                          Copy Link
+                        </Button>
+                        <Button size="sm" variant="danger" icon={<Trash2 className="h-4 w-4" />} onClick={() => deleteForm(form)}>
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+
           {members.length === 0 ? (
             <Card>
               <p className="text-sm text-[var(--color-text-tertiary)]">
@@ -411,6 +509,52 @@ export default function AdministrationPage() {
 
       {activeTab === 'leadership' && (
         <div className="space-y-3">
+          <Card title="Leadership Form Links">
+            {formsLoading ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">Loading forms...</p>
+            ) : leadershipForms.length === 0 ? (
+              <div className="space-y-3">
+                <p className="text-sm text-[var(--color-text-tertiary)]">No leadership application form created yet.</p>
+                <Button icon={<Sparkles className="h-4 w-4" />} onClick={() => router.push('/dashboard/forms/new?preset=leadership')}>
+                  Create leadership form
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {leadershipForms.map((form) => {
+                  const url = buildPublicFormUrl(form.slug, form.publicUrl);
+                  return (
+                    <div
+                      key={form.id}
+                      className="flex flex-col gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] p-3 md:flex-row md:items-center md:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-[var(--color-text-primary)]">{form.title}</p>
+                        <p className="truncate text-xs text-[var(--color-text-tertiary)]">
+                          {url || 'Publish this form to generate public link'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="outline" icon={<Pencil className="h-4 w-4" />} onClick={() => router.push(`/dashboard/forms/${form.id}/edit`)}>
+                          Edit
+                        </Button>
+                        <Button size="sm" variant="outline" icon={<Link2 className="h-4 w-4" />} disabled={!url} onClick={() => url && window.open(url, '_blank', 'noopener,noreferrer')}>
+                          Open
+                        </Button>
+                        <Button size="sm" variant="outline" icon={<Copy className="h-4 w-4" />} disabled={!url} onClick={() => copyPublicFormLink(form)}>
+                          Copy Link
+                        </Button>
+                        <Button size="sm" variant="danger" icon={<Trash2 className="h-4 w-4" />} onClick={() => deleteForm(form)}>
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+
           {leaders.length === 0 ? (
             <Card>
               <p className="text-sm text-[var(--color-text-tertiary)]">

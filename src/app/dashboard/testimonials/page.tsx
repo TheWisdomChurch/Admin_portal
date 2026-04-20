@@ -171,6 +171,8 @@ export default function TestimonialsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [testimonialForms, setTestimonialForms] = useState<AdminForm[]>([]);
   const [formsLoading, setFormsLoading] = useState(false);
+  const [deleteFormTarget, setDeleteFormTarget] = useState<AdminForm | null>(null);
+  const [deleteFormLoading, setDeleteFormLoading] = useState(false);
 
   const loadTestimonials = useCallback(async () => {
     try {
@@ -339,6 +341,26 @@ export default function TestimonialsPage() {
     }
   };
 
+  const requestDeleteForm = (form: AdminForm) => {
+    setDeleteFormTarget(form);
+  };
+
+  const confirmDeleteForm = async () => {
+    if (!deleteFormTarget) return;
+    try {
+      setDeleteFormLoading(true);
+      await apiClient.deleteAdminForm(deleteFormTarget.id);
+      toast.success('Testimonial form deleted');
+      setDeleteFormTarget(null);
+      await loadTestimonialForms();
+    } catch (error) {
+      console.error('Failed to delete testimonial form:', error);
+      toast.error('Failed to delete testimonial form');
+    } finally {
+      setDeleteFormLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -432,6 +454,14 @@ export default function TestimonialsPage() {
                     <Button
                       size="sm"
                       variant="outline"
+                      icon={<Pencil className="h-4 w-4" />}
+                      onClick={() => router.push(`/dashboard/forms/${form.id}/edit`)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
                       icon={<Link2 className="h-4 w-4" />}
                       disabled={!url}
                       onClick={() => url && window.open(url, '_blank', 'noopener,noreferrer')}
@@ -446,6 +476,14 @@ export default function TestimonialsPage() {
                       onClick={() => copyPublicFormLink(form)}
                     >
                       Copy Link
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      icon={<Trash2 className="h-4 w-4" />}
+                      onClick={() => requestDeleteForm(form)}
+                    >
+                      Delete
                     </Button>
                   </div>
                 </div>
@@ -580,6 +618,19 @@ export default function TestimonialsPage() {
         variant="danger"
         loading={deleteLoading}
         verifyText={deleteTarget ? `DELETE ${formatName(deleteTarget)}` : 'DELETE'}
+      />
+
+      <VerifyActionModal
+        isOpen={!!deleteFormTarget}
+        onClose={() => setDeleteFormTarget(null)}
+        onConfirm={confirmDeleteForm}
+        title="Delete Testimonial Form"
+        description="This removes the testimonial form link and public access for submissions."
+        confirmText="Delete Form"
+        cancelText="Cancel"
+        variant="danger"
+        loading={deleteFormLoading}
+        verifyText={deleteFormTarget ? `DELETE ${deleteFormTarget.title}` : 'DELETE'}
       />
     </div>
   );
