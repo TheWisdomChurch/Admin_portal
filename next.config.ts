@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next';
 
+const isProd = process.env.NODE_ENV === 'production';
 const API_ORIGIN =
   process.env.API_PROXY_ORIGIN ??
   process.env.NEXT_PUBLIC_API_URL ??
@@ -11,6 +12,9 @@ function buildCsp() {
   if (API_ORIGIN) {
     connectSrc.push(API_ORIGIN.replace(/\/+$/, ''));
   }
+  if (!isProd) {
+    connectSrc.push('ws:', 'wss:');
+  }
 
   return [
     "default-src 'self'",
@@ -20,9 +24,9 @@ function buildCsp() {
     "img-src 'self' data: blob: https:",
     "font-src 'self' data: https:",
     "style-src 'self' 'unsafe-inline'",
-    "script-src 'self' 'unsafe-inline'",
+    `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"}`,
     `connect-src ${connectSrc.join(' ')}`,
-    'upgrade-insecure-requests',
+    ...(isProd ? ['upgrade-insecure-requests'] : []),
   ].join('; ');
 }
 
@@ -31,9 +35,6 @@ const nextConfig: NextConfig = {
 
   // ✅ Required for Dockerfile COPY .next/standalone and server.js
   output: 'standalone',
-
-  // Optional: leave turbopack config if you want, but it's not required for production builds
-  turbopack: {},
 
   images: {
     remotePatterns: [
@@ -81,6 +82,14 @@ const nextConfig: NextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=(), payment=()',
           },
+          ...(isProd
+            ? [
+                {
+                  key: 'Strict-Transport-Security',
+                  value: 'max-age=31536000; includeSubDomains; preload',
+                },
+              ]
+            : []),
         ],
       },
     ];
