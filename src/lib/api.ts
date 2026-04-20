@@ -109,8 +109,9 @@ function requireOrigin(origin: string, message: string): string {
   return origin;
 }
 
-// Default to the same-origin proxy unless explicitly disabled.
-const USE_API_PROXY = process.env.NEXT_PUBLIC_API_PROXY !== 'false';
+// In browsers, always force same-origin proxy to avoid CSP/CORS auth failures.
+const IS_BROWSER = typeof window !== 'undefined';
+const USE_API_PROXY = IS_BROWSER || process.env.NEXT_PUBLIC_API_PROXY !== 'false';
 
 const RAW_API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL;
 const API_ORIGIN = RAW_API_ORIGIN ? normalizeOrigin(RAW_API_ORIGIN) : '';
