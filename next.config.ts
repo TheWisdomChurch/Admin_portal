@@ -1,17 +1,36 @@
 import type { NextConfig } from 'next';
 
 const isProd = process.env.NODE_ENV === 'production';
-const API_ORIGIN =
+const RAW_API_ORIGIN =
   process.env.API_PROXY_ORIGIN ??
   process.env.NEXT_PUBLIC_API_URL ??
   process.env.NEXT_PUBLIC_BACKEND_URL ??
   '';
 
+function normalizeConnectOrigin(raw?: string | null): string {
+  if (!raw || !raw.trim()) return '';
+
+  let value = raw.trim().replace(/\/+$/, '');
+
+  // Allow env values like https://api.example.com/api/v1 and normalize to origin.
+  if (value.endsWith('/api/v1')) value = value.slice(0, -'/api/v1'.length);
+
+  try {
+    return new URL(value).origin;
+  } catch {
+    return '';
+  }
+}
+
+const CONNECT_ORIGIN = normalizeConnectOrigin(RAW_API_ORIGIN);
+
 function buildCsp() {
   const connectSrc = ["'self'"];
-  if (API_ORIGIN) {
-    connectSrc.push(API_ORIGIN.replace(/\/+$/, ''));
+
+  if (CONNECT_ORIGIN) {
+    connectSrc.push(CONNECT_ORIGIN);
   }
+
   if (!isProd) {
     connectSrc.push('ws:', 'wss:');
   }
@@ -33,7 +52,7 @@ function buildCsp() {
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
-  // ✅ Required for Dockerfile COPY .next/standalone and server.js
+  // Required for Dockerfile COPY .next/standalone and server.js
   output: 'standalone',
 
   images: {
