@@ -230,7 +230,7 @@ function ApprovalsPage() {
                           variant="ghost"
                           onClick={() => handleDecline(item)}
                           loading={approvingId === item.id}
-                          disabled={item.type !== 'testimonial'}
+                          disabled={item.type !== 'testimonial' || item.status !== 'pending'}
                         >
                           Decline
                         </Button>
@@ -238,6 +238,7 @@ function ApprovalsPage() {
                           size="sm"
                           onClick={() => handleApprove(item)}
                           loading={approvingId === item.id}
+                          disabled={item.status !== 'pending'}
                           icon={<CheckCircle className="h-4 w-4" />}
                         >
                           Approve
