@@ -33,6 +33,9 @@ type FieldDraft = {
   type: FormFieldType;
   required: boolean;
   order: number;
+  validation?: {
+    maxWords?: number;
+  };
   options?: { label: string; value: string }[];
 };
 
@@ -61,7 +64,14 @@ function buildPresetFields(preset: FormPreset): FieldDraft[] {
       { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
       { key: 'email', label: 'Email Address', type: 'email', required: true, order: 2 },
       { key: 'phone', label: 'Contact Number', type: 'tel', required: false, order: 3 },
-      { key: 'testimony', label: 'Your Testimony', type: 'textarea', required: true, order: 4 },
+      {
+        key: 'testimony',
+        label: 'Your Testimony',
+        type: 'textarea',
+        required: true,
+        order: 4,
+        validation: { maxWords: 400 },
+      },
       {
         key: 'allow_sharing',
         label: 'I consent to church sharing this testimony publicly',
@@ -73,6 +83,7 @@ function buildPresetFields(preset: FormPreset): FieldDraft[] {
           { label: 'No, keep private', value: 'no' },
         ],
       },
+      { key: 'photo', label: 'Photo Upload (optional)', type: 'image', required: false, order: 6 },
     ];
   }
 
@@ -96,7 +107,14 @@ function buildPresetFields(preset: FormPreset): FieldDraft[] {
           { label: 'Ministry Lead', value: 'ministry_lead' },
         ],
       },
-      { key: 'bio', label: 'Short Bio', type: 'textarea', required: false, order: 5 },
+      {
+        key: 'bio',
+        label: 'Short Bio',
+        type: 'textarea',
+        required: false,
+        order: 5,
+        validation: { maxWords: 400 },
+      },
     ];
   }
 
@@ -111,6 +129,7 @@ function buildPresetFields(preset: FormPreset): FieldDraft[] {
       type: 'textarea',
       required: false,
       order: 5,
+      validation: { maxWords: 400 },
     },
   ];
 }
@@ -313,6 +332,14 @@ export default withAuth(function NewFormPage() {
       submissionTarget === 'workforce_serving',
     [submissionTarget]
   );
+  const includeRegistrationArtifacts = useMemo(() => {
+    const normalizedType = (formType || '').toLowerCase();
+    const normalizedTarget = (submissionTarget || '').toLowerCase();
+    if (normalizedTarget === 'testimonial' || normalizedTarget === 'member' || normalizedTarget === 'leadership') {
+      return false;
+    }
+    return normalizedType === 'event' || normalizedType === 'registration' || normalizedType === 'workforce';
+  }, [formType, submissionTarget]);
   const responseTemplateKeyPreview = useMemo(
     () => `forms/${normalizeSlug(slug || title || 'your-link')}`,
     [slug, title]
@@ -520,6 +547,7 @@ export default withAuth(function NewFormPage() {
         label: f.label.trim(),
         type: f.type,
         required: f.required,
+        validation: f.validation?.maxWords ? { maxWords: f.validation.maxWords } : undefined,
         options: f.options,
         order: idx + 1,
       })),
@@ -581,15 +609,15 @@ export default withAuth(function NewFormPage() {
         const isTestimonialTarget = submissionTarget === 'testimonial';
         const templateSubject =
           responseEmailSubject.trim() ||
-          `${isTestimonialTarget ? 'Testimony received' : 'Registration received'}: ${created.title || normalizedTitle}`;
+          `${isTestimonialTarget ? 'Testimony received' : includeRegistrationArtifacts ? 'Registration received' : 'Submission received'}: ${created.title || normalizedTitle}`;
         const htmlBody = embedTemplateMeta(
           buildResponseEmailHTML({
             title: created.title || normalizedTitle,
             heading: responseEmailHeading.trim(),
             message: responseEmailMessage.trim(),
             imageUrl: responseTemplateImageUrl || undefined,
-            includeRegistrationCode: !isTestimonialTarget,
-            includeCalendarOptIn: !isTestimonialTarget,
+            includeRegistrationCode: includeRegistrationArtifacts,
+            includeCalendarOptIn: includeRegistrationArtifacts,
           }),
           {
             heading: responseEmailHeading.trim() || undefined,
@@ -1169,6 +1197,25 @@ export default withAuth(function NewFormPage() {
                   </Button>
                 </div>
               </div>
+              {field.type === 'textarea' && (
+                <div className="mt-3 max-w-xs">
+                  <Input
+                    label="Max words (optional)"
+                    type="number"
+                    min={1}
+                    value={field.validation?.maxWords ?? ''}
+                    onChange={(e) =>
+                      updateField(index, {
+                        validation: {
+                          ...(field.validation || {}),
+                          maxWords: e.target.value ? Number(e.target.value) : undefined,
+                        },
+                      })
+                    }
+                    placeholder="e.g., 400"
+                  />
+                </div>
+              )}
               {(field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') && (
                 <div className="mt-3 space-y-2">
                   <p className="text-xs text-[var(--color-text-tertiary)]">
