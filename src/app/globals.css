@@ -129,8 +129,8 @@ html {
 
 :root {
   --sidebar-width: 0rem;
-  --sidebar-width-expanded: 16rem;
-  --sidebar-width-collapsed: 4.25rem;
+  --sidebar-width-expanded: 18.5rem;
+  --sidebar-width-collapsed: 5rem;
 }
 
 @media (min-width: 768px) {
