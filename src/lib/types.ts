@@ -561,7 +561,7 @@ export interface FormSettings {
   introBulletSubtexts?: string[];
   contentSections?: FormContentSection[];
   layoutMode?: 'split' | 'stack';
-  dateFormat?: 'yyyy-mm-dd' | 'mm/dd/yyyy' | 'dd/mm/yyyy' | 'dd/mm';
+  dateFormat?: 'yyyy-mm-dd' | 'mm/dd/yyyy' | 'dd/mm/yyyy' | 'dd/mm' | 'dd-mm';
   footerText?: string;
   footerBg?: string;
   footerTextColor?: string;

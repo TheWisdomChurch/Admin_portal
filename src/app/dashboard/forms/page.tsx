@@ -59,7 +59,7 @@ type FieldDraft = {
   options?: { label: string; value: string }[];
 };
 
-const dateFormats = ['yyyy-mm-dd', 'mm/dd/yyyy', 'dd/mm/yyyy', 'dd/mm'] as const;
+const dateFormats = ['dd-mm', 'dd/mm'] as const;
 type DateFormat = (typeof dateFormats)[number];
 const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; label: string }> = [
   { value: 'registration', label: 'Registration' },
@@ -245,12 +245,12 @@ export default withAuth(function FormsPage() {
   const [responseEmailTemplateId, setResponseEmailTemplateId] = useState('');
   const [responseEmailTemplateUrl, setResponseEmailTemplateUrl] = useState('');
 
-  const [introTitle, setIntroTitle] = useState('Event Registration');
-  const [introSubtitle, setIntroSubtitle] = useState('Secure your spot by registering below.');
-  const [introBullets, setIntroBullets] = useState('Smooth check-in\nEngaging sessions\nFriendly community');
-  const [introBulletSubs, setIntroBulletSubs] = useState('Arrive early for badges\nShort, powerful sessions\nMeet friendly stewards');
+  const [introTitle, setIntroTitle] = useState('Form Details');
+  const [introSubtitle, setIntroSubtitle] = useState('Complete the form below with accurate information.');
+  const [introBullets, setIntroBullets] = useState('Provide accurate details\nReview before submitting\nOur team will follow up');
+  const [introBulletSubs, setIntroBulletSubs] = useState('Helps us process your response quickly\nPrevents errors in your record\nOnly authorized staff can access submissions');
   const [layoutMode, setLayoutMode] = useState<'split' | 'stack'>('split');
-  const [dateFormat, setDateFormat] = useState<DateFormat>('yyyy-mm-dd');
+  const [dateFormat, setDateFormat] = useState<DateFormat>('dd-mm');
 
   const footerText = 'Powered by Wisdom House Registration';
   const footerBg = '#f5c400';
@@ -1926,9 +1926,7 @@ export default withAuth(function FormsPage() {
                         }}
                         className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
                       >
-                        <option value="yyyy-mm-dd">YYYY-MM-DD</option>
-                        <option value="mm/dd/yyyy">MM/DD/YYYY</option>
-                        <option value="dd/mm/yyyy">DD/MM/YYYY</option>
+                        <option value="dd-mm">DD-MM</option>
                         <option value="dd/mm">DD/MM</option>
                       </select>
                     </div>
