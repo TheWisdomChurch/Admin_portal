@@ -171,6 +171,13 @@ const normalizeSlug = (value: string) =>
     .replace(/-{2,}/g, '-')
     .replace(/^-|-$/g, '');
 
+const makeSlugCandidate = (base: string, attempt: number) => {
+  if (attempt <= 0) return base;
+  const now = new Date();
+  const stamp = `${now.getMonth() + 1}${now.getDate()}${now.getHours()}${now.getMinutes()}`;
+  return `${base}-${stamp}-${attempt}`;
+};
+
 const normalizeAbsoluteHttpUrl = (rawValue: string): { value?: string; error?: string } => {
   const raw = rawValue.trim();
   if (!raw) return {};
@@ -375,6 +382,12 @@ export default withAuth(function NewFormPage() {
       delete next[key];
       return next;
     });
+
+  const isSlugConflictError = (err: unknown) => {
+    const message = getServerErrorMessage(err, '').toLowerCase();
+    const statusCode = (err as { statusCode?: number } | null)?.statusCode;
+    return statusCode === 409 || (message.includes('slug') && (message.includes('exist') || message.includes('duplicate')));
+  };
 
   const toIso = (value: string) => {
     if (!value) return undefined;
@@ -667,7 +680,31 @@ export default withAuth(function NewFormPage() {
 
     try {
       setSaving(true);
-      let created = await apiClient.createAdminForm(payload);
+      let created;
+      let createPayload = { ...payload };
+      const baseSlug = normalizedSlug;
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        try {
+          created = await apiClient.createAdminForm(createPayload);
+          break;
+        } catch (createErr) {
+          if (!isSlugConflictError(createErr) || attempt === 3) {
+            throw createErr;
+          }
+          const nextSlug = makeSlugCandidate(baseSlug, attempt + 1);
+          createPayload = {
+            ...createPayload,
+            slug: nextSlug,
+            settings: {
+              ...(createPayload.settings || {}),
+              responseEmailTemplateKey: responseEmailEnabled ? `forms/${nextSlug}` : undefined,
+            },
+          };
+        }
+      }
+      if (!created) {
+        throw new Error('Unable to create form. Please try again.');
+      }
       if (bannerFile) {
         try {
           created = await apiClient.uploadFormBanner(created.id, bannerFile);
@@ -1384,14 +1421,14 @@ export default withAuth(function NewFormPage() {
                 {field.type === 'textarea' ? (
                   <textarea
                     disabled
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                     rows={3}
                     placeholder={field.label}
                   />
                 ) : field.type === 'select' ? (
                   <select
                     disabled
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                   >
                     <option value="">Select...</option>
                     {(field.options || []).map((opt) => (
@@ -1430,7 +1467,7 @@ export default withAuth(function NewFormPage() {
                       disabled
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
-                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                     />
                     <p className="text-[11px] text-[var(--color-text-tertiary)]">JPEG, PNG, WebP up to 5MB</p>
                   </div>
@@ -1438,7 +1475,7 @@ export default withAuth(function NewFormPage() {
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <select
                       disabled
-                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                     >
                       <option value="">Select day</option>
                       {dayOptions.map((day) => (
@@ -1449,7 +1486,7 @@ export default withAuth(function NewFormPage() {
                     </select>
                     <select
                       disabled
-                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                     >
                       <option value="">Select month</option>
                       {monthOptions.map((month) => (
@@ -1463,7 +1500,7 @@ export default withAuth(function NewFormPage() {
                   <input
                     disabled
                     type={field.type}
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                     placeholder={field.label}
                   />
                 )}

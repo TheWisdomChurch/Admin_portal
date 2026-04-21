@@ -301,7 +301,7 @@ function PhoneNumberInput({
   onChange: (next: string) => void;
 }) {
   const common =
-    'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent';
+    'w-full rounded-lg border border-[var(--color-border-primary)] px-3 py-2 text-sm bg-[var(--color-background-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent [&>option]:bg-white [&>option]:text-black';
 
   const parsed = splitE164(value);
   const currentDial = parsed?.dial ?? COUNTRY_PHONE_CODES[0].dial;
@@ -358,7 +358,7 @@ function FieldInput({
   onChange: (next: FieldValue) => void;
 }) {
   const common =
-    'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent';
+    'w-full rounded-lg border border-[var(--color-border-primary)] px-3 py-2 text-sm bg-[var(--color-background-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent [&>option]:bg-white [&>option]:text-black';
   const options = Array.isArray(field.options) ? field.options : [];
   const normalizedType = normalizeFieldType(field.type);
 
