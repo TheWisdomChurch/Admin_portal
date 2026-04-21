@@ -489,6 +489,15 @@ export interface FormFieldVisibility {
   rules?: FormFieldCondition[];
 }
 
+export interface FormFieldValidation {
+  minLength?: number;
+  maxLength?: number;
+  maxWords?: number;
+  pattern?: string;
+  min?: number;
+  max?: number;
+}
+
 export interface FormField {
   id: string;
   formId?: string;
@@ -497,6 +506,7 @@ export interface FormField {
   type: FormFieldType;
   required: boolean;
   options?: FormFieldOption[];
+  validation?: FormFieldValidation;
   visibility?: FormFieldVisibility;
   order: number;
   createdAt?: string;

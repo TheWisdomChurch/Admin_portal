@@ -34,6 +34,17 @@ const visibilitySchema = z.object({
   rules: z.array(visibilityRuleSchema).min(1, 'Add at least one visibility rule'),
 });
 
+const fieldValidationSchema = z
+  .object({
+    minLength: z.number().int().positive().optional(),
+    maxLength: z.number().int().positive().optional(),
+    maxWords: z.number().int().positive().optional(),
+    pattern: z.string().trim().min(1).optional(),
+    min: z.number().optional(),
+    max: z.number().optional(),
+  })
+  .optional();
+
 export const fieldDraftSchema = z.object({
   key: z.string().trim().min(1, 'Field key is required'),
   label: z.string().trim().min(1, 'Field label is required'),
@@ -41,6 +52,7 @@ export const fieldDraftSchema = z.object({
   required: z.boolean(),
   order: z.number().int().positive(),
   options: z.array(optionSchema).optional(),
+  validation: fieldValidationSchema,
   visibility: visibilitySchema.optional(),
 });
 
