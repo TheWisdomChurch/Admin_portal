@@ -61,10 +61,13 @@ function ResponseEmailEditorPage() {
     if (form?.id) return `forms/${form.id}`;
     return '';
   }, [form]);
-  const isTestimonialTarget = useMemo(() => {
+  const includeRegistrationArtifacts = useMemo(() => {
     const target = form?.settings?.submissionTarget?.trim().toLowerCase() || '';
     const formType = form?.settings?.formType?.trim().toLowerCase() || '';
-    return target === 'testimonial' || formType === 'testimonial';
+    if (target === 'testimonial' || target === 'member' || target === 'leadership') {
+      return false;
+    }
+    return formType === 'event' || formType === 'registration' || formType === 'workforce';
   }, [form?.settings?.formType, form?.settings?.submissionTarget]);
 
   const previewHTML = useMemo(() => {
@@ -74,8 +77,8 @@ function ResponseEmailEditorPage() {
       message,
       logoUrl: logoPreview || logoUrl || undefined,
       imageUrl: imagePreview || imageUrl || undefined,
-      includeRegistrationCode: !isTestimonialTarget,
-      includeCalendarOptIn: !isTestimonialTarget,
+      includeRegistrationCode: includeRegistrationArtifacts,
+      includeCalendarOptIn: includeRegistrationArtifacts,
       greeting: 'Hello {{.RecipientName}},',
     });
     return toEmailPreview(customHtmlBody.trim() || generated);
@@ -85,7 +88,7 @@ function ResponseEmailEditorPage() {
     heading,
     imagePreview,
     imageUrl,
-    isTestimonialTarget,
+    includeRegistrationArtifacts,
     logoPreview,
     logoUrl,
     message,
@@ -115,8 +118,21 @@ function ResponseEmailEditorPage() {
         const loadedForm = await apiClient.getAdminForm(formId);
         setForm(loadedForm);
 
+        const target = loadedForm.settings?.submissionTarget?.trim().toLowerCase() || '';
+        const formType = loadedForm.settings?.formType?.trim().toLowerCase() || '';
+        const isTestimonialForm = target === 'testimonial' || formType === 'testimonial';
+        const supportsRegistrationArtifacts =
+          !isTestimonialForm &&
+          target !== 'member' &&
+          target !== 'leadership' &&
+          (formType === 'event' || formType === 'registration' || formType === 'workforce');
+        const subjectPrefix = isTestimonialForm
+          ? 'Testimony received'
+          : supportsRegistrationArtifacts
+            ? 'Registration received'
+            : 'Submission received';
         const subjectFallback =
-          loadedForm.settings?.responseEmailSubject?.trim() || `Registration received: ${loadedForm.title}`;
+          loadedForm.settings?.responseEmailSubject?.trim() || `${subjectPrefix}: ${loadedForm.title}`;
         setSubject(subjectFallback);
         setImageUrl(loadedForm.settings?.responseEmailTemplateUrl?.trim() || '');
 
@@ -222,8 +238,8 @@ function ResponseEmailEditorPage() {
         message: message.trim(),
         logoUrl: nextLogoUrl || undefined,
         imageUrl: nextImageUrl || undefined,
-        includeRegistrationCode: !isTestimonialTarget,
-        includeCalendarOptIn: !isTestimonialTarget,
+        includeRegistrationCode: includeRegistrationArtifacts,
+        includeCalendarOptIn: includeRegistrationArtifacts,
         greeting: 'Hello {{.RecipientName}},',
       });
       const mergedHTML = customHtmlBody.trim() || builtHtml;
@@ -419,7 +435,7 @@ function ResponseEmailEditorPage() {
               <iframe title="email-preview" srcDoc={previewHTML} className="h-[520px] w-full" />
             </div>
             <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">
-              The preview uses sample values for name{isTestimonialTarget ? '.' : ' and registration number.'}
+              The preview uses sample values for name{includeRegistrationArtifacts ? ' and registration number.' : '.'}
             </p>
           </div>
         </div>

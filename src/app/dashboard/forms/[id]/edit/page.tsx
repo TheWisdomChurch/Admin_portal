@@ -1207,6 +1207,25 @@ function EditFormPage() {
                   </Button>
                 </div>
               </div>
+              {field.type === 'textarea' && (
+                <div className="mt-3 max-w-xs">
+                  <Input
+                    label="Max words (optional)"
+                    type="number"
+                    min={1}
+                    value={field.validation?.maxWords ?? ''}
+                    onChange={(e) =>
+                      updateField(index, {
+                        validation: {
+                          ...(field.validation || {}),
+                          maxWords: e.target.value ? Number(e.target.value) : undefined,
+                        },
+                      })
+                    }
+                    placeholder="e.g., 400"
+                  />
+                </div>
+              )}
 
               {(field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') && (
                 <div className="mt-3 space-y-2">
