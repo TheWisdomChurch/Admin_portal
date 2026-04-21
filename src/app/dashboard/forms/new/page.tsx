@@ -57,6 +57,29 @@ const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; lab
   { value: 'contact', label: 'Contact' },
   { value: 'general', label: 'General' },
 ];
+const monthOptions = [
+  { value: '01', label: 'January' },
+  { value: '02', label: 'February' },
+  { value: '03', label: 'March' },
+  { value: '04', label: 'April' },
+  { value: '05', label: 'May' },
+  { value: '06', label: 'June' },
+  { value: '07', label: 'July' },
+  { value: '08', label: 'August' },
+  { value: '09', label: 'September' },
+  { value: '10', label: 'October' },
+  { value: '11', label: 'November' },
+  { value: '12', label: 'December' },
+];
+const dayOptions = Array.from({ length: 31 }, (_, index) => String(index + 1).padStart(2, '0'));
+
+const isOptionFieldType = (type: FormFieldType) => type === 'select' || type === 'radio' || type === 'checkbox';
+const toOptionValue = (label: string, index: number) =>
+  label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || `option-${index + 1}`;
 
 function buildPresetFields(preset: FormPreset): FieldDraft[] {
   if (preset === 'testimonial') {
@@ -501,6 +524,53 @@ export default withAuth(function NewFormPage() {
 
   const updateField = (index: number, updates: Partial<FieldDraft>) => {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, ...updates } : f)));
+  };
+
+  const addFieldOption = (fieldIndex: number) => {
+    setFields((prev) =>
+      prev.map((field, index) => {
+        if (index !== fieldIndex) return field;
+        const options = Array.isArray(field.options) ? field.options : [];
+        const nextIndex = options.length;
+        return {
+          ...field,
+          options: [
+            ...options,
+            {
+              label: '',
+              value: `option-${nextIndex + 1}`,
+            },
+          ],
+        };
+      })
+    );
+  };
+
+  const updateFieldOptionLabel = (fieldIndex: number, optionIndex: number, label: string) => {
+    setFields((prev) =>
+      prev.map((field, index) => {
+        if (index !== fieldIndex) return field;
+        const options = Array.isArray(field.options) ? [...field.options] : [];
+        if (!options[optionIndex]) return field;
+        options[optionIndex] = {
+          label,
+          value: toOptionValue(label, optionIndex),
+        };
+        return { ...field, options };
+      })
+    );
+  };
+
+  const removeFieldOption = (fieldIndex: number, optionIndex: number) => {
+    setFields((prev) =>
+      prev.map((field, index) => {
+        if (index !== fieldIndex) return field;
+        const options = Array.isArray(field.options) ? [...field.options] : [];
+        if (!options[optionIndex]) return field;
+        options.splice(optionIndex, 1);
+        return { ...field, options };
+      })
+    );
   };
 
   const requestRemoveField = (index: number) => {
@@ -1171,7 +1241,19 @@ export default withAuth(function NewFormPage() {
                 <div className="flex flex-wrap gap-2">
                   <select
                     value={field.type}
-                    onChange={(e) => updateField(index, { type: e.target.value as FormFieldType })}
+                    onChange={(e) => {
+                      const nextType = e.target.value as FormFieldType;
+                      const nextOptions =
+                        isOptionFieldType(nextType) && (!Array.isArray(field.options) || field.options.length === 0)
+                          ? [
+                              { label: 'Option 1', value: 'option-1' },
+                              { label: 'Option 2', value: 'option-2' },
+                            ]
+                          : isOptionFieldType(nextType)
+                          ? field.options
+                          : undefined;
+                      updateField(index, { type: nextType, options: nextOptions });
+                    }}
                     className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
                   >
                     <option value="text">Text</option>
@@ -1217,27 +1299,37 @@ export default withAuth(function NewFormPage() {
                   />
                 </div>
               )}
-              {(field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') && (
+              {isOptionFieldType(field.type) && (
                 <div className="mt-3 space-y-2">
-                  <p className="text-xs text-[var(--color-text-tertiary)]">
-                    Options (pipe separated): Value 1 | Value 2 | Value 3
-                  </p>
-                  <input
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                    value={(field.options || []).map((o) => o.label).join(' | ')}
-                    onChange={(e) => {
-                      const opts = e.target.value
-                        .split('|')
-                        .map((chunk) => chunk.trim())
-                        .filter(Boolean)
-                        .map((label, idx) => ({
-                          label,
-                          value: label.toLowerCase().replace(/\s+/g, '-') || `option-${idx + 1}`,
-                        }));
-                      updateField(index, { options: opts });
-                    }}
-                    placeholder="Gold | Silver | Bronze"
-                  />
+                  <p className="text-xs text-[var(--color-text-tertiary)]">Options</p>
+                  {(field.options || []).map((option, optionIndex) => (
+                    <div key={`${option.value}-${optionIndex}`} className="flex items-center gap-2">
+                      <input
+                        className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                        value={option.label}
+                        onChange={(e) => updateFieldOptionLabel(index, optionIndex, e.target.value)}
+                        placeholder={`Option ${optionIndex + 1}`}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeFieldOption(index, optionIndex)}
+                        icon={<Trash2 className="h-4 w-4" />}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addFieldOption(index)}
+                    icon={<Plus className="h-4 w-4" />}
+                  >
+                    Add option
+                  </Button>
                 </div>
               )}
             </div>
@@ -1343,12 +1435,30 @@ export default withAuth(function NewFormPage() {
                     <p className="text-[11px] text-[var(--color-text-tertiary)]">JPEG, PNG, WebP up to 5MB</p>
                   </div>
                 ) : field.type === 'date' ? (
-                  <input
-                    disabled
-                    type="date"
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)]"
-                    placeholder={field.label}
-                  />
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <select
+                      disabled
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                    >
+                      <option value="">Select day</option>
+                      {dayOptions.map((day) => (
+                        <option key={day} value={day}>
+                          {day}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      disabled
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                    >
+                      <option value="">Select month</option>
+                      {monthOptions.map((month) => (
+                        <option key={month.value} value={month.value}>
+                          {month.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 ) : (
                   <input
                     disabled
