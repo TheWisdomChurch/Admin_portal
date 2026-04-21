@@ -42,6 +42,20 @@ const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // E.164: + plus 8-15 digits (basic)
 const e164Re = /^\+[1-9]\d{7,14}$/;
 const PRAYER_REQUEST_WORD_LIMIT = 400;
+const MONTH_OPTIONS = [
+  { value: '01', label: 'January' },
+  { value: '02', label: 'February' },
+  { value: '03', label: 'March' },
+  { value: '04', label: 'April' },
+  { value: '05', label: 'May' },
+  { value: '06', label: 'June' },
+  { value: '07', label: 'July' },
+  { value: '08', label: 'August' },
+  { value: '09', label: 'September' },
+  { value: '10', label: 'October' },
+  { value: '11', label: 'November' },
+  { value: '12', label: 'December' },
+] as const;
 
 const normalizeFieldType = (value?: string) => (value || '').toLowerCase();
 const normalizeTypeToken = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -76,6 +90,37 @@ const isPhoneLikeField = (field: FormField) => {
 };
 
 const pad2 = (value: number) => value.toString().padStart(2, '0');
+const daysInMonth = (month: number) => {
+  if (month === 2) return 29;
+  if ([4, 6, 9, 11].includes(month)) return 30;
+  return 31;
+};
+const parseDDMM = (value: string): { day: string; month: string } | null => {
+  if (!value) return null;
+  const match = /^(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return null;
+  if (day < 1 || day > daysInMonth(month)) return null;
+  return { day: match[1], month: match[2] };
+};
+const parseDDMMPartial = (value: string): { day: string; month: string } | null => {
+  if (!value) return null;
+  const match = /^(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const day = match[1];
+  const month = match[2];
+  if (month !== '00' && (Number(month) < 1 || Number(month) > 12)) return null;
+  if (day !== '00' && (Number(day) < 1 || Number(day) > 31)) return null;
+  return { day, month };
+};
+const toDDMM = (day: string, month: string) => {
+  if (!day && !month) return '';
+  if (!day) return `00-${month}`;
+  if (!month) return `${day}-00`;
+  return `${day}-${month}`;
+};
 const formatDate = (value?: string, format?: string) => {
   if (!value) return '';
   const date = new Date(value);
@@ -85,15 +130,16 @@ const formatDate = (value?: string, format?: string) => {
   const year = date.getFullYear();
 
   switch (format) {
+    case 'dd-mm':
+      return `${day}-${month}`;
     case 'mm/dd/yyyy':
       return `${month}/${day}/${year}`;
     case 'dd/mm/yyyy':
       return `${day}/${month}/${year}`;
     case 'dd/mm':
       return `${day}/${month}`;
-    case 'yyyy-mm-dd':
     default:
-      return `${year}-${month}-${day}`;
+      return `${day}-${month}`;
   }
 };
 
@@ -454,6 +500,59 @@ function FieldInput({
     );
   }
 
+  if (normalizedType === 'date') {
+    const parsed = parseDDMMPartial(typeof value === 'string' ? value : '');
+    const selectedMonth = parsed?.month && parsed.month !== '00' ? parsed.month : '';
+    const selectedDay = parsed?.day && parsed.day !== '00' ? parsed.day : '';
+    const monthNumber = Number(selectedMonth || '0');
+    const maxDay = monthNumber >= 1 && monthNumber <= 12 ? daysInMonth(monthNumber) : 31;
+    const dayOptions = Array.from({ length: maxDay }, (_, index) => String(index + 1).padStart(2, '0'));
+
+    return (
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <select
+          className={common}
+          value={selectedDay}
+          disabled={!selectedMonth}
+          onChange={(e) => {
+            const nextDay = e.target.value;
+            onChange(toDDMM(nextDay, selectedMonth));
+          }}
+          required={field.required}
+        >
+          <option value="">Select day</option>
+          {dayOptions.map((day) => (
+            <option key={day} value={day}>
+              {day}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className={common}
+          value={selectedMonth}
+          onChange={(e) => {
+            const nextMonth = e.target.value;
+            const nextMax = daysInMonth(Number(nextMonth || '1'));
+            let nextDay = selectedDay;
+            if (nextDay && Number(nextDay) > nextMax) {
+              nextDay = String(nextMax).padStart(2, '0');
+            }
+            onChange(toDDMM(nextDay, nextMonth));
+          }}
+          required={field.required}
+        >
+          <option value="">Select month</option>
+          {MONTH_OPTIONS.map((month) => (
+            <option key={month.value} value={month.value}>
+              {month.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
   const inputType =
     normalizedType === 'email'
       ? 'email'
@@ -723,7 +822,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     }
 
     if (fieldType === 'number' && Number.isNaN(Number(raw))) return 'Please enter a valid number.';
-    if (fieldType === 'date' && Number.isNaN(new Date(raw).getTime())) return 'Please enter a valid date.';
+    if (fieldType === 'date' && !parseDDMM(raw)) return 'Please enter a valid date in DD-MM format (e.g. 24-12).';
 
     return null;
   };

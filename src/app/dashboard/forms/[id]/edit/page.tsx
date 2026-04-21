@@ -1140,16 +1140,14 @@ function EditFormPage() {
               </label>
               <select
                 className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-                value={form.settings?.dateFormat ?? 'yyyy-mm-dd'}
+                value={form.settings?.dateFormat ?? 'dd-mm'}
                 onChange={(e) =>
                   updateSettings({
                     dateFormat: e.target.value as NonNullable<FormSettings['dateFormat']>,
                   })
                 }
               >
-                <option value="yyyy-mm-dd">YYYY-MM-DD</option>
-                <option value="mm/dd/yyyy">MM/DD/YYYY</option>
-                <option value="dd/mm/yyyy">DD/MM/YYYY</option>
+                <option value="dd-mm">DD-MM</option>
                 <option value="dd/mm">DD/MM</option>
               </select>
             </div>
