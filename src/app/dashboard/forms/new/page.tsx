@@ -41,7 +41,7 @@ type FieldDraft = {
 
 type FormPreset = 'testimonial' | 'member' | 'leadership';
 
-const dateFormats = ['yyyy-mm-dd', 'mm/dd/yyyy', 'dd/mm/yyyy', 'dd/mm'] as const;
+const dateFormats = ['dd-mm', 'dd/mm'] as const;
 type DateFormat = (typeof dateFormats)[number];
 
 const submitButtonIcons = ['check', 'send', 'calendar', 'cursor', 'none'] as const;
@@ -293,12 +293,12 @@ export default withAuth(function NewFormPage() {
   const [capacity, setCapacity] = useState('');
   const [closesAt, setClosesAt] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
-  const [introTitle, setIntroTitle] = useState('Event Registration');
-  const [introSubtitle, setIntroSubtitle] = useState('Secure your spot by registering below.');
-  const [introBullets, setIntroBullets] = useState('Smooth check-in\nEngaging sessions\nFriendly community');
-  const [introBulletSubs, setIntroBulletSubs] = useState('Arrive early for badges\nShort, powerful sessions\nMeet friendly stewards');
+  const [introTitle, setIntroTitle] = useState('Form Details');
+  const [introSubtitle, setIntroSubtitle] = useState('Complete the form below with accurate information.');
+  const [introBullets, setIntroBullets] = useState('Provide accurate details\nReview before submitting\nOur team will follow up');
+  const [introBulletSubs, setIntroBulletSubs] = useState('Helps us process your response quickly\nPrevents errors in your record\nOnly authorized staff can access submissions');
   const [layoutMode, setLayoutMode] = useState<'split' | 'stack'>('split');
-  const [dateFormat, setDateFormat] = useState<DateFormat>('yyyy-mm-dd');
+  const [dateFormat, setDateFormat] = useState<DateFormat>('dd-mm');
   const [footerText, setFooterText] = useState('Powered by Wisdom House Registration');
   const [footerBg, setFooterBg] = useState('#f5c400');
   const [footerTextColor, setFooterTextColor] = useState('#111827');
@@ -443,6 +443,7 @@ export default withAuth(function NewFormPage() {
       setIntroSubtitle('Your testimony encourages others and strengthens faith.');
       setIntroBullets('Tell your story clearly\nShare key details\nOur team will review before publishing');
       setIntroBulletSubs('Be specific and truthful\nInclude names only if needed\nOnly approved testimonies go public');
+      setDateFormat('dd-mm');
       setResponseEmailSubject((current) => current || 'Testimony received: Share Your Testimony');
       setResponseEmailHeading((current) => current || 'Testimony Received');
       setResponseEmailMessage((current) =>
@@ -463,6 +464,7 @@ export default withAuth(function NewFormPage() {
       setIntroSubtitle('Provide accurate details for leadership review.');
       setIntroBullets('Share valid contact details\nChoose the role you are applying for\nSubmissions are reviewed before display');
       setIntroBulletSubs('Used for direct follow-up\nHelps routing to the right team\nOnly approved profiles appear publicly');
+      setDateFormat('dd-mm');
       setFields(buildPresetFields('leadership'));
       return;
     }
@@ -477,6 +479,7 @@ export default withAuth(function NewFormPage() {
     setIntroSubtitle('Complete this membership intake form with accurate details.');
     setIntroBullets('Provide valid contact details\nEnter accurate date of birth\nOptional prayer request up to 400 words');
     setIntroBulletSubs('Used for follow-up and communication\nHelps pastoral care and records\nOnly authorized staff can review');
+    setDateFormat('dd-mm');
     setFields(buildPresetFields('member'));
   }, []);
 
@@ -855,7 +858,7 @@ export default withAuth(function NewFormPage() {
               label="Left column title"
               value={introTitle}
               onChange={(e) => setIntroTitle(e.target.value)}
-              placeholder="e.g., Event Registration"
+              placeholder="e.g., Form Details"
             />
             <Input
               label="Left column subtitle"
@@ -1033,9 +1036,7 @@ export default withAuth(function NewFormPage() {
                       }}
                       className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                     >
-                      <option value="yyyy-mm-dd">YYYY-MM-DD</option>
-                      <option value="mm/dd/yyyy">MM/DD/YYYY</option>
-                      <option value="dd/mm/yyyy">DD/MM/YYYY</option>
+                      <option value="dd-mm">DD-MM</option>
                       <option value="dd/mm">DD/MM</option>
                     </select>
                   </>
@@ -1254,7 +1255,7 @@ export default withAuth(function NewFormPage() {
             <div className="inline-flex items-center rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1 text-xs text-[var(--color-text-secondary)]">
               Preview
             </div>
-            <h2 className="text-2xl font-semibold text-[var(--color-text-primary)]">{introTitle || 'Event Registration'}</h2>
+            <h2 className="text-2xl font-semibold text-[var(--color-text-primary)]">{introTitle || 'Form Details'}</h2>
             <p className="text-sm text-[var(--color-text-secondary)]">{introSubtitle || 'Secure your spot by registering below.'}</p>
             {formHeaderNote && (
               <p className="text-xs text-[var(--color-text-tertiary)]">{formHeaderNote}</p>
