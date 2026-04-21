@@ -49,6 +49,13 @@ const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; lab
   { value: 'contact', label: 'Contact' },
   { value: 'general', label: 'General' },
 ];
+const isOptionFieldType = (type: FormFieldType) => type === 'select' || type === 'radio' || type === 'checkbox';
+const toOptionValue = (label: string, index: number) =>
+  label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || `option-${index + 1}`;
 
 function createEmptyVisibilityRule(): VisibilityRuleDraft {
   return {
@@ -347,6 +354,53 @@ function EditFormPage() {
 
   const updateField = (index: number, updates: Partial<FieldDraft>) => {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, ...updates } : f)));
+  };
+
+  const addFieldOption = (fieldIndex: number) => {
+    setFields((prev) =>
+      prev.map((field, index) => {
+        if (index !== fieldIndex) return field;
+        const options = Array.isArray(field.options) ? field.options : [];
+        const nextIndex = options.length;
+        return {
+          ...field,
+          options: [
+            ...options,
+            {
+              label: '',
+              value: `option-${nextIndex + 1}`,
+            },
+          ],
+        };
+      })
+    );
+  };
+
+  const updateFieldOptionLabel = (fieldIndex: number, optionIndex: number, label: string) => {
+    setFields((prev) =>
+      prev.map((field, index) => {
+        if (index !== fieldIndex) return field;
+        const options = Array.isArray(field.options) ? [...field.options] : [];
+        if (!options[optionIndex]) return field;
+        options[optionIndex] = {
+          label,
+          value: toOptionValue(label, optionIndex),
+        };
+        return { ...field, options };
+      })
+    );
+  };
+
+  const removeFieldOption = (fieldIndex: number, optionIndex: number) => {
+    setFields((prev) =>
+      prev.map((field, index) => {
+        if (index !== fieldIndex) return field;
+        const options = Array.isArray(field.options) ? [...field.options] : [];
+        if (!options[optionIndex]) return field;
+        options.splice(optionIndex, 1);
+        return { ...field, options };
+      })
+    );
   };
 
   const setFieldVisibilityEnabled = (index: number, enabled: boolean) => {
@@ -1178,7 +1232,19 @@ function EditFormPage() {
                 <div className="flex flex-wrap gap-2">
                   <select
                     value={field.type}
-                    onChange={(e) => updateField(index, { type: e.target.value as FormFieldType })}
+                    onChange={(e) => {
+                      const nextType = e.target.value as FormFieldType;
+                      const nextOptions =
+                        isOptionFieldType(nextType) && (!Array.isArray(field.options) || field.options.length === 0)
+                          ? [
+                              { label: 'Option 1', value: 'option-1' },
+                              { label: 'Option 2', value: 'option-2' },
+                            ]
+                          : isOptionFieldType(nextType)
+                          ? field.options
+                          : undefined;
+                      updateField(index, { type: nextType, options: nextOptions });
+                    }}
                     className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
                   >
                     <option value="text">Text</option>
@@ -1225,23 +1291,37 @@ function EditFormPage() {
                 </div>
               )}
 
-              {(field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') && (
+              {isOptionFieldType(field.type) && (
                 <div className="mt-3 space-y-2">
-                  <p className="text-xs text-[var(--color-text-tertiary)]">Options (comma separated)</p>
-                  <input
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                    value={(field.options || []).map((o) => o.label).join(', ')}
-                    onChange={(e) =>
-                      updateField(index, {
-                        options: e.target.value
-                          .split(',')
-                          .map((opt) => opt.trim())
-                          .filter(Boolean)
-                          .map((opt, idx) => ({ label: opt, value: opt.toLowerCase().replace(/\s+/g, '-') + idx })),
-                      })
-                    }
-                    placeholder="Option one, Option two"
-                  />
+                  <p className="text-xs text-[var(--color-text-tertiary)]">Options</p>
+                  {(field.options || []).map((option, optionIndex) => (
+                    <div key={`${option.value}-${optionIndex}`} className="flex items-center gap-2">
+                      <input
+                        className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                        value={option.label}
+                        onChange={(e) => updateFieldOptionLabel(index, optionIndex, e.target.value)}
+                        placeholder={`Option ${optionIndex + 1}`}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeFieldOption(index, optionIndex)}
+                        icon={<Trash2 className="h-4 w-4" />}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addFieldOption(index)}
+                    icon={<Plus className="h-4 w-4" />}
+                  >
+                    Add option
+                  </Button>
                 </div>
               )}
               <div className="mt-3 rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-3">
