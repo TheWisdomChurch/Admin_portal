@@ -53,6 +53,9 @@ type FieldDraft = {
   type: FormFieldType;
   required: boolean;
   order: number;
+  validation?: {
+    maxWords?: number;
+  };
   options?: { label: string; value: string }[];
 };
 
@@ -835,6 +838,7 @@ export default withAuth(function FormsPage() {
           label: f.label.trim() || `Field ${idx + 1}`,
           type: f.type,
           required: f.required,
+          validation: f.validation?.maxWords ? { maxWords: f.validation.maxWords } : undefined,
           order: idx + 1,
         };
 
@@ -1782,6 +1786,25 @@ export default withAuth(function FormsPage() {
                     </div>
 
                     {/* OPTIONS EDITOR (FIX) */}
+                    {field.type === 'textarea' && (
+                      <div className="mt-3 max-w-xs">
+                        <Input
+                          label="Max words (optional)"
+                          type="number"
+                          min={1}
+                          value={field.validation?.maxWords ?? ''}
+                          onChange={(e) =>
+                            updateField(index, {
+                              validation: {
+                                ...(field.validation || {}),
+                                maxWords: e.target.value ? Number(e.target.value) : undefined,
+                              },
+                            })
+                          }
+                          placeholder="e.g., 400"
+                        />
+                      </div>
+                    )}
                     {isOptionField(field.type) && (
                       <div className="mt-3 space-y-3">
                         <div className="flex items-center justify-between gap-2">
