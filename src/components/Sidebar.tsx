@@ -178,16 +178,16 @@ export function Sidebar() {
       {/* Mobile toggle button */}
       <button
         onClick={() => setIsMobileOpen(true)}
-        className="md:hidden fixed top-4 left-4 z-50 p-3 rounded-xl bg-black text-zinc-100 shadow-lg border border-zinc-800 hover:bg-zinc-900 transition-colors"
+        className="md:hidden fixed top-4 left-4 z-50 p-3 rounded-xl bg-[var(--color-background-primary)] text-[var(--color-text-primary)] shadow-lg border border-[var(--color-border-primary)] hover:bg-[var(--color-background-hover)] transition-colors"
         aria-label="Open navigation menu"
       >
-        <Menu className="h-5 w-5 text-zinc-100" />
+        <Menu className="h-5 w-5 text-[var(--color-text-primary)]" />
       </button>
 
       {/* Sidebar */}
       <aside
         className={`
-          fixed left-0 top-0 z-50 h-screen border-r border-border
+          fixed left-0 top-0 z-50 h-screen border-r border-[var(--color-border-primary)]
           flex flex-col shadow-2xl bg-black text-zinc-100 md:bg-background md:text-foreground
           transition-all duration-300 ease-in-out
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
@@ -280,19 +280,19 @@ export function Sidebar() {
                   onClick={() => setIsMobileOpen(false)}
                   title={item.label}
                   className={`
-                    flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all
+                    flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-medium transition-all
                     duration-200 ease-out group relative
                     ${showLabels ? '' : 'justify-center'}
                     ${isActive
-                      ? 'bg-primary text-primary-foreground shadow-lg'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground hover:shadow-md'
+                      ? 'bg-[var(--color-accent-primary)] text-[var(--color-text-onprimary)] shadow-lg'
+                      : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)] hover:shadow-md'
                     }
                   `}
                 >
                   <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0
                     ${isActive
-                      ? 'bg-primary-foreground/20 text-primary-foreground'
-                      : 'bg-accent text-muted-foreground group-hover:bg-accent group-hover:text-foreground'
+                      ? 'bg-black/15 text-[var(--color-text-onprimary)]'
+                      : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)] group-hover:bg-[var(--color-background-tertiary)] group-hover:text-[var(--color-text-primary)]'
                     }`}
                   >
                     <Icon className="h-4 w-4" />
@@ -306,7 +306,7 @@ export function Sidebar() {
                           <div className="h-2 w-2 rounded-full bg-primary-foreground/60 ml-2" />
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground truncate mt-1">
+                      <p className={`text-[11px] truncate mt-1 ${isActive ? 'text-[var(--color-text-onprimary)]/80' : 'text-[var(--color-text-tertiary)]'}`}>
                         {item.description}
                       </p>
                     </div>
@@ -314,7 +314,7 @@ export function Sidebar() {
 
                   {/* Active indicator for collapsed state */}
                   {!showLabels && isActive && (
-                    <div className="absolute right-0 top-1/2 h-6 w-1 -translate-y-1/2 bg-primary rounded-l-lg" />
+                    <div className="absolute right-0 top-1/2 h-6 w-1 -translate-y-1/2 bg-[var(--color-accent-primaryactive)] rounded-l-lg" />
                   )}
                   {!showLabels && (
                     <div className="pointer-events-none absolute left-full top-1/2 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
