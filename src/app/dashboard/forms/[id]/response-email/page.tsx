@@ -61,6 +61,11 @@ function ResponseEmailEditorPage() {
     if (form?.id) return `forms/${form.id}`;
     return '';
   }, [form]);
+  const isTestimonialTarget = useMemo(() => {
+    const target = form?.settings?.submissionTarget?.trim().toLowerCase() || '';
+    const formType = form?.settings?.formType?.trim().toLowerCase() || '';
+    return target === 'testimonial' || formType === 'testimonial';
+  }, [form?.settings?.formType, form?.settings?.submissionTarget]);
 
   const previewHTML = useMemo(() => {
     const generated = buildFormEmailHTML({
@@ -69,12 +74,22 @@ function ResponseEmailEditorPage() {
       message,
       logoUrl: logoPreview || logoUrl || undefined,
       imageUrl: imagePreview || imageUrl || undefined,
-      includeRegistrationCode: true,
-      includeCalendarOptIn: true,
+      includeRegistrationCode: !isTestimonialTarget,
+      includeCalendarOptIn: !isTestimonialTarget,
       greeting: 'Hello {{.RecipientName}},',
     });
     return toEmailPreview(customHtmlBody.trim() || generated);
-  }, [form?.title, heading, message, logoPreview, logoUrl, imagePreview, imageUrl, customHtmlBody]);
+  }, [
+    customHtmlBody,
+    form?.title,
+    heading,
+    imagePreview,
+    imageUrl,
+    isTestimonialTarget,
+    logoPreview,
+    logoUrl,
+    message,
+  ]);
 
   const validateImageFile = (file: File): string | null => {
     if (!ACCEPTED_EMAIL_IMAGE_TYPES.includes(file.type)) {
@@ -207,8 +222,8 @@ function ResponseEmailEditorPage() {
         message: message.trim(),
         logoUrl: nextLogoUrl || undefined,
         imageUrl: nextImageUrl || undefined,
-        includeRegistrationCode: true,
-        includeCalendarOptIn: true,
+        includeRegistrationCode: !isTestimonialTarget,
+        includeCalendarOptIn: !isTestimonialTarget,
         greeting: 'Hello {{.RecipientName}},',
       });
       const mergedHTML = customHtmlBody.trim() || builtHtml;
@@ -388,7 +403,7 @@ function ResponseEmailEditorPage() {
               rows={10}
               value={customHtmlBody}
               onChange={(e) => setCustomHtmlBody(e.target.value)}
-              placeholder="Paste full HTML for complete control. Supported placeholders: {{.RecipientName}}, {{.RegistrationCode}}, {{.SubscribeURL}}, {{.UnsubscribeURL}}, {{.CalendarOptInURL}}"
+              placeholder="Paste full HTML for complete control. Supported placeholders: {{.RecipientName}}, {{.RegistrationCode}}, {{.SubscribeURL}}, {{.UnsubscribeURL}}, {{.CalendarOptInURL}}."
             />
             <p className="text-xs text-[var(--color-text-tertiary)]">
               Leave empty to use the structured editor.
@@ -404,7 +419,7 @@ function ResponseEmailEditorPage() {
               <iframe title="email-preview" srcDoc={previewHTML} className="h-[520px] w-full" />
             </div>
             <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">
-              The preview uses sample values for name and registration number.
+              The preview uses sample values for name{isTestimonialTarget ? '.' : ' and registration number.'}
             </p>
           </div>
         </div>

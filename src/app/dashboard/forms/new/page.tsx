@@ -170,11 +170,20 @@ const embedTemplateMeta = (
   return `${META_PREFIX}${payload}${META_SUFFIX}\n${stripTemplateMeta(html)}`;
 };
 
-const buildResponseEmailHTML = (opts: { title: string; heading: string; message: string; imageUrl?: string }) => {
+const buildResponseEmailHTML = (opts: {
+  title: string;
+  heading: string;
+  message: string;
+  imageUrl?: string;
+  includeRegistrationCode?: boolean;
+  includeCalendarOptIn?: boolean;
+}) => {
   const safeTitle = escapeHtml(opts.title || 'Registration');
   const safeHeading = escapeHtml(opts.heading || 'Registration Confirmed');
   const safeMessage = escapeHtml(opts.message || 'Thank you for registering.');
   const safeImageUrl = opts.imageUrl ? escapeHtml(opts.imageUrl) : '';
+  const includeRegistrationCode = opts.includeRegistrationCode !== false;
+  const includeCalendarOptIn = opts.includeCalendarOptIn !== false;
 
   return `
 <!doctype html>
@@ -202,16 +211,16 @@ const buildResponseEmailHTML = (opts: { title: string; heading: string; message:
               <td style="padding:18px 24px 12px 24px;">
                 <p style="margin:0 0 14px 0;font-size:16px;color:#111827;">Hello {{.RecipientName}},</p>
                 <p style="margin:0;font-size:15px;line-height:1.7;color:#374151;">${safeMessage}</p>
-                {{if .RegistrationCode}}
+                ${includeRegistrationCode ? '{{if .RegistrationCode}}' : ''}
                 <div style="margin-top:16px;display:inline-block;padding:10px 14px;border-radius:8px;background:#fff9db;border:1px solid #facc15;font-size:13px;color:#111827;">
                   Registration Number: <strong>{{.RegistrationCode}}</strong>
                 </div>
-                {{end}}
-                {{if .CalendarOptInURL}}
+                ${includeRegistrationCode ? '{{end}}' : ''}
+                ${includeCalendarOptIn ? '{{if .CalendarOptInURL}}' : ''}
                 <p style="margin:14px 0 0;font-size:13px;color:#111827;">
                   <a href="{{.CalendarOptInURL}}" style="color:#111827;text-decoration:underline;font-weight:700;">Add event to calendar</a>
                 </p>
-                {{end}}
+                ${includeCalendarOptIn ? '{{end}}' : ''}
               </td>
             </tr>
           </table>
@@ -407,6 +416,11 @@ export default withAuth(function NewFormPage() {
       setIntroSubtitle('Your testimony encourages others and strengthens faith.');
       setIntroBullets('Tell your story clearly\nShare key details\nOur team will review before publishing');
       setIntroBulletSubs('Be specific and truthful\nInclude names only if needed\nOnly approved testimonies go public');
+      setResponseEmailSubject((current) => current || 'Testimony received: Share Your Testimony');
+      setResponseEmailHeading((current) => current || 'Testimony Received');
+      setResponseEmailMessage((current) =>
+        current || 'Thank you for sharing your testimony. Our team will review it and contact you if we need clarification.'
+      );
       setFields(buildPresetFields('testimonial'));
       return;
     }
@@ -564,13 +578,18 @@ export default withAuth(function NewFormPage() {
 
       if (responseEmailEnabled) {
         const templateKey = `forms/${created.slug || normalizedSlug || created.id}`;
-        const templateSubject = responseEmailSubject.trim() || `Registration received: ${created.title || normalizedTitle}`;
+        const isTestimonialTarget = submissionTarget === 'testimonial';
+        const templateSubject =
+          responseEmailSubject.trim() ||
+          `${isTestimonialTarget ? 'Testimony received' : 'Registration received'}: ${created.title || normalizedTitle}`;
         const htmlBody = embedTemplateMeta(
           buildResponseEmailHTML({
             title: created.title || normalizedTitle,
             heading: responseEmailHeading.trim(),
             message: responseEmailMessage.trim(),
             imageUrl: responseTemplateImageUrl || undefined,
+            includeRegistrationCode: !isTestimonialTarget,
+            includeCalendarOptIn: !isTestimonialTarget,
           }),
           {
             heading: responseEmailHeading.trim() || undefined,
