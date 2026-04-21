@@ -858,7 +858,7 @@ export default withAuth(function NewFormPage() {
               label="Left column title"
               value={introTitle}
               onChange={(e) => setIntroTitle(e.target.value)}
-              placeholder="e.g., Event Registration"
+              placeholder="e.g., Form Details"
             />
             <Input
               label="Left column subtitle"
@@ -1255,7 +1255,7 @@ export default withAuth(function NewFormPage() {
             <div className="inline-flex items-center rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1 text-xs text-[var(--color-text-secondary)]">
               Preview
             </div>
-            <h2 className="text-2xl font-semibold text-[var(--color-text-primary)]">{introTitle || 'Event Registration'}</h2>
+            <h2 className="text-2xl font-semibold text-[var(--color-text-primary)]">{introTitle || 'Form Details'}</h2>
             <p className="text-sm text-[var(--color-text-secondary)]">{introSubtitle || 'Secure your spot by registering below.'}</p>
             {formHeaderNote && (
               <p className="text-xs text-[var(--color-text-tertiary)]">{formHeaderNote}</p>
