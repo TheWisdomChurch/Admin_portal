@@ -1,7 +1,6 @@
 'use client';
 
-// This page mirrors the rich builder experience from /dashboard/test
-// so admins can create new forms from the canonical /dashboard/forms/new route.
+// Canonical form builder used by admins to create new public forms.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
