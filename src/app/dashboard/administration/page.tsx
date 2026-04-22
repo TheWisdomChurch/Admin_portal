@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Calendar,
   Heart,
+  LayoutGrid,
   Mail,
   Phone,
   Shield,
@@ -36,7 +37,7 @@ import type {
   WorkforceStatsResponse,
 } from '@/lib/types';
 
-type TabKey = 'workforce' | 'members' | 'leadership';
+type TabKey = 'workforce' | 'members' | 'leadership' | 'forms';
 
 const roleOptions: Array<{ value: LeadershipRole; label: string }> = [
   { value: 'senior_pastor', label: 'Senior Pastor' },
@@ -71,6 +72,53 @@ function formatMonthDay(month?: number, day?: number) {
 function roleLabel(role: LeadershipRole) {
   const found = roleOptions.find((item) => item.value === role);
   return found ? found.label : role;
+}
+
+function normalizeTargetKey(form: AdminForm): string {
+  const explicitTarget = form.settings?.submissionTarget?.trim().toLowerCase();
+  if (explicitTarget) return explicitTarget;
+
+  const formType = String(form.settings?.formType || '').trim().toLowerCase();
+  if (formType) return formType;
+
+  return 'general';
+}
+
+function toTargetLabel(key: string): string {
+  const labelMap: Record<string, string> = {
+    workforce: 'Workforce',
+    workforce_new: 'Workforce (New)',
+    workforce_serving: 'Workforce (Serving)',
+    member: 'Members',
+    members: 'Members',
+    membership: 'Membership',
+    leadership: 'Leadership',
+    testimonial: 'Testimonials',
+    event: 'Events',
+    registration: 'Registration',
+    contact: 'Contact',
+    application: 'Applications',
+    general: 'General',
+  };
+  return labelMap[key] || key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function isTargetMatch(form: AdminForm, allowed: string[]): boolean {
+  const normalized = normalizeTargetKey(form);
+  return allowed.includes(normalized);
+}
+
+function buildNewFormRouteForTarget(targetKey: string): string {
+  if (targetKey === 'member' || targetKey === 'members' || targetKey === 'membership') {
+    return '/dashboard/forms/new?preset=member';
+  }
+  if (targetKey === 'leadership') {
+    return '/dashboard/forms/new?preset=leadership';
+  }
+  if (targetKey === 'workforce' || targetKey === 'workforce_new' || targetKey === 'workforce_serving') {
+    return '/dashboard/forms/new?preset=workforce';
+  }
+  return '/dashboard/forms/new';
 }
 
 function AccordionRow({
@@ -108,6 +156,7 @@ export default function AdministrationPage() {
   const [leaders, setLeaders] = useState<LeadershipMember[]>([]);
   const [loading, setLoading] = useState(false);
   const [formsLoading, setFormsLoading] = useState(false);
+  const [adminForms, setAdminForms] = useState<AdminForm[]>([]);
   const [memberForms, setMemberForms] = useState<AdminForm[]>([]);
   const [leadershipForms, setLeadershipForms] = useState<AdminForm[]>([]);
 
@@ -155,8 +204,9 @@ export default function AdministrationPage() {
       setMembers(toArray<Member>(membersRes));
       setLeaders(toArray<LeadershipMember>(leadershipRes));
       const forms = Array.isArray(formsRes.data) ? formsRes.data : [];
-      setMemberForms(forms.filter((form) => form.settings?.submissionTarget === 'member'));
-      setLeadershipForms(forms.filter((form) => form.settings?.submissionTarget === 'leadership'));
+      setAdminForms(forms);
+      setMemberForms(forms.filter((form) => isTargetMatch(form, ['member', 'members', 'membership'])));
+      setLeadershipForms(forms.filter((form) => isTargetMatch(form, ['leadership'])));
     } catch (error) {
       console.error('Failed to load administration data:', error);
       toast.error('Unable to load administration records');
@@ -164,6 +214,7 @@ export default function AdministrationPage() {
       setWorkforceStatsApi(null);
       setMembers([]);
       setLeaders([]);
+      setAdminForms([]);
       setMemberForms([]);
       setLeadershipForms([]);
     } finally {
@@ -201,6 +252,35 @@ export default function AdministrationPage() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8);
   }, [workforce, workforceStatsApi]);
+
+  const formGroups = useMemo(() => {
+    const grouped = adminForms.reduce<Record<string, AdminForm[]>>((acc, form) => {
+      const key = normalizeTargetKey(form);
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(form);
+      return acc;
+    }, {});
+
+    return Object.entries(grouped)
+      .map(([key, forms]) => ({
+        key,
+        label: toTargetLabel(key),
+        forms: forms.sort((a, b) => {
+          const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+          const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+          return bTime - aTime;
+        }),
+      }))
+      .sort((a, b) => b.forms.length - a.forms.length || a.label.localeCompare(b.label));
+  }, [adminForms]);
+
+  const formsMetrics = useMemo(() => {
+    const total = adminForms.length;
+    const published = adminForms.filter((f) => f.isPublished || f.status === 'published').length;
+    const drafts = Math.max(0, total - published);
+    const targets = formGroups.length;
+    return { total, published, drafts, targets };
+  }, [adminForms, formGroups.length]);
 
   const addMember = useCallback(async () => {
     if (!memberForm.firstName.trim() || !memberForm.lastName.trim() || !memberForm.email.trim()) {
@@ -363,6 +443,28 @@ export default function AdministrationPage() {
           {tabButton('workforce', 'Workforce', <Shield className="h-4 w-4" />)}
           {tabButton('members', 'Members', <Users className="h-4 w-4" />)}
           {tabButton('leadership', 'Leadership', <Sparkles className="h-4 w-4" />)}
+          {tabButton('forms', 'Forms', <LayoutGrid className="h-4 w-4" />)}
+        </div>
+      </Card>
+
+      <Card title="Administration Form Metrics">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+            <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Total forms</p>
+            <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{formsMetrics.total}</p>
+          </div>
+          <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+            <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Published</p>
+            <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{formsMetrics.published}</p>
+          </div>
+          <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+            <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Drafts</p>
+            <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{formsMetrics.drafts}</p>
+          </div>
+          <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+            <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Form sections</p>
+            <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{formsMetrics.targets}</p>
+          </div>
         </div>
       </Card>
 
@@ -586,6 +688,70 @@ export default function AdministrationPage() {
                   {row.bio && <p className="text-xs text-[var(--color-text-tertiary)] mt-1">{row.bio}</p>}
                 </div>
               </AccordionRow>
+            ))
+          )}
+        </div>
+      )}
+
+      {activeTab === 'forms' && (
+        <div className="space-y-4">
+          {formsLoading ? (
+            <Card>
+              <p className="text-sm text-[var(--color-text-tertiary)]">Loading forms...</p>
+            </Card>
+          ) : formGroups.length === 0 ? (
+            <Card>
+              <div className="space-y-3">
+                <p className="text-sm text-[var(--color-text-tertiary)]">No forms created yet.</p>
+                <Button onClick={() => router.push('/dashboard/forms/new')}>Create first form</Button>
+              </div>
+            </Card>
+          ) : (
+            formGroups.map((group) => (
+              <Card key={group.key} title={`${group.label} Forms`}>
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-xs text-[var(--color-text-tertiary)]">{group.forms.length} form(s)</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => router.push(buildNewFormRouteForTarget(group.key))}
+                  >
+                    New {group.label} Form
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {group.forms.map((form) => {
+                    const url = buildPublicFormUrl(form.slug, form.publicUrl);
+                    return (
+                      <div
+                        key={form.id}
+                        className="flex flex-col gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] p-3 md:flex-row md:items-center md:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-[var(--color-text-primary)]">{form.title}</p>
+                          <p className="truncate text-xs text-[var(--color-text-tertiary)]">
+                            {url || 'Publish this form to generate public link'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline" icon={<Pencil className="h-4 w-4" />} onClick={() => router.push(`/dashboard/forms/${form.id}/edit`)}>
+                            Edit
+                          </Button>
+                          <Button size="sm" variant="outline" icon={<Link2 className="h-4 w-4" />} disabled={!url} onClick={() => url && window.open(url, '_blank', 'noopener,noreferrer')}>
+                            Open
+                          </Button>
+                          <Button size="sm" variant="outline" icon={<Copy className="h-4 w-4" />} disabled={!url} onClick={() => copyPublicFormLink(form)}>
+                            Copy Link
+                          </Button>
+                          <Button size="sm" variant="danger" icon={<Trash2 className="h-4 w-4" />} onClick={() => deleteForm(form)}>
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
             ))
           )}
         </div>
