@@ -1,35 +1,33 @@
-// src/app/(auth)/login/page.tsx
 'use client';
 
 import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { useForm, Controller, type ControllerRenderProps, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Lock, Mail, ArrowRight, UserPlus, AlertTriangle } from 'lucide-react';
-import { Button } from '@/ui/Button';
-import { Card } from '@/ui/Card';
-import { Input } from '@/ui/input';
-import { Checkbox } from '@/ui/Checkbox';
-import toast from 'react-hot-toast';
+import { ArrowRight, Lock, Mail, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import toast from 'react-hot-toast';
+
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Footer } from '@/components/Footer';
+import { Button } from '@/ui/Button';
+import { Card } from '@/ui/Card';
+import { Checkbox } from '@/ui/Checkbox';
+import { Input } from '@/ui/input';
+import { OtpModal } from '@/ui/OtpModal';
 import { apiClient, getAuthRememberPreference, setAuthRememberPreference } from '@/lib/api';
 import { getConfiguredAuthIdentityProviders } from '@/lib/authProviders';
+import { getUserRole } from '@/lib/authRole';
 import type { ApiError } from '@/lib/api';
+import type { MFAMethod, User } from '@/lib/types';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 import { loginSchema, type LoginFormSchema } from '@/lib/validation/auth';
-import { OtpModal } from '@/ui/OtpModal';
-import { AlertModal } from '@/ui/AlertModal';
-import type { MFAMethod, User } from '@/lib/types';
-import { getUserRole } from '@/lib/authRole';
 
 type LoginFormData = LoginFormSchema;
 
 function safeRedirect(raw: string | null): string {
-  if (!raw) return '/dashboard';
-  if (!raw.startsWith('/')) return '/dashboard';
+  if (!raw || !raw.startsWith('/')) return '/dashboard';
   if (raw === '/login' || raw === '/register') return '/dashboard';
   return raw;
 }
@@ -39,13 +37,19 @@ function resolvePostLoginDestination(user: User | null, requestedPath: string): 
   const defaultPath = role === 'super_admin' ? '/dashboard/super' : '/dashboard';
   if (!requestedPath || requestedPath === '/dashboard') return defaultPath;
 
-  if (role === 'super_admin') {
-    // Super admins should not accidentally land in admin-only root.
-    if (requestedPath === '/dashboard') return '/dashboard/super';
-    return requestedPath;
+  if (role === 'super_admin' && requestedPath === '/dashboard') {
+    return '/dashboard/super';
   }
 
   return requestedPath;
+}
+
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+      <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.3-1.5 3.9-5.5 3.9-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.2.8 3.9 1.5l2.7-2.6C17 3.3 14.7 2.2 12 2.2 6.6 2.2 2.2 6.6 2.2 12s4.4 9.8 9.8 9.8c5.6 0 9.3-4 9.3-9.6 0-.6-.1-1.1-.2-1.6H12z" />
+    </svg>
+  );
 }
 
 function LoginInner() {
@@ -54,12 +58,6 @@ function LoginInner() {
   const searchParams = useSearchParams();
 
   const [serverError, setServerError] = useState('');
-  const [showForgot, setShowForgot] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotOtp, setForgotOtp] = useState('');
-  const [forgotStep, setForgotStep] = useState<'email' | 'otp'>('email');
-  const [forgotLoading, setForgotLoading] = useState(false);
-
   const [otpOpen, setOtpOpen] = useState(false);
   const [otpStep, setOtpStep] = useState<'email' | 'otp'>('email');
   const [otpEmail, setOtpEmail] = useState('');
@@ -69,17 +67,11 @@ function LoginInner() {
   const [challengePurpose, setChallengePurpose] = useState<string>('');
   const [challengeMethod, setChallengeMethod] = useState<MFAMethod>('email_otp');
 
-  const [errorModal, setErrorModal] = useState<{
-    open: boolean;
-    title: string;
-    description: string;
-    mode: 'bad_password' | 'not_found' | 'generic';
-  }>({ open: false, title: '', description: '', mode: 'generic' });
-
   const portalMode = useMemo(
     () => (searchParams.get('portal') === 'super' ? 'super' : 'admin'),
     [searchParams]
   );
+
   const redirectPath = useMemo(() => {
     const raw = searchParams.get('redirect');
     if (!raw) return portalMode === 'super' ? '/dashboard/super' : '/dashboard';
@@ -115,6 +107,7 @@ function LoginInner() {
   useEffect(() => {
     setValue('rememberMe', getAuthRememberPreference(), { shouldDirty: false });
   }, [setValue]);
+
   const onSubmit: SubmitHandler<LoginFormData> = async (data: LoginFormData) => {
     clearErrors();
     setServerError('');
@@ -149,8 +142,9 @@ function LoginInner() {
         toast.error('Login succeeded, but session was not established. Please retry.');
         return;
       }
+
       await apiClient.getCsrfToken().catch(() => undefined);
-      toast.success('Login successful!');
+      toast.success('Login successful.');
       router.replace(resolvePostLoginDestination(me, redirectPath));
     } catch (err) {
       const apiErr = err as ApiError;
@@ -172,27 +166,11 @@ function LoginInner() {
       }
 
       if (status === 404) {
-        setErrorModal({
-          open: true,
-          title: 'Account not found',
-          description:
-            'No account exists for that email. You can register for access. Admin signups require super-admin approval.',
-          mode: 'not_found',
-        });
+        setServerError('No account found for this email. Create an account to continue.');
       } else if (status === 401) {
-        setErrorModal({
-          open: true,
-          title: 'Incorrect password',
-          description: 'The email exists, but the password is incorrect. You can retry or reset your password.',
-          mode: 'bad_password',
-        });
+        setServerError('The password is incorrect. Reset password if you cannot remember it.');
       } else {
-        setErrorModal({
-          open: true,
-          title: 'Login failed',
-          description: apiErr?.message || 'Unable to sign in right now.',
-          mode: 'generic',
-        });
+        setServerError(apiErr?.message || 'Unable to sign in right now.');
       }
     } finally {
       setOtpLoading(false);
@@ -201,25 +179,24 @@ function LoginInner() {
 
   const requestOtp = async () => {
     if (!pendingLogin) {
-      toast.error('Please submit your email and password first.');
+      toast.error('Submit your email and password first.');
       return;
     }
+
     if (challengeMethod !== 'email_otp') {
-      toast.error('Use the authenticator app to generate a code for this sign-in.');
+      toast.error('Use your authenticator app code for this sign-in.');
       return;
     }
 
     try {
       setOtpLoading(true);
-      const result = await apiClient.resendLoginOtp({
-        email: otpEmail.trim().toLowerCase(),
-      });
+      const result = await apiClient.resendLoginOtp({ email: otpEmail.trim().toLowerCase() });
       setChallengeMethod(result.mfa_method ?? 'email_otp');
       setChallengePurpose(result.purpose || 'login');
       setOtpStep('otp');
-      toast.success('A fresh verification code was sent to your email.');
+      toast.success('A fresh verification code was sent.');
     } catch (err) {
-      toast.error(getServerErrorMessage(err, 'Failed to resend the login code'));
+      toast.error(getServerErrorMessage(err, 'Failed to resend code'));
     } finally {
       setOtpLoading(false);
     }
@@ -227,7 +204,7 @@ function LoginInner() {
 
   const verifyOtpAndLogin = async () => {
     if (!pendingLogin) {
-      toast.error('Please restart the login process');
+      toast.error('Restart the sign-in flow.');
       setOtpOpen(false);
       return;
     }
@@ -245,14 +222,13 @@ function LoginInner() {
       });
 
       const me = await checkAuth();
-
       if (!me) {
-        toast.error('Login verified, but session was not established. Please refresh.');
+        toast.error('Verification passed, but session was not established. Please refresh.');
         return;
       }
 
       await apiClient.getCsrfToken().catch(() => undefined);
-      toast.success('Login verified');
+      toast.success('Verification successful.');
       setOtpOpen(false);
       setOtpCode('');
       setChallengeMethod('email_otp');
@@ -260,7 +236,7 @@ function LoginInner() {
     } catch (err) {
       const fieldErrors = extractServerFieldErrors(err);
       if (Object.keys(fieldErrors).length > 0) {
-        toast.error(getFirstServerFieldError(fieldErrors) || 'Please check the code and try again.');
+        toast.error(getFirstServerFieldError(fieldErrors) || 'Check the code and retry.');
         return;
       }
       toast.error(getServerErrorMessage(err, 'Verification failed'));
@@ -269,65 +245,14 @@ function LoginInner() {
     }
   };
 
-  const resetForgotState = () => {
-    setForgotEmail('');
-    setForgotOtp('');
-    setForgotStep('email');
-  };
-
-  const handleForgotPassword = async () => {
-    try {
-      setForgotLoading(true);
-
-      if (forgotStep === 'email') {
-        await apiClient.requestPasswordReset({ email: forgotEmail.trim() });
-        toast.success('Password reset code sent. Check your email.');
-        setForgotStep('otp');
-        return;
-      }
-
-      if (forgotStep === 'otp') {
-        const trimmedEmail = forgotEmail.trim().toLowerCase();
-        const trimmedCode = forgotOtp.trim();
-        await apiClient.verifyOtp({
-          email: trimmedEmail,
-          code: trimmedCode,
-          purpose: 'password_reset',
-        });
-        toast.success('Code verified. Set a new password.');
-        setShowForgot(false);
-        resetForgotState();
-        router.push(
-          `/passwordreset?email=${encodeURIComponent(trimmedEmail)}&code=${encodeURIComponent(trimmedCode)}&purpose=password_reset`
-        );
-        return;
-      }
-    } catch (err) {
-      const fieldErrors = extractServerFieldErrors(err);
-      if (Object.keys(fieldErrors).length > 0) {
-        toast.error(getFirstServerFieldError(fieldErrors) || 'Please review the highlighted fields.');
-        return;
-      }
-      const message = getServerErrorMessage(err, 'Failed to update password');
-      toast.error(message);
-    } finally {
-      setForgotLoading(false);
-    }
-  };
-
+  const forgotHref = `/passwordreset${getValues('email') ? `?email=${encodeURIComponent(getValues('email').trim().toLowerCase())}` : ''}`;
 
   return (
     <div className="auth-shell">
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full border-2 border-white bg-black shadow-sm">
-            <Image
-              src="/OIP.webp"
-              alt="Wisdom Church logo"
-              width={40}
-              height={40}
-              className="rounded-full object-cover"
-            />
+            <Image src="/OIP.webp" alt="Wisdom Church logo" width={40} height={40} className="rounded-full object-cover" />
           </div>
           <div className="leading-tight">
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">The Wisdom Church</p>
@@ -340,70 +265,64 @@ function LoginInner() {
           </Link>
         ) : (
           <Link href="/register">
-            <Button variant="outline">Register as Admin</Button>
+            <Button variant="outline">Create Account</Button>
           </Link>
         )}
       </header>
 
-      <main className="mx-auto grid w-full max-w-6xl gap-8 px-4 pb-12 pt-6 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
-        <section className="flex flex-col justify-center gap-6">
-          <p className="text-xs uppercase tracking-[0.4em] text-[var(--color-text-tertiary)]">Secure Access</p>
-          <h1 className="auth-hero-text font-display text-3xl font-semibold text-[var(--color-text-primary)] sm:text-4xl">
-            {portalMode === 'super'
-              ? 'The Wisdom Church Super Admin Command Center'
-              : 'The Wisdom Church Administration Portal'}
+      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 pb-12 pt-4 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:px-8">
+        <section className="auth-glass rounded-3xl p-8 sm:p-10">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]">
+            <ShieldCheck className="h-6 w-6" />
+          </div>
+          <p className="mt-6 text-xs uppercase tracking-[0.3em] text-[var(--color-text-tertiary)]">Secure Sign-In</p>
+          <h1 className="mt-3 text-3xl font-semibold text-[var(--color-text-primary)] sm:text-4xl">
+            {portalMode === 'super' ? 'Super Admin Control Access' : 'Admin Portal Access'}
           </h1>
-          <p className="text-sm text-[var(--color-text-secondary)] sm:text-base">
+          <p className="mt-4 max-w-xl text-sm text-[var(--color-text-secondary)] sm:text-base">
             {portalMode === 'super'
-              ? 'Oversee approvals, access governance, and platform-level analytics from one secure control plane.'
-              : 'Manage events, testimonies, and ministry updates with clarity and control.'}
+              ? 'This entry point is for platform oversight. Sign-in requires role validation and second-factor verification.'
+              : 'Access church operations with role-based access control and one-time verification before session activation.'}
           </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-white/70 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Access Control</p>
-              <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                {portalMode === 'super'
-                  ? 'Super-admin sessions enforce strict MFA and role-based gating before command features unlock.'
-                  : 'Password sign-in is protected with a one-time verification code before the session is established.'}
-              </p>
+
+          <div className="mt-8 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Session Policy</p>
+              <p className="mt-2 text-sm text-[var(--color-text-secondary)]">Persistent sessions only apply when Remember me is enabled on trusted devices.</p>
             </div>
-            <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-white/70 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Trusted Devices</p>
-              <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                Use Remember me only on secure devices you control. Session persistence remains optional.
-              </p>
+            <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">MFA</p>
+              <p className="mt-2 text-sm text-[var(--color-text-secondary)]">Verification supports email OTP and authenticator app where configured.</p>
             </div>
           </div>
         </section>
 
-        <Card className="auth-glass w-full max-w-md p-8">
-          <div className="mb-8 text-center">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[var(--color-background-tertiary)] mb-4">
+        <Card className="auth-glass rounded-3xl p-8">
+          <div className="text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)]">
               <Lock className="h-7 w-7 text-[var(--color-accent-primary)]" />
             </div>
-            <h2 className="text-2xl font-semibold text-[var(--color-text-primary)]">Welcome Back</h2>
-            <p className="text-[var(--color-text-tertiary)] mt-2 text-sm">
-              {portalMode === 'super' ? 'Sign in as Super Admin' : 'Sign in to your account'}
+            <h2 className="text-2xl font-semibold text-[var(--color-text-primary)]">Sign In</h2>
+            <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">
+              {portalMode === 'super' ? 'Authenticate as super admin' : 'Authenticate your admin account'}
             </p>
           </div>
 
-          {serverError && (
-            <div className="mb-6 rounded-[var(--radius-button)] border border-red-200 bg-red-50 p-4">
-              <p className="text-sm text-red-600 whitespace-pre-line">{serverError}</p>
+          {serverError ? (
+            <div className="mt-5 rounded-[var(--radius-button)] border border-red-200 bg-red-50 p-3">
+              <p className="text-sm text-red-700">{serverError}</p>
             </div>
-          )}
+          ) : null}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate autoComplete="on">
+          <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate autoComplete="on">
             <div>
-              <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
-                Email Address
-              </label>
+              <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-text-tertiary)]" />
+                <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                 <Input
                   type="email"
-                  placeholder="you@example.com"
                   className="pl-10"
+                  placeholder="you@example.com"
                   {...register('email', {
                     onChange: () => {
                       setServerError('');
@@ -412,25 +331,20 @@ function LoginInner() {
                   })}
                   error={errors.email?.message}
                   disabled={isLoading}
-                  autoFocus
                   autoComplete="email"
-                  inputMode="email"
-                  autoCapitalize="none"
-                  spellCheck={false}
+                  autoFocus
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
-                Password
-              </label>
+              <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-text-tertiary)]" />
+                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                 <Input
                   type="password"
-                  placeholder="••••••••"
                   className="pl-10"
+                  placeholder="••••••••"
                   {...register('password', {
                     onChange: () => {
                       setServerError('');
@@ -440,8 +354,6 @@ function LoginInner() {
                   error={errors.password?.message}
                   disabled={isLoading}
                   autoComplete="current-password"
-                  autoCapitalize="none"
-                  spellCheck={false}
                 />
               </div>
             </div>
@@ -465,141 +377,64 @@ function LoginInner() {
               />
 
               <Link
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  resetForgotState();
-                  setForgotEmail((getValues('email') || '').trim());
-                  setShowForgot(true);
-                }}
-                className="text-sm text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)]"
+                href={forgotHref}
+                className="text-sm font-medium text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)]"
               >
                 Forgot password?
               </Link>
             </div>
 
-            <p className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs text-[var(--color-text-tertiary)]">
-              {portalMode === 'super'
-                ? 'Super-admin access is security hardened: password sign-in is verified by OTP or authenticator app before access.'
-                : 'Enterprise security is enabled: password sign-in is verified with email OTP or an authenticator app.'}
-            </p>
-
-            <Button type="submit" variant="primary" className="w-full" disabled={isLoading} loading={isLoading}>
+            <Button type="submit" className="w-full" loading={isLoading} disabled={isLoading}>
               {isLoading ? 'Signing in...' : 'Sign In'}
-              {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
+              {!isLoading ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
             </Button>
 
             {identityProviders.length > 0 ? (
-              <div className="space-y-3">
+              <>
                 <div className="relative py-1">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-[var(--color-border-secondary)]" />
                   </div>
                   <div className="relative flex justify-center">
-                    <span className="bg-white px-3 text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
+                    <span className="bg-[var(--color-background-primary)] px-3 text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
                       Or continue with
                     </span>
                   </div>
                 </div>
-
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {identityProviders.map((provider) => (
                     <Button
                       key={provider.id}
                       type="button"
                       variant="outline"
-                      className="w-full justify-center"
+                      className="w-full justify-center gap-2"
                       disabled={isLoading}
                       onClick={() => {
                         setAuthRememberPreference(!!rememberMe);
                         window.location.assign(provider.href);
                       }}
                     >
+                      {provider.id === 'google' ? <GoogleIcon /> : null}
                       {provider.label}
                     </Button>
                   ))}
                 </div>
-              </div>
+              </>
             ) : null}
           </form>
 
           {portalMode === 'super' ? null : (
-            <div className="mt-8 pt-6 border-t border-[var(--color-border-secondary)]">
-              <p className="text-center text-sm text-[var(--color-text-tertiary)]">
-                Don&apos;t have an account?{' '}
-                <Link
-                  href="/register"
-                  className="text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)] font-medium"
-                >
-                  Create one
-                </Link>
-              </p>
-            </div>
+            <p className="mt-6 border-t border-[var(--color-border-secondary)] pt-4 text-center text-sm text-[var(--color-text-tertiary)]">
+              New admin?{' '}
+              <Link href="/register" className="font-medium text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)]">
+                Create account
+              </Link>
+            </p>
           )}
         </Card>
       </main>
 
       <Footer />
-
-      {showForgot && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <Card className="w-full max-w-md p-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Reset Password</h2>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowForgot(false);
-                  resetForgotState();
-                }}
-                className="text-sm text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
-              >
-                Close
-              </button>
-            </div>
-            <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">
-              {forgotStep === 'email' && 'Enter your email address to receive an OTP.'}
-              {forgotStep === 'otp' && 'Enter the OTP code sent to your email.'}
-            </p>
-            <div className="mt-4 space-y-4">
-              {forgotStep === 'email' && (
-                <Input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={forgotEmail}
-                  onChange={(e) => setForgotEmail(e.target.value)}
-                  disabled={forgotLoading}
-                />
-              )}
-              {forgotStep === 'otp' && (
-                <Input
-                  type="text"
-                  placeholder="Enter OTP"
-                  value={forgotOtp}
-                  onChange={(e) => setForgotOtp(e.target.value)}
-                  disabled={forgotLoading}
-                />
-              )}
-              <div className="flex items-center justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowForgot(false);
-                    resetForgotState();
-                  }}
-                  disabled={forgotLoading}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleForgotPassword} loading={forgotLoading} disabled={forgotLoading}>
-                  {forgotStep === 'email' && 'Send OTP'}
-                  {forgotStep === 'otp' && 'Verify OTP'}
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
 
       <OtpModal
         open={otpOpen}
@@ -628,7 +463,7 @@ function LoginInner() {
         otpLabel={challengeMethod === 'totp' ? 'Authenticator code' : 'Enter the 6-digit code'}
         otpHint={
           challengeMethod === 'totp'
-            ? 'Codes refresh every 30 seconds. If a code is rejected, make sure your device time is set automatically.'
+            ? 'Codes refresh every 30 seconds. If rejected, confirm your device time is automatic.'
             : 'Check your inbox for the code. It expires shortly.'
         }
         confirmText="Verify & sign in"
@@ -636,40 +471,11 @@ function LoginInner() {
         secondaryActionText={challengeMethod === 'email_otp' ? 'Resend code' : undefined}
         onSecondaryAction={challengeMethod === 'email_otp' ? requestOtp : undefined}
       />
-
-      <AlertModal
-        open={errorModal.open}
-        title={errorModal.title}
-        description={errorModal.description}
-        icon={
-          errorModal.mode === 'not_found' ? <UserPlus className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />
-        }
-        onClose={() => setErrorModal({ ...errorModal, open: false })}
-        secondaryAction={{
-          label: 'Try again',
-          variant: 'outline',
-          onClick: () => setErrorModal({ ...errorModal, open: false }),
-        }}
-        primaryAction={{
-          label: errorModal.mode === 'not_found' ? 'Register' : errorModal.mode === 'bad_password' ? 'Reset password' : 'Try again',
-          onClick: () => {
-            setErrorModal({ ...errorModal, open: false });
-            if (errorModal.mode === 'not_found') {
-              router.push('/register');
-            } else if (errorModal.mode === 'bad_password') {
-              setForgotEmail(otpEmail || pendingLogin?.email || '');
-              setShowForgot(true);
-              setForgotStep('email');
-            }
-          },
-        }}
-      />
     </div>
   );
 }
 
 export default function LoginPage() {
-  // ✅ Required by Next when using useSearchParams()
   return (
     <Suspense fallback={null}>
       <LoginInner />
