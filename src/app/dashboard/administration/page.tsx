@@ -30,6 +30,7 @@ import type {
   AdminForm,
   CreateLeadershipRequest,
   CreateMemberRequest,
+  FormSubmission,
   LeadershipMember,
   LeadershipRole,
   Member,
@@ -72,6 +73,27 @@ function formatMonthDay(month?: number, day?: number) {
 function roleLabel(role: LeadershipRole) {
   const found = roleOptions.find((item) => item.value === role);
   return found ? found.label : role;
+}
+
+function formatSubmissionName(submission: FormSubmission): string {
+  const direct = (submission.name || '').trim();
+  if (direct) return direct;
+  const values = submission.values || {};
+  const candidateKeys = ['fullName', 'full_name', 'name', 'firstName', 'first_name'];
+  for (const key of candidateKeys) {
+    const value = values[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return 'Unnamed response';
+}
+
+function formatSubmissionEmail(submission: FormSubmission): string {
+  const direct = (submission.email || '').trim();
+  if (direct) return direct;
+  const values = submission.values || {};
+  const value = values.email;
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  return 'No email';
 }
 
 function normalizeTargetKey(form: AdminForm): string {
@@ -159,6 +181,8 @@ export default function AdministrationPage() {
   const [adminForms, setAdminForms] = useState<AdminForm[]>([]);
   const [memberForms, setMemberForms] = useState<AdminForm[]>([]);
   const [leadershipForms, setLeadershipForms] = useState<AdminForm[]>([]);
+  const [leadershipResponses, setLeadershipResponses] = useState<Array<FormSubmission & { formTitle?: string }>>([]);
+  const [leadershipResponsesLoading, setLeadershipResponsesLoading] = useState(false);
 
   const [memberModalOpen, setMemberModalOpen] = useState(false);
   const [leaderModalOpen, setLeaderModalOpen] = useState(false);
@@ -281,6 +305,70 @@ export default function AdministrationPage() {
     const targets = formGroups.length;
     return { total, published, drafts, targets };
   }, [adminForms, formGroups.length]);
+
+  const leadershipResponsesByMonth = useMemo(() => {
+    const bucket = new Map<string, { month: string; count: number }>();
+    leadershipResponses.forEach((item) => {
+      const parsed = new Date(item.createdAt);
+      if (Number.isNaN(parsed.getTime())) return;
+      const key = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
+      const month = parsed.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+      const current = bucket.get(key) || { month, count: 0 };
+      current.count += 1;
+      bucket.set(key, current);
+    });
+    return Array.from(bucket.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([, value]) => value);
+  }, [leadershipResponses]);
+
+  const leadershipThisMonth = useMemo(() => {
+    const now = new Date();
+    const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return leadershipResponses.reduce((acc, item) => {
+      const parsed = new Date(item.createdAt);
+      if (Number.isNaN(parsed.getTime())) return acc;
+      const monthKey = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
+      if (monthKey === key) return acc + 1;
+      return acc;
+    }, 0);
+  }, [leadershipResponses]);
+
+  const pendingLeadershipApplications = useMemo(
+    () => leaders.filter((row) => row.status === 'pending').length,
+    [leaders]
+  );
+
+  const loadLeadershipResponses = useCallback(async (forms: AdminForm[]) => {
+    if (forms.length === 0) {
+      setLeadershipResponses([]);
+      return;
+    }
+    try {
+      setLeadershipResponsesLoading(true);
+      const results = await Promise.all(
+        forms.map(async (form) => {
+          try {
+            const res = await apiClient.getFormSubmissions(form.id, { page: 1, limit: 200 });
+            const rows = Array.isArray(res.data) ? res.data : [];
+            return rows.map((row) => ({ ...row, formTitle: form.title }));
+          } catch {
+            return [];
+          }
+        })
+      );
+      const merged = results
+        .flat()
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setLeadershipResponses(merged);
+    } finally {
+      setLeadershipResponsesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadLeadershipResponses(leadershipForms);
+  }, [leadershipForms, loadLeadershipResponses]);
 
   const addMember = useCallback(async () => {
     if (!memberForm.firstName.trim() || !memberForm.lastName.trim() || !memberForm.email.trim()) {
@@ -611,6 +699,79 @@ export default function AdministrationPage() {
 
       {activeTab === 'leadership' && (
         <div className="space-y-3">
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Leadership form responses</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">{leadershipResponses.length}</p>
+            </Card>
+            <Card>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">This month responses</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">{leadershipThisMonth}</p>
+            </Card>
+            <Card>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending leadership approvals</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">{pendingLeadershipApplications}</p>
+            </Card>
+          </div>
+
+          <Card title="Leadership Form Response Activity (Monthly)">
+            {leadershipResponsesByMonth.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">
+                {leadershipResponsesLoading ? 'Loading monthly activity...' : 'No leadership form responses yet.'}
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="text-left text-[var(--color-text-tertiary)]">
+                    <tr>
+                      <th className="py-2 pr-4">Month</th>
+                      <th className="py-2 pr-4">Responses</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leadershipResponsesByMonth.map((row) => (
+                      <tr key={row.month} className="border-t border-[var(--color-border-secondary)]">
+                        <td className="py-2 pr-4 text-[var(--color-text-primary)]">{row.month}</td>
+                        <td className="py-2 pr-4">{row.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
+          <Card title="Recent Leadership Form Responses">
+            {leadershipResponsesLoading ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">Loading responses...</p>
+            ) : leadershipResponses.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">No leadership form responses yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="text-left text-[var(--color-text-tertiary)]">
+                    <tr>
+                      <th className="py-2 pr-4">Name</th>
+                      <th className="py-2 pr-4">Email</th>
+                      <th className="py-2 pr-4">Form</th>
+                      <th className="py-2 pr-4">Submitted</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leadershipResponses.slice(0, 15).map((item) => (
+                      <tr key={item.id} className="border-t border-[var(--color-border-secondary)]">
+                        <td className="py-2 pr-4 text-[var(--color-text-primary)]">{formatSubmissionName(item)}</td>
+                        <td className="py-2 pr-4">{formatSubmissionEmail(item)}</td>
+                        <td className="py-2 pr-4">{item.formTitle || 'Leadership form'}</td>
+                        <td className="py-2 pr-4">{new Date(item.createdAt).toLocaleDateString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
           <Card title="Leadership Form Links">
             {formsLoading ? (
               <p className="text-sm text-[var(--color-text-tertiary)]">Loading forms...</p>

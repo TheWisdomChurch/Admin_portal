@@ -53,7 +53,7 @@ function GoogleIcon() {
 }
 
 function LoginInner() {
-  const { checkAuth, isLoading } = useAuthContext();
+  const { checkAuth, isLoading, activateSession } = useAuthContext();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -143,6 +143,7 @@ function LoginInner() {
         return;
       }
 
+      activateSession();
       await apiClient.getCsrfToken().catch(() => undefined);
       toast.success('Login successful.');
       router.replace(resolvePostLoginDestination(me, redirectPath));
@@ -227,6 +228,7 @@ function LoginInner() {
         return;
       }
 
+      activateSession();
       await apiClient.getCsrfToken().catch(() => undefined);
       toast.success('Verification successful.');
       setOtpOpen(false);
