@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useRouter } from 'next/navigation';
 import {
   Calendar,
+  CheckCircle2,
+  Eye,
   Heart,
   LayoutGrid,
   Mail,
@@ -30,7 +32,6 @@ import type {
   AdminForm,
   CreateLeadershipRequest,
   CreateMemberRequest,
-  FormSubmission,
   LeadershipMember,
   LeadershipRole,
   Member,
@@ -75,27 +76,6 @@ function roleLabel(role: LeadershipRole) {
   return found ? found.label : role;
 }
 
-function formatSubmissionName(submission: FormSubmission): string {
-  const direct = (submission.name || '').trim();
-  if (direct) return direct;
-  const values = submission.values || {};
-  const candidateKeys = ['fullName', 'full_name', 'name', 'firstName', 'first_name'];
-  for (const key of candidateKeys) {
-    const value = values[key];
-    if (typeof value === 'string' && value.trim()) return value.trim();
-  }
-  return 'Unnamed response';
-}
-
-function formatSubmissionEmail(submission: FormSubmission): string {
-  const direct = (submission.email || '').trim();
-  if (direct) return direct;
-  const values = submission.values || {};
-  const value = values.email;
-  if (typeof value === 'string' && value.trim()) return value.trim();
-  return 'No email';
-}
-
 function normalizeTargetKey(form: AdminForm): string {
   const explicitTarget = form.settings?.submissionTarget?.trim().toLowerCase();
   if (explicitTarget) return explicitTarget;
@@ -127,6 +107,16 @@ function toTargetLabel(key: string): string {
 
 function isTargetMatch(form: AdminForm, allowed: string[]): boolean {
   const normalized = normalizeTargetKey(form);
+  if (allowed.includes(normalized)) return true;
+  const slug = (form.slug || '').trim().toLowerCase();
+  const title = (form.title || '').trim().toLowerCase();
+  if (allowed.includes('leadership') && (slug.includes('leadership') || title.includes('leadership'))) return true;
+  if (
+    (allowed.includes('member') || allowed.includes('members') || allowed.includes('membership')) &&
+    (slug.includes('member') || slug.includes('membership') || title.includes('member') || title.includes('membership'))
+  ) {
+    return true;
+  }
   return allowed.includes(normalized);
 }
 
@@ -181,11 +171,12 @@ export default function AdministrationPage() {
   const [adminForms, setAdminForms] = useState<AdminForm[]>([]);
   const [memberForms, setMemberForms] = useState<AdminForm[]>([]);
   const [leadershipForms, setLeadershipForms] = useState<AdminForm[]>([]);
-  const [leadershipResponses, setLeadershipResponses] = useState<Array<FormSubmission & { formTitle?: string }>>([]);
-  const [leadershipResponsesLoading, setLeadershipResponsesLoading] = useState(false);
 
   const [memberModalOpen, setMemberModalOpen] = useState(false);
   const [leaderModalOpen, setLeaderModalOpen] = useState(false);
+  const [memberReviewTarget, setMemberReviewTarget] = useState<Member | null>(null);
+  const [leadershipReviewTarget, setLeadershipReviewTarget] = useState<LeadershipMember | null>(null);
+  const [memberActivatingId, setMemberActivatingId] = useState<string | null>(null);
   const [savingMember, setSavingMember] = useState(false);
   const [savingLeader, setSavingLeader] = useState(false);
 
@@ -308,7 +299,7 @@ export default function AdministrationPage() {
 
   const leadershipResponsesByMonth = useMemo(() => {
     const bucket = new Map<string, { month: string; count: number }>();
-    leadershipResponses.forEach((item) => {
+    leaders.forEach((item) => {
       const parsed = new Date(item.createdAt);
       if (Number.isNaN(parsed.getTime())) return;
       const key = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
@@ -320,55 +311,51 @@ export default function AdministrationPage() {
     return Array.from(bucket.entries())
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([, value]) => value);
-  }, [leadershipResponses]);
+  }, [leaders]);
 
   const leadershipThisMonth = useMemo(() => {
     const now = new Date();
     const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    return leadershipResponses.reduce((acc, item) => {
+    return leaders.reduce((acc, item) => {
       const parsed = new Date(item.createdAt);
       if (Number.isNaN(parsed.getTime())) return acc;
       const monthKey = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
       if (monthKey === key) return acc + 1;
       return acc;
     }, 0);
-  }, [leadershipResponses]);
+  }, [leaders]);
 
   const pendingLeadershipApplications = useMemo(
     () => leaders.filter((row) => row.status === 'pending').length,
     [leaders]
   );
 
-  const loadLeadershipResponses = useCallback(async (forms: AdminForm[]) => {
-    if (forms.length === 0) {
-      setLeadershipResponses([]);
-      return;
-    }
-    try {
-      setLeadershipResponsesLoading(true);
-      const results = await Promise.all(
-        forms.map(async (form) => {
-          try {
-            const res = await apiClient.getFormSubmissions(form.id, { page: 1, limit: 200 });
-            const rows = Array.isArray(res.data) ? res.data : [];
-            return rows.map((row) => ({ ...row, formTitle: form.title }));
-          } catch {
-            return [];
-          }
-        })
-      );
-      const merged = results
-        .flat()
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setLeadershipResponses(merged);
-    } finally {
-      setLeadershipResponsesLoading(false);
-    }
-  }, []);
+  const pendingLeadership = useMemo(
+    () => leaders.filter((row) => row.status === 'pending').sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [leaders]
+  );
+  const publishedLeadership = useMemo(
+    () => leaders.filter((row) => row.status === 'approved').sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [leaders]
+  );
+  const inactiveMembers = useMemo(
+    () => members.filter((row) => !row.isActive).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [members]
+  );
 
-  useEffect(() => {
-    void loadLeadershipResponses(leadershipForms);
-  }, [leadershipForms, loadLeadershipResponses]);
+  const activateMember = useCallback(async (member: Member) => {
+    try {
+      setMemberActivatingId(member.id);
+      await apiClient.updateMember(member.id, { isActive: true });
+      toast.success('Member approved and activated');
+      await loadAll();
+    } catch (error) {
+      console.error('Failed to activate member:', error);
+      toast.error('Unable to approve member');
+    } finally {
+      setMemberActivatingId(null);
+    }
+  }, [loadAll]);
 
   const addMember = useCallback(async () => {
     if (!memberForm.firstName.trim() || !memberForm.lastName.trim() || !memberForm.email.trim()) {
@@ -510,12 +497,6 @@ export default function AdministrationPage() {
         subtitle="Manage workforce, leadership, and member records with structured forms."
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" icon={<Users className="h-4 w-4" />} onClick={() => router.push('/dashboard/forms/new?preset=member')}>
-              Create Member Form
-            </Button>
-            <Button variant="outline" icon={<Sparkles className="h-4 w-4" />} onClick={() => router.push('/dashboard/forms/new?preset=leadership')}>
-              Create Leadership Form
-            </Button>
             <Button variant="secondary" icon={<UserPlus className="h-4 w-4" />} onClick={() => setMemberModalOpen(true)}>
               Add Member
             </Button>
@@ -625,6 +606,41 @@ export default function AdministrationPage() {
 
       {activeTab === 'members' && (
         <div className="space-y-3">
+          <Card title="Pending Member Reviews">
+            {inactiveMembers.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">
+                {loading ? 'Loading member review queue...' : 'No pending member reviews.'}
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="text-left text-[var(--color-text-tertiary)]">
+                    <tr>
+                      <th className="py-2 pr-4">Name</th>
+                      <th className="py-2 pr-4">Email</th>
+                      <th className="py-2 pr-4">Submitted</th>
+                      <th className="py-2 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inactiveMembers.map((row) => (
+                      <tr key={row.id} className="border-t border-[var(--color-border-secondary)]">
+                        <td className="py-2 pr-4 text-[var(--color-text-primary)]">{row.firstName} {row.lastName}</td>
+                        <td className="py-2 pr-4">{row.email}</td>
+                        <td className="py-2 pr-4">{new Date(row.createdAt).toLocaleDateString()}</td>
+                        <td className="py-2 text-right">
+                          <Button size="sm" variant="outline" icon={<Eye className="h-4 w-4" />} onClick={() => setMemberReviewTarget(row)}>
+                            Review
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
           <Card title="Member Form Links">
             {formsLoading ? (
               <p className="text-sm text-[var(--color-text-tertiary)]">Loading forms...</p>
@@ -701,11 +717,11 @@ export default function AdministrationPage() {
         <div className="space-y-3">
           <div className="grid gap-4 md:grid-cols-3">
             <Card>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Leadership form responses</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">{leadershipResponses.length}</p>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Leadership applications</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">{leaders.length}</p>
             </Card>
             <Card>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">This month responses</p>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">This month applications</p>
               <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">{leadershipThisMonth}</p>
             </Card>
             <Card>
@@ -714,10 +730,10 @@ export default function AdministrationPage() {
             </Card>
           </div>
 
-          <Card title="Leadership Form Response Activity (Monthly)">
+      <Card title="Leadership Form Response Activity (Monthly)">
             {leadershipResponsesByMonth.length === 0 ? (
               <p className="text-sm text-[var(--color-text-tertiary)]">
-                {leadershipResponsesLoading ? 'Loading monthly activity...' : 'No leadership form responses yet.'}
+                {loading ? 'Loading monthly activity...' : 'No leadership applications yet.'}
               </p>
             ) : (
               <div className="overflow-x-auto">
@@ -741,11 +757,11 @@ export default function AdministrationPage() {
             )}
           </Card>
 
-          <Card title="Recent Leadership Form Responses">
-            {leadershipResponsesLoading ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">Loading responses...</p>
-            ) : leadershipResponses.length === 0 ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">No leadership form responses yet.</p>
+          <Card title="Pending Leadership Review Queue">
+            {pendingLeadership.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">
+                {loading ? 'Loading leadership queue...' : 'No pending leadership applications.'}
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
@@ -753,17 +769,52 @@ export default function AdministrationPage() {
                     <tr>
                       <th className="py-2 pr-4">Name</th>
                       <th className="py-2 pr-4">Email</th>
-                      <th className="py-2 pr-4">Form</th>
+                      <th className="py-2 pr-4">Role</th>
                       <th className="py-2 pr-4">Submitted</th>
+                      <th className="py-2 text-right">Review</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {leadershipResponses.slice(0, 15).map((item) => (
-                      <tr key={item.id} className="border-t border-[var(--color-border-secondary)]">
-                        <td className="py-2 pr-4 text-[var(--color-text-primary)]">{formatSubmissionName(item)}</td>
-                        <td className="py-2 pr-4">{formatSubmissionEmail(item)}</td>
-                        <td className="py-2 pr-4">{item.formTitle || 'Leadership form'}</td>
-                        <td className="py-2 pr-4">{new Date(item.createdAt).toLocaleDateString()}</td>
+                    {pendingLeadership.map((row) => (
+                      <tr key={row.id} className="border-t border-[var(--color-border-secondary)]">
+                        <td className="py-2 pr-4 text-[var(--color-text-primary)]">{row.firstName} {row.lastName}</td>
+                        <td className="py-2 pr-4">{row.email || 'No email'}</td>
+                        <td className="py-2 pr-4">{roleLabel(row.role)}</td>
+                        <td className="py-2 pr-4">{new Date(row.createdAt).toLocaleDateString()}</td>
+                        <td className="py-2 text-right">
+                          <Button size="sm" variant="outline" icon={<Eye className="h-4 w-4" />} onClick={() => setLeadershipReviewTarget(row)}>
+                            Review
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
+          <Card title="Approved Leadership Profiles">
+            {publishedLeadership.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">No approved leadership profiles yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="text-left text-[var(--color-text-tertiary)]">
+                    <tr>
+                      <th className="py-2 pr-4">Name</th>
+                      <th className="py-2 pr-4">Role</th>
+                      <th className="py-2 pr-4">Email</th>
+                      <th className="py-2 pr-4">Updated</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {publishedLeadership.map((row) => (
+                      <tr key={row.id} className="border-t border-[var(--color-border-secondary)]">
+                        <td className="py-2 pr-4 text-[var(--color-text-primary)]">{row.firstName} {row.lastName}</td>
+                        <td className="py-2 pr-4">{roleLabel(row.role)}</td>
+                        <td className="py-2 pr-4">{row.email || 'No email'}</td>
+                        <td className="py-2 pr-4">{new Date(row.updatedAt || row.createdAt).toLocaleDateString()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1030,6 +1081,118 @@ export default function AdministrationPage() {
             <div className="mt-6 flex justify-end gap-3">
               <Button variant="ghost" onClick={() => setLeaderModalOpen(false)}>Cancel</Button>
               <Button onClick={addLeader} loading={savingLeader}>Save leadership profile</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {leadershipReviewTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur">
+          <div className="w-full max-w-xl rounded-[var(--radius-card)] bg-[var(--color-background-primary)] p-6 shadow-xl border border-[var(--color-border-secondary)]">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Leadership application review</h3>
+                <p className="text-sm text-[var(--color-text-tertiary)]">
+                  Review this record before super-admin approval and publish.
+                </p>
+              </div>
+              <button onClick={() => setLeadershipReviewTarget(null)} aria-label="Close" className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]">
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                  <p className="text-xs text-[var(--color-text-tertiary)]">Name</p>
+                  <p className="font-semibold text-[var(--color-text-primary)]">{leadershipReviewTarget.firstName} {leadershipReviewTarget.lastName}</p>
+                </div>
+                <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                  <p className="text-xs text-[var(--color-text-tertiary)]">Role</p>
+                  <p className="font-semibold text-[var(--color-text-primary)]">{roleLabel(leadershipReviewTarget.role)}</p>
+                </div>
+              </div>
+              <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                <p className="text-xs text-[var(--color-text-tertiary)]">Email</p>
+                <p className="font-medium text-[var(--color-text-primary)]">{leadershipReviewTarget.email || 'No email provided'}</p>
+              </div>
+              {leadershipReviewTarget.bio ? (
+                <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                  <p className="text-xs text-[var(--color-text-tertiary)]">Bio</p>
+                  <p className="mt-1 text-[var(--color-text-secondary)]">{leadershipReviewTarget.bio}</p>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => setLeadershipReviewTarget(null)}>Close</Button>
+              <Button onClick={() => router.push('/dashboard/super/requests')}>
+                Open Super Admin Approval Queue
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {memberReviewTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur p-4">
+          <div className="w-full max-w-xl rounded-[var(--radius-card)] bg-[var(--color-background-primary)] p-6 shadow-xl border border-[var(--color-border-secondary)]">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Member review</h3>
+                <p className="text-sm text-[var(--color-text-tertiary)]">
+                  Review this submission before approving it for frontend visibility.
+                </p>
+              </div>
+              <button
+                onClick={() => setMemberReviewTarget(null)}
+                aria-label="Close"
+                className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                  <p className="text-xs text-[var(--color-text-tertiary)]">Name</p>
+                  <p className="font-semibold text-[var(--color-text-primary)]">
+                    {memberReviewTarget.firstName} {memberReviewTarget.lastName}
+                  </p>
+                </div>
+                <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                  <p className="text-xs text-[var(--color-text-tertiary)]">Submitted</p>
+                  <p className="font-medium text-[var(--color-text-primary)]">
+                    {new Date(memberReviewTarget.createdAt).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                <p className="text-xs text-[var(--color-text-tertiary)]">Email</p>
+                <p className="font-medium text-[var(--color-text-primary)]">{memberReviewTarget.email}</p>
+              </div>
+              <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                <p className="text-xs text-[var(--color-text-tertiary)]">Phone</p>
+                <p className="font-medium text-[var(--color-text-primary)]">{memberReviewTarget.phone || 'No phone provided'}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => setMemberReviewTarget(null)}>
+                Close
+              </Button>
+              <Button
+                onClick={async () => {
+                  await activateMember(memberReviewTarget);
+                  setMemberReviewTarget(null);
+                }}
+                loading={memberActivatingId === memberReviewTarget.id}
+                disabled={memberActivatingId === memberReviewTarget.id}
+                icon={<CheckCircle2 className="h-4 w-4" />}
+              >
+                Approve member
+              </Button>
             </div>
           </div>
         </div>
