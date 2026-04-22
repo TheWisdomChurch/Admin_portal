@@ -139,6 +139,8 @@ const UPLOAD_V1_BASE_URL = USE_API_PROXY
 
 let authUserCache: User | null = null;
 let authRememberPreference = false;
+let csrfTokenCache: string | null = null;
+let csrfHeaderNameCache = 'X-CSRF-Token';
 
 /* ============================================================================
    Error Utilities (WITH validationErrors)
@@ -243,6 +245,105 @@ function getErrorMessage(err: unknown): string {
     if (message) return message;
   }
   return 'Network error';
+}
+
+function toHeaderRecord(headers?: HeadersInit): Record<string, string> {
+  if (!headers) return {};
+  if (headers instanceof Headers) {
+    const out: Record<string, string> = {};
+    headers.forEach((value, key) => {
+      out[key] = value;
+    });
+    return out;
+  }
+  if (Array.isArray(headers)) {
+    return headers.reduce<Record<string, string>>((acc, [key, value]) => {
+      acc[String(key)] = String(value);
+      return acc;
+    }, {});
+  }
+  return Object.entries(headers).reduce<Record<string, string>>((acc, [key, value]) => {
+    if (typeof value === 'undefined') return acc;
+    acc[key] = String(value);
+    return acc;
+  }, {});
+}
+
+function isSafeHttpMethod(method: string): boolean {
+  switch (method.toUpperCase()) {
+    case 'GET':
+    case 'HEAD':
+    case 'OPTIONS':
+    case 'TRACE':
+      return true;
+    default:
+      return false;
+  }
+}
+
+function shouldAttachCsrf(endpoint: string, method: string): boolean {
+  if (isSafeHttpMethod(method)) return false;
+
+  const normalized = endpoint.trim();
+  if (!normalized.startsWith('/')) return false;
+
+  const unauthenticatedPrefixes = ['/auth/login', '/auth/register', '/auth/password-reset', '/auth/otp', '/otp/'];
+  if (unauthenticatedPrefixes.some((prefix) => normalized.startsWith(prefix))) {
+    return false;
+  }
+
+  return normalized.startsWith('/admin/') || normalized.startsWith('/auth/');
+}
+
+function resetCsrfCache(): void {
+  csrfTokenCache = null;
+  csrfHeaderNameCache = 'X-CSRF-Token';
+}
+
+async function requestCsrfFromUrl(url: string): Promise<{ token: string; header: string } | null> {
+  const response = await fetch(url, {
+    method: 'GET',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403 || response.status === 404) return null;
+    const payload = (await safeParseJson(response)) ?? { message: await response.text().catch(() => '') };
+    throw createApiError(getMessageFromPayload(payload) || 'Failed to initialize CSRF token', response.status, payload);
+  }
+
+  const payload = (await safeParseJson(response)) as unknown;
+  const data = isRecord(payload) && isRecord(payload.data) ? payload.data : payload;
+  if (!isRecord(data)) return null;
+
+  const token = typeof data.token === 'string' ? data.token.trim() : '';
+  const header = typeof data.header === 'string' && data.header.trim() ? data.header.trim() : 'X-CSRF-Token';
+  if (!token) return null;
+  return { token, header };
+}
+
+async function ensureCsrfToken(forceRefresh = false): Promise<{ token: string; header: string }> {
+  if (!forceRefresh && csrfTokenCache) {
+    return { token: csrfTokenCache, header: csrfHeaderNameCache };
+  }
+
+  const proxyUrl = `${API_V1_BASE_URL}/auth/csrf-token`;
+  const directUrl = API_ORIGIN ? `${API_ORIGIN}/api/v1/auth/csrf-token` : '';
+
+  let csrf = await requestCsrfFromUrl(proxyUrl);
+  if (!csrf && USE_API_PROXY && directUrl) {
+    csrf = await requestCsrfFromUrl(directUrl);
+  }
+  if (!csrf) {
+    throw createApiError('Unable to establish CSRF session', 401);
+  }
+
+  csrfTokenCache = csrf.token;
+  csrfHeaderNameCache = csrf.header;
+  return csrf;
 }
 
 function normalizeDailyStats(payload: unknown): FormSubmissionDailyStat[] {
@@ -438,6 +539,7 @@ export function setAuthRememberPreference(rememberMe: boolean): void {
 export function clearAuthStorage(): void {
   authUserCache = null;
   authRememberPreference = false;
+  resetCsrfCache();
 }
 
 /* ============================================================================
@@ -457,18 +559,24 @@ async function safeParseJson(response: Response): Promise<unknown | null> {
 export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const proxyUrl = API_V1_BASE_URL + endpoint;
   const directUrl = API_ORIGIN ? API_ORIGIN + '/api/v1' + endpoint : '';
+  const method = String(options.method || 'GET').toUpperCase();
   const isFormData =
     typeof FormData !== "undefined" && options.body instanceof FormData;
 
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     ...(isFormData ? {} : { "Content-Type": "application/json" }),
-    ...(options.headers || {}),
+    ...toHeaderRecord(options.headers),
   };
+  const csrfRequired = shouldAttachCsrf(endpoint, method);
+  if (csrfRequired) {
+    const csrf = await ensureCsrfToken(false);
+    headers[csrf.header] = csrf.token;
+  }
 
-  const execute = async (url: string): Promise<{ response: Response; payload: unknown }> => {
+  const execute = async (url: string, requestHeaders: HeadersInit): Promise<{ response: Response; payload: unknown }> => {
     const response = await fetch(url, {
       ...options,
-      headers,
+      headers: requestHeaders,
       credentials: "include",
     });
 
@@ -480,11 +588,21 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
   };
 
   try {
-    let { response, payload } = await execute(proxyUrl);
+    let usedUrl = proxyUrl;
+    let { response, payload } = await execute(proxyUrl, headers);
 
     // If /api/v1 proxy is unavailable (404), retry direct API origin once.
     if (response.status === 404 && USE_API_PROXY && directUrl) {
-      ({ response, payload } = await execute(directUrl));
+      usedUrl = directUrl;
+      ({ response, payload } = await execute(directUrl, headers));
+    }
+
+    if (response.status === 403 && csrfRequired) {
+      // Token may be stale after session refresh/logout/login sequence.
+      resetCsrfCache();
+      const csrf = await ensureCsrfToken(true);
+      const retryHeaders = { ...headers, [csrf.header]: csrf.token };
+      ({ response, payload } = await execute(usedUrl, retryHeaders));
     }
 
     if (!response.ok) {
@@ -509,13 +627,18 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
  */
 async function uploadFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${UPLOAD_V1_BASE_URL}${endpoint}`;
+  const method = String(options.method || 'GET').toUpperCase();
   const isFormData =
     typeof FormData !== 'undefined' && options.body instanceof FormData;
 
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-    ...(options.headers || {}),
+    ...toHeaderRecord(options.headers),
   };
+  if (shouldAttachCsrf(endpoint, method)) {
+    const csrf = await ensureCsrfToken(false);
+    headers[csrf.header] = csrf.token;
+  }
 
   try {
     const response = await fetch(url, {
@@ -618,6 +741,70 @@ function unwrapData<T>(res: unknown, errorMessage: string): T {
     return data as T;
   }
   throw createApiError(errorMessage, 400, res);
+}
+
+function parseApprovalType(value: unknown): 'testimonial' | 'event' | 'admin_user' {
+  if (value === 'testimonial' || value === 'event' || value === 'admin_user') return value;
+  return 'admin_user';
+}
+
+function parseApprovalStatus(value: unknown): 'pending' | 'approved' | 'deleted' {
+  if (value === 'pending' || value === 'approved' || value === 'deleted') return value;
+  return 'pending';
+}
+
+function normalizeApprovalRequest(value: unknown): ApprovalRequest | null {
+  if (!isRecord(value)) return null;
+  const id = typeof value.id === 'string' ? value.id : '';
+  if (!id) return null;
+
+  const createdAt = typeof value.createdAt === 'string' ? value.createdAt : new Date().toISOString();
+  const updatedAt = typeof value.updatedAt === 'string' ? value.updatedAt : createdAt;
+
+  return {
+    id,
+    ticketCode: typeof value.ticketCode === 'string' ? value.ticketCode : '',
+    type: parseApprovalType(value.type),
+    status: parseApprovalStatus(value.status),
+    entityId: typeof value.entityId === 'string' ? value.entityId : undefined,
+    entityLabel: typeof value.entityLabel === 'string' ? value.entityLabel : undefined,
+    requestedById: typeof value.requestedById === 'string' ? value.requestedById : undefined,
+    requestedByName: typeof value.requestedByName === 'string' ? value.requestedByName : undefined,
+    requestedByEmail: typeof value.requestedByEmail === 'string' ? value.requestedByEmail : undefined,
+    approvedById: typeof value.approvedById === 'string' ? value.approvedById : undefined,
+    approvedByName: typeof value.approvedByName === 'string' ? value.approvedByName : undefined,
+    approvedByEmail: typeof value.approvedByEmail === 'string' ? value.approvedByEmail : undefined,
+    approvedAt: typeof value.approvedAt === 'string' ? value.approvedAt : undefined,
+    createdAt,
+    updatedAt,
+  };
+}
+
+function normalizeApprovalTimeline(payload: unknown): ApprovalRequestsTimeline {
+  const source = isRecord(payload) && isRecord(payload.data) ? payload.data : payload;
+  const record = isRecord(source) ? source : {};
+  const normalizePoints = (value: unknown): { day: string; count: number }[] => {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((item) => {
+        if (!isRecord(item)) return null;
+        const day = typeof item.day === 'string' ? item.day : '';
+        const rawCount = item.count;
+        const count = typeof rawCount === 'number' ? rawCount : Number(rawCount);
+        if (!day || Number.isNaN(count)) return null;
+        return { day, count };
+      })
+      .filter((item): item is { day: string; count: number } => item !== null);
+  };
+
+  const start = typeof record.start === 'string' ? record.start : '';
+  const end = typeof record.end === 'string' ? record.end : '';
+  return {
+    start,
+    end,
+    created: normalizePoints(record.created),
+    approved: normalizePoints(record.approved),
+  };
 }
 
 function unwrapSimplePaginated<T>(
@@ -795,6 +982,10 @@ export const apiClient = {
   async getCurrentUser(): Promise<User> {
     const res = await apiFetch<ApiResponse<unknown>>('/auth/me', { method: 'GET' });
     return extractUser(res);
+  },
+
+  async getCsrfToken(): Promise<{ token: string; header: string }> {
+    return ensureCsrfToken(false);
   },
 
   async getMFASecurityProfile(): Promise<AuthSecurityProfile> {
@@ -1300,16 +1491,23 @@ export const apiClient = {
     const res = await apiFetch<ApiResponse<ApprovalRequest[]> | ApprovalRequest[]>(`/admin/requests${qs}`, {
       method: 'GET',
     });
-    if (Array.isArray(res)) return res;
-    return unwrapData<ApprovalRequest[]>(res, 'Invalid approval requests payload');
+    const source = Array.isArray(res)
+      ? res
+      : isRecord(res) && Array.isArray(res.data)
+        ? res.data
+        : [];
+
+    return source
+      .map(normalizeApprovalRequest)
+      .filter((item): item is ApprovalRequest => item !== null);
   },
 
   async getApprovalRequestsTimeline(days = 14): Promise<ApprovalRequestsTimeline> {
-    const res = await apiFetch<ApiResponse<ApprovalRequestsTimeline>>(
+    const res = await apiFetch<ApiResponse<ApprovalRequestsTimeline> | ApprovalRequestsTimeline>(
       `/admin/requests/timeline?days=${encodeURIComponent(String(days))}`,
       { method: 'GET' }
     );
-    return unwrapData<ApprovalRequestsTimeline>(res, 'Invalid approval timeline payload');
+    return normalizeApprovalTimeline(res);
   },
 
   /* ===================== OTP ===================== */

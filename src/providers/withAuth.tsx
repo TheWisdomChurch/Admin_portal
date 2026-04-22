@@ -4,18 +4,14 @@ import React, { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthContext } from '@/providers/AuthProviders';
 import type { User } from '@/lib/types';
+import { getUserRole } from '@/lib/authRole';
 
 type WithAuthOptions = {
   requiredRole?: 'admin' | 'super_admin';
 };
 
 function roleOf(user: User): 'admin' | 'super_admin' | null {
-  const raw = (user as { role?: unknown })?.role;
-  if (!raw || typeof raw !== 'string') return null;
-  const normalized = raw.toLowerCase().replace(/\s+/g, '_');
-  if (normalized === 'admin') return 'admin';
-  if (normalized === 'super_admin') return 'super_admin';
-  return null;
+  return getUserRole(user);
 }
 
 function dashboardFor(user: User) {
@@ -25,7 +21,6 @@ function dashboardFor(user: User) {
 function hasRequiredRole(user: User, requiredRole?: 'admin' | 'super_admin') {
   if (!requiredRole) return true;
   const r = roleOf(user);
-  if (r === 'super_admin') return true;
   return r === requiredRole;
 }
 

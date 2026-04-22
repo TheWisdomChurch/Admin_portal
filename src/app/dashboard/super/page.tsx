@@ -1,43 +1,164 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { BarChart3, CalendarClock, CheckCircle, Clock, Filter, RefreshCcw, Search, ShieldCheck, Sparkles, Users } from 'lucide-react';
-import { Card } from '@/ui/Card';
-import { Button } from '@/ui/Button';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ArcElement,
+  BarElement,
+  CategoryScale,
+  Chart as ChartJS,
+  Legend,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Tooltip,
+} from 'chart.js';
+import { Bar, Line, Pie } from 'react-chartjs-2';
+import {
+  Activity,
+  CheckCircle,
+  Clock,
+  MapPin,
+  RefreshCcw,
+  ShieldCheck,
+} from 'lucide-react';
+
 import { Badge } from '@/ui/Badge';
-import { Input } from '@/ui/input';
+import { Button } from '@/ui/Button';
+import { Card } from '@/ui/Card';
 import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
 import { useSuperQueues, ApprovalItem } from '@/hooks/useSuperQueues';
-import { useDashboardSearch } from '@/hooks/useDashboardSearch';
+import { apiClient } from '@/lib/api';
+import type { DashboardAnalytics, EventData } from '@/lib/types';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend);
+
+function dayKey(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toISOString().slice(0, 10);
+}
 
 function SuperDashboard() {
   const { items, loading, refresh, approveItem, declineItem, stats } = useSuperQueues();
-  const { searchTerm, setSearchTerm } = useDashboardSearch('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'testimonial' | 'event' | 'admin_user'>('all');
-  const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'name'>('recent');
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
+  const [events, setEvents] = useState<EventData[]>([]);
+  const [opsLoading, setOpsLoading] = useState(true);
 
-  const filteredItems = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
+  useEffect(() => {
+    let active = true;
 
-    return items
-      .filter((item) => (typeFilter === 'all' ? true : item.type === typeFilter))
-      .filter((item) => {
-        if (!normalizedSearch) return true;
-        const haystack = `${item.name} ${item.summary} ${item.department ?? ''} ${item.email ?? ''}`.toLowerCase();
-        return haystack.includes(normalizedSearch);
-      })
-      .sort((a, b) => {
-        if (sortBy === 'name') return a.name.localeCompare(b.name);
-        if (sortBy === 'oldest') {
-          return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
-        }
-        return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
-      });
-  }, [items, searchTerm, typeFilter, sortBy]);
+    async function loadOps() {
+      setOpsLoading(true);
+      try {
+        const [analyticsResult, eventsResult] = await Promise.allSettled([
+          apiClient.getAnalytics(),
+          apiClient.getEvents({ limit: 8, page: 1 }),
+        ]);
 
-  const spotlight = filteredItems.filter((item) => item.type !== 'testimonial').slice(0, 3);
+        if (!active) return;
+
+        setAnalytics(analyticsResult.status === 'fulfilled' ? analyticsResult.value : null);
+        setEvents(eventsResult.status === 'fulfilled' ? eventsResult.value.data : []);
+      } finally {
+        if (active) setOpsLoading(false);
+      }
+    }
+
+    void loadOps();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const safeItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
+  const safeEvents = useMemo(() => (Array.isArray(events) ? events : []), [events]);
+
+  const queueByTypeChart = useMemo(
+    () => ({
+      labels: ['Testimonials', 'Events', 'Admin Access'],
+      datasets: [
+        {
+          data: [stats.testimonials, stats.events, stats.adminUsers],
+          backgroundColor: ['#1d4ed8', '#059669', '#a16207'],
+          borderWidth: 1,
+        },
+      ],
+    }),
+    [stats]
+  );
+
+  const queueVelocity = useMemo(() => {
+    const counts: Record<string, number> = {};
+    safeItems.forEach((item) => {
+      const key = dayKey(item.submittedAt);
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    const labels = Object.keys(counts).sort();
+    return {
+      labels,
+      values: labels.map((label) => counts[label]),
+    };
+  }, [safeItems]);
+
+  const queueVelocityChart = useMemo(
+    () => ({
+      labels: queueVelocity.labels,
+      datasets: [
+        {
+          label: 'Incoming approvals',
+          data: queueVelocity.values,
+          borderColor: '#ca8a04',
+          backgroundColor: 'rgba(202,138,4,0.2)',
+          borderWidth: 2,
+          tension: 0.35,
+        },
+      ],
+    }),
+    [queueVelocity]
+  );
+
+  const monthlyOpsChart = useMemo(
+    () => ({
+      labels: analytics?.monthlyStats?.map((row) => row.month) ?? [],
+      datasets: [
+        {
+          label: 'Events',
+          data: analytics?.monthlyStats?.map((row) => row.events) ?? [],
+          backgroundColor: 'rgba(29,78,216,0.42)',
+          borderColor: '#1d4ed8',
+          borderWidth: 1,
+        },
+        {
+          label: 'Attendees',
+          data: analytics?.monthlyStats?.map((row) => row.attendees) ?? [],
+          backgroundColor: 'rgba(5,150,105,0.42)',
+          borderColor: '#059669',
+          borderWidth: 1,
+        },
+      ],
+    }),
+    [analytics?.monthlyStats]
+  );
+
+  const pendingTop = useMemo(
+    () =>
+      safeItems
+        .filter((item) => item.status === 'pending')
+        .slice()
+        .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
+        .slice(0, 8),
+    [safeItems]
+  );
+
+  const mappedLocation = useMemo(
+    () => safeEvents.find((event) => event.location && event.location.trim())?.location?.trim() || '',
+    [safeEvents]
+  );
+  const mapSrc = mappedLocation
+    ? `https://www.google.com/maps?q=${encodeURIComponent(mappedLocation)}&output=embed`
+    : '';
 
   const handleApprove = async (item: ApprovalItem) => {
     setApprovingId(item.id);
@@ -54,205 +175,150 @@ function SuperDashboard() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Super Admin Control"
-        subtitle="Approve, prioritize, and analyze everything from one focused view."
+        title="Super Admin Command Center"
+        subtitle="Governance, approvals, and platform-wide operational intelligence."
         actions={
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="text-xs px-3" onClick={() => setSearchTerm('')}>
-              Clear search
-            </Button>
-            <Button variant="outline" size="sm" className="text-xs px-3" onClick={refresh} disabled={loading}>
-              <RefreshCcw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={() => { void refresh(); }} disabled={loading}>
+            <RefreshCcw className="mr-2 h-4 w-4" />
+            Refresh Queue
+          </Button>
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="p-5 bg-gradient-to-br from-amber-50 via-white to-sky-50 border-amber-100">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <article className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5">
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Pending Approvals</p>
+          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">{stats.total}</p>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Items requiring super-admin decision</p>
+        </article>
+
+        <article className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5">
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Testimonial Queue</p>
+          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">{stats.testimonials}</p>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Content moderation inflow</p>
+        </article>
+
+        <article className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5">
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Event Queue</p>
+          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">{stats.events}</p>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Event oversight approvals</p>
+        </article>
+
+        <article className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5">
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Live Operations</p>
+          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">{analytics?.upcomingEvents ?? 0}</p>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Upcoming events under oversight</p>
+        </article>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
+        <Card className="p-5">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-amber-500">Approvals</p>
-              <p className="mt-2 text-2xl md:text-3xl font-semibold text-[var(--color-text-primary)]">{stats.total}</p>
-              <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">items awaiting decision</p>
-            </div>
-            <div className="h-12 w-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
+            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Queue Composition</h2>
+            <ShieldCheck className="h-4 w-4 text-[var(--color-accent-primary)]" />
+          </div>
+          <div className="mt-4 h-[280px]">
+            {stats.total > 0 ? (
+              <Pie
+                data={queueByTypeChart}
+                options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }}
+              />
+            ) : (
+              <p className="text-sm text-[var(--color-text-tertiary)]">No active approvals.</p>
+            )}
           </div>
         </Card>
 
-        <Card className="p-5 bg-gradient-to-br from-blue-50 via-white to-indigo-50 border-blue-100">
+        <Card className="p-5">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-blue-500">Testimonials</p>
-              <p className="mt-2 text-2xl md:text-3xl font-semibold text-[var(--color-text-primary)]">{stats.testimonials}</p>
-              <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">stories pending approval</p>
-            </div>
-            <div className="h-12 w-12 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">
-              <Sparkles className="h-5 w-5" />
-            </div>
+            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Queue Velocity</h2>
+            <Clock className="h-4 w-4 text-[var(--color-accent-primary)]" />
+          </div>
+          <div className="mt-4 h-[280px]">
+            {queueVelocity.labels.length > 0 ? (
+              <Line
+                data={queueVelocityChart}
+                options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }}
+              />
+            ) : (
+              <p className="text-sm text-[var(--color-text-tertiary)]">No queue history available yet.</p>
+            )}
+          </div>
+        </Card>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+        <Card className="p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Platform Activity Trend</h2>
+            <Activity className="h-4 w-4 text-[var(--color-accent-primary)]" />
+          </div>
+          <div className="mt-4 h-[280px]">
+            {(analytics?.monthlyStats?.length ?? 0) > 0 ? (
+              <Bar
+                data={monthlyOpsChart}
+                options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } } }}
+              />
+            ) : (
+              <p className="text-sm text-[var(--color-text-tertiary)]">No monthly operations analytics available.</p>
+            )}
           </div>
         </Card>
 
-        <Card className="p-5 bg-gradient-to-br from-emerald-50 via-white to-green-50 border-emerald-100">
+        <Card className="p-5">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-500">Events</p>
-              <p className="mt-2 text-2xl md:text-3xl font-semibold text-[var(--color-text-primary)]">{stats.events}</p>
-              <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">event approvals pending</p>
-            </div>
-            <div className="h-12 w-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
-              <CalendarClock className="h-5 w-5" />
-            </div>
+            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Operations Map</h2>
+            <MapPin className="h-4 w-4 text-[var(--color-accent-primary)]" />
           </div>
+          <div className="mt-4 overflow-hidden rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
+            {mapSrc ? (
+              <iframe
+                title="Operations location"
+                src={mapSrc}
+                className="h-[280px] w-full"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            ) : (
+              <div className="flex h-[280px] items-center justify-center p-4 text-sm text-[var(--color-text-tertiary)]">
+                No location context available from current event data.
+              </div>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">
+            {mappedLocation ? `Focused location: ${mappedLocation}` : 'Add event locations to enable geographic monitoring.'}
+          </p>
         </Card>
+      </section>
 
-        <Card className="p-5 bg-gradient-to-br from-slate-50 via-white to-amber-50 border-slate-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Admin Access</p>
-              <p className="mt-2 text-2xl md:text-3xl font-semibold text-[var(--color-text-primary)]">{stats.adminUsers}</p>
-              <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">accounts pending approval</p>
-            </div>
-            <div className="h-12 w-12 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center">
-              <BarChart3 className="h-5 w-5" />
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      <Card
-        title="Approval queue"
-        actions={
-          <div className="flex items-center gap-2">
-            <div className="hidden md:block text-sm text-[var(--color-text-tertiary)]">
-              {filteredItems.length} showing
-            </div>
-            <label className="text-[11px] md:text-xs text-[var(--color-text-tertiary)] hidden sm:block">
-              Sort
-            </label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs md:text-sm"
-            >
-              <option value="recent">Newest first</option>
-              <option value="oldest">Oldest first</option>
-              <option value="name">Name A-Z</option>
-            </select>
-          </div>
-        }
-      >
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              variant={typeFilter === 'all' ? 'primary' : 'ghost'}
-              icon={<Filter className="h-4 w-4" />}
-              onClick={() => setTypeFilter('all')}
-            >
-              All
-            </Button>
-            <Button
-              size="sm"
-              variant={typeFilter === 'testimonial' ? 'primary' : 'ghost'}
-              onClick={() => setTypeFilter('testimonial')}
-            >
-              Testimonials
-            </Button>
-            <Button
-              size="sm"
-              variant={typeFilter === 'event' ? 'primary' : 'ghost'}
-              onClick={() => setTypeFilter('event')}
-            >
-              Events
-            </Button>
-            <Button
-              size="sm"
-              variant={typeFilter === 'admin_user' ? 'primary' : 'ghost'}
-              onClick={() => setTypeFilter('admin_user')}
-            >
-              Admin Access
-            </Button>
-          </div>
-
-          <div className="relative w-full md:w-80">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
-            <Input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search approvals, names, departments..."
-              className="pl-10"
-            />
-          </div>
+      <Card className="p-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Priority Decision Queue</h2>
+          <Badge variant="warning" size="sm">Top {pendingTop.length}</Badge>
         </div>
 
         <div className="mt-4 space-y-3">
           {loading ? (
-            <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">Loading queue...</p>
-          ) : filteredItems.length === 0 ? (
-            <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">No approvals match this filter.</p>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading queue...</p>
+          ) : pendingTop.length === 0 ? (
+            <p className="text-sm text-[var(--color-text-tertiary)]">No pending approvals at the moment.</p>
           ) : (
-            filteredItems.slice(0, 6).map((item) => (
-              <div
-                key={item.id}
-                className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 hover:-translate-y-0.5 hover:shadow-sm transition"
-              >
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div
-                      className={`h-11 w-11 rounded-[var(--radius-button)] flex items-center justify-center ${
-                        item.type === 'testimonial'
-                          ? 'bg-blue-50 text-blue-700'
-                          : item.type === 'event'
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : 'bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      {item.type === 'testimonial' ? (
-                        <Sparkles className="h-5 w-5" />
-                      ) : item.type === 'event' ? (
-                        <CalendarClock className="h-5 w-5" />
-                      ) : (
-                        <ShieldCheck className="h-5 w-5" />
-                      )}
-                    </div>
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm md:text-base font-semibold text-[var(--color-text-primary)]">{item.name}</p>
-                        <Badge variant="outline" size="sm">
-                          {item.type === 'testimonial' ? 'Testimonial' : item.type === 'event' ? 'Event' : 'Admin Access'}
-                        </Badge>
-                        <Badge
-                          variant={item.status === 'pending' ? 'warning' : item.status === 'approved' ? 'success' : 'danger'}
-                          size="sm"
-                          className="flex items-center gap-1"
-                        >
-                          <Clock className="h-3 w-3" />
-                          {item.status}
-                        </Badge>
-                      </div>
-                      <p className="text-[11px] md:text-xs text-[var(--color-text-tertiary)] mt-1">
-                        {new Date(item.submittedAt).toLocaleString()}
-                      </p>
-                      <p className="mt-2 text-sm md:text-base text-[var(--color-text-secondary)]">{item.summary}</p>
-                      {item.department && (
-                        <p className="mt-1 text-[11px] md:text-xs text-[var(--color-text-tertiary)]">Department: {item.department}</p>
-                      )}
-                    </div>
+            pendingTop.map((item) => (
+              <div key={item.id} className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{item.name}</p>
+                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                      {item.type.toUpperCase()} · {new Date(item.submittedAt).toLocaleString()}
+                    </p>
+                    <p className="text-sm text-[var(--color-text-secondary)]">{item.summary}</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 md:flex-col md:items-end">
-                    {item.email && (
-                      <Badge variant="secondary" size="sm" className="text-[11px]">
-                        {item.email}
-                      </Badge>
-                    )}
+
+                  <div className="flex items-center gap-2">
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => handleDecline(item)}
+                      onClick={() => void handleDecline(item)}
                       loading={approvingId === item.id}
                       disabled={item.type !== 'testimonial' || item.status !== 'pending'}
                     >
@@ -260,7 +326,7 @@ function SuperDashboard() {
                     </Button>
                     <Button
                       size="sm"
-                      onClick={() => handleApprove(item)}
+                      onClick={() => void handleApprove(item)}
                       loading={approvingId === item.id}
                       disabled={item.status !== 'pending'}
                       icon={<CheckCircle className="h-4 w-4" />}
@@ -273,91 +339,11 @@ function SuperDashboard() {
             ))
           )}
         </div>
-
-        <div className="mt-4 text-right">
-          <Button variant="ghost" size="sm" onClick={refresh}>
-            <RefreshCcw className="h-4 w-4 mr-2" />
-            Reload queue
-          </Button>
-        </div>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <Card title="Priority Spotlight">
-          {spotlight.length === 0 ? (
-            <p className="text-xs md:text-sm text-[var(--color-text-tertiary)]">No event or admin-access requests match the filters.</p>
-          ) : (
-            <div className="space-y-3">
-              {spotlight.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
-                >
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm md:text-base font-semibold text-[var(--color-text-primary)]">{item.name}</p>
-                      <Badge variant="success" size="sm">High priority</Badge>
-                    </div>
-                    <p className="text-[11px] md:text-xs text-[var(--color-text-tertiary)] mt-1">
-                      {new Date(item.submittedAt).toLocaleDateString()} • {item.type === 'event' ? 'Event' : 'Admin Access'}
-                    </p>
-                    <p className="mt-2 text-sm md:text-base text-[var(--color-text-secondary)]">{item.summary}</p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 md:flex-col md:items-end">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setSearchTerm(item.name)}
-                    >
-                      Filter similar
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => handleApprove(item)}
-                      loading={approvingId === item.id}
-                      icon={<CheckCircle className="h-4 w-4" />}
-                    >
-                      Approve
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-
-        <Card title="Activity pulse">
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] p-3">
-              <div className="h-10 w-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
-                <ShieldCheck className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-[var(--color-text-primary)]">Super tools</p>
-                <p className="text-xs text-[var(--color-text-tertiary)]">New super-admin routes added for analytics, reports, and approvals.</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] p-3">
-              <div className="h-10 w-10 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center">
-                <BarChart3 className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-[var(--color-text-primary)]">Responsive sidebar</p>
-                <p className="text-xs text-[var(--color-text-tertiary)]">Tablet-friendly icon rail with a super admin toggle and new settings entry.</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] p-3">
-              <div className="h-10 w-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                <Users className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-[var(--color-text-primary)]">Search-ready</p>
-                <p className="text-xs text-[var(--color-text-tertiary)]">Navbar and page searches now filter the queues instantly.</p>
-              </div>
-            </div>
-          </div>
-        </Card>
-      </div>
+      {opsLoading ? (
+        <p className="text-xs text-[var(--color-text-tertiary)]">Refreshing operations telemetry...</p>
+      ) : null}
     </div>
   );
 }

@@ -180,6 +180,11 @@ function toComparableNumber(value: unknown): number | null {
 function valuesEqual(a: unknown, b: unknown): boolean {
   if (a == null || b == null) return false;
 
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    return a.every((item, index) => valuesEqual(item, b[index]));
+  }
+
   if (typeof a === 'boolean' && typeof b === 'boolean') {
     return a === b;
   }
@@ -208,6 +213,9 @@ function isPrayerRequestField(field: FormField): boolean {
 
 function valueInList(value: unknown, list?: unknown[]): boolean {
   if (!Array.isArray(list) || list.length === 0) return false;
+  if (Array.isArray(value)) {
+    return value.some((entry) => list.some((item) => valuesEqual(entry, item)));
+  }
   return list.some((item) => valuesEqual(value, item));
 }
 
@@ -219,20 +227,46 @@ function isFieldVisible(field: FormField, values: ValuesState): boolean {
   const evaluateRule = (rule: { fieldKey: string; operator: string; value?: unknown; values?: unknown[] }) => {
     const fieldKey = rule.fieldKey.trim();
     const currentValue = values[fieldKey];
+    const operator = rule.operator || 'equals';
 
-    if (typeof currentValue === 'undefined' || currentValue === null) {
-      return false;
+    if (operator === 'is_empty') {
+      if (Array.isArray(currentValue)) return currentValue.length === 0;
+      if (typeof currentValue === 'boolean') return currentValue === false;
+      return !String(currentValue ?? '').trim();
+    }
+    if (operator === 'not_empty') {
+      if (Array.isArray(currentValue)) return currentValue.length > 0;
+      if (typeof currentValue === 'boolean') return currentValue === true;
+      return Boolean(String(currentValue ?? '').trim());
     }
 
-    switch (rule.operator) {
+    switch (operator) {
       case 'equals':
         return valuesEqual(currentValue, rule.value);
       case 'not_equals':
         return !valuesEqual(currentValue, rule.value);
+      case 'contains':
+        if (Array.isArray(currentValue)) {
+          return currentValue.some((item) => valuesEqual(item, rule.value));
+        }
+        return String(currentValue ?? '').toLowerCase().includes(String(rule.value ?? '').toLowerCase());
+      case 'not_contains':
+        if (Array.isArray(currentValue)) {
+          return !currentValue.some((item) => valuesEqual(item, rule.value));
+        }
+        return !String(currentValue ?? '').toLowerCase().includes(String(rule.value ?? '').toLowerCase());
       case 'in':
         return valueInList(currentValue, rule.values);
       case 'not_in':
         return !valueInList(currentValue, rule.values);
+      case 'greater_than':
+        return toComparableNumber(currentValue) !== null &&
+          toComparableNumber(rule.value) !== null &&
+          Number(toComparableNumber(currentValue)) > Number(toComparableNumber(rule.value));
+      case 'less_than':
+        return toComparableNumber(currentValue) !== null &&
+          toComparableNumber(rule.value) !== null &&
+          Number(toComparableNumber(currentValue)) < Number(toComparableNumber(rule.value));
       default:
         return false;
     }
@@ -300,8 +334,10 @@ function PhoneNumberInput({
   value: string;
   onChange: (next: string) => void;
 }) {
-  const common =
+  const inputClass =
     'w-full rounded-lg border border-[var(--color-border-primary)] px-3 py-2 text-sm bg-[var(--color-background-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent [&>option]:bg-white [&>option]:text-black';
+  const selectClass =
+    'w-full rounded-lg border border-[var(--color-border-primary)] px-3 py-2 text-sm bg-white text-black focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent';
 
   const parsed = splitE164(value);
   const currentDial = parsed?.dial ?? COUNTRY_PHONE_CODES[0].dial;
@@ -311,7 +347,7 @@ function PhoneNumberInput({
     <div className="space-y-2">
       <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-2">
         <select
-          className={common}
+          className={selectClass}
           value={currentDial}
           onChange={(e) => {
             const nextDial = e.target.value;
@@ -328,7 +364,7 @@ function PhoneNumberInput({
         </select>
 
         <input
-          className={common}
+          className={inputClass}
           inputMode="tel"
           placeholder="Phone number"
           value={currentNational}
@@ -357,8 +393,10 @@ function FieldInput({
   value: FieldValue | undefined;
   onChange: (next: FieldValue) => void;
 }) {
-  const common =
+  const inputClass =
     'w-full rounded-lg border border-[var(--color-border-primary)] px-3 py-2 text-sm bg-[var(--color-background-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent [&>option]:bg-white [&>option]:text-black';
+  const selectClass =
+    'w-full rounded-lg border border-[var(--color-border-primary)] px-3 py-2 text-sm bg-white text-black focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent';
   const options = Array.isArray(field.options) ? field.options : [];
   const normalizedType = normalizeFieldType(field.type);
 
@@ -378,8 +416,8 @@ function FieldInput({
 
   if (showAsTextarea) {
     return (
-      <textarea
-        className={common}
+        <textarea
+        className={inputClass}
         rows={4}
         value={typeof value === 'string' ? value : ''}
         onChange={(e) => onChange(e.target.value)}
@@ -392,7 +430,7 @@ function FieldInput({
   if (showAsSelect) {
     return (
       <select
-        className={common}
+        className={selectClass}
         value={typeof value === 'string' ? value : ''}
         onChange={(e) => onChange(e.target.value)}
         required={field.required}
@@ -475,7 +513,7 @@ function FieldInput({
           key={fileKey}
           type="file"
           accept={ACCEPTED_IMAGE_ACCEPT}
-          className={common}
+          className={inputClass}
           onChange={(e) => onChange(e.target.files?.[0] || null)}
           required={field.required}
         />
@@ -511,7 +549,7 @@ function FieldInput({
     return (
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <select
-          className={common}
+          className={selectClass}
           value={selectedDay}
           disabled={!selectedMonth}
           onChange={(e) => {
@@ -529,7 +567,7 @@ function FieldInput({
         </select>
 
         <select
-          className={common}
+          className={selectClass}
           value={selectedMonth}
           onChange={(e) => {
             const nextMonth = e.target.value;
@@ -565,7 +603,7 @@ function FieldInput({
   return (
     <input
       type={inputType}
-      className={common}
+      className={inputClass}
       value={typeof value === 'string' ? value : ''}
       onChange={(e) => onChange(e.target.value)}
       placeholder={field.label}
@@ -1271,7 +1309,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
         <div
           className={
             hasLeftColumn && layoutMode === 'split'
-              ? 'grid gap-6 md:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]'
+              ? 'grid gap-6 md:gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,360px)]'
               : 'space-y-6 md:space-y-8'
           }
         >
@@ -1336,7 +1374,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
           </div>
 
           {hasLeftColumn ? (
-            <div ref={leftRef} className="space-y-6">
+            <div ref={leftRef} className="space-y-6 xl:sticky xl:top-6 self-start">
               {contentSections.map((section, sectionIndex) => (
                 <Card
                   key={`${section.title || 'section'}-${sectionIndex}`}

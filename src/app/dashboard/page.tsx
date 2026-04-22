@@ -36,6 +36,7 @@ import type {
   FormStatsResponse,
 } from '@/lib/types';
 import { useAuthContext } from '@/providers/AuthProviders';
+import { withAuth } from '@/providers/withAuth';
 
 ChartJS.register(
   CategoryScale,
@@ -82,7 +83,7 @@ function statusTone(status?: string): string {
   return 'bg-amber-100 text-amber-800 border-amber-200';
 }
 
-export default function DashboardPage() {
+function DashboardPage() {
   const auth = useAuthContext();
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
@@ -126,7 +127,7 @@ export default function DashboardPage() {
   }, []);
 
   const firstName = auth.user?.first_name || 'Admin';
-  const topForms = marketing?.topForms ?? [];
+  const topForms = useMemo(() => marketing?.topForms ?? [], [marketing?.topForms]);
   const recentSubmissions = (formStats?.recent ?? []).slice(0, 8);
   const categoryEntries = Object.entries(analytics?.eventsByCategory ?? {}).sort(
     (a, b) => b[1] - a[1]
@@ -417,3 +418,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+export default withAuth(DashboardPage, { requiredRole: 'admin' });

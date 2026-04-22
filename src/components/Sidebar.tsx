@@ -29,6 +29,7 @@ import {
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Badge } from '@/ui/Badge';
 import { LogoutModal } from '@/ui/LogoutModal';
+import { getUserRole, normalizeAuthRole } from '@/lib/authRole';
 
 const adminNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview and metrics' },
@@ -41,7 +42,6 @@ const adminNavItems = [
   { href: '/dashboard/email-marketing', label: 'Email Marketing', icon: Mail, description: 'Build campaigns from form audiences' },
   { href: '/dashboard/registrations', label: 'Registrations', icon: Users, description: 'Registered people list' },
   { href: '/dashboard/notifications', label: 'Notifications', icon: BellRing, description: 'Alerts and approvals' },
-  { href: '/dashboard/security', label: 'Security', icon: Shield, description: 'Access, MFA, and approvals' },
   { href: '/dashboard/content', label: 'Content', icon: FileText, description: 'Website content' },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings, description: 'System configuration' },
 ];
@@ -53,7 +53,6 @@ const superNavItems = [
   { href: '/dashboard/email-marketing', label: 'Email Marketing', icon: Mail, description: 'Audience campaigns & outreach' },
   { href: '/dashboard/super/reports', label: 'Reports', icon: FileText, description: 'Monthly exports' },
   { href: '/dashboard/super/notifications', label: 'Notifications', icon: BarChart3, description: 'Alerts and updates' },
-  { href: '/dashboard/security', label: 'Security', icon: Shield, description: 'Access controls and risk posture' },
 ];
 
 export function Sidebar() {
@@ -133,8 +132,10 @@ export function Sidebar() {
     return `${auth.user.first_name} ${auth.user.last_name}`.trim();
   };
 
-  const formatRole = (role: string = '') => {
-    return role
+  const formatRole = (role: unknown) => {
+    const normalized = normalizeAuthRole(role);
+    if (!normalized) return 'User';
+    return normalized
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
@@ -167,11 +168,11 @@ export function Sidebar() {
 
   const showLabels = isMobileOpen || !isCollapsed;
 
-  const navItems = auth.user?.role === 'super_admin'
-    ? superNavItems
-    : adminNavItems;
+  const role = getUserRole(auth.user);
+  const navItems = role === 'super_admin' ? superNavItems : adminNavItems;
+  const isSuperAdmin = role === 'super_admin';
 
-  const homeHref = auth.user?.role === 'super_admin' ? '/dashboard/super' : '/dashboard';
+  const homeHref = isSuperAdmin ? '/dashboard/super' : '/dashboard';
 
   return (
     <>
@@ -224,7 +225,9 @@ export function Sidebar() {
                       Wisdom Church
                     </h1>
                   </div>
-                  <p className="text-sm text-muted-foreground">Admin Portal</p>
+                  <p className="text-sm text-muted-foreground">
+                    {isSuperAdmin ? 'Super Admin Console' : 'Admin Portal'}
+                  </p>
                 </div>
               )}
             </Link>
