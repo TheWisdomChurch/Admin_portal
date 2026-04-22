@@ -330,10 +330,10 @@ function prepareResourceLinks(resourceLinks?: FormEmailResourceLink[]) {
 }
 
 const DEFAULT_SOCIAL_LINKS: FormEmailSocialLink[] = [
-  { platform: 'facebook', url: 'https://facebook.com/wisdomchurchhq' },
-  { platform: 'youtube', url: 'https://youtube.com/@wisdomchurchhq' },
-  { platform: 'instagram', url: 'https://instagram.com/wisdomchurchhq' },
-  { platform: 'twitter', url: 'https://x.com/wisdomchurchhq' },
+  { platform: 'facebook', url: 'https://www.facebook.com/wisdomhousehq' },
+  { platform: 'youtube', url: 'https://www.youtube.com/@wisdomhousehq' },
+  { platform: 'instagram', url: 'https://www.instagram.com/wisdomhousehq' },
+  { platform: 'twitter', url: 'https://x.com/wisdomhousehq' },
 ];
 
 function socialLabel(platform: FormEmailSocialPlatform) {
