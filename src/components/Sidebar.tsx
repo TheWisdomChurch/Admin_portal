@@ -29,6 +29,7 @@ import {
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Badge } from '@/ui/Badge';
 import { LogoutModal } from '@/ui/LogoutModal';
+import { getUserRole, normalizeAuthRole } from '@/lib/authRole';
 
 const adminNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview and metrics' },
@@ -131,8 +132,10 @@ export function Sidebar() {
     return `${auth.user.first_name} ${auth.user.last_name}`.trim();
   };
 
-  const formatRole = (role: string = '') => {
-    return role
+  const formatRole = (role: unknown) => {
+    const normalized = normalizeAuthRole(role);
+    if (!normalized) return 'User';
+    return normalized
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
@@ -165,12 +168,11 @@ export function Sidebar() {
 
   const showLabels = isMobileOpen || !isCollapsed;
 
-  const navItems = auth.user?.role === 'super_admin'
-    ? superNavItems
-    : adminNavItems;
-  const isSuperAdmin = auth.user?.role === 'super_admin';
+  const role = getUserRole(auth.user);
+  const navItems = role === 'super_admin' ? superNavItems : adminNavItems;
+  const isSuperAdmin = role === 'super_admin';
 
-  const homeHref = auth.user?.role === 'super_admin' ? '/dashboard/super' : '/dashboard';
+  const homeHref = isSuperAdmin ? '/dashboard/super' : '/dashboard';
 
   return (
     <>

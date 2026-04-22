@@ -77,7 +77,8 @@ function RequestsPage() {
 
   const filteredRequests = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    return requests
+    const source = Array.isArray(requests) ? requests : [];
+    return source
       .filter((item) => (typeFilter === 'all' ? true : item.type === typeFilter))
       .filter((item) => (statusFilter === 'all' ? true : item.status === statusFilter))
       .filter((item) => {
@@ -100,13 +101,22 @@ function RequestsPage() {
 
   const timelinePoints = useMemo(() => {
     if (!timeline) return [];
-    const created = Array.isArray(timeline.created) ? timeline.created : [];
-    const approved = Array.isArray(timeline.approved) ? timeline.approved : [];
+    const created = Array.isArray(timeline.created)
+      ? timeline.created.filter((item): item is { day: string; count: number } => Boolean(item && item.day))
+      : [];
+    const approved = Array.isArray(timeline.approved)
+      ? timeline.approved.filter((item): item is { day: string; count: number } => Boolean(item && item.day))
+      : [];
     const approvedByDay = new Map<string, number>(
-      approved.map((item) => [new Date(item.day).toISOString().slice(0, 10), item.count])
+      approved.map((item) => {
+        const safeDay = new Date(item.day);
+        const dayKey = Number.isNaN(safeDay.getTime()) ? item.day.slice(0, 10) : safeDay.toISOString().slice(0, 10);
+        return [dayKey, item.count];
+      })
     );
     return created.map((item) => {
-      const key = new Date(item.day).toISOString().slice(0, 10);
+      const safeDay = new Date(item.day);
+      const key = Number.isNaN(safeDay.getTime()) ? item.day.slice(0, 10) : safeDay.toISOString().slice(0, 10);
       return {
         day: key,
         created: item.count,
