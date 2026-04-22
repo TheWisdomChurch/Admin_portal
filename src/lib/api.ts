@@ -1783,6 +1783,42 @@ export const apiClient = {
     });
     return unwrapData<Record<string, number>>(res, 'Invalid birthday send payload');
   },
+
+  async getMemberBirthdaysByMonth(month: number): Promise<Member[]> {
+    const res = await apiFetch<ApiResponse<unknown> | Member[]>(
+      `/admin/members/birthdays/month/${encodeURIComponent(String(month))}`,
+      { method: 'GET' }
+    );
+    if (Array.isArray(res)) return res;
+    const payload = unwrapData<unknown>(res, 'Invalid member birthdays by month payload');
+    if (Array.isArray(payload)) return payload as Member[];
+    if (isRecord(payload) && Array.isArray(payload.data)) return payload.data as Member[];
+    return [];
+  },
+
+  async getLeadershipBirthdaysByMonth(month: number): Promise<LeadershipMember[]> {
+    const res = await apiFetch<ApiResponse<unknown> | LeadershipMember[]>(
+      `/admin/leadership/birthdays/month/${encodeURIComponent(String(month))}`,
+      { method: 'GET' }
+    );
+    if (Array.isArray(res)) return res;
+    const payload = unwrapData<unknown>(res, 'Invalid leadership birthdays by month payload');
+    if (Array.isArray(payload)) return payload as LeadershipMember[];
+    if (isRecord(payload) && Array.isArray(payload.data)) return payload.data as LeadershipMember[];
+    return [];
+  },
+
+  async getLeadershipAnniversariesByMonth(month: number): Promise<LeadershipMember[]> {
+    const res = await apiFetch<ApiResponse<unknown> | LeadershipMember[]>(
+      `/admin/leadership/anniversaries/month/${encodeURIComponent(String(month))}`,
+      { method: 'GET' }
+    );
+    if (Array.isArray(res)) return res;
+    const payload = unwrapData<unknown>(res, 'Invalid leadership anniversaries by month payload');
+    if (Array.isArray(payload)) return payload as LeadershipMember[];
+    if (isRecord(payload) && Array.isArray(payload.data)) return payload.data as LeadershipMember[];
+    return [];
+  },
 };
 
 export default apiClient;
