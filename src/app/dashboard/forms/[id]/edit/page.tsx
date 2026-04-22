@@ -590,8 +590,9 @@ function EditFormPage() {
       ? {
           ...form.settings,
           contentSections: sanitizeContentSections(form.settings.contentSections),
+          responseEmailEnabled: true,
         }
-      : undefined;
+      : { responseEmailEnabled: true };
     const payload: UpdateFormRequest = {
       title: form.title.trim(),
       description: form.description?.trim() || undefined,
@@ -684,7 +685,6 @@ function EditFormPage() {
 
   if (!form) return null;
 
-  const responseEmailEnabled = form.settings?.responseEmailEnabled ?? true;
   const formType = form.settings?.formType ?? '';
   const submissionTarget = form.settings?.submissionTarget ?? '';
   const isWorkforceTarget =
@@ -980,38 +980,35 @@ function EditFormPage() {
           <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
             <input
               type="checkbox"
-              checked={responseEmailEnabled}
-              onChange={(e) => updateSettings({ responseEmailEnabled: e.target.checked })}
+              checked
+              disabled
+              readOnly
             />
-            Enable response email
+            Response email is mandatory
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
               label="Email subject"
               value={form.settings?.responseEmailSubject ?? ''}
               onChange={(e) => updateSettings({ responseEmailSubject: e.target.value })}
-              disabled={!responseEmailEnabled}
               error={fieldErrors.responseEmailSubject}
             />
             <Input
               label="Template key"
               value={form.settings?.responseEmailTemplateKey ?? ''}
               onChange={(e) => updateSettings({ responseEmailTemplateKey: e.target.value })}
-              disabled={!responseEmailEnabled}
               error={fieldErrors.responseEmailTemplateKey}
             />
             <Input
               label="Template ID (optional)"
               value={form.settings?.responseEmailTemplateId ?? ''}
               onChange={(e) => updateSettings({ responseEmailTemplateId: e.target.value })}
-              disabled={!responseEmailEnabled}
               error={fieldErrors.responseEmailTemplateId}
             />
             <Input
               label="Template image URL (optional)"
               value={form.settings?.responseEmailTemplateUrl ?? ''}
               onChange={(e) => updateSettings({ responseEmailTemplateUrl: e.target.value })}
-              disabled={!responseEmailEnabled}
               error={fieldErrors.responseEmailTemplateUrl}
             />
           </div>

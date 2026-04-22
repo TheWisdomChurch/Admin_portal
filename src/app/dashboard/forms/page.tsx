@@ -870,14 +870,11 @@ export default withAuth(function FormsPage() {
           submissionTarget === 'workforce_serving'
             ? submissionDepartment.trim() || undefined
             : undefined,
-        responseEmailEnabled,
-        responseEmailSubject: responseEmailEnabled ? responseEmailSubject.trim() || undefined : undefined,
-        responseEmailTemplateKey:
-          responseEmailEnabled ? responseEmailTemplateKey.trim() || undefined : undefined,
-        responseEmailTemplateId:
-          responseEmailEnabled ? responseEmailTemplateId.trim() || undefined : undefined,
-        responseEmailTemplateUrl:
-          responseEmailEnabled ? normalizedResponseTemplateURL || undefined : undefined,
+        responseEmailEnabled: true,
+        responseEmailSubject: responseEmailSubject.trim() || undefined,
+        responseEmailTemplateKey: responseEmailTemplateKey.trim() || undefined,
+        responseEmailTemplateId: responseEmailTemplateId.trim() || undefined,
+        responseEmailTemplateUrl: normalizedResponseTemplateURL || undefined,
         successTitle: successTitle.trim() || undefined,
         successSubtitle: successSubtitle.trim() || undefined,
         successMessage: successMessage.trim() || undefined,
@@ -1671,10 +1668,11 @@ export default withAuth(function FormsPage() {
                 <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
                   <input
                     type="checkbox"
-                    checked={responseEmailEnabled}
-                    onChange={(e) => setResponseEmailEnabled(e.target.checked)}
+                    checked
+                    disabled
+                    readOnly
                   />
-                  Enable response email
+                  Response email is mandatory
                 </label>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <Input
@@ -1685,7 +1683,6 @@ export default withAuth(function FormsPage() {
                       setResponseEmailSubject(e.target.value);
                     }}
                     placeholder="Welcome to Wisdom House Church"
-                    disabled={!responseEmailEnabled}
                     error={fieldErrors.responseEmailSubject}
                   />
                   <Input
@@ -1696,7 +1693,6 @@ export default withAuth(function FormsPage() {
                       setResponseEmailTemplateKey(e.target.value);
                     }}
                     placeholder="welcome-member"
-                    disabled={!responseEmailEnabled}
                     error={fieldErrors.responseEmailTemplateKey}
                   />
                   <Input
@@ -1707,7 +1703,6 @@ export default withAuth(function FormsPage() {
                       setResponseEmailTemplateId(e.target.value);
                     }}
                     placeholder="Template UUID"
-                    disabled={!responseEmailEnabled}
                     error={fieldErrors.responseEmailTemplateId}
                   />
                   <Input
@@ -1718,7 +1713,6 @@ export default withAuth(function FormsPage() {
                       setResponseEmailTemplateUrl(e.target.value);
                     }}
                     placeholder="https://zecqbhqstwhiwwjpphep.storage.supabase.co/storage/v1/s3/email_template/WPC_26.png"
-                    disabled={!responseEmailEnabled}
                     error={fieldErrors.responseEmailTemplateUrl}
                   />
                 </div>

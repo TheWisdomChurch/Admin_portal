@@ -105,14 +105,14 @@ export function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b shadow-sm bg-black border-zinc-800 text-zinc-100 md:bg-[var(--color-background-primary)] md:border-[var(--color-border-primary)] md:text-[var(--color-text-primary)]">
+      <header className="sticky top-0 z-40 border-b shadow-sm bg-[var(--color-background-primary)] border-[var(--color-border-primary)] text-[var(--color-text-primary)]">
         <div className="flex items-center justify-between gap-3 px-4 py-3 md:px-6">
           {/* Left side - Date and Breadcrumb */}
           <div className="flex items-center gap-6">
             <div className="hidden sm:block">
               <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-zinc-400 md:text-[var(--color-text-tertiary)]" />
-                <span className="text-xs font-medium text-zinc-300 md:text-sm md:text-[var(--color-text-secondary)]">{currentDate}</span>
+                <Calendar className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                <span className="text-xs md:text-sm font-medium text-[var(--color-text-secondary)]">{currentDate}</span>
               </div>
             </div>
             
@@ -147,7 +147,7 @@ export function Navbar() {
               variant="ghost"
               size="sm"
               onClick={cycleTheme}
-              className="text-zinc-200 hover:text-white md:text-[var(--color-text-secondary)] md:hover:text-[var(--color-text-primary)]"
+              className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
               aria-label={themeLabel}
               title={themeLabel}
             >
@@ -159,7 +159,7 @@ export function Navbar() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="relative text-zinc-200 hover:text-white md:text-[var(--color-text-secondary)] md:hover:text-[var(--color-text-primary)]"
+                className="relative text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
                 aria-label="Notifications"
                 onClick={openNotifications}
               >
@@ -174,7 +174,7 @@ export function Navbar() {
             <Button
               variant="ghost"
               size="sm"
-              className="hidden text-zinc-200 hover:text-white md:flex md:text-[var(--color-text-secondary)] md:hover:text-[var(--color-text-primary)]"
+              className="hidden md:flex text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
               aria-label="Settings"
               onClick={() => router.push('/dashboard/settings')}
             >
@@ -182,7 +182,7 @@ export function Navbar() {
             </Button>
 
             {/* User profile dropdown */}
-            <div className="flex items-center gap-2 sm:gap-3 pl-3 border-l border-zinc-700 md:border-[var(--color-border-secondary)]">
+            <div className="flex items-center gap-2 sm:gap-3 pl-3 border-l border-[var(--color-border-secondary)]">
               {/* Desktop user info */}
               <div className="hidden md:block text-right">
                 <p className="text-sm font-semibold text-[var(--color-text-primary)] leading-tight">
@@ -211,7 +211,7 @@ export function Navbar() {
                 variant="ghost"
                 size="sm"
                 onClick={handleLogoutClick}
-                className="text-zinc-200 hover:text-red-500 hover:bg-zinc-800 md:text-[var(--color-text-secondary)] md:hover:bg-red-50"
+                className="text-[var(--color-text-secondary)] hover:text-red-500 hover:bg-red-50"
                 aria-label="Logout"
                 disabled={isLoggingOut}
               >

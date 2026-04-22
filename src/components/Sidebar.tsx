@@ -189,7 +189,7 @@ export function Sidebar() {
       <aside
         className={`
           fixed left-0 top-0 z-50 h-screen border-r border-[var(--color-border-primary)]
-          flex flex-col shadow-2xl bg-black text-zinc-100 md:bg-background md:text-foreground
+          flex flex-col shadow-2xl bg-[var(--color-background-primary)] text-[var(--color-text-primary)]
           transition-all duration-300 ease-in-out
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
@@ -202,7 +202,7 @@ export function Sidebar() {
         }}
       >
         {/* Header */}
-        <div className="p-6 border-b border-border/50">
+        <div className="p-4 lg:p-5 border-b border-[var(--color-border-primary)]">
           <div className="flex items-center justify-between">
             <Link
               href={homeHref}
@@ -244,8 +244,8 @@ export function Sidebar() {
 
           {/* User info */}
           {showLabels && auth.user && (
-            <div className="mt-6">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-accent/30">
+            <div className="mt-4">
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-background-secondary)]">
                 <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
                   <span className="font-semibold text-primary">
                     {getInitials()}
@@ -332,7 +332,7 @@ export function Sidebar() {
         </nav>
 
         {/* Collapse toggle for desktop */}
-        <div className="hidden md:block p-4 border-t border-border/50">
+        <div className="hidden md:block p-4 border-t border-[var(--color-border-primary)]">
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="w-full flex items-center justify-center p-2 rounded-lg hover:bg-accent/50 transition-colors"
@@ -343,7 +343,7 @@ export function Sidebar() {
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border/50">
+        <div className="p-4 border-t border-[var(--color-border-primary)]">
           {showLabels && (
             <div className="mb-4 px-3 py-2 bg-accent/30 rounded-lg">
               <div className="flex items-center justify-between">
