@@ -3,6 +3,18 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  ArcElement,
+  BarElement,
+  CategoryScale,
+  Chart as ChartJS,
+  Legend,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Title,
+  Tooltip,
+} from 'chart.js';
+import {
   Calendar,
   CheckCircle2,
   Eye,
@@ -20,6 +32,7 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react';
+import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import toast from 'react-hot-toast';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
@@ -50,6 +63,19 @@ const roleOptions: Array<{ value: LeadershipRole; label: string }> = [
 ];
 
 const ddmmyyyy = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
+const nf = new Intl.NumberFormat('en-US');
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 function toArray<T>(value: unknown): T[] {
   if (Array.isArray(value)) return value as T[];
@@ -69,6 +95,21 @@ function toArray<T>(value: unknown): T[] {
 function formatMonthDay(month?: number, day?: number) {
   if (!month || !day) return '—';
   return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`;
+}
+
+function toWeekStart(value: Date): Date {
+  const date = new Date(value);
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  date.setDate(diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function weekLabel(start: Date): string {
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return `${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
 }
 
 function roleLabel(role: LeadershipRole) {
@@ -329,6 +370,84 @@ export default function AdministrationPage() {
     () => leaders.filter((row) => row.status === 'pending').length,
     [leaders]
   );
+  const memberAnalytics = useMemo(() => {
+    const now = new Date();
+    const createdDates = members
+      .map((item) => new Date(item.createdAt))
+      .filter((date) => !Number.isNaN(date.getTime()));
+
+    const activeCount = members.filter((item) => item.isActive).length;
+    const pendingCount = members.length - activeCount;
+
+    const currentWeekStart = toWeekStart(now);
+    const weekBuckets: Array<{ label: string; key: string; count: number }> = [];
+    for (let i = 11; i >= 0; i -= 1) {
+      const start = new Date(currentWeekStart);
+      start.setDate(start.getDate() - i * 7);
+      const key = start.toISOString().slice(0, 10);
+      weekBuckets.push({ label: weekLabel(start), key, count: 0 });
+    }
+    const weekIndex = new Map(weekBuckets.map((bucket, index) => [bucket.key, index]));
+    createdDates.forEach((date) => {
+      const key = toWeekStart(date).toISOString().slice(0, 10);
+      const index = weekIndex.get(key);
+      if (typeof index === 'number') weekBuckets[index].count += 1;
+    });
+
+    const monthBuckets: Array<{ label: string; key: string; count: number }> = [];
+    for (let i = 11; i >= 0; i -= 1) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const label = date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+      monthBuckets.push({ label, key, count: 0 });
+    }
+    const monthIndex = new Map(monthBuckets.map((bucket, index) => [bucket.key, index]));
+    createdDates.forEach((date) => {
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const index = monthIndex.get(key);
+      if (typeof index === 'number') monthBuckets[index].count += 1;
+    });
+
+    const quarterBuckets = [
+      { label: 'Q1', key: 1, count: 0 },
+      { label: 'Q2', key: 2, count: 0 },
+      { label: 'Q3', key: 3, count: 0 },
+      { label: 'Q4', key: 4, count: 0 },
+    ];
+    createdDates.forEach((date) => {
+      if (date.getFullYear() !== now.getFullYear()) return;
+      const quarter = Math.floor(date.getMonth() / 3) + 1;
+      const row = quarterBuckets.find((bucket) => bucket.key === quarter);
+      if (row) row.count += 1;
+    });
+
+    const yearBuckets: Array<{ label: string; year: number; count: number }> = [];
+    for (let i = 4; i >= 0; i -= 1) {
+      const year = now.getFullYear() - i;
+      yearBuckets.push({ label: String(year), year, count: 0 });
+    }
+    const yearIndex = new Map(yearBuckets.map((bucket, index) => [bucket.year, index]));
+    createdDates.forEach((date) => {
+      const index = yearIndex.get(date.getFullYear());
+      if (typeof index === 'number') yearBuckets[index].count += 1;
+    });
+
+    const weekTotal = weekBuckets.reduce((sum, row) => sum + row.count, 0);
+    const monthTotal = monthBuckets[monthBuckets.length - 1]?.count || 0;
+    const yearTotal = createdDates.filter((date) => date.getFullYear() === now.getFullYear()).length;
+
+    return {
+      activeCount,
+      pendingCount,
+      weekTotal,
+      monthTotal,
+      yearTotal,
+      weekly: weekBuckets,
+      monthly: monthBuckets,
+      quarterly: quarterBuckets,
+      yearly: yearBuckets,
+    };
+  }, [members]);
 
   const pendingLeadership = useMemo(
     () => leaders.filter((row) => row.status === 'pending').sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
@@ -606,6 +725,176 @@ export default function AdministrationPage() {
 
       {activeTab === 'members' && (
         <div className="space-y-3">
+          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+            <Card>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Total members</p>
+              <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{nf.format(members.length)}</p>
+            </Card>
+            <Card>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Active</p>
+              <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{nf.format(memberAnalytics.activeCount)}</p>
+            </Card>
+            <Card>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending review</p>
+              <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{nf.format(memberAnalytics.pendingCount)}</p>
+            </Card>
+            <Card>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">New this week</p>
+              <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{nf.format(memberAnalytics.weekTotal)}</p>
+            </Card>
+            <Card>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">New this month</p>
+              <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{nf.format(memberAnalytics.monthTotal)}</p>
+            </Card>
+            <Card>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">New this year</p>
+              <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{nf.format(memberAnalytics.yearTotal)}</p>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card title="Weekly New Members (Bar)">
+              <div className="h-[280px]">
+                <Bar
+                  data={{
+                    labels: memberAnalytics.weekly.map((item) => item.label),
+                    datasets: [
+                      {
+                        label: 'New members',
+                        data: memberAnalytics.weekly.map((item) => item.count),
+                        backgroundColor: 'rgba(30, 64, 175, 0.68)',
+                        borderRadius: 8,
+                        maxBarThickness: 28,
+                      },
+                    ],
+                  }}
+                  options={{
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                  }}
+                />
+              </div>
+            </Card>
+
+            <Card title="Monthly Join Trend (Histogram)">
+              <div className="h-[280px]">
+                <Bar
+                  data={{
+                    labels: memberAnalytics.monthly.map((item) => item.label),
+                    datasets: [
+                      {
+                        label: 'New members',
+                        data: memberAnalytics.monthly.map((item) => item.count),
+                        backgroundColor: 'rgba(22, 101, 52, 0.72)',
+                        borderColor: 'rgba(21, 128, 61, 1)',
+                        borderWidth: 1,
+                        borderRadius: 8,
+                        maxBarThickness: 32,
+                      },
+                    ],
+                  }}
+                  options={{
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                  }}
+                />
+              </div>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card title="Current Year Quarter Distribution (Pie)">
+              <div className="h-[280px]">
+                <Doughnut
+                  data={{
+                    labels: memberAnalytics.quarterly.map((item) => item.label),
+                    datasets: [
+                      {
+                        label: 'Quarterly joins',
+                        data: memberAnalytics.quarterly.map((item) => item.count),
+                        backgroundColor: ['#1d4ed8', '#0f766e', '#f59e0b', '#be123c'],
+                        borderWidth: 0,
+                      },
+                    ],
+                  }}
+                  options={{ maintainAspectRatio: false, responsive: true }}
+                />
+              </div>
+            </Card>
+
+            <Card title="Yearly Growth (Line)">
+              <div className="h-[280px]">
+                <Line
+                  data={{
+                    labels: memberAnalytics.yearly.map((item) => item.label),
+                    datasets: [
+                      {
+                        label: 'Members joined',
+                        data: memberAnalytics.yearly.map((item) => item.count),
+                        borderColor: 'rgba(30, 64, 175, 1)',
+                        backgroundColor: 'rgba(30, 64, 175, 0.2)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 4,
+                      },
+                    ],
+                  }}
+                  options={{
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                  }}
+                />
+              </div>
+            </Card>
+          </div>
+
+          <Card title="Member Growth Summary Table">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="text-left text-[var(--color-text-tertiary)]">
+                  <tr>
+                    <th className="py-2 pr-4">Window</th>
+                    <th className="py-2 pr-4">Period</th>
+                    <th className="py-2 pr-4">New Members</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {memberAnalytics.weekly.slice(-4).map((row) => (
+                    <tr key={`w-${row.key}`} className="border-t border-[var(--color-border-secondary)]">
+                      <td className="py-2 pr-4 text-[var(--color-text-primary)]">Weekly</td>
+                      <td className="py-2 pr-4">{row.label}</td>
+                      <td className="py-2 pr-4">{nf.format(row.count)}</td>
+                    </tr>
+                  ))}
+                  {memberAnalytics.monthly.slice(-4).map((row) => (
+                    <tr key={`m-${row.key}`} className="border-t border-[var(--color-border-secondary)]">
+                      <td className="py-2 pr-4 text-[var(--color-text-primary)]">Monthly</td>
+                      <td className="py-2 pr-4">{row.label}</td>
+                      <td className="py-2 pr-4">{nf.format(row.count)}</td>
+                    </tr>
+                  ))}
+                  {memberAnalytics.quarterly.map((row) => (
+                    <tr key={`q-${row.key}`} className="border-t border-[var(--color-border-secondary)]">
+                      <td className="py-2 pr-4 text-[var(--color-text-primary)]">Quarterly</td>
+                      <td className="py-2 pr-4">{row.label} ({new Date().getFullYear()})</td>
+                      <td className="py-2 pr-4">{nf.format(row.count)}</td>
+                    </tr>
+                  ))}
+                  {memberAnalytics.yearly.map((row) => (
+                    <tr key={`y-${row.year}`} className="border-t border-[var(--color-border-secondary)]">
+                      <td className="py-2 pr-4 text-[var(--color-text-primary)]">Yearly</td>
+                      <td className="py-2 pr-4">{row.label}</td>
+                      <td className="py-2 pr-4">{nf.format(row.count)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
           <Card title="Pending Member Reviews">
             {inactiveMembers.length === 0 ? (
               <p className="text-sm text-[var(--color-text-tertiary)]">
