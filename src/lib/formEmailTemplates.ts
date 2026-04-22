@@ -23,6 +23,13 @@ export type FormEmailResourceLink = {
   kind?: string;
 };
 
+export type FormEmailSocialPlatform = 'facebook' | 'youtube' | 'instagram' | 'twitter';
+
+export type FormEmailSocialLink = {
+  platform: FormEmailSocialPlatform;
+  url: string;
+};
+
 type FormEmailResourceKind = 'flyer' | 'document' | 'guide' | 'schedule' | 'resource';
 
 type PreparedFormEmailResourceLink = {
@@ -53,6 +60,7 @@ export type StoredFormEmailTemplateMeta = {
   accentColor?: string;
   surfaceColor?: string;
   footerNote?: string;
+  socialLinks?: FormEmailSocialLink[];
 };
 
 export function normalizeTemplateSlug(value: string) {
@@ -321,6 +329,55 @@ function prepareResourceLinks(resourceLinks?: FormEmailResourceLink[]) {
     .filter(isPreparedResourceLink);
 }
 
+const DEFAULT_SOCIAL_LINKS: FormEmailSocialLink[] = [
+  { platform: 'facebook', url: 'https://facebook.com/wisdomchurchhq' },
+  { platform: 'youtube', url: 'https://youtube.com/@wisdomchurchhq' },
+  { platform: 'instagram', url: 'https://instagram.com/wisdomchurchhq' },
+  { platform: 'twitter', url: 'https://x.com/wisdomchurchhq' },
+];
+
+function socialLabel(platform: FormEmailSocialPlatform) {
+  switch (platform) {
+    case 'facebook':
+      return 'Facebook';
+    case 'youtube':
+      return 'YouTube';
+    case 'instagram':
+      return 'Instagram';
+    default:
+      return 'X';
+  }
+}
+
+function socialGlyph(platform: FormEmailSocialPlatform) {
+  switch (platform) {
+    case 'facebook':
+      return 'f';
+    case 'youtube':
+      return '▶';
+    case 'instagram':
+      return '◎';
+    default:
+      return '𝕏';
+  }
+}
+
+function prepareSocialLinks(socialLinks?: FormEmailSocialLink[]) {
+  const source = socialLinks && socialLinks.length > 0 ? socialLinks : DEFAULT_SOCIAL_LINKS;
+  return source
+    .map((item) => {
+      const url = normalizeAbsoluteHttpUrl(item.url || '');
+      if (!url) return null;
+      return {
+        platform: item.platform,
+        url,
+        label: socialLabel(item.platform),
+        glyph: socialGlyph(item.platform),
+      };
+    })
+    .filter((item): item is { platform: FormEmailSocialPlatform; url: string; label: string; glyph: string } => Boolean(item));
+}
+
 function applyInlineStyle(markup: string, tagName: string, inlineStyle: string) {
   const pattern = new RegExp(`<${tagName}(\\s[^>]*)?>`, 'gi');
   return markup.replace(pattern, (match, attrs = '') => {
@@ -474,6 +531,7 @@ export function buildFormEmailHTML(opts: {
   accentColor?: string;
   surfaceColor?: string;
   footerNote?: string;
+  socialLinks?: FormEmailSocialLink[];
 }) {
   const safeTitle = escapeTemplateHtml(opts.title || 'Registration');
   const safePreheader = escapeTemplateHtml(opts.preheader || '');
@@ -495,6 +553,7 @@ export function buildFormEmailHTML(opts: {
   const surfaceColor = normalizeHexColor(opts.surfaceColor, DEFAULT_EMAIL_SURFACE_COLOR);
   const calendarSummaryRows = buildCalendarSummaryRows(opts.calendarEvent);
   const resourceLinks = prepareResourceLinks(opts.resourceLinks);
+  const socialLinks = prepareSocialLinks(opts.socialLinks);
   const formattedMessageHtml = opts.messageHtml?.trim()
     ? styleRichEmailMarkup(opts.messageHtml, accentColor)
     : plainTextToHtmlParagraphs(opts.message || 'Thank you for registering.');
@@ -503,35 +562,44 @@ export function buildFormEmailHTML(opts: {
   return `
 <!doctype html>
 <html>
-  <body style="margin:0;padding:0;background:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;color:#111827;">
+  <body style="margin:0;padding:0;background:#eef2f7;font-family:'Segoe UI',Arial,sans-serif;color:#111827;">
     <div style="display:none;overflow:hidden;max-height:0;max-width:0;opacity:0;color:transparent;font-size:1px;line-height:1px;">
       ${safePreheader || safeHeading}
     </div>
-    <table width="100%" cellpadding="0" cellspacing="0" style="padding:28px 12px;background:#f8fafc;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="padding:22px 10px;background:#eef2f7;">
       <tr>
         <td align="center">
-          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:680px;background:#ffffff;border:1px solid #e2e8f0;border-radius:20px;overflow:hidden;box-shadow:0 16px 40px rgba(15,23,42,0.08);">
+          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:760px;background:#ffffff;overflow:hidden;">
             <tr>
-              <td style="padding:18px 28px 10px 28px;">
-                <div style="height:6px;background:${accentColor};border-radius:999px;margin:0 0 14px 0;"></div>
-                {{if .SubscribeURL}}<a href="{{.SubscribeURL}}" style="font-size:12px;color:#111827;text-decoration:underline;font-weight:700;">subscribe</a>{{end}}
-                {{if .UnsubscribeURL}}&nbsp;|&nbsp;<a href="{{.UnsubscribeURL}}" style="font-size:12px;color:#111827;text-decoration:underline;font-weight:700;">unsubscribe</a>{{end}}
+              <td style="padding:0;background:#111827;">
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="padding:22px 30px;">
+                      ${safeLogoUrl
+                        ? `<div style="display:inline-block;background:#ffffff;padding:10px 14px;"><img src="${safeLogoUrl}" alt="Wisdom Church" style="display:block;max-width:170px;height:auto;" /></div>`
+                        : `<p style="margin:0;font-size:22px;font-weight:800;letter-spacing:0.03em;color:#ffffff;">WISDOM CHURCH</p>`}
+                    </td>
+                    <td align="right" style="padding:22px 30px;vertical-align:top;">
+                      {{if .SubscribeURL}}<a href="{{.SubscribeURL}}" style="font-size:12px;color:#f8fafc;text-decoration:underline;font-weight:700;">subscribe</a>{{end}}
+                      {{if .UnsubscribeURL}}&nbsp;|&nbsp;<a href="{{.UnsubscribeURL}}" style="font-size:12px;color:#f8fafc;text-decoration:underline;font-weight:700;">unsubscribe</a>{{end}}
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
             <tr>
-              <td style="padding:28px 28px 10px 28px;">
-                ${safeLogoUrl ? `<img src="${safeLogoUrl}" alt="Logo" style="display:block;max-width:150px;height:auto;margin:0 0 18px 0;" />` : ''}
-                <p style="margin:0 0 10px 0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;font-weight:700;">${safeTitle}</p>
-                ${safeEyebrow ? `<span style="display:inline-block;margin:0 0 14px 0;padding:8px 12px;border-radius:999px;background:${surfaceColor};color:${accentColor};font-size:12px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;">${safeEyebrow}</span>` : ''}
-                <h2 style="margin:0;font-size:30px;line-height:1.15;color:#0f172a;font-weight:800;">${safeHeading}</h2>
+              <td style="padding:34px 34px 14px 34px;">
+                <p style="margin:0 0 12px 0;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;font-weight:800;">${safeTitle}</p>
+                ${safeEyebrow ? `<p style="margin:0 0 12px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:${accentColor};font-weight:800;">${safeEyebrow}</p>` : ''}
+                <h2 style="margin:0;font-size:36px;line-height:1.1;color:#0f172a;font-weight:900;">${safeHeading}</h2>
               </td>
             </tr>
-            ${safeImageUrl ? `<tr><td style="padding:10px 28px 0 28px;"><img src="${safeImageUrl}" alt="${safeTitle}" style="display:block;width:100%;height:auto;border-radius:18px;" /></td></tr>` : ''}
+            ${safeImageUrl ? `<tr><td style="padding:8px 34px 0 34px;"><img src="${safeImageUrl}" alt="${safeTitle}" style="display:block;width:100%;height:auto;" /></td></tr>` : ''}
             <tr>
-              <td style="padding:22px 28px 28px 28px;">
-                <p style="margin:0 0 16px 0;font-size:16px;line-height:1.7;color:#111827;">${safeGreeting}</p>
+              <td style="padding:24px 34px 34px 34px;">
+                <p style="margin:0 0 20px 0;font-size:18px;line-height:1.7;color:#0f172a;font-weight:600;">${safeGreeting}</p>
                 ${calendarSummaryRows.length > 0 ? `
-                <div style="margin:0 0 20px 0;padding:20px;border-radius:18px;background:${surfaceColor};border:1px solid ${accentColor}22;">
+                <div style="margin:0 0 24px 0;padding:18px;background:${surfaceColor};border-left:5px solid ${accentColor};">
                   <p style="margin:0 0 14px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:${accentColor};font-weight:800;">Event Reminder</p>
                   ${calendarSummaryRows
                     .map(
@@ -544,24 +612,24 @@ export function buildFormEmailHTML(opts: {
                     .join('')}
                 </div>` : ''}
                 ${safeSpotlightText ? `
-                <div style="margin:0 0 20px 0;padding:20px;border-radius:18px;background:${surfaceColor};border:1px solid ${accentColor}22;">
+                <div style="margin:0 0 24px 0;padding:18px;background:${surfaceColor};border-left:5px solid ${accentColor};">
                   ${safeSpotlightLabel ? `<p style="margin:0 0 10px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:${accentColor};font-weight:800;">${safeSpotlightLabel}</p>` : ''}
                   <p style="margin:0;font-size:19px;line-height:1.8;color:#1f2937;font-family:Georgia,'Times New Roman',serif;">${safeSpotlightText}</p>
                 </div>` : ''}
                 <div style="margin:0;">${messageBlock}</div>
                 ${resourceLinks.length > 0 ? `
-                <div style="margin:24px 0 0;padding:22px;border-radius:18px;background:#ffffff;border:1px solid #e2e8f0;">
+                <div style="margin:26px 0 0;padding:20px;background:#f8fafc;border-left:5px solid ${accentColor};">
                   <p style="margin:0 0 14px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:${accentColor};font-weight:800;">Event Resources</p>
                   ${resourceLinks
                     .map((resource) => {
                       const kindLabel = escapeTemplateHtml(formatResourceKindLabel(resource.kind));
                       const actionLabel = escapeTemplateHtml(buildResourceActionLabel(resource.kind));
                       return `
-                  <div style="margin:0 0 14px 0;padding:16px;border-radius:16px;background:${surfaceColor};border:1px solid ${accentColor}22;">
+                  <div style="margin:0 0 14px 0;padding:14px;background:${surfaceColor};">
                     <p style="margin:0 0 8px 0;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;font-weight:800;">${kindLabel}</p>
                     <p style="margin:0 0 8px 0;font-size:17px;line-height:1.5;color:#0f172a;font-weight:800;">${escapeTemplateHtml(resource.label)}</p>
                     ${resource.description ? `<p style="margin:0 0 12px 0;font-size:14px;line-height:1.7;color:#475569;">${escapeTemplateHtml(resource.description)}</p>` : ''}
-                    <a href="${escapeTemplateHtml(resource.url)}" style="display:inline-block;padding:12px 18px;border-radius:999px;background:#ffffff;color:${accentColor};font-size:14px;font-weight:800;text-decoration:none;border:1px solid ${accentColor}33;">
+                    <a href="${escapeTemplateHtml(resource.url)}" style="display:inline-block;padding:11px 16px;background:#ffffff;color:${accentColor};font-size:14px;font-weight:800;text-decoration:none;border:1px solid ${accentColor}33;">
                       ${actionLabel}
                     </a>
                   </div>`;
@@ -569,31 +637,49 @@ export function buildFormEmailHTML(opts: {
                     .join('')}
                 </div>` : ''}
                 ${safeCtaLabel && safeCtaUrl ? `
-                <p style="margin:22px 0 0;">
-                  <a href="${safeCtaUrl}" style="display:inline-block;padding:13px 20px;border-radius:999px;background:${accentColor};color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">
+                <p style="margin:24px 0 0;">
+                  <a href="${safeCtaUrl}" style="display:inline-block;padding:14px 22px;background:${accentColor};color:#ffffff;font-size:15px;font-weight:800;text-decoration:none;">
                     ${safeCtaLabel}
                   </a>
                 </p>` : ''}
                 ${includeRegistrationCode ? `
                 {{if .RegistrationCode}}
-                <div style="margin-top:18px;display:inline-block;padding:11px 15px;border-radius:10px;background:${surfaceColor};border:1px solid ${accentColor}33;font-size:13px;color:#111827;">
+                <div style="margin-top:20px;display:inline-block;padding:12px 16px;background:${surfaceColor};border-left:4px solid ${accentColor};font-size:13px;color:#111827;">
                   Registration Number: <strong>{{.RegistrationCode}}</strong>
                 </div>
                 {{end}}` : ''}
                 ${includeCalendarOptIn ? `
                 ${safeCalendarUrl ? '' : '{{if .CalendarOptInURL}}'}
-                <div style="margin-top:24px;padding:20px;border-radius:18px;background:#0f172a;color:#ffffff;">
+                <div style="margin-top:26px;padding:20px;background:#0f172a;color:#ffffff;">
                   <p style="margin:0 0 8px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#fcd34d;font-weight:800;">
                     Save the date
                   </p>
                   <p style="margin:0 0 14px 0;font-size:15px;line-height:1.7;color:#ffffff;">
                     Open your calendar now and lock this event into your schedule before the email gets buried.
                   </p>
-                  <a href="${safeCalendarUrl || '{{.CalendarOptInURL}}'}" style="display:inline-block;padding:12px 18px;border-radius:999px;background:#ffffff;color:#0f172a;font-size:14px;font-weight:800;text-decoration:none;">
+                  <a href="${safeCalendarUrl || '{{.CalendarOptInURL}}'}" style="display:inline-block;padding:12px 18px;background:#ffffff;color:#0f172a;font-size:14px;font-weight:800;text-decoration:none;">
                     ${safeCalendarLabel}
                   </a>
                 </div>
                 ${safeCalendarUrl ? '' : '{{end}}'}` : ''}
+                ${socialLinks.length > 0 ? `
+                <div style="margin-top:28px;padding-top:18px;border-top:1px solid #e2e8f0;">
+                  <p style="margin:0 0 12px 0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#475569;font-weight:800;">Follow us on</p>
+                  <table cellpadding="0" cellspacing="0">
+                    <tr>
+                      ${socialLinks
+                        .map(
+                          (social) => `
+                      <td style="padding-right:8px;">
+                        <a href="${escapeTemplateHtml(social.url)}" title="${escapeTemplateHtml(social.label)}" aria-label="${escapeTemplateHtml(social.label)}" style="display:inline-block;width:34px;height:34px;line-height:34px;text-align:center;background:#111827;color:#ffffff;text-decoration:none;font-size:16px;font-weight:800;">
+                          ${escapeTemplateHtml(social.glyph)}
+                        </a>
+                      </td>`
+                        )
+                        .join('')}
+                    </tr>
+                  </table>
+                </div>` : ''}
                 ${safeFooterNote ? `<p style="margin:22px 0 0;font-size:13px;line-height:1.7;color:#64748b;">${safeFooterNote}</p>` : ''}
               </td>
             </tr>
@@ -624,11 +710,13 @@ export function buildFormEmailTextBody(opts: {
   spotlightLabel?: string;
   spotlightText?: string;
   footerNote?: string;
+  socialLinks?: FormEmailSocialLink[];
 }) {
   const includeRegistrationCode = opts.includeRegistrationCode !== false;
   const includeCalendarOptIn = opts.includeCalendarOptIn === true || Boolean(opts.calendarUrl?.trim());
   const calendarSummaryRows = buildCalendarSummaryRows(opts.calendarEvent);
   const resourceLinks = prepareResourceLinks(opts.resourceLinks);
+  const socialLinks = prepareSocialLinks(opts.socialLinks);
   const messageText = opts.messageHtml?.trim()
     ? convertEmailHtmlToText(opts.messageHtml)
     : opts.message?.trim() || 'Thank you for registering.';
@@ -691,6 +779,13 @@ export function buildFormEmailTextBody(opts: {
 
   if (opts.footerNote?.trim()) {
     lines.push('', opts.footerNote.trim());
+  }
+
+  if (socialLinks.length > 0) {
+    lines.push('', 'Follow us on');
+    socialLinks.forEach((social) => {
+      lines.push(`${social.label}: ${social.url}`);
+    });
   }
 
   if (includeRegistrationCode) {
