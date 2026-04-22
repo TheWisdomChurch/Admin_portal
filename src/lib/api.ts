@@ -984,6 +984,10 @@ export const apiClient = {
     return extractUser(res);
   },
 
+  async getCsrfToken(): Promise<{ token: string; header: string }> {
+    return ensureCsrfToken(false);
+  },
+
   async getMFASecurityProfile(): Promise<AuthSecurityProfile> {
     const res = await apiFetch<ApiResponse<AuthSecurityProfile>>('/auth/mfa', { method: 'GET' });
     return unwrapData<AuthSecurityProfile>(res, 'Invalid MFA security profile payload');

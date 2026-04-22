@@ -22,7 +22,8 @@ import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessa
 import { loginSchema, type LoginFormSchema } from '@/lib/validation/auth';
 import { OtpModal } from '@/ui/OtpModal';
 import { AlertModal } from '@/ui/AlertModal';
-import type { MFAMethod } from '@/lib/types';
+import type { MFAMethod, User } from '@/lib/types';
+import { getUserRole } from '@/lib/authRole';
 
 type LoginFormData = LoginFormSchema;
 
@@ -31,6 +32,20 @@ function safeRedirect(raw: string | null): string {
   if (!raw.startsWith('/')) return '/dashboard';
   if (raw === '/login' || raw === '/register') return '/dashboard';
   return raw;
+}
+
+function resolvePostLoginDestination(user: User | null, requestedPath: string): string {
+  const role = getUserRole(user);
+  const defaultPath = role === 'super_admin' ? '/dashboard/super' : '/dashboard';
+  if (!requestedPath || requestedPath === '/dashboard') return defaultPath;
+
+  if (role === 'super_admin') {
+    // Super admins should not accidentally land in admin-only root.
+    if (requestedPath === '/dashboard') return '/dashboard/super';
+    return requestedPath;
+  }
+
+  return requestedPath;
 }
 
 function LoginInner() {
@@ -129,9 +144,14 @@ function LoginInner() {
         return;
       }
 
-      await checkAuth();
+      const me = await checkAuth();
+      if (!me) {
+        toast.error('Login succeeded, but session was not established. Please retry.');
+        return;
+      }
+      await apiClient.getCsrfToken().catch(() => undefined);
       toast.success('Login successful!');
-      router.replace(redirectPath);
+      router.replace(resolvePostLoginDestination(me, redirectPath));
     } catch (err) {
       const apiErr = err as ApiError;
       const status = apiErr.statusCode ?? 0;
@@ -231,11 +251,12 @@ function LoginInner() {
         return;
       }
 
+      await apiClient.getCsrfToken().catch(() => undefined);
       toast.success('Login verified');
       setOtpOpen(false);
       setOtpCode('');
       setChallengeMethod('email_otp');
-      router.replace(redirectPath);
+      router.replace(resolvePostLoginDestination(me, redirectPath));
     } catch (err) {
       const fieldErrors = extractServerFieldErrors(err);
       if (Object.keys(fieldErrors).length > 0) {
