@@ -56,7 +56,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <Navbar />
         <SessionTimeout />
         <main className="flex-1 overflow-auto">
-          <div className="mx-auto w-full max-w-[1500px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10">
+          <div className="w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-8">
             {children}
           </div>
         </main>
