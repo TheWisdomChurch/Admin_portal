@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Save, Upload } from 'lucide-react';
+import { ArrowLeft, Code2, Eye, LayoutTemplate, MailCheck, Save, Upload } from 'lucide-react';
 
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
@@ -52,6 +52,7 @@ function ResponseEmailEditorPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [customHtmlBody, setCustomHtmlBody] = useState('');
+  const [previewMode, setPreviewMode] = useState<'rendered' | 'html'>('rendered');
 
   const templateKeyPreview = useMemo(() => {
     const existing = form?.settings?.responseEmailTemplateKey?.trim();
@@ -344,102 +345,148 @@ function ResponseEmailEditorPage() {
         </div>
       </div>
 
-      <Card>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Input
-            label="Email subject"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            placeholder="Registration received: Program Name"
-          />
-          <Input
-            label="Template key"
-            value={templateKeyPreview}
-            disabled
-            helperText="This key is used for this form's unique response template."
-          />
-          <Input
-            label="Email heading"
-            value={heading}
-            onChange={(e) => setHeading(e.target.value)}
-            placeholder="Registration Confirmed"
-          />
-          <Input
-            label="Logo URL (optional)"
-            value={logoUrl}
-            onChange={(e) => setLogoUrl(e.target.value)}
-            placeholder="https://.../logo.png"
-          />
-          <Input
-            label="Template image URL (optional)"
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="https://.../hero.png"
-          />
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Upload logo (optional)</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => handleLogoFile(e.target.files?.[0])}
-              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-            />
-            <p className="text-xs text-[var(--color-text-tertiary)]">
-              Max {MAX_EMAIL_IMAGE_MB}MB. JPEG, PNG, WebP.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Upload template image (optional)</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => handleImageFile(e.target.files?.[0])}
-              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-            />
-            <p className="text-xs text-[var(--color-text-tertiary)]">
-              Max {MAX_EMAIL_IMAGE_MB}MB. JPEG, PNG, WebP.
-            </p>
-          </div>
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4">
+          <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Template Status</p>
+          <p className="mt-2 text-base font-semibold text-[var(--color-text-primary)]">{template ? 'Active' : 'Draft setup'}</p>
+        </div>
+        <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4">
+          <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Form</p>
+          <p className="mt-2 truncate text-base font-semibold text-[var(--color-text-primary)]">{form.title}</p>
+        </div>
+        <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4 sm:col-span-2">
+          <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Template Key</p>
+          <p className="mt-2 truncate font-mono text-sm text-[var(--color-text-primary)]">{templateKeyPreview || 'Not generated yet'}</p>
+        </div>
+      </div>
 
-          <div className="space-y-2 md:col-span-2">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(460px,0.9fr)]">
+        <Card
+          title="Template Builder"
+          className="bg-[var(--color-background-secondary)]"
+          contentClassName="space-y-6"
+        >
+          <section className="grid gap-4 md:grid-cols-2">
+            <Input
+              label="Email subject"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Registration received: Program Name"
+            />
+            <Input
+              label="Template key"
+              value={templateKeyPreview}
+              disabled
+              helperText="Linked to this form's auto-response template."
+            />
+            <Input
+              label="Email heading"
+              value={heading}
+              onChange={(e) => setHeading(e.target.value)}
+              placeholder="Registration Confirmed"
+            />
+            <Input
+              label="Logo URL (optional)"
+              value={logoUrl}
+              onChange={(e) => setLogoUrl(e.target.value)}
+              placeholder="https://.../logo.png"
+            />
+            <Input
+              label="Template image URL (optional)"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="https://.../hero.png"
+            />
+            <div className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-3">
+              <label className="mb-2 block text-sm font-medium text-[var(--color-text-secondary)]">Upload logo (optional)</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleLogoFile(e.target.files?.[0])}
+                className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+              />
+              <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">Max {MAX_EMAIL_IMAGE_MB}MB. JPEG, PNG, WebP.</p>
+            </div>
+            <div className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-3 md:col-span-2">
+              <label className="mb-2 block text-sm font-medium text-[var(--color-text-secondary)]">Upload template image (optional)</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleImageFile(e.target.files?.[0])}
+                className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+              />
+              <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">Max {MAX_EMAIL_IMAGE_MB}MB. JPEG, PNG, WebP.</p>
+            </div>
+          </section>
+
+          <section className="space-y-2">
             <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Email body message</label>
             <textarea
-              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
-              rows={4}
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-4 py-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+              rows={7}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Thank you for registering. We look forward to hosting you."
             />
-          </div>
+          </section>
 
-          <div className="space-y-2 md:col-span-2">
+          <section className="space-y-2">
             <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Custom HTML template (optional)</label>
             <textarea
-              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 font-mono text-xs text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
-              rows={10}
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-4 py-3 font-mono text-xs text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+              rows={14}
               value={customHtmlBody}
               onChange={(e) => setCustomHtmlBody(e.target.value)}
               placeholder="Paste full HTML for complete control. Supported placeholders: {{.RecipientName}}, {{.RegistrationCode}}, {{.SubscribeURL}}, {{.UnsubscribeURL}}, {{.CalendarOptInURL}}."
             />
-            <p className="text-xs text-[var(--color-text-tertiary)]">
-              Leave empty to use the structured editor.
-            </p>
+            <p className="text-xs text-[var(--color-text-tertiary)]">Leave empty to use the structured editor.</p>
+          </section>
+        </Card>
+
+        <Card
+          title="Live Preview"
+          className="bg-[var(--color-background-secondary)] xl:sticky xl:top-24 h-fit"
+          actions={
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={previewMode === 'rendered' ? 'primary' : 'outline'}
+                icon={<Eye className="h-4 w-4" />}
+                onClick={() => setPreviewMode('rendered')}
+              >
+                Rendered
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={previewMode === 'html' ? 'primary' : 'outline'}
+                icon={<Code2 className="h-4 w-4" />}
+                onClick={() => setPreviewMode('html')}
+              >
+                HTML
+              </Button>
+            </div>
+          }
+          contentClassName="space-y-3"
+        >
+          <div className="flex items-center gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs text-[var(--color-text-tertiary)]">
+            <LayoutTemplate className="h-4 w-4 text-[var(--color-text-secondary)]" />
+            Uses sample values for name{includeRegistrationArtifacts ? ' and registration number' : ''} in preview.
+            <MailCheck className="ml-auto h-4 w-4 text-[var(--color-accent-success)]" />
           </div>
 
-          <div className="md:col-span-2 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-primary)]">
-              <Upload className="h-4 w-4" />
-              Template Preview
+          {previewMode === 'rendered' ? (
+            <div className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-white">
+              <iframe title="email-preview" srcDoc={previewHTML} className="h-[760px] w-full" />
             </div>
-            <div className="mt-3 overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-white">
-              <iframe title="email-preview" srcDoc={previewHTML} className="h-[520px] w-full" />
-            </div>
-            <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">
-              The preview uses sample values for name{includeRegistrationArtifacts ? ' and registration number.' : '.'}
-            </p>
-          </div>
-        </div>
-      </Card>
+          ) : (
+            <pre className="max-h-[760px] overflow-auto rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 text-xs leading-relaxed text-[var(--color-text-primary)]">
+              {customHtmlBody.trim() || stripTemplateMeta(previewHTML)}
+            </pre>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }
