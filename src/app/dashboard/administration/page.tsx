@@ -338,38 +338,6 @@ export default function AdministrationPage() {
     return { total, published, drafts, targets };
   }, [adminForms, formGroups.length]);
 
-  const leadershipResponsesByMonth = useMemo(() => {
-    const bucket = new Map<string, { month: string; count: number }>();
-    leaders.forEach((item) => {
-      const parsed = new Date(item.createdAt);
-      if (Number.isNaN(parsed.getTime())) return;
-      const key = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
-      const month = parsed.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
-      const current = bucket.get(key) || { month, count: 0 };
-      current.count += 1;
-      bucket.set(key, current);
-    });
-    return Array.from(bucket.entries())
-      .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([, value]) => value);
-  }, [leaders]);
-
-  const leadershipThisMonth = useMemo(() => {
-    const now = new Date();
-    const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    return leaders.reduce((acc, item) => {
-      const parsed = new Date(item.createdAt);
-      if (Number.isNaN(parsed.getTime())) return acc;
-      const monthKey = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
-      if (monthKey === key) return acc + 1;
-      return acc;
-    }, 0);
-  }, [leaders]);
-
-  const pendingLeadershipApplications = useMemo(
-    () => leaders.filter((row) => row.status === 'pending').length,
-    [leaders]
-  );
   const memberAnalytics = useMemo(() => {
     const now = new Date();
     const createdDates = members
@@ -1004,48 +972,6 @@ export default function AdministrationPage() {
 
       {activeTab === 'leadership' && (
         <div className="space-y-3">
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Leadership applications</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">{leaders.length}</p>
-            </Card>
-            <Card>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">This month applications</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">{leadershipThisMonth}</p>
-            </Card>
-            <Card>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending leadership approvals</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">{pendingLeadershipApplications}</p>
-            </Card>
-          </div>
-
-      <Card title="Leadership Form Response Activity (Monthly)">
-            {leadershipResponsesByMonth.length === 0 ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">
-                {loading ? 'Loading monthly activity...' : 'No leadership applications yet.'}
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="text-left text-[var(--color-text-tertiary)]">
-                    <tr>
-                      <th className="py-2 pr-4">Month</th>
-                      <th className="py-2 pr-4">Responses</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {leadershipResponsesByMonth.map((row) => (
-                      <tr key={row.month} className="border-t border-[var(--color-border-secondary)]">
-                        <td className="py-2 pr-4 text-[var(--color-text-primary)]">{row.month}</td>
-                        <td className="py-2 pr-4">{row.count}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
-
           <Card title="Pending Leadership Review Queue">
             {pendingLeadership.length === 0 ? (
               <p className="text-sm text-[var(--color-text-tertiary)]">
