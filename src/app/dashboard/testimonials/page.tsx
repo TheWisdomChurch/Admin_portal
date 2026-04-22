@@ -37,6 +37,23 @@ const isSuperAdminRole = (role?: string) => {
   return normalized === 'super_admin';
 };
 
+const isTestimonialForm = (form: AdminForm): boolean => {
+  const target = (form.settings?.submissionTarget || '').trim().toLowerCase();
+  if (target === 'testimonial') return true;
+
+  const formType = (form.settings?.formType || '').trim().toLowerCase();
+  if (formType === 'testimonial') return true;
+
+  const slug = (form.slug || '').trim().toLowerCase();
+  const title = (form.title || '').trim().toLowerCase();
+  return (
+    slug.includes('testimony') ||
+    slug.includes('testimonial') ||
+    title.includes('testimony') ||
+    title.includes('testimonial')
+  );
+};
+
 type TestimonialTableProps = {
   title: string;
   items: Testimonial[];
@@ -202,9 +219,7 @@ export default function TestimonialsPage() {
       setFormsLoading(true);
       const res = await apiClient.getAdminForms({ page: 1, limit: 250 });
       const forms = Array.isArray(res.data) ? res.data : [];
-      setTestimonialForms(
-        forms.filter((form) => form.settings?.submissionTarget === 'testimonial')
-      );
+      setTestimonialForms(forms.filter(isTestimonialForm));
     } catch (error) {
       console.error('Failed to load testimonial forms:', error);
       setTestimonialForms([]);
