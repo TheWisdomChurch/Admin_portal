@@ -14,7 +14,7 @@ import { GridLayout, PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { useAuthContext } from '@/providers/AuthProviders';
-import type { AdminForm, FormSubmission, Testimonial } from '@/lib/types';
+import type { AdminForm, Testimonial } from '@/lib/types';
 
 const formatName = (t: Testimonial) => {
   if (t.fullName) return t.fullName;
@@ -52,27 +52,6 @@ const isTestimonialForm = (form: AdminForm): boolean => {
     title.includes('testimony') ||
     title.includes('testimonial')
   );
-};
-
-const formatSubmissionName = (submission: FormSubmission): string => {
-  const direct = (submission.name || '').trim();
-  if (direct) return direct;
-  const values = submission.values || {};
-  const candidateKeys = ['fullName', 'full_name', 'name', 'firstName', 'first_name'];
-  for (const key of candidateKeys) {
-    const value = values[key];
-    if (typeof value === 'string' && value.trim()) return value.trim();
-  }
-  return 'Unnamed response';
-};
-
-const formatSubmissionEmail = (submission: FormSubmission): string => {
-  const direct = (submission.email || '').trim();
-  if (direct) return direct;
-  const values = submission.values || {};
-  const value = values.email;
-  if (typeof value === 'string' && value.trim()) return value.trim();
-  return 'No email';
 };
 
 type TestimonialTableProps = {
@@ -211,8 +190,6 @@ export default function TestimonialsPage() {
   const [formsLoading, setFormsLoading] = useState(false);
   const [deleteFormTarget, setDeleteFormTarget] = useState<AdminForm | null>(null);
   const [deleteFormLoading, setDeleteFormLoading] = useState(false);
-  const [testimonialResponses, setTestimonialResponses] = useState<Array<FormSubmission & { formTitle?: string }>>([]);
-  const [responsesLoading, setResponsesLoading] = useState(false);
 
   const loadTestimonials = useCallback(async () => {
     try {
@@ -254,37 +231,6 @@ export default function TestimonialsPage() {
   useEffect(() => {
     loadTestimonialForms();
   }, [loadTestimonialForms]);
-
-  const loadTestimonialResponses = useCallback(async (forms: AdminForm[]) => {
-    if (forms.length === 0) {
-      setTestimonialResponses([]);
-      return;
-    }
-    try {
-      setResponsesLoading(true);
-      const all = await Promise.all(
-        forms.map(async (form) => {
-          try {
-            const res = await apiClient.getFormSubmissions(form.id, { page: 1, limit: 200 });
-            const rows = Array.isArray(res.data) ? res.data : [];
-            return rows.map((row) => ({ ...row, formTitle: form.title }));
-          } catch {
-            return [];
-          }
-        })
-      );
-      const merged = all
-        .flat()
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setTestimonialResponses(merged);
-    } finally {
-      setResponsesLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadTestimonialResponses(testimonialForms);
-  }, [testimonialForms, loadTestimonialResponses]);
 
   const monthlySummary = useMemo(() => {
     const bucket = new Map<string, { month: string; total: number; approved: number; pending: number }>();
@@ -583,37 +529,6 @@ export default function TestimonialsPage() {
                     <td className="py-2 pr-4">{row.total}</td>
                     <td className="py-2 pr-4">{row.approved}</td>
                     <td className="py-2 pr-4">{row.pending}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
-      <Card title="Recent Testimonial Form Responses">
-        {responsesLoading ? (
-          <p className="text-sm text-[var(--color-text-tertiary)]">Loading responses...</p>
-        ) : testimonialResponses.length === 0 ? (
-          <p className="text-sm text-[var(--color-text-tertiary)]">No testimonial form responses yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="text-left text-[var(--color-text-tertiary)]">
-                <tr>
-                  <th className="py-2 pr-4">Name</th>
-                  <th className="py-2 pr-4">Email</th>
-                  <th className="py-2 pr-4">Form</th>
-                  <th className="py-2 pr-4">Submitted</th>
-                </tr>
-              </thead>
-              <tbody>
-                {testimonialResponses.slice(0, 20).map((item) => (
-                  <tr key={item.id} className="border-t border-[var(--color-border-secondary)]">
-                    <td className="py-2 pr-4 text-[var(--color-text-primary)]">{formatSubmissionName(item)}</td>
-                    <td className="py-2 pr-4">{formatSubmissionEmail(item)}</td>
-                    <td className="py-2 pr-4">{item.formTitle || 'Testimonial form'}</td>
-                    <td className="py-2 pr-4">{new Date(item.createdAt).toLocaleDateString()}</td>
                   </tr>
                 ))}
               </tbody>

@@ -6,8 +6,11 @@ import {
   ArrowRight,
   CalendarDays,
   ClipboardList,
+  Cake,
+  Heart,
   Mail,
   Megaphone,
+  Sparkles,
   TrendingUp,
   Users,
 } from 'lucide-react';
@@ -34,6 +37,8 @@ import type {
   DashboardAnalytics,
   EventData,
   FormStatsResponse,
+  LeadershipMember,
+  Member,
 } from '@/lib/types';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { withAuth } from '@/providers/withAuth';
@@ -83,6 +88,11 @@ function statusTone(status?: string): string {
   return 'bg-amber-100 text-amber-800 border-amber-200';
 }
 
+function formatMonthDay(month?: number, day?: number): string {
+  if (!month || !day) return '—';
+  return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`;
+}
+
 function DashboardPage() {
   const auth = useAuthContext();
   const [loading, setLoading] = useState(true);
@@ -90,6 +100,11 @@ function DashboardPage() {
   const [events, setEvents] = useState<EventData[]>([]);
   const [formStats, setFormStats] = useState<FormStatsResponse | null>(null);
   const [marketing, setMarketing] = useState<AdminEmailMarketingSummary | null>(null);
+  const [celebrantMonth, setCelebrantMonth] = useState<number>(new Date().getMonth() + 1);
+  const [memberCelebrants, setMemberCelebrants] = useState<Member[]>([]);
+  const [leadershipBirthdayCelebrants, setLeadershipBirthdayCelebrants] = useState<LeadershipMember[]>([]);
+  const [leadershipAnniversaryCelebrants, setLeadershipAnniversaryCelebrants] = useState<LeadershipMember[]>([]);
+  const [celebrantLoading, setCelebrantLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -125,6 +140,37 @@ function DashboardPage() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadCelebrants = async () => {
+      setCelebrantLoading(true);
+      try {
+        const [membersRes, leaderBirthdaysRes, leaderAnniversariesRes] = await Promise.allSettled([
+          apiClient.getMemberBirthdaysByMonth(celebrantMonth),
+          apiClient.getLeadershipBirthdaysByMonth(celebrantMonth),
+          apiClient.getLeadershipAnniversariesByMonth(celebrantMonth),
+        ]);
+        if (!active) return;
+        setMemberCelebrants(membersRes.status === 'fulfilled' ? membersRes.value : []);
+        setLeadershipBirthdayCelebrants(leaderBirthdaysRes.status === 'fulfilled' ? leaderBirthdaysRes.value : []);
+        setLeadershipAnniversaryCelebrants(leaderAnniversariesRes.status === 'fulfilled' ? leaderAnniversariesRes.value : []);
+      } catch (error) {
+        if (!active) return;
+        console.error('Failed to load celebrants', error);
+        setMemberCelebrants([]);
+        setLeadershipBirthdayCelebrants([]);
+        setLeadershipAnniversaryCelebrants([]);
+      } finally {
+        if (active) setCelebrantLoading(false);
+      }
+    };
+
+    void loadCelebrants();
+    return () => {
+      active = false;
+    };
+  }, [celebrantMonth]);
 
   const firstName = auth.user?.first_name || 'Admin';
   const topForms = useMemo(() => marketing?.topForms ?? [], [marketing?.topForms]);
@@ -236,6 +282,11 @@ function DashboardPage() {
       icon: TrendingUp,
     },
   ];
+  const monthLabel = useMemo(() => {
+    return new Date(new Date().getFullYear(), celebrantMonth - 1, 1).toLocaleDateString(undefined, {
+      month: 'long',
+    });
+  }, [celebrantMonth]);
 
   if (loading) {
     return (
@@ -414,6 +465,124 @@ function DashboardPage() {
         ) : (
           <p className="text-sm text-[var(--color-text-tertiary)]">No event records are available.</p>
         )}
+      </Card>
+
+      <Card
+        title={`Monthly Celebrants - ${monthLabel}`}
+        actions={
+          <select
+            className="h-10 rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 text-sm text-[var(--color-text-primary)]"
+            value={celebrantMonth}
+            onChange={(event) => setCelebrantMonth(Number(event.target.value))}
+          >
+            {Array.from({ length: 12 }).map((_, idx) => (
+              <option key={`month-${idx + 1}`} value={idx + 1}>
+                {new Date(2026, idx, 1).toLocaleDateString(undefined, { month: 'long' })}
+              </option>
+            ))}
+          </select>
+        }
+      >
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Members Birthdays</p>
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-sky-700">
+                <Cake className="h-4 w-4" />
+              </span>
+            </div>
+            {celebrantLoading ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">Loading celebrants...</p>
+            ) : memberCelebrants.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">No member birthdays for this month.</p>
+            ) : (
+              <div className="max-h-[320px] overflow-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[var(--color-border-primary)] text-left text-xs text-[var(--color-text-tertiary)]">
+                      <th className="py-2 pr-3">Name</th>
+                      <th className="py-2 pr-3">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {memberCelebrants.map((item) => (
+                      <tr key={item.id} className="border-b border-[var(--color-border-primary)]/60">
+                        <td className="py-2 pr-3 text-[var(--color-text-secondary)]">{item.firstName} {item.lastName}</td>
+                        <td className="py-2 pr-3 text-[var(--color-text-primary)]">{formatMonthDay(item.birthdayMonth, item.birthdayDay)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Leadership Birthdays</p>
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                <Sparkles className="h-4 w-4" />
+              </span>
+            </div>
+            {celebrantLoading ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">Loading celebrants...</p>
+            ) : leadershipBirthdayCelebrants.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">No leadership birthdays for this month.</p>
+            ) : (
+              <div className="max-h-[320px] overflow-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[var(--color-border-primary)] text-left text-xs text-[var(--color-text-tertiary)]">
+                      <th className="py-2 pr-3">Name</th>
+                      <th className="py-2 pr-3">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leadershipBirthdayCelebrants.map((item) => (
+                      <tr key={item.id} className="border-b border-[var(--color-border-primary)]/60">
+                        <td className="py-2 pr-3 text-[var(--color-text-secondary)]">{item.firstName} {item.lastName}</td>
+                        <td className="py-2 pr-3 text-[var(--color-text-primary)]">{formatMonthDay(item.birthdayMonth, item.birthdayDay)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Leadership Anniversaries</p>
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+                <Heart className="h-4 w-4" />
+              </span>
+            </div>
+            {celebrantLoading ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">Loading celebrants...</p>
+            ) : leadershipAnniversaryCelebrants.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">No leadership anniversaries for this month.</p>
+            ) : (
+              <div className="max-h-[320px] overflow-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[var(--color-border-primary)] text-left text-xs text-[var(--color-text-tertiary)]">
+                      <th className="py-2 pr-3">Name</th>
+                      <th className="py-2 pr-3">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leadershipAnniversaryCelebrants.map((item) => (
+                      <tr key={item.id} className="border-b border-[var(--color-border-primary)]/60">
+                        <td className="py-2 pr-3 text-[var(--color-text-secondary)]">{item.firstName} {item.lastName}</td>
+                        <td className="py-2 pr-3 text-[var(--color-text-primary)]">{formatMonthDay(item.anniversaryMonth, item.anniversaryDay)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       </Card>
     </div>
   );
