@@ -26,9 +26,32 @@ export type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const ACTIVE_SESSION_KEY = 'wisdom_admin_active_session_marker';
+const ACTIVE_TAB_KEY = 'wisdom_admin_active_tab_owner';
+const TAB_HEARTBEAT_MS = 4000;
+const TAB_STALE_MS = 12000;
 
 function buildSessionMarker(): string {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function buildTabId(): string {
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+}
+
+type TabOwnerRecord = {
+  id: string;
+  ts: number;
+};
+
+function readTabOwner(raw: string | null): TabOwnerRecord | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<TabOwnerRecord>;
+    if (!parsed || typeof parsed.id !== 'string' || typeof parsed.ts !== 'number') return null;
+    return { id: parsed.id, ts: parsed.ts };
+  } catch {
+    return null;
+  }
 }
 
 function getStatus(e: unknown): number | undefined {
@@ -47,14 +70,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const initRef = useRef(false);
   const sessionMarkerRef = useRef<string>('');
   const takeoverHandledRef = useRef(false);
+  const tabIdRef = useRef<string>(buildTabId());
+  const tabHeartbeatRef = useRef<number | null>(null);
 
-  const forceLocalSignout = useCallback(() => {
+  const forceLocalSignout = useCallback((reason = 'session_taken_over') => {
     clearAuthStorage();
     setUser(null);
     setIsLoading(false);
     if (typeof window !== 'undefined') {
-      window.location.href = '/login?reason=session_taken_over';
+      window.location.href = `/login?reason=${encodeURIComponent(reason)}`;
     }
+  }, []);
+
+  const claimTabOwnership = useCallback((force = false) => {
+    if (typeof window === 'undefined') return true;
+    const now = Date.now();
+    const mine = tabIdRef.current;
+    const current = readTabOwner(localStorage.getItem(ACTIVE_TAB_KEY));
+
+    if (!current || current.id === mine || force || now-current.ts > TAB_STALE_MS) {
+      const next: TabOwnerRecord = { id: mine, ts: now };
+      localStorage.setItem(ACTIVE_TAB_KEY, JSON.stringify(next));
+      return true;
+    }
+    return false;
   }, []);
 
   const checkAuth = useCallback(async (): Promise<User | null> => {
@@ -118,6 +157,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await apiClient.logout();
     } finally {
+      if (typeof window !== 'undefined') {
+        const owner = readTabOwner(localStorage.getItem(ACTIVE_TAB_KEY));
+        if (owner?.id === tabIdRef.current) {
+          localStorage.removeItem(ACTIVE_TAB_KEY);
+        }
+      }
       clearAuthStorage();
       setUser(null);
       setIsLoading(false);
@@ -130,22 +175,78 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const marker = buildSessionMarker();
     sessionMarkerRef.current = marker;
     localStorage.setItem(ACTIVE_SESSION_KEY, marker);
-  }, []);
+    claimTabOwnership(true);
+  }, [claimTabOwnership]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
     const onStorage = (event: StorageEvent) => {
-      if (event.key !== ACTIVE_SESSION_KEY) return;
-      const next = event.newValue || '';
-      const current = sessionMarkerRef.current || '';
-      if (!next || !current || next === current) return;
-      if (!user || takeoverHandledRef.current) return;
-      takeoverHandledRef.current = true;
-      forceLocalSignout();
+      if (event.key === ACTIVE_SESSION_KEY) {
+        const next = event.newValue || '';
+        const current = sessionMarkerRef.current || '';
+        if (!next || !current || next === current) return;
+        if (!user || takeoverHandledRef.current) return;
+        takeoverHandledRef.current = true;
+        forceLocalSignout('session_taken_over');
+        return;
+      }
+
+      if (event.key === ACTIVE_TAB_KEY) {
+        if (!user || takeoverHandledRef.current) return;
+        const owner = readTabOwner(event.newValue);
+        if (!owner || owner.id === tabIdRef.current) return;
+        takeoverHandledRef.current = true;
+        forceLocalSignout('another_tab_active');
+      }
     };
+
+    const onBeforeUnload = () => {
+      const owner = readTabOwner(localStorage.getItem(ACTIVE_TAB_KEY));
+      if (owner?.id === tabIdRef.current) {
+        localStorage.removeItem(ACTIVE_TAB_KEY);
+      }
+    };
+
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+    };
   }, [forceLocalSignout, user]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    if (!user) {
+      if (tabHeartbeatRef.current) {
+        window.clearInterval(tabHeartbeatRef.current);
+        tabHeartbeatRef.current = null;
+      }
+      return undefined;
+    }
+
+    if (!claimTabOwnership(false) && !takeoverHandledRef.current) {
+      takeoverHandledRef.current = true;
+      forceLocalSignout('another_tab_active');
+      return undefined;
+    }
+
+    tabHeartbeatRef.current = window.setInterval(() => {
+      if (takeoverHandledRef.current) return;
+      if (!claimTabOwnership(false)) {
+        takeoverHandledRef.current = true;
+        forceLocalSignout('another_tab_active');
+      }
+    }, TAB_HEARTBEAT_MS);
+
+    return () => {
+      if (tabHeartbeatRef.current) {
+        window.clearInterval(tabHeartbeatRef.current);
+        tabHeartbeatRef.current = null;
+      }
+    };
+  }, [claimTabOwnership, forceLocalSignout, user]);
 
   const clearData = useCallback(async (): Promise<MessageResponse> => {
     const res = await apiClient.clearUserData();
