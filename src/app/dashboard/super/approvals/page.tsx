@@ -9,7 +9,7 @@ import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
 import { useDashboardSearch } from '@/hooks/useDashboardSearch';
 import { useSuperQueues, ApprovalItem } from '@/hooks/useSuperQueues';
-import { CalendarClock, CheckCircle, Clock, Filter, RefreshCcw, Search, ShieldCheck, Users, XCircle } from 'lucide-react';
+import { CalendarClock, CheckCircle, Clock, Filter, RefreshCcw, Search, ShieldCheck,  XCircle } from 'lucide-react';
 
 function ApprovalsPage() {
   const { items, loading, refresh, approveItem, declineItem } = useSuperQueues();
