@@ -100,10 +100,12 @@ function RequestsPage() {
 
   const timelinePoints = useMemo(() => {
     if (!timeline) return [];
+    const created = Array.isArray(timeline.created) ? timeline.created : [];
+    const approved = Array.isArray(timeline.approved) ? timeline.approved : [];
     const approvedByDay = new Map<string, number>(
-      timeline.approved.map((item) => [new Date(item.day).toISOString().slice(0, 10), item.count])
+      approved.map((item) => [new Date(item.day).toISOString().slice(0, 10), item.count])
     );
-    return timeline.created.map((item) => {
+    return created.map((item) => {
       const key = new Date(item.day).toISOString().slice(0, 10);
       return {
         day: key,
@@ -283,4 +285,3 @@ function RequestsPage() {
 }
 
 export default withAuth(RequestsPage, { requiredRole: 'super_admin' });
-

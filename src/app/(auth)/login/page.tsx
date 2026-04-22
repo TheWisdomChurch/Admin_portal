@@ -61,7 +61,15 @@ function LoginInner() {
     mode: 'bad_password' | 'not_found' | 'generic';
   }>({ open: false, title: '', description: '', mode: 'generic' });
 
-  const redirectPath = useMemo(() => safeRedirect(searchParams.get('redirect')), [searchParams]);
+  const portalMode = useMemo(
+    () => (searchParams.get('portal') === 'super' ? 'super' : 'admin'),
+    [searchParams]
+  );
+  const redirectPath = useMemo(() => {
+    const raw = searchParams.get('redirect');
+    if (!raw) return portalMode === 'super' ? '/dashboard/super' : '/dashboard';
+    return safeRedirect(raw);
+  }, [portalMode, searchParams]);
 
   const {
     register,
@@ -85,7 +93,7 @@ function LoginInner() {
 
   const rememberMe = watch('rememberMe');
   const identityProviders = useMemo(
-    () => getConfiguredAuthIdentityProviders({ rememberMe: !!rememberMe }),
+    () => getConfiguredAuthIdentityProviders({ rememberMe: !!rememberMe }) ?? [],
     [rememberMe]
   );
 
@@ -305,25 +313,37 @@ function LoginInner() {
             <p className="text-sm font-semibold text-[var(--color-text-primary)]">Administration Portal</p>
           </div>
         </Link>
-        <Link href="/register">
-          <Button variant="outline">Register as Admin</Button>
-        </Link>
+        {portalMode === 'super' ? (
+          <Link href="/">
+            <Button variant="outline">Back to Site</Button>
+          </Link>
+        ) : (
+          <Link href="/register">
+            <Button variant="outline">Register as Admin</Button>
+          </Link>
+        )}
       </header>
 
       <main className="mx-auto grid w-full max-w-6xl gap-8 px-4 pb-12 pt-6 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
         <section className="flex flex-col justify-center gap-6">
           <p className="text-xs uppercase tracking-[0.4em] text-[var(--color-text-tertiary)]">Secure Access</p>
           <h1 className="auth-hero-text font-display text-3xl font-semibold text-[var(--color-text-primary)] sm:text-4xl">
-            The Wisdom Church Administration Portal
+            {portalMode === 'super'
+              ? 'The Wisdom Church Super Admin Command Center'
+              : 'The Wisdom Church Administration Portal'}
           </h1>
           <p className="text-sm text-[var(--color-text-secondary)] sm:text-base">
-            Manage events, testimonies, and ministry updates with clarity and control.
+            {portalMode === 'super'
+              ? 'Oversee approvals, access governance, and platform-level analytics from one secure control plane.'
+              : 'Manage events, testimonies, and ministry updates with clarity and control.'}
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-white/70 p-4">
               <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Access Control</p>
               <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                Password sign-in is protected with a one-time verification code before the session is established.
+                {portalMode === 'super'
+                  ? 'Super-admin sessions enforce strict MFA and role-based gating before command features unlock.'
+                  : 'Password sign-in is protected with a one-time verification code before the session is established.'}
               </p>
             </div>
             <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-white/70 p-4">
@@ -341,7 +361,9 @@ function LoginInner() {
               <Lock className="h-7 w-7 text-[var(--color-accent-primary)]" />
             </div>
             <h2 className="text-2xl font-semibold text-[var(--color-text-primary)]">Welcome Back</h2>
-            <p className="text-[var(--color-text-tertiary)] mt-2 text-sm">Sign in to your account</p>
+            <p className="text-[var(--color-text-tertiary)] mt-2 text-sm">
+              {portalMode === 'super' ? 'Sign in as Super Admin' : 'Sign in to your account'}
+            </p>
           </div>
 
           {serverError && (
@@ -436,7 +458,9 @@ function LoginInner() {
             </div>
 
             <p className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs text-[var(--color-text-tertiary)]">
-              Enterprise security is enabled: password sign-in is verified with email OTP or an authenticator app.
+              {portalMode === 'super'
+                ? 'Super-admin access is security hardened: password sign-in is verified by OTP or authenticator app before access.'
+                : 'Enterprise security is enabled: password sign-in is verified with email OTP or an authenticator app.'}
             </p>
 
             <Button type="submit" variant="primary" className="w-full" disabled={isLoading} loading={isLoading}>
@@ -478,17 +502,19 @@ function LoginInner() {
             ) : null}
           </form>
 
-          <div className="mt-8 pt-6 border-t border-[var(--color-border-secondary)]">
-            <p className="text-center text-sm text-[var(--color-text-tertiary)]">
-              Don&apos;t have an account?{' '}
-              <Link
-                href="/register"
-                className="text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)] font-medium"
-              >
-                Create one
-              </Link>
-            </p>
-          </div>
+          {portalMode === 'super' ? null : (
+            <div className="mt-8 pt-6 border-t border-[var(--color-border-secondary)]">
+              <p className="text-center text-sm text-[var(--color-text-tertiary)]">
+                Don&apos;t have an account?{' '}
+                <Link
+                  href="/register"
+                  className="text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primaryhover)] font-medium"
+                >
+                  Create one
+                </Link>
+              </p>
+            </div>
+          )}
         </Card>
       </main>
 
