@@ -18,10 +18,12 @@ function SuperDashboard() {
   const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'name'>('recent');
   const [approvingId, setApprovingId] = useState<string | null>(null);
 
+  const safeItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
+
   const filteredItems = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
-    return items
+    return safeItems
       .filter((item) => (typeFilter === 'all' ? true : item.type === typeFilter))
       .filter((item) => {
         if (!normalizedSearch) return true;
@@ -35,7 +37,7 @@ function SuperDashboard() {
         }
         return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
       });
-  }, [items, searchTerm, typeFilter, sortBy]);
+  }, [safeItems, searchTerm, typeFilter, sortBy]);
 
   const spotlight = filteredItems.filter((item) => item.type !== 'testimonial').slice(0, 3);
 

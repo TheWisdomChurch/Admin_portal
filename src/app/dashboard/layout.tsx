@@ -2,7 +2,7 @@
 'use client';
 
 import { ReactNode, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/Sidebar';
 import { Navbar } from '@/components/Navbar';
 import { useAuthContext } from '@/providers/AuthProviders';
@@ -10,8 +10,10 @@ import { SessionTimeout } from '@/components/SessionTimeout';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const auth = useAuthContext();
   const normalizedRole = (auth.user?.role || '').toLowerCase().replace(/\s+/g, '_');
+  const isSuperAdmin = normalizedRole === 'super_admin';
   const isAllowed = normalizedRole === 'admin' || normalizedRole === 'super_admin';
 
   useEffect(() => {
@@ -24,8 +26,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
     if (!isAllowed) {
       router.replace('/');
+      return;
     }
-  }, [auth, router, isAllowed]);
+
+    if (isSuperAdmin && pathname === '/dashboard') {
+      router.replace('/dashboard/super');
+    }
+  }, [auth, isAllowed, isSuperAdmin, pathname, router]);
 
   if (!auth.isInitialized || auth.isLoading) {
     return (
