@@ -107,6 +107,7 @@ function DashboardPage() {
   const [celebrantLoading, setCelebrantLoading] = useState(false);
 
   useEffect(() => {
+    if (!auth.isInitialized || auth.isLoading || !auth.isAuthenticated) return;
     let active = true;
 
     const loadDashboard = async () => {
@@ -126,8 +127,7 @@ function DashboardPage() {
         setEvents(eventsResult.status === 'fulfilled' ? eventsResult.value.data : []);
         setFormStats(formStatsResult.status === 'fulfilled' ? formStatsResult.value : null);
         setMarketing(marketingResult.status === 'fulfilled' ? marketingResult.value : null);
-      } catch (error) {
-        console.error(error);
+      } catch {
         if (active) toast.error('Failed to load dashboard data');
       } finally {
         if (active) setLoading(false);
@@ -139,9 +139,10 @@ function DashboardPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [auth.isAuthenticated, auth.isInitialized, auth.isLoading]);
 
   useEffect(() => {
+    if (!auth.isInitialized || auth.isLoading || !auth.isAuthenticated) return;
     let active = true;
     const loadCelebrants = async () => {
       setCelebrantLoading(true);
@@ -155,9 +156,8 @@ function DashboardPage() {
         setMemberCelebrants(membersRes.status === 'fulfilled' ? membersRes.value : []);
         setLeadershipBirthdayCelebrants(leaderBirthdaysRes.status === 'fulfilled' ? leaderBirthdaysRes.value : []);
         setLeadershipAnniversaryCelebrants(leaderAnniversariesRes.status === 'fulfilled' ? leaderAnniversariesRes.value : []);
-      } catch (error) {
+      } catch {
         if (!active) return;
-        console.error('Failed to load celebrants', error);
         setMemberCelebrants([]);
         setLeadershipBirthdayCelebrants([]);
         setLeadershipAnniversaryCelebrants([]);
@@ -170,7 +170,7 @@ function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [celebrantMonth]);
+  }, [auth.isAuthenticated, auth.isInitialized, auth.isLoading, celebrantMonth]);
 
   const firstName = auth.user?.first_name || 'Admin';
   const topForms = useMemo(() => marketing?.topForms ?? [], [marketing?.topForms]);

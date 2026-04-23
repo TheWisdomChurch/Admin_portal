@@ -55,7 +55,13 @@ export function SessionTimeout() {
 
       const pending = (async () => {
         try {
-          await apiClient.getCurrentUser();
+          const current = await apiClient.getCurrentUser();
+          if (!current) {
+            sessionEndedRef.current = true;
+            toast.error('Your session expired. Sign in again to continue.');
+            await logout();
+            return;
+          }
           lastSyncRef.current = Date.now();
         } catch (err) {
           const status = getStatus(err);
