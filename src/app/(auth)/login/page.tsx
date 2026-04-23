@@ -1,11 +1,22 @@
-// src/app/(auth)/login/page.tsx
 'use client';
 
 import React, { Suspense, useEffect, useMemo, useState } from 'react';
-import { useForm, Controller, type ControllerRenderProps, type SubmitHandler } from 'react-hook-form';
+import {
+  useForm,
+  Controller,
+  type ControllerRenderProps,
+  type SubmitHandler,
+} from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Lock, Mail, ArrowRight, UserPlus, AlertTriangle, Chrome } from 'lucide-react';
+import {
+  Lock,
+  Mail,
+  ArrowRight,
+  UserPlus,
+  AlertTriangle,
+  Chrome,
+} from 'lucide-react';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
@@ -15,9 +26,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Footer } from '@/components/Footer';
-import { apiClient, getAuthRememberPreference, setAuthRememberPreference } from '@/lib/api';
+import { getAuthRememberPreference, setAuthRememberPreference } from '@/lib/api';
 import { getConfiguredAuthIdentityProviders } from '@/lib/authProviders';
 import type { ApiError } from '@/lib/api';
+import { apiClient } from '@/lib/api';
 import {
   extractServerFieldErrors,
   getFirstServerFieldError,
@@ -50,7 +62,15 @@ function safeRedirect(raw: string | null): string {
 }
 
 function LoginInner() {
-  const { checkAuth, isLoading } = useAuthContext();
+  const {
+    checkAuth,
+    login,
+    completeLoginOtp,
+    resendLoginOtp,
+    accessStatus,
+    isLoading,
+  } = useAuthContext();
+
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -67,7 +87,7 @@ function LoginInner() {
   const [otpCode, setOtpCode] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [pendingLogin, setPendingLogin] = useState<LoginFormData | null>(null);
-  const [challengePurpose, setChallengePurpose] = useState<string>('');
+  const [challengePurpose, setChallengePurpose] = useState<string>('login');
   const [challengeMethod, setChallengeMethod] = useState<MFAMethod>('email_otp');
 
   const [errorModal, setErrorModal] = useState<{
@@ -75,12 +95,18 @@ function LoginInner() {
     title: string;
     description: string;
     mode: 'bad_password' | 'not_found' | 'generic';
-  }>({ open: false, title: '', description: '', mode: 'generic' });
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    mode: 'generic',
+  });
 
   const portalMode = useMemo(
     () => (searchParams.get('portal') === 'super' ? 'super' : 'admin'),
     [searchParams]
   );
+
   const redirectPath = useMemo(() => {
     const raw = searchParams.get('redirect');
     if (!raw) {
@@ -110,14 +136,22 @@ function LoginInner() {
   });
 
   const rememberMe = watch('rememberMe');
+
   const identityProviders = useMemo(
-    () => getConfiguredAuthIdentityProviders({ rememberMe: !!rememberMe }) ?? [],
-    [rememberMe]
+    () => getConfiguredAuthIdentityProviders({ rememberMe: !!rememberMe, redirectTo: redirectPath }) ?? [],
+    [rememberMe, redirectPath]
   );
 
   useEffect(() => {
     setValue('rememberMe', getAuthRememberPreference(), { shouldDirty: false });
   }, [setValue]);
+
+  useEffect(() => {
+    if (accessStatus === 'mfa_required') {
+      router.replace('/mfa/setup');
+    }
+  }, [accessStatus, router]);
+
   const onSubmit: SubmitHandler<LoginFormData> = async (data: LoginFormData) => {
     clearErrors();
     setServerError('');
@@ -128,7 +162,7 @@ function LoginInner() {
       setOtpLoading(true);
       setAuthRememberPreference(!!data.rememberMe);
 
-      const result = await apiClient.login({
+      const result = await login({
         ...data,
         email: data.email.trim().toLowerCase(),
       });
@@ -139,6 +173,7 @@ function LoginInner() {
         setChallengePurpose(result.purpose || 'login');
         setOtpStep('otp');
         setOtpOpen(true);
+
         toast.success(
           method === 'totp'
             ? 'Enter the current code from your authenticator app.'
@@ -148,6 +183,12 @@ function LoginInner() {
       }
 
       await checkAuth();
+
+      if (accessStatus === 'mfa_required') {
+        router.replace('/mfa/setup');
+        return;
+      }
+
       toast.success('Login successful!');
       router.replace(redirectPath);
     } catch (err) {
@@ -158,14 +199,18 @@ function LoginInner() {
         const fieldErrors = extractServerFieldErrors(apiErr);
         let applied = false;
 
-        (Object.entries(fieldErrors) as Array<[keyof LoginFormData, string]>).forEach(([field, message]) => {
-          if (field in data) {
-            applied = true;
-            setError(field, { type: 'server', message });
+        (Object.entries(fieldErrors) as Array<[keyof LoginFormData, string]>).forEach(
+          ([field, message]) => {
+            if (field in data) {
+              applied = true;
+              setError(field, { type: 'server', message });
+            }
           }
-        });
+        );
 
-        if (!applied) setServerError(getServerErrorMessage(apiErr, 'Unable to sign in right now.'));
+        if (!applied) {
+          setServerError(getServerErrorMessage(apiErr, 'Unable to sign in right now.'));
+        }
         return;
       }
 
@@ -181,7 +226,8 @@ function LoginInner() {
         setErrorModal({
           open: true,
           title: 'Incorrect password',
-          description: 'The email exists, but the password is incorrect. You can retry or reset your password.',
+          description:
+            'The email exists, but the password is incorrect. You can retry or reset your password.',
           mode: 'bad_password',
         });
       } else if (status === 403) {
@@ -191,7 +237,7 @@ function LoginInner() {
             open: true,
             title: 'MFA setup required',
             description:
-              'Your account needs TOTP authenticator MFA for admin access. Sign in and complete MFA setup in Security Settings.',
+              'Your account requires authenticator-based MFA before admin access is allowed.',
             mode: 'generic',
           });
           return;
@@ -220,6 +266,7 @@ function LoginInner() {
       toast.error('Please submit your email and password first.');
       return;
     }
+
     if (challengeMethod !== 'email_otp') {
       toast.error('Use the authenticator app to generate a code for this sign-in.');
       return;
@@ -227,9 +274,10 @@ function LoginInner() {
 
     try {
       setOtpLoading(true);
-      const result = await apiClient.resendLoginOtp({
+      const result = await resendLoginOtp({
         email: otpEmail.trim().toLowerCase(),
       });
+
       setChallengeMethod(result.mfa_method ?? 'email_otp');
       setChallengePurpose(result.purpose || 'login');
       setOtpStep('otp');
@@ -252,7 +300,7 @@ function LoginInner() {
       setOtpLoading(true);
       setAuthRememberPreference(!!pendingLogin.rememberMe);
 
-      await apiClient.verifyLoginOtp({
+      await completeLoginOtp({
         email: otpEmail.trim().toLowerCase(),
         code: otpCode.trim(),
         purpose: challengePurpose || 'login',
@@ -271,11 +319,19 @@ function LoginInner() {
       setOtpOpen(false);
       setOtpCode('');
       setChallengeMethod('email_otp');
+
+      if (accessStatus === 'mfa_required') {
+        router.replace('/mfa/setup');
+        return;
+      }
+
       router.replace(redirectPath);
     } catch (err) {
       const fieldErrors = extractServerFieldErrors(err);
       if (Object.keys(fieldErrors).length > 0) {
-        toast.error(getFirstServerFieldError(fieldErrors) || 'Please check the code and try again.');
+        toast.error(
+          getFirstServerFieldError(fieldErrors) || 'Please check the code and try again.'
+        );
         return;
       }
       toast.error(getServerErrorMessage(err, 'Verification failed'));
@@ -304,23 +360,29 @@ function LoginInner() {
       if (forgotStep === 'otp') {
         const trimmedEmail = forgotEmail.trim().toLowerCase();
         const trimmedCode = forgotOtp.trim();
+
         await apiClient.verifyOtp({
           email: trimmedEmail,
           code: trimmedCode,
           purpose: 'password_reset',
         });
+
         toast.success('Code verified. Set a new password.');
         setShowForgot(false);
         resetForgotState();
+
         router.push(
-          `/passwordreset?email=${encodeURIComponent(trimmedEmail)}&code=${encodeURIComponent(trimmedCode)}&purpose=password_reset`
+          `/passwordreset?email=${encodeURIComponent(trimmedEmail)}&code=${encodeURIComponent(
+            trimmedCode
+          )}&purpose=password_reset`
         );
-        return;
       }
     } catch (err) {
       const fieldErrors = extractServerFieldErrors(err);
       if (Object.keys(fieldErrors).length > 0) {
-        toast.error(getFirstServerFieldError(fieldErrors) || 'Please review the highlighted fields.');
+        toast.error(
+          getFirstServerFieldError(fieldErrors) || 'Please review the highlighted fields.'
+        );
         return;
       }
       const message = getServerErrorMessage(err, 'Failed to update password');
@@ -329,7 +391,6 @@ function LoginInner() {
       setForgotLoading(false);
     }
   };
-
 
   return (
     <div className="auth-shell">
@@ -345,7 +406,9 @@ function LoginInner() {
             />
           </div>
           <div className="leading-tight">
-            <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">The Wisdom Church</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
+              The Wisdom Church
+            </p>
             <p className="text-sm font-semibold text-[var(--color-text-primary)]">
               {portalMode === 'super' ? 'Super Admin Console' : 'Administration Portal'}
             </p>
@@ -387,7 +450,9 @@ function LoginInner() {
               </p>
             </div>
             <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-white/70 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Trusted Devices</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
+                Trusted Devices
+              </p>
               <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
                 Use Remember me only on secure devices you control. Session persistence remains optional.
               </p>
@@ -536,16 +601,6 @@ function LoginInner() {
                       <span className="ml-2">{provider.label}</span>
                     </Button>
                   ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full justify-center opacity-70"
-                    disabled
-                    title="Facebook sign-in is not enabled yet"
-                  >
-                    <ProviderIcon providerId="facebook" />
-                    <span className="ml-2">Continue with Facebook (Coming soon)</span>
-                  </Button>
                 </div>
               </div>
             ) : null}
@@ -660,8 +715,8 @@ function LoginInner() {
           otpStep === 'email'
             ? 'Confirm your email to receive a one-time code.'
             : challengeMethod === 'totp'
-              ? 'Open your authenticator app and enter the current 6-digit code.'
-              : `Enter the code we sent to ${otpEmail}.`
+            ? 'Open your authenticator app and enter the current 6-digit code.'
+            : `Enter the code we sent to ${otpEmail}.`
         }
         otpLabel={challengeMethod === 'totp' ? 'Authenticator code' : 'Enter the 6-digit code'}
         otpHint={
@@ -680,7 +735,11 @@ function LoginInner() {
         title={errorModal.title}
         description={errorModal.description}
         icon={
-          errorModal.mode === 'not_found' ? <UserPlus className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />
+          errorModal.mode === 'not_found' ? (
+            <UserPlus className="h-5 w-5" />
+          ) : (
+            <AlertTriangle className="h-5 w-5" />
+          )
         }
         onClose={() => setErrorModal({ ...errorModal, open: false })}
         secondaryAction={{
@@ -689,9 +748,15 @@ function LoginInner() {
           onClick: () => setErrorModal({ ...errorModal, open: false }),
         }}
         primaryAction={{
-          label: errorModal.mode === 'not_found' ? 'Register' : errorModal.mode === 'bad_password' ? 'Reset password' : 'Try again',
+          label:
+            errorModal.mode === 'not_found'
+              ? 'Register'
+              : errorModal.mode === 'bad_password'
+              ? 'Reset password'
+              : 'Try again',
           onClick: () => {
             setErrorModal({ ...errorModal, open: false });
+
             if (errorModal.mode === 'not_found') {
               router.push('/register');
             } else if (errorModal.mode === 'bad_password') {
@@ -707,7 +772,6 @@ function LoginInner() {
 }
 
 export default function LoginPage() {
-  // ✅ Required by Next when using useSearchParams()
   return (
     <Suspense fallback={null}>
       <LoginInner />
