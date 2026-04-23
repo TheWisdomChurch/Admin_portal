@@ -99,6 +99,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const checkAuth = useCallback(async (): Promise<User | null> => {
     try {
       const me = await apiClient.getCurrentUser(); // expects User from extractUser
+      if (!me) {
+        clearAuthStorage();
+        setUser(null);
+        return null;
+      }
       setUser(me);
 
       // store profile only; cookie is the real session

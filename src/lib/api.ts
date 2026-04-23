@@ -979,9 +979,18 @@ export const apiClient = {
     await apiFetch('/auth/logout', { method: 'POST' });
   },
 
-  async getCurrentUser(): Promise<User> {
-    const res = await apiFetch<ApiResponse<unknown>>('/auth/me', { method: 'GET' });
-    return extractUser(res);
+  async getCurrentUser(): Promise<User | null> {
+    try {
+      const res = await apiFetch<ApiResponse<unknown>>('/auth/me', { method: 'GET' });
+      const payload = unwrapData<unknown>(res, 'Invalid auth payload');
+      if (payload == null) return null;
+      return extractUser(res);
+    } catch (err) {
+      if (isApiError(err) && (err.statusCode === 401 || err.statusCode === 403)) {
+        return null;
+      }
+      throw err;
+    }
   },
 
   async getCsrfToken(): Promise<{ token: string; header: string }> {
