@@ -26,12 +26,22 @@ import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { PageHeader } from '@/layouts';
-import { withAuth } from '@/providers/withAuth';
-import { useSuperQueues, ApprovalItem } from '@/hooks/useSuperQueues';
+import { useSuperQueues, type ApprovalItem } from '@/hooks/useSuperQueues';
 import { apiClient } from '@/lib/api';
 import type { DashboardAnalytics, EventData } from '@/lib/types';
+import { useAuthContext } from '@/providers/AuthProviders';
+import { getUserRole } from '@/lib/authRole';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Tooltip,
+  Legend
+);
 
 function dayKey(value: string): string {
   const parsed = new Date(value);
@@ -39,38 +49,62 @@ function dayKey(value: string): string {
   return parsed.toISOString().slice(0, 10);
 }
 
-function SuperDashboard() {
+function AccessDeniedState() {
+  return (
+    <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-6">
+      <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Access denied</h2>
+      <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+        This section is restricted to super administrators.
+      </p>
+    </div>
+  );
+}
+
+export default function SuperDashboard() {
+  const auth = useAuthContext();
+  const role = getUserRole(auth.user);
+  const isSuperAdmin = role === 'super_admin';
+
+  const canLoadProtectedData =
+    auth.isInitialized &&
+    auth.bootstrapped &&
+    auth.accessStatus === 'ready' &&
+    auth.isAuthenticated &&
+    isSuperAdmin;
+
   const { items, loading, refresh, approveItem, declineItem, stats } = useSuperQueues();
+
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
   const [events, setEvents] = useState<EventData[]>([]);
   const [opsLoading, setOpsLoading] = useState(true);
 
   useEffect(() => {
-    let active = true;
+    if (!canLoadProtectedData) return;
+
+    let cancelled = false;
 
     async function loadOps() {
       setOpsLoading(true);
-      try {
-        const [analyticsResult, eventsResult] = await Promise.allSettled([
-          apiClient.getAnalytics(),
-          apiClient.getEvents({ limit: 8, page: 1 }),
-        ]);
 
-        if (!active) return;
+      const [analyticsResult, eventsResult] = await Promise.allSettled([
+        apiClient.getAnalytics(),
+        apiClient.getEvents({ limit: 8, page: 1 }),
+      ]);
 
-        setAnalytics(analyticsResult.status === 'fulfilled' ? analyticsResult.value : null);
-        setEvents(eventsResult.status === 'fulfilled' ? eventsResult.value.data : []);
-      } finally {
-        if (active) setOpsLoading(false);
-      }
+      if (cancelled) return;
+
+      setAnalytics(analyticsResult.status === 'fulfilled' ? analyticsResult.value : null);
+      setEvents(eventsResult.status === 'fulfilled' ? eventsResult.value.data : []);
+      setOpsLoading(false);
     }
 
     void loadOps();
+
     return () => {
-      active = false;
+      cancelled = true;
     };
-  }, []);
+  }, [canLoadProtectedData]);
 
   const safeItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
   const safeEvents = useMemo(() => (Array.isArray(events) ? events : []), [events]);
@@ -91,11 +125,14 @@ function SuperDashboard() {
 
   const queueVelocity = useMemo(() => {
     const counts: Record<string, number> = {};
+
     safeItems.forEach((item) => {
       const key = dayKey(item.submittedAt);
       counts[key] = (counts[key] || 0) + 1;
     });
+
     const labels = Object.keys(counts).sort();
+
     return {
       labels,
       values: labels.map((label) => counts[label]),
@@ -147,30 +184,54 @@ function SuperDashboard() {
       safeItems
         .filter((item) => item.status === 'pending')
         .slice()
-        .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
+        .sort(
+          (a, b) =>
+            new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+        )
         .slice(0, 8),
     [safeItems]
   );
 
   const mappedLocation = useMemo(
-    () => safeEvents.find((event) => event.location && event.location.trim())?.location?.trim() || '',
+    () =>
+      safeEvents.find((event) => event.location && event.location.trim())?.location?.trim() ||
+      '',
     [safeEvents]
   );
+
   const mapSrc = mappedLocation
     ? `https://www.google.com/maps?q=${encodeURIComponent(mappedLocation)}&output=embed`
     : '';
 
   const handleApprove = async (item: ApprovalItem) => {
     setApprovingId(item.id);
-    await approveItem(item);
-    setApprovingId(null);
+    try {
+      await approveItem(item);
+    } finally {
+      setApprovingId(null);
+    }
   };
 
   const handleDecline = async (item: ApprovalItem) => {
     setApprovingId(item.id);
-    await declineItem(item);
-    setApprovingId(null);
+    try {
+      await declineItem(item);
+    } finally {
+      setApprovingId(null);
+    }
   };
+
+  if (!auth.isInitialized || !auth.bootstrapped || auth.accessStatus === 'loading') {
+    return null;
+  }
+
+  if (!isSuperAdmin) {
+    return <AccessDeniedState />;
+  }
+
+  if (!canLoadProtectedData) {
+    return null;
+  }
 
   return (
     <div className="space-y-6">
@@ -178,7 +239,14 @@ function SuperDashboard() {
         title="Super Admin Command Center"
         subtitle="Governance, approvals, and platform-wide operational intelligence."
         actions={
-          <Button variant="outline" size="sm" onClick={() => { void refresh(); }} disabled={loading}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              void refresh();
+            }}
+            disabled={loading}
+          >
             <RefreshCcw className="mr-2 h-4 w-4" />
             Refresh Queue
           </Button>
@@ -187,41 +255,71 @@ function SuperDashboard() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <article className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Pending Approvals</p>
-          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">{stats.total}</p>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Items requiring super-admin decision</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
+            Pending Approvals
+          </p>
+          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">
+            {stats.total}
+          </p>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+            Items requiring super-admin decision
+          </p>
         </article>
 
         <article className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Testimonial Queue</p>
-          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">{stats.testimonials}</p>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Content moderation inflow</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
+            Testimonial Queue
+          </p>
+          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">
+            {stats.testimonials}
+          </p>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+            Content moderation inflow
+          </p>
         </article>
 
         <article className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Event Queue</p>
-          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">{stats.events}</p>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Event oversight approvals</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
+            Event Queue
+          </p>
+          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">
+            {stats.events}
+          </p>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+            Event oversight approvals
+          </p>
         </article>
 
         <article className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Live Operations</p>
-          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">{analytics?.upcomingEvents ?? 0}</p>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Upcoming events under oversight</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
+            Live Operations
+          </p>
+          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">
+            {analytics?.upcomingEvents ?? 0}
+          </p>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+            Upcoming events under oversight
+          </p>
         </article>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
         <Card className="p-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Queue Composition</h2>
+            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
+              Queue Composition
+            </h2>
             <ShieldCheck className="h-4 w-4 text-[var(--color-accent-primary)]" />
           </div>
           <div className="mt-4 h-[280px]">
             {stats.total > 0 ? (
               <Pie
                 data={queueByTypeChart}
-                options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { legend: { position: 'bottom' } },
+                }}
               />
             ) : (
               <p className="text-sm text-[var(--color-text-tertiary)]">No active approvals.</p>
@@ -231,17 +329,25 @@ function SuperDashboard() {
 
         <Card className="p-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Queue Velocity</h2>
+            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
+              Queue Velocity
+            </h2>
             <Clock className="h-4 w-4 text-[var(--color-accent-primary)]" />
           </div>
           <div className="mt-4 h-[280px]">
             {queueVelocity.labels.length > 0 ? (
               <Line
                 data={queueVelocityChart}
-                options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { legend: { display: false } },
+                }}
               />
             ) : (
-              <p className="text-sm text-[var(--color-text-tertiary)]">No queue history available yet.</p>
+              <p className="text-sm text-[var(--color-text-tertiary)]">
+                No queue history available yet.
+              </p>
             )}
           </div>
         </Card>
@@ -250,24 +356,34 @@ function SuperDashboard() {
       <section className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
         <Card className="p-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Platform Activity Trend</h2>
+            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
+              Platform Activity Trend
+            </h2>
             <Activity className="h-4 w-4 text-[var(--color-accent-primary)]" />
           </div>
           <div className="mt-4 h-[280px]">
             {(analytics?.monthlyStats?.length ?? 0) > 0 ? (
               <Bar
                 data={monthlyOpsChart}
-                options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } } }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { legend: { position: 'top' } },
+                }}
               />
             ) : (
-              <p className="text-sm text-[var(--color-text-tertiary)]">No monthly operations analytics available.</p>
+              <p className="text-sm text-[var(--color-text-tertiary)]">
+                No monthly operations analytics available.
+              </p>
             )}
           </div>
         </Card>
 
         <Card className="p-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Operations Map</h2>
+            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
+              Operations Map
+            </h2>
             <MapPin className="h-4 w-4 text-[var(--color-accent-primary)]" />
           </div>
           <div className="mt-4 overflow-hidden rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
@@ -286,28 +402,41 @@ function SuperDashboard() {
             )}
           </div>
           <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">
-            {mappedLocation ? `Focused location: ${mappedLocation}` : 'Add event locations to enable geographic monitoring.'}
+            {mappedLocation
+              ? `Focused location: ${mappedLocation}`
+              : 'Add event locations to enable geographic monitoring.'}
           </p>
         </Card>
       </section>
 
       <Card className="p-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Priority Decision Queue</h2>
-          <Badge variant="warning" size="sm">Top {pendingTop.length}</Badge>
+          <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
+            Priority Decision Queue
+          </h2>
+          <Badge variant="warning" size="sm">
+            Top {pendingTop.length}
+          </Badge>
         </div>
 
         <div className="mt-4 space-y-3">
           {loading ? (
             <p className="text-sm text-[var(--color-text-tertiary)]">Loading queue...</p>
           ) : pendingTop.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">No pending approvals at the moment.</p>
+            <p className="text-sm text-[var(--color-text-tertiary)]">
+              No pending approvals at the moment.
+            </p>
           ) : (
             pendingTop.map((item) => (
-              <div key={item.id} className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] p-4">
+              <div
+                key={item.id}
+                className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] p-4"
+              >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{item.name}</p>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                      {item.name}
+                    </p>
                     <p className="text-xs text-[var(--color-text-tertiary)]">
                       {item.type.toUpperCase()} · {new Date(item.submittedAt).toLocaleString()}
                     </p>
@@ -342,10 +471,10 @@ function SuperDashboard() {
       </Card>
 
       {opsLoading ? (
-        <p className="text-xs text-[var(--color-text-tertiary)]">Refreshing operations telemetry...</p>
+        <p className="text-xs text-[var(--color-text-tertiary)]">
+          Refreshing operations telemetry...
+        </p>
       ) : null}
     </div>
   );
 }
-
-export default withAuth(SuperDashboard, { requiredRole: 'super_admin' });

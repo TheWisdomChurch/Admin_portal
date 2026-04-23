@@ -15,7 +15,7 @@ import { Card } from '@/ui/Card';
 import { Checkbox } from '@/ui/Checkbox';
 import { Input } from '@/ui/input';
 import { PasswordStrengthMeter } from '@/ui/PasswordStrengthMeter';
-import apiClient from '@/lib/api';
+import { apiClient } from '@/lib/api';
 import { extractServerFieldErrors, getServerErrorMessage } from '@/lib/serverValidation';
 import { registerSchema, type RegisterFormSchema } from '@/lib/validation/auth';
 
