@@ -15,7 +15,7 @@ import {
   getAuthUser,
   setAuthUser,
   clearAuthStorage,
-  isApiError,
+  // isApiError,
 } from '@/lib/api';
 import type {
   User,
