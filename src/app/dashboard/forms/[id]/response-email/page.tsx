@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Code2, Eye, LayoutTemplate, MailCheck, Save, Upload } from 'lucide-react';
+import { ArrowLeft, Code2, Eye, LayoutTemplate, MailCheck, Save } from 'lucide-react';
 
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
