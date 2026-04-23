@@ -29,6 +29,7 @@ import type {
   UnsubscribeRequest,
   SendNotificationRequest,
   SendNotificationResult,
+  SubscriberSummary,
   SendOTPRequest,
   VerifyOTPRequest,
   SendOTPResponse,
@@ -1463,6 +1464,13 @@ export const apiClient = {
   async listSubscribers(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<Subscriber>> {
     const qs = toQueryString(params);
     return apiFetch(`/admin/notifications/subscribers${qs}`, { method: 'GET' });
+  },
+
+  async getSubscriberSummary(): Promise<SubscriberSummary> {
+    const res = await apiFetch<ApiResponse<SubscriberSummary>>('/admin/notifications/subscribers/summary', {
+      method: 'GET',
+    });
+    return unwrapData<SubscriberSummary>(res, 'Invalid subscriber summary payload');
   },
 
   async sendNotification(payload: SendNotificationRequest): Promise<SendNotificationResult> {

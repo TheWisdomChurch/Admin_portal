@@ -388,8 +388,19 @@ export interface Subscriber {
   name?: string;
   source?: string;
   status: SubscriberStatus;
+  unsubscribedAt?: string;
+  lastNotifiedAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SubscriberSummary {
+  total: number;
+  active: number;
+  unsubscribed: number;
+  recentlyAdded30d: number;
+  recentlyOptedOut30d: number;
+  lastNotifiedAt?: string;
 }
 
 export interface SubscribeRequest {
@@ -420,6 +431,7 @@ export interface SendNotificationRequest {
   title: string;
   message: string;
   eventId?: string;
+  audience?: 'newsletter_subscribers';
 }
 
 export interface SendNotificationResult {
