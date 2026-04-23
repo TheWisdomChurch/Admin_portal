@@ -85,6 +85,14 @@ export function getServerErrorMessage(err: unknown, fallback = 'Request failed')
   return fallback;
 }
 
+export function getServerErrorCode(err: unknown): string | null {
+  const payload = unwrapPayload(err);
+  if (!isRecord(payload)) return null;
+  const code = payload.code;
+  if (typeof code === 'string' && code.trim()) return code.trim();
+  return null;
+}
+
 export function getFirstServerFieldError(errors: ServerFieldErrors): string | null {
   const first = Object.values(errors)[0];
   return first || null;
