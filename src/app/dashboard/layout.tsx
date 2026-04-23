@@ -1,4 +1,3 @@
-// src/app/(dashboard)/layout.tsx
 'use client';
 
 import { ReactNode, useEffect } from 'react';
@@ -9,23 +8,51 @@ import { useAuthContext } from '@/providers/AuthProviders';
 import { SessionTimeout } from '@/components/SessionTimeout';
 import { getUserRole } from '@/lib/authRole';
 
+function FullPageMessage({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-background px-6">
+      <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-8 shadow-2xl">
+        <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">{description}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const auth = useAuthContext();
+
   const normalizedRole = getUserRole(auth.user);
   const isSuperAdmin = normalizedRole === 'super_admin';
-  const isAllowed = normalizedRole === 'admin' || normalizedRole === 'super_admin';
+  const isRoleAllowed = normalizedRole === 'admin' || normalizedRole === 'super_admin';
 
   useEffect(() => {
-    if (!auth.isInitialized || auth.isLoading) return;
+    if (!auth.isInitialized || !auth.bootstrapped) return;
+    if (auth.status === 'loading' || auth.accessStatus === 'loading') return;
 
-    if (!auth.isAuthenticated) {
+    if (auth.accessStatus === 'login_required') {
       router.replace('/login');
       return;
     }
 
-    if (!isAllowed) {
+    if (auth.accessStatus === 'mfa_required') {
+      router.replace('/mfa/setup');
+      return;
+    }
+
+    if (auth.accessStatus === 'forbidden') {
+      return;
+    }
+
+    if (!isRoleAllowed) {
       router.replace('/');
       return;
     }
@@ -33,21 +60,54 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (isSuperAdmin && pathname === '/dashboard') {
       router.replace('/dashboard/super');
     }
-  }, [auth, isAllowed, isSuperAdmin, pathname, router]);
+  }, [
+    auth.isInitialized,
+    auth.bootstrapped,
+    auth.status,
+    auth.accessStatus,
+    isRoleAllowed,
+    isSuperAdmin,
+    pathname,
+    router,
+  ]);
 
-  if (!auth.isInitialized || auth.isLoading) {
+  if (
+    !auth.isInitialized ||
+    !auth.bootstrapped ||
+    auth.status === 'loading' ||
+    auth.accessStatus === 'loading'
+  ) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex items-center gap-4">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-lg text-muted-foreground">Loading...</p>
+          <p className="text-lg text-muted-foreground">
+            Checking your access...
+          </p>
         </div>
       </div>
     );
   }
 
+  if (auth.accessStatus === 'login_required') {
+    return null;
+  }
+
+  if (auth.accessStatus === 'mfa_required') {
+    return null;
+  }
+
+  if (auth.accessStatus === 'forbidden') {
+    return (
+      <FullPageMessage
+        title="Access denied"
+        description="Your account is signed in, but it does not currently have the required admin access for this portal."
+      />
+    );
+  }
+
   if (!auth.isAuthenticated) return null;
-  if (!isAllowed) return null;
+  if (!isRoleAllowed) return null;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
