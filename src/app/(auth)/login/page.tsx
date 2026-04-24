@@ -43,6 +43,13 @@ import type { MFAMethod } from '@/lib/types';
 
 type LoginFormData = LoginFormSchema;
 
+type MfaGuidanceState = {
+  code: 'admin_mfa_required' | 'admin_totp_session_required';
+  title: string;
+  description: string;
+  actionLabel: string;
+};
+
 function ProviderIcon({ providerId }: { providerId: string }) {
   if (providerId === 'google') {
     return <Chrome className="h-4 w-4" aria-hidden="true" />;
@@ -75,6 +82,7 @@ function LoginInner() {
   const searchParams = useSearchParams();
 
   const [serverError, setServerError] = useState('');
+  const [mfaGuidance, setMfaGuidance] = useState<MfaGuidanceState | null>(null);
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotOtp, setForgotOtp] = useState('');
@@ -155,6 +163,7 @@ function LoginInner() {
   const onSubmit: SubmitHandler<LoginFormData> = async (data: LoginFormData) => {
     clearErrors();
     setServerError('');
+    setMfaGuidance(null);
 
     try {
       setPendingLogin(data);
@@ -232,16 +241,33 @@ function LoginInner() {
         });
       } else if (status === 403) {
         const code = getServerErrorCode(apiErr);
-        if (code === 'admin_mfa_required' || code === 'admin_totp_session_required') {
-          setErrorModal({
-            open: true,
-            title: 'MFA setup required',
+        if (code === 'admin_mfa_required') {
+          setMfaGuidance({
+            code,
+            title: 'Next step: set up authenticator',
             description:
-              'Your account requires authenticator-based MFA before admin access is allowed.',
-            mode: 'generic',
+              'Your admin account must enable authenticator MFA before dashboard access is allowed.',
+            actionLabel: 'Set up authenticator now',
           });
           return;
         }
+
+        if (code === 'admin_totp_session_required') {
+          setChallengeMethod('totp');
+          setChallengePurpose('login');
+          setOtpStep('otp');
+          setOtpOpen(true);
+          setMfaGuidance({
+            code,
+            title: 'Next step: verify with authenticator code',
+            description:
+              'Enter the current 6-digit code from your authenticator app to complete sign-in.',
+            actionLabel: 'Enter authenticator code',
+          });
+          toast('Enter the current code from your authenticator app.', { icon: '🔐' });
+          return;
+        }
+
         setErrorModal({
           open: true,
           title: 'Access denied',
@@ -470,6 +496,31 @@ function LoginInner() {
               {portalMode === 'super' ? 'Sign in as super admin' : 'Sign in to your account'}
             </p>
           </div>
+
+          {mfaGuidance && (
+            <div className="mb-6 rounded-[var(--radius-button)] border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-800">{mfaGuidance.title}</p>
+              <p className="mt-1 text-sm text-amber-700">{mfaGuidance.description}</p>
+              <div className="mt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (mfaGuidance.code === 'admin_mfa_required') {
+                      router.push('/mfa/setup');
+                      return;
+                    }
+                    setChallengeMethod('totp');
+                    setChallengePurpose('login');
+                    setOtpStep('otp');
+                    setOtpOpen(true);
+                  }}
+                >
+                  {mfaGuidance.actionLabel}
+                </Button>
+              </div>
+            </div>
+          )}
 
           {serverError && (
             <div className="mb-6 rounded-[var(--radius-button)] border border-red-200 bg-red-50 p-4">

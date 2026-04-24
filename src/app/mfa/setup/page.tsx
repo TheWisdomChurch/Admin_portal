@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import QRCode from 'qrcode';
 import { useRouter } from 'next/navigation';
 import {
   ShieldCheck,
@@ -56,7 +57,7 @@ function extractSetupValues(payload: TOTPSetupResponse | unknown): {
     })();
 
   const qrCodeSvg = extractString(record, 'qrCodeSvg', 'qr_code_svg');
-  const secret = extractString(record, 'secret', 'totpSecret', 'totp_secret');
+  const secret = extractString(record, 'secret', 'totpSecret', 'totp_secret', 'manualEntryKey', 'manual_entry_key');
   const otpauthUrl = extractString(record, 'otpauthUrl', 'otpauth_url');
 
   return {
@@ -113,6 +114,7 @@ export default function MfaSetupPage() {
   const [qrCodeSvg, setQrCodeSvg] = useState('');
   const [secret, setSecret] = useState('');
   const [otpauthUrl, setOtpauthUrl] = useState('');
+  const [qrBuildError, setQrBuildError] = useState('');
 
   useEffect(() => {
     if (!isInitialized || !bootstrapped) return;
@@ -129,10 +131,43 @@ export default function MfaSetupPage() {
 
   const alreadyEnabled = useMemo(() => isMfaEnabled(mfaProfile), [mfaProfile]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const renderQrFromOtpAuthUrl = async () => {
+      if (qrCodeDataUrl || qrCodeSvg || !otpauthUrl) return;
+
+      setQrBuildError('');
+
+      try {
+        const dataUrl = await QRCode.toDataURL(otpauthUrl, {
+          width: 280,
+          margin: 1,
+          errorCorrectionLevel: 'M',
+        });
+
+        if (!cancelled) {
+          setQrCodeDataUrl(dataUrl);
+        }
+      } catch {
+        if (!cancelled) {
+          setQrBuildError('Unable to render QR automatically. Use the secret key below for manual setup.');
+        }
+      }
+    };
+
+    void renderQrFromOtpAuthUrl();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [otpauthUrl, qrCodeDataUrl, qrCodeSvg]);
+
   const generateSetup = async () => {
     setLoadingSetup(true);
     setSetupError('');
     setSuccessMessage('');
+    setQrBuildError('');
 
     try {
       const payload = await beginTotpSetup();
@@ -279,7 +314,7 @@ export default function MfaSetupPage() {
               Authenticator setup
             </h2>
             <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">
-              Scan the QR code or use the secret manually.
+              Scan the QR code with your authenticator app. If scanning fails, use manual key entry.
             </p>
           </div>
 
@@ -303,6 +338,12 @@ export default function MfaSetupPage() {
                 />
               ) : null}
 
+              {qrBuildError ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm text-amber-700">{qrBuildError}</p>
+                </div>
+              ) : null}
+
               {secret ? (
                 <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
                   <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
@@ -317,7 +358,7 @@ export default function MfaSetupPage() {
               {otpauthUrl ? (
                 <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
                   <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
-                    OTP Auth URL
+                    Setup URL (advanced)
                   </p>
                   <code className="mt-2 block break-all text-xs text-[var(--color-text-primary)]">
                     {otpauthUrl}
