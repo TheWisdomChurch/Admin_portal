@@ -49,13 +49,6 @@ const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; lab
   { value: 'contact', label: 'Contact' },
   { value: 'general', label: 'General' },
 ];
-const isOptionFieldType = (type: FormFieldType) => type === 'select' || type === 'radio' || type === 'checkbox';
-const toOptionValue = (label: string, index: number) =>
-  label
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '') || `option-${index + 1}`;
 
 function createEmptyVisibilityRule(): VisibilityRuleDraft {
   return {
@@ -342,7 +335,7 @@ function EditFormPage() {
     (async () => {
       try {
         setEventsLoading(true);
-        const res = await apiClient.getEvents({ page: 1, limit: 100 });
+        const res = await apiClient.getEvents({ page: 1, limit: 200 });
         setEvents(Array.isArray(res.data) ? res.data : []);
       } catch {
         setEvents([]);
@@ -354,53 +347,6 @@ function EditFormPage() {
 
   const updateField = (index: number, updates: Partial<FieldDraft>) => {
     setFields((prev) => prev.map((f, i) => (i === index ? { ...f, ...updates } : f)));
-  };
-
-  const addFieldOption = (fieldIndex: number) => {
-    setFields((prev) =>
-      prev.map((field, index) => {
-        if (index !== fieldIndex) return field;
-        const options = Array.isArray(field.options) ? field.options : [];
-        const nextIndex = options.length;
-        return {
-          ...field,
-          options: [
-            ...options,
-            {
-              label: '',
-              value: `option-${nextIndex + 1}`,
-            },
-          ],
-        };
-      })
-    );
-  };
-
-  const updateFieldOptionLabel = (fieldIndex: number, optionIndex: number, label: string) => {
-    setFields((prev) =>
-      prev.map((field, index) => {
-        if (index !== fieldIndex) return field;
-        const options = Array.isArray(field.options) ? [...field.options] : [];
-        if (!options[optionIndex]) return field;
-        options[optionIndex] = {
-          label,
-          value: toOptionValue(label, optionIndex),
-        };
-        return { ...field, options };
-      })
-    );
-  };
-
-  const removeFieldOption = (fieldIndex: number, optionIndex: number) => {
-    setFields((prev) =>
-      prev.map((field, index) => {
-        if (index !== fieldIndex) return field;
-        const options = Array.isArray(field.options) ? [...field.options] : [];
-        if (!options[optionIndex]) return field;
-        options.splice(optionIndex, 1);
-        return { ...field, options };
-      })
-    );
   };
 
   const setFieldVisibilityEnabled = (index: number, enabled: boolean) => {
@@ -590,9 +536,8 @@ function EditFormPage() {
       ? {
           ...form.settings,
           contentSections: sanitizeContentSections(form.settings.contentSections),
-          responseEmailEnabled: true,
         }
-      : { responseEmailEnabled: true };
+      : undefined;
     const payload: UpdateFormRequest = {
       title: form.title.trim(),
       description: form.description?.trim() || undefined,
@@ -685,6 +630,7 @@ function EditFormPage() {
 
   if (!form) return null;
 
+  const responseEmailEnabled = form.settings?.responseEmailEnabled ?? true;
   const formType = form.settings?.formType ?? '';
   const submissionTarget = form.settings?.submissionTarget ?? '';
   const isWorkforceTarget =
@@ -956,9 +902,9 @@ function EditFormPage() {
               <option value="workforce_new">Workforce (new workers)</option>
               <option value="workforce_serving">Workforce (already serving)</option>
               <option value="workforce">Workforce (legacy)</option>
-              <option value="member">Membership (members)</option>
-              <option value="leadership">Leadership applications</option>
-              <option value="testimonial">Testimonials</option>
+              <option value="member">Member</option>
+              <option value="leadership">Leadership</option>
+              <option value="testimonial">Testimonial</option>
             </select>
             {fieldErrors.submissionTarget && (
               <p className="text-sm text-red-500">{fieldErrors.submissionTarget}</p>
@@ -980,35 +926,38 @@ function EditFormPage() {
           <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
             <input
               type="checkbox"
-              checked
-              disabled
-              readOnly
+              checked={responseEmailEnabled}
+              onChange={(e) => updateSettings({ responseEmailEnabled: e.target.checked })}
             />
-            Response email is mandatory
+            Enable response email
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
               label="Email subject"
               value={form.settings?.responseEmailSubject ?? ''}
               onChange={(e) => updateSettings({ responseEmailSubject: e.target.value })}
+              disabled={!responseEmailEnabled}
               error={fieldErrors.responseEmailSubject}
             />
             <Input
               label="Template key"
               value={form.settings?.responseEmailTemplateKey ?? ''}
               onChange={(e) => updateSettings({ responseEmailTemplateKey: e.target.value })}
+              disabled={!responseEmailEnabled}
               error={fieldErrors.responseEmailTemplateKey}
             />
             <Input
               label="Template ID (optional)"
               value={form.settings?.responseEmailTemplateId ?? ''}
               onChange={(e) => updateSettings({ responseEmailTemplateId: e.target.value })}
+              disabled={!responseEmailEnabled}
               error={fieldErrors.responseEmailTemplateId}
             />
             <Input
               label="Template image URL (optional)"
               value={form.settings?.responseEmailTemplateUrl ?? ''}
               onChange={(e) => updateSettings({ responseEmailTemplateUrl: e.target.value })}
+              disabled={!responseEmailEnabled}
               error={fieldErrors.responseEmailTemplateUrl}
             />
           </div>
@@ -1191,14 +1140,16 @@ function EditFormPage() {
               </label>
               <select
                 className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-                value={form.settings?.dateFormat ?? 'dd-mm'}
+                value={form.settings?.dateFormat ?? 'yyyy-mm-dd'}
                 onChange={(e) =>
                   updateSettings({
                     dateFormat: e.target.value as NonNullable<FormSettings['dateFormat']>,
                   })
                 }
               >
-                <option value="dd-mm">DD-MM</option>
+                <option value="yyyy-mm-dd">YYYY-MM-DD</option>
+                <option value="mm/dd/yyyy">MM/DD/YYYY</option>
+                <option value="dd/mm/yyyy">DD/MM/YYYY</option>
                 <option value="dd/mm">DD/MM</option>
               </select>
             </div>
@@ -1229,20 +1180,8 @@ function EditFormPage() {
                 <div className="flex flex-wrap gap-2">
                   <select
                     value={field.type}
-                    onChange={(e) => {
-                      const nextType = e.target.value as FormFieldType;
-                      const nextOptions =
-                        isOptionFieldType(nextType) && (!Array.isArray(field.options) || field.options.length === 0)
-                          ? [
-                              { label: 'Option 1', value: 'option-1' },
-                              { label: 'Option 2', value: 'option-2' },
-                            ]
-                          : isOptionFieldType(nextType)
-                          ? field.options
-                          : undefined;
-                      updateField(index, { type: nextType, options: nextOptions });
-                    }}
-                    className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                    onChange={(e) => updateField(index, { type: e.target.value as FormFieldType })}
+                    className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                   >
                     <option value="text">Text</option>
                     <option value="textarea">Textarea</option>
@@ -1268,57 +1207,24 @@ function EditFormPage() {
                   </Button>
                 </div>
               </div>
-              {field.type === 'textarea' && (
-                <div className="mt-3 max-w-xs">
-                  <Input
-                    label="Max words (optional)"
-                    type="number"
-                    min={1}
-                    value={field.validation?.maxWords ?? ''}
+
+              {(field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs text-[var(--color-text-tertiary)]">Options (comma separated)</p>
+                  <input
+                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                    value={(field.options || []).map((o) => o.label).join(', ')}
                     onChange={(e) =>
                       updateField(index, {
-                        validation: {
-                          ...(field.validation || {}),
-                          maxWords: e.target.value ? Number(e.target.value) : undefined,
-                        },
+                        options: e.target.value
+                          .split(',')
+                          .map((opt) => opt.trim())
+                          .filter(Boolean)
+                          .map((opt, idx) => ({ label: opt, value: opt.toLowerCase().replace(/\s+/g, '-') + idx })),
                       })
                     }
-                    placeholder="e.g., 400"
+                    placeholder="Option one, Option two"
                   />
-                </div>
-              )}
-
-              {isOptionFieldType(field.type) && (
-                <div className="mt-3 space-y-2">
-                  <p className="text-xs text-[var(--color-text-tertiary)]">Options</p>
-                  {(field.options || []).map((option, optionIndex) => (
-                    <div key={`${option.value}-${optionIndex}`} className="flex items-center gap-2">
-                      <input
-                        className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                        value={option.label}
-                        onChange={(e) => updateFieldOptionLabel(index, optionIndex, e.target.value)}
-                        placeholder={`Option ${optionIndex + 1}`}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeFieldOption(index, optionIndex)}
-                        icon={<Trash2 className="h-4 w-4" />}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => addFieldOption(index)}
-                    icon={<Plus className="h-4 w-4" />}
-                  >
-                    Add option
-                  </Button>
                 </div>
               )}
               <div className="mt-3 rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-3">
