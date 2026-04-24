@@ -461,7 +461,7 @@ export default withAuth(function FormsPage() {
     (async () => {
       try {
         setEventsLoading(true);
-        const res = await apiClient.getEvents({ page: 1, limit: 200 });
+        const res = await apiClient.getEvents({ page: 1, limit: 100 });
         setEvents(Array.isArray(res.data) ? res.data : []);
       } catch {
         setEvents([]);

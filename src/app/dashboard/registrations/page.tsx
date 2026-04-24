@@ -113,7 +113,7 @@ function RegistrationsPage() {
   const loadForms = useCallback(async () => {
     try {
       setFormsLoading(true);
-      const res = await apiClient.getAdminForms({ page: 1, limit: 200 });
+      const res = await apiClient.getAdminForms({ page: 1, limit: 100 });
       const list = Array.isArray(res.data) ? res.data : [];
       setForms(list);
     } catch (error) {

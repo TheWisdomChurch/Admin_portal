@@ -45,7 +45,7 @@ export function useSuperQueues() {
   const loadQueues = useCallback(async () => {
     try {
       setLoading(true);
-      const requests = await apiClient.listApprovalRequests({ limit: 250 });
+      const requests = await apiClient.listApprovalRequests({ limit: 100 });
       const approvals = (Array.isArray(requests) ? requests : [])
         .map(mapRequestToApproval)
         .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
