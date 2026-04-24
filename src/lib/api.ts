@@ -1053,6 +1053,13 @@ function toQueryString(params?: Record<string, unknown>): string {
   const cleaned: Record<string, string> = {};
   for (const [k, v] of Object.entries(params)) {
     if (v === undefined || v === null || v === '') continue;
+    if (k === 'limit') {
+      const limit = Number(v);
+      if (Number.isFinite(limit)) {
+        cleaned[k] = String(Math.max(1, Math.min(100, Math.trunc(limit))));
+        continue;
+      }
+    }
     cleaned[k] = String(v);
   }
   const qs = new URLSearchParams(cleaned).toString();
