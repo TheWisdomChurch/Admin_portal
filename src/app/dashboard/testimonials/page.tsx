@@ -217,7 +217,7 @@ export default function TestimonialsPage() {
   const loadTestimonialForms = useCallback(async () => {
     try {
       setFormsLoading(true);
-      const res = await apiClient.getAdminForms({ page: 1, limit: 250 });
+      const res = await apiClient.getAdminForms({ page: 1, limit: 100 });
       const forms = Array.isArray(res.data) ? res.data : [];
       setTestimonialForms(forms.filter(isTestimonialForm));
     } catch (error) {
