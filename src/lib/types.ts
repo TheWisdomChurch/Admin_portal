@@ -601,6 +601,14 @@ export interface AdminForm {
   publishedAt?: string;
   settings?: FormSettings;
   fields: FormField[];
+
+  // ✅ Backend may return this for admin form lists
+  submissionCount?: number;
+  submissionsCount?: number;
+  responseCount?: number;
+  responsesCount?: number;
+  totalSubmissions?: number;
+
   createdAt: string;
   updatedAt: string;
 }
