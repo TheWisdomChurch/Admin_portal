@@ -17,6 +17,7 @@ export interface User {
   last_login_at?: string;
   preferred_mfa_method?: MFAMethod;
   totp_enabled?: boolean;
+  auth_method?: MFAMethod | string;
   federated_provider?: string | null;
   federated_linked_at?: string;
 }

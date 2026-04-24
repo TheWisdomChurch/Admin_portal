@@ -193,6 +193,19 @@ function isTotpEnabled(profile: AuthSecurityProfile | null): boolean {
   return false;
 }
 
+function getSessionAuthMethod(user: User | null): string {
+  if (!user) return '';
+  const record = user as unknown as Record<string, unknown>;
+  const method = record.auth_method;
+  return typeof method === 'string' ? method.trim().toLowerCase() : '';
+}
+
+function isTotpEnabledForUser(user: User | null, mfaProfile: AuthSecurityProfile | null): boolean {
+  if (isTotpEnabled(mfaProfile)) return true;
+  if (!user) return false;
+  return (user as unknown as { totp_enabled?: unknown }).totp_enabled === true;
+}
+
 function evaluateAccess(user: User | null, mfaProfile: AuthSecurityProfile | null): AccessStatus {
   if (!user) return 'login_required';
 
@@ -200,8 +213,14 @@ function evaluateAccess(user: User | null, mfaProfile: AuthSecurityProfile | nul
     return 'forbidden';
   }
 
-  if (!isTotpEnabled(mfaProfile)) {
+  if (!isTotpEnabledForUser(user, mfaProfile)) {
     return 'mfa_required';
+  }
+
+  const authMethod = getSessionAuthMethod(user);
+  if (authMethod && authMethod !== 'totp') {
+    // Admin sessions must be TOTP-verified for privileged routes.
+    return 'login_required';
   }
 
   if (!hasAdminAccessPermission(user)) {
