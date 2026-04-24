@@ -566,13 +566,44 @@ function sanitizeFormPayload<T extends CreateFormRequest | UpdateFormRequest>(
     (nextPayload as unknown as { fields?: unknown[] }).fields = payload.fields.map(
       (field) => {
         if (!field || typeof field !== 'object') return field;
-        const nextField = { ...(field as Record<string, unknown>) };
-        const nextVisibility = sanitizeVisibilityShape(nextField.visibility);
+        const rawField = field as Record<string, unknown>;
+        const nextField: Record<string, unknown> = {
+          id: typeof rawField.id === 'string' ? rawField.id : undefined,
+          key: typeof rawField.key === 'string' ? rawField.key.trim() : undefined,
+          label: typeof rawField.label === 'string' ? rawField.label.trim() : rawField.label,
+          type: rawField.type,
+          required: rawField.required === true,
+          order: typeof rawField.order === 'number' ? rawField.order : undefined,
+        };
+
+        if (Array.isArray(rawField.options)) {
+          nextField.options = rawField.options
+            .map((option) => {
+              if (!option || typeof option !== 'object') return null;
+              const rawOption = option as Record<string, unknown>;
+              return {
+                label:
+                  typeof rawOption.label === 'string'
+                    ? rawOption.label.trim()
+                    : rawOption.label,
+                value:
+                  typeof rawOption.value === 'string'
+                    ? rawOption.value.trim()
+                    : rawOption.value,
+              };
+            })
+            .filter(Boolean);
+        }
+
+        if (rawField.validation && typeof rawField.validation === 'object') {
+          nextField.validation = rawField.validation;
+        }
+
+        const nextVisibility = sanitizeVisibilityShape(rawField.visibility);
         if (nextVisibility) {
           nextField.visibility = nextVisibility;
-        } else {
-          delete nextField.visibility;
         }
+
         return nextField;
       }
     );
