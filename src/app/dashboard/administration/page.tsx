@@ -39,7 +39,7 @@ import { Button } from '@/ui/Button';
 import { Input } from '@/ui/input';
 import { Badge } from '@/ui/Badge';
 import { PageHeader } from '@/layouts';
-import { apiClient } from '@/lib/api';
+import { apiClient, isApiError } from '@/lib/api';
 import { buildPublicFormUrl } from '@/lib/utils';
 import type {
   AdminForm,
@@ -90,6 +90,18 @@ function toArray<T>(value: unknown): T[] {
     if (Array.isArray(record.items)) return record.items as T[];
   }
   return [];
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+  if (isApiError(error) && error.message) return error.message;
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
+function reportLoadFailure(label: string, error: unknown) {
+  const message = errorMessage(error, `Failed to load ${label}`);
+  console.error(`Failed to load ${label}:`, error);
+  toast.error(`${label}: ${message}`);
 }
 
 function formatMonthDay(month?: number, day?: number) {
@@ -246,37 +258,50 @@ export default function AdministrationPage() {
   const loadAll = useCallback(async () => {
     setLoading(true);
     setFormsLoading(true);
-    try {
-      const [workforceRes, workforceStatsRes, membersRes, leadershipRes, formsRes] = await Promise.all([
-        apiClient.listWorkforce({ page: 1, limit: 200 }),
-        apiClient.getWorkforceStats(),
-        apiClient.listMembers({ page: 1, limit: 200 }),
-        apiClient.listLeadership({ page: 1, limit: 200 }),
-        apiClient.getAdminForms({ page: 1, limit: 300 }),
-      ]);
+    const [workforceRes, workforceStatsRes, membersRes, leadershipRes, formsRes] = await Promise.allSettled([
+      apiClient.listWorkforce({ page: 1, limit: 200 }),
+      apiClient.getWorkforceStats(),
+      apiClient.listMembers({ page: 1, limit: 200 }),
+      apiClient.listLeadership({ page: 1, limit: 200 }),
+      apiClient.getAdminForms({ page: 1, limit: 300 }),
+    ]);
 
-      setWorkforce(toArray<WorkforceMember>(workforceRes));
-      setWorkforceStatsApi(workforceStatsRes);
-      setMembers(toArray<Member>(membersRes));
-      setLeaders(toArray<LeadershipMember>(leadershipRes));
-      const forms = Array.isArray(formsRes.data) ? formsRes.data : [];
+    if (workforceRes.status === 'fulfilled') {
+      setWorkforce(toArray<WorkforceMember>(workforceRes.value));
+    } else {
+      reportLoadFailure('Workforce', workforceRes.reason);
+    }
+
+    if (workforceStatsRes.status === 'fulfilled') {
+      setWorkforceStatsApi(workforceStatsRes.value);
+    } else {
+      setWorkforceStatsApi(null);
+      reportLoadFailure('Workforce stats', workforceStatsRes.reason);
+    }
+
+    if (membersRes.status === 'fulfilled') {
+      setMembers(toArray<Member>(membersRes.value));
+    } else {
+      reportLoadFailure('Members', membersRes.reason);
+    }
+
+    if (leadershipRes.status === 'fulfilled') {
+      setLeaders(toArray<LeadershipMember>(leadershipRes.value));
+    } else {
+      reportLoadFailure('Leadership', leadershipRes.reason);
+    }
+
+    if (formsRes.status === 'fulfilled') {
+      const forms = Array.isArray(formsRes.value.data) ? formsRes.value.data : [];
       setAdminForms(forms);
       setMemberForms(forms.filter((form) => isTargetMatch(form, ['member', 'members', 'membership'])));
       setLeadershipForms(forms.filter((form) => isTargetMatch(form, ['leadership'])));
-    } catch (error) {
-      console.error('Failed to load administration data:', error);
-      toast.error('Unable to load administration records');
-      setWorkforce([]);
-      setWorkforceStatsApi(null);
-      setMembers([]);
-      setLeaders([]);
-      setAdminForms([]);
-      setMemberForms([]);
-      setLeadershipForms([]);
-    } finally {
-      setLoading(false);
-      setFormsLoading(false);
+    } else {
+      reportLoadFailure('Forms', formsRes.reason);
     }
+
+    setLoading(false);
+    setFormsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -528,7 +553,7 @@ export default function AdministrationPage() {
       await loadAll();
     } catch (error) {
       console.error('Failed to add leader:', error);
-      toast.error('Unable to create leadership profile');
+      toast.error(errorMessage(error, 'Unable to create leadership profile'));
     } finally {
       setSavingLeader(false);
     }
