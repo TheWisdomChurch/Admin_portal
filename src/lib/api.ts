@@ -1108,9 +1108,21 @@ export const apiClient = {
       const res = await apiFetch<ApiResponse<unknown>>('/auth/me', {
         method: 'GET',
       });
-      const payload = unwrapData<unknown>(res, 'Invalid auth payload');
-      if (payload == null) return null;
-      return extractUser(res);
+
+      const data =
+        isRecord(res) && 'data' in res
+          ? (res as { data?: unknown }).data
+          : undefined;
+
+      if (data == null) {
+        return null;
+      }
+
+      try {
+        return extractUser(res);
+      } catch {
+        return isUserLike(data) ? (data as User) : null;
+      }
     } catch (err) {
       if (isUnauthorizedError(err) || isForbiddenError(err)) {
         return null;

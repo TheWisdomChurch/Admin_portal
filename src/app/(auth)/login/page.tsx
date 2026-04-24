@@ -264,7 +264,7 @@ function LoginInner() {
               'Enter the current 6-digit code from your authenticator app to complete sign-in.',
             actionLabel: 'Enter authenticator code',
           });
-          toast('Enter the current code from your authenticator app.', { icon: '🔐' });
+          toast.success('Enter the current code from your authenticator app.');
           return;
         }
 
