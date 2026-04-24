@@ -53,13 +53,10 @@ type FieldDraft = {
   type: FormFieldType;
   required: boolean;
   order: number;
-  validation?: {
-    maxWords?: number;
-  };
   options?: { label: string; value: string }[];
 };
 
-const dateFormats = ['dd-mm', 'dd/mm'] as const;
+const dateFormats = ['yyyy-mm-dd', 'mm/dd/yyyy', 'dd/mm/yyyy', 'dd/mm'] as const;
 type DateFormat = (typeof dateFormats)[number];
 const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; label: string }> = [
   { value: 'registration', label: 'Registration' },
@@ -245,12 +242,12 @@ export default withAuth(function FormsPage() {
   const [responseEmailTemplateId, setResponseEmailTemplateId] = useState('');
   const [responseEmailTemplateUrl, setResponseEmailTemplateUrl] = useState('');
 
-  const [introTitle, setIntroTitle] = useState('Form Details');
-  const [introSubtitle, setIntroSubtitle] = useState('Complete the form below with accurate information.');
-  const [introBullets, setIntroBullets] = useState('Provide accurate details\nReview before submitting\nOur team will follow up');
-  const [introBulletSubs, setIntroBulletSubs] = useState('Helps us process your response quickly\nPrevents errors in your record\nOnly authorized staff can access submissions');
+  const [introTitle, setIntroTitle] = useState('Event Registration');
+  const [introSubtitle, setIntroSubtitle] = useState('Secure your spot by registering below.');
+  const [introBullets, setIntroBullets] = useState('Smooth check-in\nEngaging sessions\nFriendly community');
+  const [introBulletSubs, setIntroBulletSubs] = useState('Arrive early for badges\nShort, powerful sessions\nMeet friendly stewards');
   const [layoutMode, setLayoutMode] = useState<'split' | 'stack'>('split');
-  const [dateFormat, setDateFormat] = useState<DateFormat>('dd-mm');
+  const [dateFormat, setDateFormat] = useState<DateFormat>('yyyy-mm-dd');
 
   const footerText = 'Powered by Wisdom House Registration';
   const footerBg = '#f5c400';
@@ -461,7 +458,7 @@ export default withAuth(function FormsPage() {
     (async () => {
       try {
         setEventsLoading(true);
-        const res = await apiClient.getEvents({ page: 1, limit: 100 });
+        const res = await apiClient.getEvents({ page: 1, limit: 200 });
         setEvents(Array.isArray(res.data) ? res.data : []);
       } catch {
         setEvents([]);
@@ -838,7 +835,6 @@ export default withAuth(function FormsPage() {
           label: f.label.trim() || `Field ${idx + 1}`,
           type: f.type,
           required: f.required,
-          validation: f.validation?.maxWords ? { maxWords: f.validation.maxWords } : undefined,
           order: idx + 1,
         };
 
@@ -870,11 +866,14 @@ export default withAuth(function FormsPage() {
           submissionTarget === 'workforce_serving'
             ? submissionDepartment.trim() || undefined
             : undefined,
-        responseEmailEnabled: true,
-        responseEmailSubject: responseEmailSubject.trim() || undefined,
-        responseEmailTemplateKey: responseEmailTemplateKey.trim() || undefined,
-        responseEmailTemplateId: responseEmailTemplateId.trim() || undefined,
-        responseEmailTemplateUrl: normalizedResponseTemplateURL || undefined,
+        responseEmailEnabled,
+        responseEmailSubject: responseEmailEnabled ? responseEmailSubject.trim() || undefined : undefined,
+        responseEmailTemplateKey:
+          responseEmailEnabled ? responseEmailTemplateKey.trim() || undefined : undefined,
+        responseEmailTemplateId:
+          responseEmailEnabled ? responseEmailTemplateId.trim() || undefined : undefined,
+        responseEmailTemplateUrl:
+          responseEmailEnabled ? normalizedResponseTemplateURL || undefined : undefined,
         successTitle: successTitle.trim() || undefined,
         successSubtitle: successSubtitle.trim() || undefined,
         successMessage: successMessage.trim() || undefined,
@@ -1618,7 +1617,7 @@ export default withAuth(function FormsPage() {
                 <div className="mb-3">
                   <p className="text-sm font-semibold text-[var(--color-text-primary)]">Submission Routing</p>
                   <p className="text-xs text-[var(--color-text-tertiary)]">
-                    Route registrations into Workforce (new/serving) or Member records automatically.
+                    Route submissions into Workforce, Member, Leadership, or Testimonial workflows automatically.
                   </p>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
@@ -1636,9 +1635,9 @@ export default withAuth(function FormsPage() {
                       <option value="workforce_new">Workforce (new workers)</option>
                       <option value="workforce_serving">Workforce (already serving)</option>
                       <option value="workforce">Workforce (legacy)</option>
-                      <option value="member">Membership (members)</option>
-                      <option value="leadership">Leadership applications</option>
-                      <option value="testimonial">Testimonials</option>
+                      <option value="member">Member</option>
+                      <option value="leadership">Leadership</option>
+                      <option value="testimonial">Testimonial</option>
                     </select>
                     {fieldErrors.submissionTarget && (
                       <p className="text-sm text-red-500">{fieldErrors.submissionTarget}</p>
@@ -1668,11 +1667,10 @@ export default withAuth(function FormsPage() {
                 <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
                   <input
                     type="checkbox"
-                    checked
-                    disabled
-                    readOnly
+                    checked={responseEmailEnabled}
+                    onChange={(e) => setResponseEmailEnabled(e.target.checked)}
                   />
-                  Response email is mandatory
+                  Enable response email
                 </label>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <Input
@@ -1683,6 +1681,7 @@ export default withAuth(function FormsPage() {
                       setResponseEmailSubject(e.target.value);
                     }}
                     placeholder="Welcome to Wisdom House Church"
+                    disabled={!responseEmailEnabled}
                     error={fieldErrors.responseEmailSubject}
                   />
                   <Input
@@ -1693,6 +1692,7 @@ export default withAuth(function FormsPage() {
                       setResponseEmailTemplateKey(e.target.value);
                     }}
                     placeholder="welcome-member"
+                    disabled={!responseEmailEnabled}
                     error={fieldErrors.responseEmailTemplateKey}
                   />
                   <Input
@@ -1703,6 +1703,7 @@ export default withAuth(function FormsPage() {
                       setResponseEmailTemplateId(e.target.value);
                     }}
                     placeholder="Template UUID"
+                    disabled={!responseEmailEnabled}
                     error={fieldErrors.responseEmailTemplateId}
                   />
                   <Input
@@ -1712,7 +1713,8 @@ export default withAuth(function FormsPage() {
                       clearFieldError('responseEmailTemplateUrl');
                       setResponseEmailTemplateUrl(e.target.value);
                     }}
-                    placeholder="https://zecqbhqstwhiwwjpphep.storage.supabase.co/storage/v1/s3/email_template/WPC_26.png"
+                    placeholder="https://churchasset.fra1.cdn.digitaloceanspaces.com/email_template/WPC_26.png"
+                    disabled={!responseEmailEnabled}
                     error={fieldErrors.responseEmailTemplateUrl}
                   />
                 </div>
@@ -1780,25 +1782,6 @@ export default withAuth(function FormsPage() {
                     </div>
 
                     {/* OPTIONS EDITOR (FIX) */}
-                    {field.type === 'textarea' && (
-                      <div className="mt-3 max-w-xs">
-                        <Input
-                          label="Max words (optional)"
-                          type="number"
-                          min={1}
-                          value={field.validation?.maxWords ?? ''}
-                          onChange={(e) =>
-                            updateField(index, {
-                              validation: {
-                                ...(field.validation || {}),
-                                maxWords: e.target.value ? Number(e.target.value) : undefined,
-                              },
-                            })
-                          }
-                          placeholder="e.g., 400"
-                        />
-                      </div>
-                    )}
                     {isOptionField(field.type) && (
                       <div className="mt-3 space-y-3">
                         <div className="flex items-center justify-between gap-2">
@@ -1920,7 +1903,9 @@ export default withAuth(function FormsPage() {
                         }}
                         className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
                       >
-                        <option value="dd-mm">DD-MM</option>
+                        <option value="yyyy-mm-dd">YYYY-MM-DD</option>
+                        <option value="mm/dd/yyyy">MM/DD/YYYY</option>
+                        <option value="dd/mm/yyyy">DD/MM/YYYY</option>
                         <option value="dd/mm">DD/MM</option>
                       </select>
                     </div>

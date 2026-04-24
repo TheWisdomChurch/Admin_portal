@@ -3,63 +3,38 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArcElement,
-  BarElement,
-  CategoryScale,
-  Chart as ChartJS,
-  Filler,
-  Legend,
-  LineElement,
-  LinearScale,
-  PointElement,
-  Title,
-  Tooltip,
-} from 'chart.js';
-import {
   Calendar,
-  CheckCircle2,
-  Eye,
+  ExternalLink,
+  FileText,
   Heart,
-  LayoutGrid,
   Mail,
   Phone,
+  RefreshCw,
   Shield,
   Sparkles,
   UploadCloud,
   UserPlus,
   Users,
-  Link2,
-  Copy,
-  Pencil,
-  Trash2,
 } from 'lucide-react';
-import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import toast from 'react-hot-toast';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/input';
 import { Badge } from '@/ui/Badge';
 import { PageHeader } from '@/layouts';
-import { apiClient, isApiError } from '@/lib/api';
-import { resolveFormSubmissionEmail, resolveFormSubmissionName } from '@/lib/formSubmissions';
-import { buildPublicFormUrl } from '@/lib/utils';
+import { apiClient } from '@/lib/api';
 import type {
-  AdminForm,
   CreateLeadershipRequest,
   CreateMemberRequest,
+  AdminForm,
   FormSubmission,
   LeadershipMember,
   LeadershipRole,
   Member,
   WorkforceMember,
-  WorkforceStatsResponse,
 } from '@/lib/types';
 
-type TabKey = 'overview' | 'workforce' | 'members' | 'leadership' | 'forms';
-type RoutedFormSubmission = FormSubmission & {
-  formTitle: string;
-  formSlug?: string;
-};
+type TabKey = 'workforce' | 'members' | 'leadership';
 
 const roleOptions: Array<{ value: LeadershipRole; label: string }> = [
   { value: 'senior_pastor', label: 'Senior Pastor' },
@@ -70,20 +45,6 @@ const roleOptions: Array<{ value: LeadershipRole; label: string }> = [
 ];
 
 const ddmmyyyy = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
-const nf = new Intl.NumberFormat('en-US');
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Filler,
-  Title,
-  Tooltip,
-  Legend
-);
 
 function toArray<T>(value: unknown): T[] {
   if (Array.isArray(value)) return value as T[];
@@ -100,36 +61,9 @@ function toArray<T>(value: unknown): T[] {
   return [];
 }
 
-function errorMessage(error: unknown, fallback: string): string {
-  if (isApiError(error) && error.message) return error.message;
-  if (error instanceof Error && error.message) return error.message;
-  return fallback;
-}
-
-function reportLoadFailure(label: string, error: unknown) {
-  const message = errorMessage(error, `Failed to load ${label}`);
-  console.error(`Failed to load ${label}:`, error);
-  toast.error(`${label}: ${message}`);
-}
-
 function formatMonthDay(month?: number, day?: number) {
   if (!month || !day) return '—';
   return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`;
-}
-
-function toWeekStart(value: Date): Date {
-  const date = new Date(value);
-  const day = date.getDay();
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-  date.setDate(diff);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function weekLabel(start: Date): string {
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  return `${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
 }
 
 function roleLabel(role: LeadershipRole) {
@@ -137,87 +71,89 @@ function roleLabel(role: LeadershipRole) {
   return found ? found.label : role;
 }
 
-function normalizeTargetKey(form: AdminForm): string {
-  const explicitTarget = form.settings?.submissionTarget?.trim().toLowerCase();
-  if (explicitTarget) return explicitTarget;
-
-  const formType = String(form.settings?.formType || '').trim().toLowerCase();
-  if (formType) return formType;
-
-  return 'general';
+function normalizeToken(value?: string | null) {
+  return (value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
 
-function toTargetLabel(key: string): string {
-  const labelMap: Record<string, string> = {
-    workforce: 'Workforce',
-    workforce_new: 'Workforce (New)',
-    workforce_serving: 'Workforce (Serving)',
-    member: 'Members',
-    members: 'Members',
-    membership: 'Membership',
-    leadership: 'Leadership',
-    testimonial: 'Testimonials',
-    event: 'Events',
-    registration: 'Registration',
-    contact: 'Contact',
-    application: 'Applications',
-    general: 'General',
+function getSubmissionCount(form: AdminForm) {
+  const record = form as AdminForm & {
+    submissionCount?: number;
+    submissionsCount?: number;
+    responseCount?: number;
+    responsesCount?: number;
+    totalSubmissions?: number;
+    total?: number;
+    count?: number;
   };
-  return labelMap[key] || key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const count =
+    record.submissionCount ??
+    record.submissionsCount ??
+    record.responseCount ??
+    record.responsesCount ??
+    record.totalSubmissions ??
+    record.total ??
+    record.count ??
+    0;
+
+  return typeof count === 'number' && Number.isFinite(count) ? count : 0;
 }
 
-function isTargetMatch(form: AdminForm, allowed: string[]): boolean {
-  const normalized = normalizeTargetKey(form);
-  if (allowed.includes(normalized)) return true;
-  const slug = (form.slug || '').trim().toLowerCase();
-  const title = (form.title || '').trim().toLowerCase();
-  if (allowed.includes('leadership') && (slug.includes('leadership') || title.includes('leadership'))) return true;
-  if (
-    (allowed.includes('member') || allowed.includes('members') || allowed.includes('membership')) &&
-    (slug.includes('member') || slug.includes('membership') || title.includes('member') || title.includes('membership'))
-  ) {
-    return true;
+function formMatchesSection(form: AdminForm, section: TabKey) {
+  const target = form.settings?.submissionTarget;
+  const formType = form.settings?.formType;
+  const surface = normalizeToken(`${form.slug || ''} ${form.title || ''}`);
+
+  if (section === 'workforce') {
+    return (
+      target === 'workforce' ||
+      target === 'workforce_new' ||
+      target === 'workforce_serving' ||
+      formType === 'workforce' ||
+      surface.includes('workforce') ||
+      surface.includes('worker')
+    );
   }
-  return allowed.includes(normalized);
+
+  if (section === 'members') {
+    return (
+      target === 'member' ||
+      formType === 'membership' ||
+      surface.includes('member') ||
+      surface.includes('membership')
+    );
+  }
+
+  return target === 'leadership' || formType === 'leadership' || surface.includes('leadership');
 }
 
-async function fetchRoutedFormSubmissions(forms: AdminForm[], label: string): Promise<RoutedFormSubmission[]> {
-  if (forms.length === 0) return [];
-
-  const results = await Promise.allSettled(
-    forms.map(async (form) => {
-      const response = await apiClient.getFormSubmissions(form.id, { page: 1, limit: 100 });
-      return (response.data || []).map((submission) => ({
-        ...submission,
-        formTitle: form.title,
-        formSlug: form.slug,
-      }));
-    })
-  );
-
-  const submissions: RoutedFormSubmission[] = [];
-  results.forEach((result, index) => {
-    if (result.status === 'fulfilled') {
-      submissions.push(...result.value);
-      return;
-    }
-    console.error(`Failed to load ${label} form submissions for ${forms[index]?.title || forms[index]?.id}:`, result.reason);
-  });
-
-  return submissions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+function resolveSubmissionName(submission: FormSubmission) {
+  const values = submission.values || {};
+  const direct = submission.name || values.fullName || values.full_name || values.name;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+  const first = typeof values.firstName === 'string' ? values.firstName : values.first_name;
+  const last = typeof values.lastName === 'string' ? values.lastName : values.last_name;
+  const combined = `${typeof first === 'string' ? first : ''} ${typeof last === 'string' ? last : ''}`.trim();
+  return combined || 'Anonymous';
 }
 
-function buildNewFormRouteForTarget(targetKey: string): string {
-  if (targetKey === 'member' || targetKey === 'members' || targetKey === 'membership') {
-    return '/dashboard/forms/new?preset=member';
-  }
-  if (targetKey === 'leadership') {
-    return '/dashboard/forms/new?preset=leadership';
-  }
-  if (targetKey === 'workforce' || targetKey === 'workforce_new' || targetKey === 'workforce_serving') {
-    return '/dashboard/forms/new?preset=workforce';
-  }
-  return '/dashboard/forms/new';
+function resolveSubmissionEmail(submission: FormSubmission) {
+  const values = submission.values || {};
+  const email = submission.email || values.email || values.contactEmail || values.email_address;
+  return typeof email === 'string' && email.trim() ? email.trim() : 'No email';
+}
+
+function resolveSubmissionPhone(submission: FormSubmission) {
+  const values = submission.values || {};
+  const phone = submission.contactNumber || values.phone || values.contactPhone || values.phone_number || values.contact_number;
+  return typeof phone === 'string' && phone.trim() ? phone.trim() : '—';
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
 }
 
 function AccordionRow({
@@ -247,25 +183,25 @@ function AccordionRow({
 
 export default function AdministrationPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabKey>('overview');
+  const [activeTab, setActiveTab] = useState<TabKey>('workforce');
 
   const [workforce, setWorkforce] = useState<WorkforceMember[]>([]);
-  const [workforceStatsApi, setWorkforceStatsApi] = useState<WorkforceStatsResponse | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [leaders, setLeaders] = useState<LeadershipMember[]>([]);
+  const [forms, setForms] = useState<AdminForm[]>([]);
   const [loading, setLoading] = useState(false);
-  const [formsLoading, setFormsLoading] = useState(false);
-  const [adminForms, setAdminForms] = useState<AdminForm[]>([]);
-  const [memberForms, setMemberForms] = useState<AdminForm[]>([]);
-  const [leadershipForms, setLeadershipForms] = useState<AdminForm[]>([]);
-  const [memberFormSubmissions, setMemberFormSubmissions] = useState<RoutedFormSubmission[]>([]);
-  const [leadershipFormSubmissions, setLeadershipFormSubmissions] = useState<RoutedFormSubmission[]>([]);
+  const [selectedFormIds, setSelectedFormIds] = useState<Record<TabKey, string>>({
+    workforce: '',
+    members: '',
+    leadership: '',
+  });
+  const [formSubmissions, setFormSubmissions] = useState<FormSubmission[]>([]);
+  const [formSubmissionsTotal, setFormSubmissionsTotal] = useState(0);
+  const [formSubmissionsPage, setFormSubmissionsPage] = useState(1);
+  const [formSubmissionsLoading, setFormSubmissionsLoading] = useState(false);
 
   const [memberModalOpen, setMemberModalOpen] = useState(false);
   const [leaderModalOpen, setLeaderModalOpen] = useState(false);
-  const [memberReviewTarget, setMemberReviewTarget] = useState<Member | null>(null);
-  const [leadershipReviewTarget, setLeadershipReviewTarget] = useState<LeadershipMember | null>(null);
-  const [memberActivatingId, setMemberActivatingId] = useState<string | null>(null);
   const [savingMember, setSavingMember] = useState(false);
   const [savingLeader, setSavingLeader] = useState(false);
 
@@ -291,85 +227,35 @@ export default function AdministrationPage() {
   });
   const [leaderImageFile, setLeaderImageFile] = useState<File | null>(null);
 
-  const loadWorkforce = useCallback(async () => {
-    setLoading(true);
-    const [workforceRes, workforceStatsRes] = await Promise.allSettled([
-      apiClient.listWorkforce({ page: 1, limit: 100 }),
-      apiClient.getWorkforceStats(),
-    ]);
-
-    if (workforceRes.status === 'fulfilled') {
-      setWorkforce(toArray<WorkforceMember>(workforceRes.value));
-    } else {
-      reportLoadFailure('Workforce', workforceRes.reason);
-    }
-
-    if (workforceStatsRes.status === 'fulfilled') {
-      setWorkforceStatsApi(workforceStatsRes.value);
-    } else {
-      setWorkforceStatsApi(null);
-      reportLoadFailure('Workforce stats', workforceStatsRes.reason);
-    }
-
-    setLoading(false);
-  }, []);
-
-  const loadMembers = useCallback(async () => {
+  const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient.listMembers({ page: 1, limit: 100 });
-      setMembers(toArray<Member>(res));
-    } catch (error) {
-      reportLoadFailure('Members', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const loadLeadership = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await apiClient.listLeadership({ page: 1, limit: 100 });
-      setLeaders(toArray<LeadershipMember>(res));
-    } catch (error) {
-      reportLoadFailure('Leadership', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const loadForms = useCallback(async () => {
-    setFormsLoading(true);
-    try {
-      const formsRes = await apiClient.getAdminForms({ page: 1, limit: 100 });
-      const forms = Array.isArray(formsRes.data) ? formsRes.data : [];
-      const nextMemberForms = forms.filter((form) => isTargetMatch(form, ['member', 'members', 'membership']));
-      const nextLeadershipForms = forms.filter((form) => isTargetMatch(form, ['leadership']));
-      setAdminForms(forms);
-      setMemberForms(nextMemberForms);
-      setLeadershipForms(nextLeadershipForms);
-
-      const [memberSubmissions, leadershipSubmissions] = await Promise.all([
-        fetchRoutedFormSubmissions(nextMemberForms, 'member'),
-        fetchRoutedFormSubmissions(nextLeadershipForms, 'leadership'),
+      const [workforceRes, membersRes, leadershipRes, formsRes] = await Promise.all([
+        apiClient.listWorkforce({ page: 1, limit: 200 }),
+        apiClient.listMembers({ page: 1, limit: 200 }),
+        apiClient.listLeadership({ page: 1, limit: 200 }),
+        apiClient.getAdminForms({ page: 1, limit: 300 }),
       ]);
-      setMemberFormSubmissions(memberSubmissions);
-      setLeadershipFormSubmissions(leadershipSubmissions);
+
+      setWorkforce(toArray<WorkforceMember>(workforceRes));
+      setMembers(toArray<Member>(membersRes));
+      setLeaders(toArray<LeadershipMember>(leadershipRes));
+      setForms(Array.isArray(formsRes.data) ? formsRes.data : []);
     } catch (error) {
-      reportLoadFailure('Forms', error);
+      console.error('Failed to load administration data:', error);
+      toast.error('Unable to load administration records');
+      setWorkforce([]);
+      setMembers([]);
+      setLeaders([]);
+      setForms([]);
+    } finally {
+      setLoading(false);
     }
-    setFormsLoading(false);
   }, []);
 
   useEffect(() => {
-    loadForms();
-  }, [loadForms]);
-
-  useEffect(() => {
-    if (activeTab === 'workforce') void loadWorkforce();
-    if (activeTab === 'members') void loadMembers();
-    if (activeTab === 'leadership') void loadLeadership();
-  }, [activeTab, loadLeadership, loadMembers, loadWorkforce]);
+    loadAll();
+  }, [loadAll]);
 
   const workforceStats = useMemo(() => {
     return workforce.reduce(
@@ -381,156 +267,62 @@ export default function AdministrationPage() {
     );
   }, [workforce]);
 
-  const workforceSections = useMemo(() => {
-    const fromApi = workforceStatsApi?.frontendByDepartment || {};
-    const hasApiData = Object.keys(fromApi).length > 0;
-    const source = hasApiData
-      ? fromApi
-      : workforce.reduce<Record<string, number>>((acc, row) => {
-          const key = row.department?.trim() || 'Unspecified';
-          acc[key] = (acc[key] || 0) + 1;
-          return acc;
-        }, {});
-
-    return Object.entries(source)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8);
-  }, [workforce, workforceStatsApi]);
-
-  const formGroups = useMemo(() => {
-    const grouped = adminForms.reduce<Record<string, AdminForm[]>>((acc, form) => {
-      const key = normalizeTargetKey(form);
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(form);
-      return acc;
-    }, {});
-
-    return Object.entries(grouped)
-      .map(([key, forms]) => ({
-        key,
-        label: toTargetLabel(key),
-        forms: forms.sort((a, b) => {
-          const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
-          const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
-          return bTime - aTime;
-        }),
-      }))
-      .sort((a, b) => b.forms.length - a.forms.length || a.label.localeCompare(b.label));
-  }, [adminForms]);
-
-  const formsMetrics = useMemo(() => {
-    const total = adminForms.length;
-    const published = adminForms.filter((f) => f.isPublished || f.status === 'published').length;
-    const drafts = Math.max(0, total - published);
-    const targets = formGroups.length;
-    return { total, published, drafts, targets };
-  }, [adminForms, formGroups.length]);
-
-  const memberAnalytics = useMemo(() => {
-    const now = new Date();
-    const createdDates = members
-      .map((item) => new Date(item.createdAt))
-      .filter((date) => !Number.isNaN(date.getTime()));
-
-    const activeCount = members.filter((item) => item.isActive).length;
-    const pendingCount = members.length - activeCount;
-
-    const currentWeekStart = toWeekStart(now);
-    const weekBuckets: Array<{ label: string; key: string; count: number }> = [];
-    for (let i = 11; i >= 0; i -= 1) {
-      const start = new Date(currentWeekStart);
-      start.setDate(start.getDate() - i * 7);
-      const key = start.toISOString().slice(0, 10);
-      weekBuckets.push({ label: weekLabel(start), key, count: 0 });
-    }
-    const weekIndex = new Map(weekBuckets.map((bucket, index) => [bucket.key, index]));
-    createdDates.forEach((date) => {
-      const key = toWeekStart(date).toISOString().slice(0, 10);
-      const index = weekIndex.get(key);
-      if (typeof index === 'number') weekBuckets[index].count += 1;
-    });
-
-    const monthBuckets: Array<{ label: string; key: string; count: number }> = [];
-    for (let i = 11; i >= 0; i -= 1) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      const label = date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
-      monthBuckets.push({ label, key, count: 0 });
-    }
-    const monthIndex = new Map(monthBuckets.map((bucket, index) => [bucket.key, index]));
-    createdDates.forEach((date) => {
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      const index = monthIndex.get(key);
-      if (typeof index === 'number') monthBuckets[index].count += 1;
-    });
-
-    const quarterBuckets = [
-      { label: 'Q1', key: 1, count: 0 },
-      { label: 'Q2', key: 2, count: 0 },
-      { label: 'Q3', key: 3, count: 0 },
-      { label: 'Q4', key: 4, count: 0 },
-    ];
-    createdDates.forEach((date) => {
-      if (date.getFullYear() !== now.getFullYear()) return;
-      const quarter = Math.floor(date.getMonth() / 3) + 1;
-      const row = quarterBuckets.find((bucket) => bucket.key === quarter);
-      if (row) row.count += 1;
-    });
-
-    const yearBuckets: Array<{ label: string; year: number; count: number }> = [];
-    for (let i = 4; i >= 0; i -= 1) {
-      const year = now.getFullYear() - i;
-      yearBuckets.push({ label: String(year), year, count: 0 });
-    }
-    const yearIndex = new Map(yearBuckets.map((bucket, index) => [bucket.year, index]));
-    createdDates.forEach((date) => {
-      const index = yearIndex.get(date.getFullYear());
-      if (typeof index === 'number') yearBuckets[index].count += 1;
-    });
-
-    const weekTotal = weekBuckets.reduce((sum, row) => sum + row.count, 0);
-    const monthTotal = monthBuckets[monthBuckets.length - 1]?.count || 0;
-    const yearTotal = createdDates.filter((date) => date.getFullYear() === now.getFullYear()).length;
+  const sectionForms = useMemo(() => {
+    const sortByResponses = (items: AdminForm[]) =>
+      items.slice().sort((left, right) => getSubmissionCount(right) - getSubmissionCount(left));
 
     return {
-      activeCount,
-      pendingCount,
-      weekTotal,
-      monthTotal,
-      yearTotal,
-      weekly: weekBuckets,
-      monthly: monthBuckets,
-      quarterly: quarterBuckets,
-      yearly: yearBuckets,
+      workforce: sortByResponses(forms.filter((form) => formMatchesSection(form, 'workforce'))),
+      members: sortByResponses(forms.filter((form) => formMatchesSection(form, 'members'))),
+      leadership: sortByResponses(forms.filter((form) => formMatchesSection(form, 'leadership'))),
     };
-  }, [members]);
+  }, [forms]);
 
-  const pendingLeadership = useMemo(
-    () => leaders.filter((row) => row.status === 'pending').sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    [leaders]
-  );
-  const publishedLeadership = useMemo(
-    () => leaders.filter((row) => row.status === 'approved').sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    [leaders]
-  );
-  const inactiveMembers = useMemo(
-    () => members.filter((row) => !row.isActive).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    [members]
-  );
+  const activeSectionForms = sectionForms[activeTab];
+  const selectedFormId = selectedFormIds[activeTab];
+  const selectedForm = activeSectionForms.find((form) => form.id === selectedFormId) || activeSectionForms[0] || null;
+  const selectedSectionFormId = selectedForm?.id || '';
 
-  const activateMember = useCallback(async (member: Member) => {
-    try {
-      setMemberActivatingId(member.id);
-      await apiClient.updateMember(member.id, { isActive: true });
-      toast.success('Member approved and activated');
-      await loadMembers();
-    } catch (error) {
-      console.error('Failed to activate member:', error);
-      toast.error('Unable to approve member');
-    } finally {
-      setMemberActivatingId(null);
+  useEffect(() => {
+    setSelectedFormIds((prev) => {
+      const next = { ...prev };
+      (Object.keys(sectionForms) as TabKey[]).forEach((key) => {
+        const current = next[key];
+        if (current && sectionForms[key].some((form) => form.id === current)) return;
+        next[key] = sectionForms[key][0]?.id || '';
+      });
+      return next;
+    });
+  }, [sectionForms]);
+
+  const loadSectionSubmissions = useCallback(async () => {
+    if (!selectedSectionFormId) {
+      setFormSubmissions([]);
+      setFormSubmissionsTotal(0);
+      return;
     }
-  }, [loadMembers]);
+
+    setFormSubmissionsLoading(true);
+    try {
+      const res = await apiClient.getFormSubmissions(selectedSectionFormId, {
+        page: formSubmissionsPage,
+        limit: 8,
+      });
+      setFormSubmissions(Array.isArray(res.data) ? res.data : []);
+      setFormSubmissionsTotal(typeof res.total === 'number' ? res.total : 0);
+    } catch (error) {
+      console.error('Failed to load form submissions:', error);
+      toast.error('Unable to load form responses');
+      setFormSubmissions([]);
+      setFormSubmissionsTotal(0);
+    } finally {
+      setFormSubmissionsLoading(false);
+    }
+  }, [selectedSectionFormId, formSubmissionsPage]);
+
+  useEffect(() => {
+    loadSectionSubmissions();
+  }, [loadSectionSubmissions]);
 
   const addMember = useCallback(async () => {
     if (!memberForm.firstName.trim() || !memberForm.lastName.trim() || !memberForm.email.trim()) {
@@ -550,14 +342,14 @@ export default function AdministrationPage() {
       toast.success('Member added');
       setMemberModalOpen(false);
       setMemberForm({ firstName: '', lastName: '', email: '', phone: '', isActive: true });
-      await loadMembers();
+      await loadAll();
     } catch (error) {
       console.error('Failed to add member:', error);
       toast.error('Unable to add member');
     } finally {
       setSavingMember(false);
     }
-  }, [memberForm, loadMembers]);
+  }, [memberForm, loadAll]);
 
   const addLeader = useCallback(async () => {
     if (!leaderForm.firstName?.trim() || !leaderForm.lastName?.trim() || !leaderForm.role) {
@@ -613,19 +405,22 @@ export default function AdministrationPage() {
         anniversary: '',
         imageUrl: '',
       });
-      await loadLeadership();
+      await loadAll();
     } catch (error) {
       console.error('Failed to add leader:', error);
-      toast.error(errorMessage(error, 'Unable to create leadership profile'));
+      toast.error('Unable to create leadership profile');
     } finally {
       setSavingLeader(false);
     }
-  }, [leaderForm, leaderImageFile, loadLeadership]);
+  }, [leaderForm, leaderImageFile, loadAll]);
 
   const tabButton = (key: TabKey, label: string, icon: ReactNode) => (
     <button
       key={key}
-      onClick={() => setActiveTab(key)}
+      onClick={() => {
+        setActiveTab(key);
+        setFormSubmissionsPage(1);
+      }}
       className={`
         inline-flex items-center gap-2 rounded-[var(--radius-button)] border px-3 py-2 text-sm font-semibold transition-colors
         ${activeTab === key
@@ -638,31 +433,146 @@ export default function AdministrationPage() {
     </button>
   );
 
-  const copyPublicFormLink = async (form: AdminForm) => {
-    const url = buildPublicFormUrl(form.slug, form.publicUrl);
-    if (!url) {
-      toast.error('Form link not available yet. Publish the form first.');
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success('Form link copied');
-    } catch {
-      toast.error('Unable to copy link');
-    }
-  };
+  const renderFormResponses = (section: TabKey, label: string) => {
+    const relatedForms = sectionForms[section];
+    const currentFormId = selectedFormIds[section];
+    const currentForm = relatedForms.find((form) => form.id === currentFormId) || relatedForms[0] || null;
+    const totalPages = Math.max(1, Math.ceil(formSubmissionsTotal / 8));
 
-  const deleteForm = async (form: AdminForm) => {
-    const confirmed = window.confirm(`Delete "${form.title}"? This will disable its public submissions.`);
-    if (!confirmed) return;
-    try {
-      await apiClient.deleteAdminForm(form.id);
-      toast.success('Form deleted');
-      await loadForms();
-    } catch (error) {
-      console.error('Failed to delete form:', error);
-      toast.error('Failed to delete form');
-    }
+    return (
+      <Card
+        title={`${label} Form Responses`}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<RefreshCw className="h-4 w-4" />}
+              onClick={loadSectionSubmissions}
+              loading={formSubmissionsLoading}
+              disabled={!currentForm}
+            >
+              Refresh
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={<ExternalLink className="h-4 w-4" />}
+              onClick={() => currentForm && router.push(`/dashboard/forms/${currentForm.id}/submissions`)}
+              disabled={!currentForm}
+            >
+              Full View
+            </Button>
+          </div>
+        }
+      >
+        {relatedForms.length === 0 ? (
+          <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 text-sm text-[var(--color-text-tertiary)]">
+            No {label.toLowerCase()} forms found. Set a form&apos;s type or submission target to {section === 'members' ? 'member' : section} to show responses here.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+              <label className="space-y-1">
+                <span className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                  {label} form
+                </span>
+                <select
+                  className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                  value={currentForm?.id || ''}
+                  onChange={(event) => {
+                    setSelectedFormIds((prev) => ({ ...prev, [section]: event.target.value }));
+                    setFormSubmissionsPage(1);
+                  }}
+                >
+                  {relatedForms.map((form) => (
+                    <option key={form.id} value={form.id}>
+                      {form.title} ({getSubmissionCount(form)})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-2 text-sm">
+                <p className="text-xs text-[var(--color-text-tertiary)]">Responses</p>
+                <p className="font-semibold text-[var(--color-text-primary)]">{formSubmissionsTotal}</p>
+              </div>
+            </div>
+
+            {currentForm && (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+                <FileText className="h-4 w-4" />
+                <span className="font-medium text-[var(--color-text-secondary)]">{currentForm.title}</span>
+                {currentForm.slug && <span>/forms/{currentForm.slug}</span>}
+              </div>
+            )}
+
+            <div className="overflow-x-auto rounded-[var(--radius-card)] border border-[var(--color-border-secondary)]">
+              <table className="min-w-full divide-y divide-[var(--color-border-secondary)] text-sm">
+                <thead className="bg-[var(--color-background-tertiary)]">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Name</th>
+                    <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Email</th>
+                    <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Phone</th>
+                    <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Submitted</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--color-border-secondary)] bg-[var(--color-background-primary)]">
+                  {formSubmissionsLoading ? (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
+                        Loading responses...
+                      </td>
+                    </tr>
+                  ) : formSubmissions.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
+                        No responses for this form yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    formSubmissions.map((submission) => (
+                      <tr key={submission.id}>
+                        <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">
+                          {resolveSubmissionName(submission)}
+                        </td>
+                        <td className="px-4 py-3 text-[var(--color-text-secondary)]">{resolveSubmissionEmail(submission)}</td>
+                        <td className="px-4 py-3 text-[var(--color-text-secondary)]">{resolveSubmissionPhone(submission)}</td>
+                        <td className="px-4 py-3 text-[var(--color-text-tertiary)]">{formatDateTime(submission.createdAt)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs text-[var(--color-text-tertiary)]">
+                Page {formSubmissionsPage} of {totalPages}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setFormSubmissionsPage((page) => Math.max(1, page - 1))}
+                  disabled={formSubmissionsPage <= 1 || formSubmissionsLoading}
+                >
+                  Previous
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setFormSubmissionsPage((page) => Math.min(totalPages, page + 1))}
+                  disabled={formSubmissionsPage >= totalPages || formSubmissionsLoading}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Card>
+    );
   };
 
   return (
@@ -684,88 +594,11 @@ export default function AdministrationPage() {
 
       <Card>
         <div className="flex flex-wrap gap-3">
-          {tabButton('overview', 'Overview', <LayoutGrid className="h-4 w-4" />)}
           {tabButton('workforce', 'Workforce', <Shield className="h-4 w-4" />)}
           {tabButton('members', 'Members', <Users className="h-4 w-4" />)}
           {tabButton('leadership', 'Leadership', <Sparkles className="h-4 w-4" />)}
-          {tabButton('forms', 'Forms', <LayoutGrid className="h-4 w-4" />)}
         </div>
       </Card>
-
-      <Card title="Administration Form Metrics">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-            <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Total forms</p>
-            <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{formsMetrics.total}</p>
-          </div>
-          <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-            <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Published</p>
-            <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{formsMetrics.published}</p>
-          </div>
-          <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-            <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Drafts</p>
-            <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{formsMetrics.drafts}</p>
-          </div>
-          <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-            <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Form sections</p>
-            <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{formsMetrics.targets}</p>
-          </div>
-        </div>
-      </Card>
-
-      {activeTab === 'overview' && (
-        <div className="grid gap-4 lg:grid-cols-3">
-          {[
-            {
-              key: 'workforce' as TabKey,
-              title: 'Workforce',
-              subtitle: 'Serving teams, departments, and workforce applications.',
-              metric: nf.format(workforce.length),
-              metricLabel: 'records loaded',
-              icon: <Shield className="h-5 w-5" />,
-            },
-            {
-              key: 'members' as TabKey,
-              title: 'Members',
-              subtitle: 'Member records plus member intake form submissions.',
-              metric: nf.format(memberFormSubmissions.length),
-              metricLabel: 'form submissions',
-              icon: <Users className="h-5 w-5" />,
-            },
-            {
-              key: 'leadership' as TabKey,
-              title: 'Leadership',
-              subtitle: 'Leadership biodata submissions and published profiles.',
-              metric: nf.format(leadershipFormSubmissions.length),
-              metricLabel: 'form submissions',
-              icon: <Sparkles className="h-5 w-5" />,
-            },
-            {
-              key: 'forms' as TabKey,
-              title: 'Forms',
-              subtitle: 'Create links and route each form into the right workflow.',
-              metric: nf.format(formsMetrics.total),
-              metricLabel: 'forms',
-              icon: <LayoutGrid className="h-5 w-5" />,
-            },
-          ].map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setActiveTab(item.key)}
-              className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 text-left transition-colors hover:border-[var(--color-border-primary)]"
-            >
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-background-secondary)] text-[var(--color-accent-primary)]">
-                {item.icon}
-              </span>
-              <span className="mt-4 block text-base font-semibold text-[var(--color-text-primary)]">{item.title}</span>
-              <span className="mt-1 block text-sm text-[var(--color-text-tertiary)]">{item.subtitle}</span>
-              <span className="mt-4 block text-2xl font-semibold text-[var(--color-text-primary)]">{item.metric}</span>
-              <span className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">{item.metricLabel}</span>
-            </button>
-          ))}
-        </div>
-      )}
 
       {activeTab === 'workforce' && (
         <div className="space-y-4">
@@ -783,27 +616,6 @@ export default function AdministrationPage() {
               <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">{workforceStats.pending || 0}</p>
             </Card>
           </div>
-
-          <Card>
-            <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Frontend Registrations by Section</p>
-            {workforceSections.length === 0 ? (
-              <p className="mt-3 text-sm text-[var(--color-text-tertiary)]">
-                {loading ? 'Loading section metrics...' : 'No section data yet.'}
-              </p>
-            ) : (
-              <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-                {workforceSections.map(([section, count]) => (
-                  <div
-                    key={section}
-                    className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3"
-                  >
-                    <p className="truncate text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">{section}</p>
-                    <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{count}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
 
           <div className="space-y-3">
             {workforce.length === 0 ? (
@@ -831,299 +643,13 @@ export default function AdministrationPage() {
               ))
             )}
           </div>
+
+          {renderFormResponses('workforce', 'Workforce')}
         </div>
       )}
 
       {activeTab === 'members' && (
-        <div className="space-y-3">
-          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-            <Card>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Total members</p>
-              <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{nf.format(members.length)}</p>
-            </Card>
-            <Card>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Active</p>
-              <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{nf.format(memberAnalytics.activeCount)}</p>
-            </Card>
-            <Card>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending review</p>
-              <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{nf.format(memberAnalytics.pendingCount)}</p>
-            </Card>
-            <Card>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">New this week</p>
-              <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{nf.format(memberAnalytics.weekTotal)}</p>
-            </Card>
-            <Card>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">New this month</p>
-              <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{nf.format(memberAnalytics.monthTotal)}</p>
-            </Card>
-            <Card>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">New this year</p>
-              <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{nf.format(memberAnalytics.yearTotal)}</p>
-            </Card>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card title="Weekly New Members (Bar)">
-              <div className="h-[280px]">
-                <Bar
-                  data={{
-                    labels: memberAnalytics.weekly.map((item) => item.label),
-                    datasets: [
-                      {
-                        label: 'New members',
-                        data: memberAnalytics.weekly.map((item) => item.count),
-                        backgroundColor: 'rgba(30, 64, 175, 0.68)',
-                        borderRadius: 8,
-                        maxBarThickness: 28,
-                      },
-                    ],
-                  }}
-                  options={{
-                    maintainAspectRatio: false,
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                  }}
-                />
-              </div>
-            </Card>
-
-            <Card title="Monthly Join Trend (Histogram)">
-              <div className="h-[280px]">
-                <Bar
-                  data={{
-                    labels: memberAnalytics.monthly.map((item) => item.label),
-                    datasets: [
-                      {
-                        label: 'New members',
-                        data: memberAnalytics.monthly.map((item) => item.count),
-                        backgroundColor: 'rgba(22, 101, 52, 0.72)',
-                        borderColor: 'rgba(21, 128, 61, 1)',
-                        borderWidth: 1,
-                        borderRadius: 8,
-                        maxBarThickness: 32,
-                      },
-                    ],
-                  }}
-                  options={{
-                    maintainAspectRatio: false,
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                  }}
-                />
-              </div>
-            </Card>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card title="Current Year Quarter Distribution (Pie)">
-              <div className="h-[280px]">
-                <Doughnut
-                  data={{
-                    labels: memberAnalytics.quarterly.map((item) => item.label),
-                    datasets: [
-                      {
-                        label: 'Quarterly joins',
-                        data: memberAnalytics.quarterly.map((item) => item.count),
-                        backgroundColor: ['#1d4ed8', '#0f766e', '#f59e0b', '#be123c'],
-                        borderWidth: 0,
-                      },
-                    ],
-                  }}
-                  options={{ maintainAspectRatio: false, responsive: true }}
-                />
-              </div>
-            </Card>
-
-            <Card title="Yearly Growth (Line)">
-              <div className="h-[280px]">
-                <Line
-                  data={{
-                    labels: memberAnalytics.yearly.map((item) => item.label),
-                    datasets: [
-                      {
-                        label: 'Members joined',
-                        data: memberAnalytics.yearly.map((item) => item.count),
-                        borderColor: 'rgba(30, 64, 175, 1)',
-                        backgroundColor: 'rgba(30, 64, 175, 0.2)',
-                        tension: 0.3,
-                        fill: true,
-                        pointRadius: 4,
-                      },
-                    ],
-                  }}
-                  options={{
-                    maintainAspectRatio: false,
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                  }}
-                />
-              </div>
-            </Card>
-          </div>
-
-          <Card title="Member Growth Summary Table">
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="text-left text-[var(--color-text-tertiary)]">
-                  <tr>
-                    <th className="py-2 pr-4">Window</th>
-                    <th className="py-2 pr-4">Period</th>
-                    <th className="py-2 pr-4">New Members</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {memberAnalytics.weekly.slice(-4).map((row) => (
-                    <tr key={`w-${row.key}`} className="border-t border-[var(--color-border-secondary)]">
-                      <td className="py-2 pr-4 text-[var(--color-text-primary)]">Weekly</td>
-                      <td className="py-2 pr-4">{row.label}</td>
-                      <td className="py-2 pr-4">{nf.format(row.count)}</td>
-                    </tr>
-                  ))}
-                  {memberAnalytics.monthly.slice(-4).map((row) => (
-                    <tr key={`m-${row.key}`} className="border-t border-[var(--color-border-secondary)]">
-                      <td className="py-2 pr-4 text-[var(--color-text-primary)]">Monthly</td>
-                      <td className="py-2 pr-4">{row.label}</td>
-                      <td className="py-2 pr-4">{nf.format(row.count)}</td>
-                    </tr>
-                  ))}
-                  {memberAnalytics.quarterly.map((row) => (
-                    <tr key={`q-${row.key}`} className="border-t border-[var(--color-border-secondary)]">
-                      <td className="py-2 pr-4 text-[var(--color-text-primary)]">Quarterly</td>
-                      <td className="py-2 pr-4">{row.label} ({new Date().getFullYear()})</td>
-                      <td className="py-2 pr-4">{nf.format(row.count)}</td>
-                    </tr>
-                  ))}
-                  {memberAnalytics.yearly.map((row) => (
-                    <tr key={`y-${row.year}`} className="border-t border-[var(--color-border-secondary)]">
-                      <td className="py-2 pr-4 text-[var(--color-text-primary)]">Yearly</td>
-                      <td className="py-2 pr-4">{row.label}</td>
-                      <td className="py-2 pr-4">{nf.format(row.count)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-
-          <Card title="Pending Member Reviews">
-            {inactiveMembers.length === 0 ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">
-                {loading ? 'Loading member review queue...' : 'No pending member reviews.'}
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="text-left text-[var(--color-text-tertiary)]">
-                    <tr>
-                      <th className="py-2 pr-4">Name</th>
-                      <th className="py-2 pr-4">Email</th>
-                      <th className="py-2 pr-4">Submitted</th>
-                      <th className="py-2 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {inactiveMembers.map((row) => (
-                      <tr key={row.id} className="border-t border-[var(--color-border-secondary)]">
-                        <td className="py-2 pr-4 text-[var(--color-text-primary)]">{row.firstName} {row.lastName}</td>
-                        <td className="py-2 pr-4">{row.email}</td>
-                        <td className="py-2 pr-4">{new Date(row.createdAt).toLocaleDateString()}</td>
-                        <td className="py-2 text-right">
-                          <Button size="sm" variant="outline" icon={<Eye className="h-4 w-4" />} onClick={() => setMemberReviewTarget(row)}>
-                            Review
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
-
-          <Card title="Member Form Submissions">
-            {memberFormSubmissions.length === 0 ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">
-                {formsLoading ? 'Loading member form submissions...' : 'No member form submissions found yet.'}
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="text-left text-[var(--color-text-tertiary)]">
-                    <tr>
-                      <th className="py-2 pr-4">Name</th>
-                      <th className="py-2 pr-4">Email</th>
-                      <th className="py-2 pr-4">Form</th>
-                      <th className="py-2 pr-4">Submitted</th>
-                      <th className="py-2 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {memberFormSubmissions.map((submission) => (
-                      <tr key={submission.id} className="border-t border-[var(--color-border-secondary)]">
-                        <td className="py-2 pr-4 text-[var(--color-text-primary)]">{resolveFormSubmissionName(submission, 'Anonymous')}</td>
-                        <td className="py-2 pr-4">{resolveFormSubmissionEmail(submission) || submission.contactNumber || 'No contact'}</td>
-                        <td className="py-2 pr-4">{submission.formTitle}</td>
-                        <td className="py-2 pr-4">{new Date(submission.createdAt).toLocaleString()}</td>
-                        <td className="py-2 text-right">
-                          <Button size="sm" variant="outline" icon={<Eye className="h-4 w-4" />} onClick={() => router.push(`/dashboard/forms/${submission.formId}/submissions`)}>
-                            View
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
-
-          <Card title="Member Form Links">
-            {formsLoading ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">Loading forms...</p>
-            ) : memberForms.length === 0 ? (
-              <div className="space-y-3">
-                <p className="text-sm text-[var(--color-text-tertiary)]">No member intake form created yet.</p>
-                <Button icon={<UserPlus className="h-4 w-4" />} onClick={() => router.push('/dashboard/forms/new?preset=member')}>
-                  Create member form
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {memberForms.map((form) => {
-                  const url = buildPublicFormUrl(form.slug, form.publicUrl);
-                  return (
-                    <div
-                      key={form.id}
-                      className="flex flex-col gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] p-3 md:flex-row md:items-center md:justify-between"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-medium text-[var(--color-text-primary)]">{form.title}</p>
-                        <p className="truncate text-xs text-[var(--color-text-tertiary)]">
-                          {url || 'Publish this form to generate public link'}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline" icon={<Pencil className="h-4 w-4" />} onClick={() => router.push(`/dashboard/forms/${form.id}/edit`)}>
-                          Edit
-                        </Button>
-                        <Button size="sm" variant="outline" icon={<Link2 className="h-4 w-4" />} disabled={!url} onClick={() => url && window.open(url, '_blank', 'noopener,noreferrer')}>
-                          Open
-                        </Button>
-                        <Button size="sm" variant="outline" icon={<Copy className="h-4 w-4" />} disabled={!url} onClick={() => copyPublicFormLink(form)}>
-                          Copy Link
-                        </Button>
-                        <Button size="sm" variant="danger" icon={<Trash2 className="h-4 w-4" />} onClick={() => deleteForm(form)}>
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
-
+        <div className="space-y-4">
           {members.length === 0 ? (
             <Card>
               <p className="text-sm text-[var(--color-text-tertiary)]">
@@ -1147,160 +673,12 @@ export default function AdministrationPage() {
               </AccordionRow>
             ))
           )}
+          {renderFormResponses('members', 'Member')}
         </div>
       )}
 
       {activeTab === 'leadership' && (
-        <div className="space-y-3">
-          <Card title="Pending Leadership Review Queue">
-            {pendingLeadership.length === 0 ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">
-                {loading ? 'Loading leadership queue...' : 'No pending leadership applications.'}
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="text-left text-[var(--color-text-tertiary)]">
-                    <tr>
-                      <th className="py-2 pr-4">Name</th>
-                      <th className="py-2 pr-4">Email</th>
-                      <th className="py-2 pr-4">Role</th>
-                      <th className="py-2 pr-4">Submitted</th>
-                      <th className="py-2 text-right">Review</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pendingLeadership.map((row) => (
-                      <tr key={row.id} className="border-t border-[var(--color-border-secondary)]">
-                        <td className="py-2 pr-4 text-[var(--color-text-primary)]">{row.firstName} {row.lastName}</td>
-                        <td className="py-2 pr-4">{row.email || 'No email'}</td>
-                        <td className="py-2 pr-4">{roleLabel(row.role)}</td>
-                        <td className="py-2 pr-4">{new Date(row.createdAt).toLocaleDateString()}</td>
-                        <td className="py-2 text-right">
-                          <Button size="sm" variant="outline" icon={<Eye className="h-4 w-4" />} onClick={() => setLeadershipReviewTarget(row)}>
-                            Review
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
-
-          <Card title="Leadership Form Submissions">
-            {leadershipFormSubmissions.length === 0 ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">
-                {formsLoading ? 'Loading leadership form submissions...' : 'No leadership biodata submissions found yet.'}
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="text-left text-[var(--color-text-tertiary)]">
-                    <tr>
-                      <th className="py-2 pr-4">Name</th>
-                      <th className="py-2 pr-4">Email</th>
-                      <th className="py-2 pr-4">Form</th>
-                      <th className="py-2 pr-4">Submitted</th>
-                      <th className="py-2 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {leadershipFormSubmissions.map((submission) => (
-                      <tr key={submission.id} className="border-t border-[var(--color-border-secondary)]">
-                        <td className="py-2 pr-4 text-[var(--color-text-primary)]">{resolveFormSubmissionName(submission, 'Anonymous')}</td>
-                        <td className="py-2 pr-4">{resolveFormSubmissionEmail(submission) || submission.contactNumber || 'No contact'}</td>
-                        <td className="py-2 pr-4">{submission.formTitle}</td>
-                        <td className="py-2 pr-4">{new Date(submission.createdAt).toLocaleString()}</td>
-                        <td className="py-2 text-right">
-                          <Button size="sm" variant="outline" icon={<Eye className="h-4 w-4" />} onClick={() => router.push(`/dashboard/forms/${submission.formId}/submissions`)}>
-                            View
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
-
-          <Card title="Approved Leadership Profiles">
-            {publishedLeadership.length === 0 ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">No approved leadership profiles yet.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="text-left text-[var(--color-text-tertiary)]">
-                    <tr>
-                      <th className="py-2 pr-4">Name</th>
-                      <th className="py-2 pr-4">Role</th>
-                      <th className="py-2 pr-4">Email</th>
-                      <th className="py-2 pr-4">Updated</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {publishedLeadership.map((row) => (
-                      <tr key={row.id} className="border-t border-[var(--color-border-secondary)]">
-                        <td className="py-2 pr-4 text-[var(--color-text-primary)]">{row.firstName} {row.lastName}</td>
-                        <td className="py-2 pr-4">{roleLabel(row.role)}</td>
-                        <td className="py-2 pr-4">{row.email || 'No email'}</td>
-                        <td className="py-2 pr-4">{new Date(row.updatedAt || row.createdAt).toLocaleDateString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
-
-          <Card title="Leadership Form Links">
-            {formsLoading ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">Loading forms...</p>
-            ) : leadershipForms.length === 0 ? (
-              <div className="space-y-3">
-                <p className="text-sm text-[var(--color-text-tertiary)]">No leadership application form created yet.</p>
-                <Button icon={<Sparkles className="h-4 w-4" />} onClick={() => router.push('/dashboard/forms/new?preset=leadership')}>
-                  Create leadership form
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {leadershipForms.map((form) => {
-                  const url = buildPublicFormUrl(form.slug, form.publicUrl);
-                  return (
-                    <div
-                      key={form.id}
-                      className="flex flex-col gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] p-3 md:flex-row md:items-center md:justify-between"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-medium text-[var(--color-text-primary)]">{form.title}</p>
-                        <p className="truncate text-xs text-[var(--color-text-tertiary)]">
-                          {url || 'Publish this form to generate public link'}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline" icon={<Pencil className="h-4 w-4" />} onClick={() => router.push(`/dashboard/forms/${form.id}/edit`)}>
-                          Edit
-                        </Button>
-                        <Button size="sm" variant="outline" icon={<Link2 className="h-4 w-4" />} disabled={!url} onClick={() => url && window.open(url, '_blank', 'noopener,noreferrer')}>
-                          Open
-                        </Button>
-                        <Button size="sm" variant="outline" icon={<Copy className="h-4 w-4" />} disabled={!url} onClick={() => copyPublicFormLink(form)}>
-                          Copy Link
-                        </Button>
-                        <Button size="sm" variant="danger" icon={<Trash2 className="h-4 w-4" />} onClick={() => deleteForm(form)}>
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
-
+        <div className="space-y-4">
           {leaders.length === 0 ? (
             <Card>
               <p className="text-sm text-[var(--color-text-tertiary)]">
@@ -1334,70 +712,7 @@ export default function AdministrationPage() {
               </AccordionRow>
             ))
           )}
-        </div>
-      )}
-
-      {activeTab === 'forms' && (
-        <div className="space-y-4">
-          {formsLoading ? (
-            <Card>
-              <p className="text-sm text-[var(--color-text-tertiary)]">Loading forms...</p>
-            </Card>
-          ) : formGroups.length === 0 ? (
-            <Card>
-              <div className="space-y-3">
-                <p className="text-sm text-[var(--color-text-tertiary)]">No forms created yet.</p>
-                <Button onClick={() => router.push('/dashboard/forms/new')}>Create first form</Button>
-              </div>
-            </Card>
-          ) : (
-            formGroups.map((group) => (
-              <Card key={group.key} title={`${group.label} Forms`}>
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-xs text-[var(--color-text-tertiary)]">{group.forms.length} form(s)</p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => router.push(buildNewFormRouteForTarget(group.key))}
-                  >
-                    New {group.label} Form
-                  </Button>
-                </div>
-                <div className="space-y-3">
-                  {group.forms.map((form) => {
-                    const url = buildPublicFormUrl(form.slug, form.publicUrl);
-                    return (
-                      <div
-                        key={form.id}
-                        className="flex flex-col gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] p-3 md:flex-row md:items-center md:justify-between"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-medium text-[var(--color-text-primary)]">{form.title}</p>
-                          <p className="truncate text-xs text-[var(--color-text-tertiary)]">
-                            {url || 'Publish this form to generate public link'}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button size="sm" variant="outline" icon={<Pencil className="h-4 w-4" />} onClick={() => router.push(`/dashboard/forms/${form.id}/edit`)}>
-                            Edit
-                          </Button>
-                          <Button size="sm" variant="outline" icon={<Link2 className="h-4 w-4" />} disabled={!url} onClick={() => url && window.open(url, '_blank', 'noopener,noreferrer')}>
-                            Open
-                          </Button>
-                          <Button size="sm" variant="outline" icon={<Copy className="h-4 w-4" />} disabled={!url} onClick={() => copyPublicFormLink(form)}>
-                            Copy Link
-                          </Button>
-                          <Button size="sm" variant="danger" icon={<Trash2 className="h-4 w-4" />} onClick={() => deleteForm(form)}>
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Card>
-            ))
-          )}
+          {renderFormResponses('leadership', 'Leadership')}
         </div>
       )}
 
@@ -1513,118 +828,6 @@ export default function AdministrationPage() {
             <div className="mt-6 flex justify-end gap-3">
               <Button variant="ghost" onClick={() => setLeaderModalOpen(false)}>Cancel</Button>
               <Button onClick={addLeader} loading={savingLeader}>Save leadership profile</Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {leadershipReviewTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur">
-          <div className="w-full max-w-xl rounded-[var(--radius-card)] bg-[var(--color-background-primary)] p-6 shadow-xl border border-[var(--color-border-secondary)]">
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Leadership application review</h3>
-                <p className="text-sm text-[var(--color-text-tertiary)]">
-                  Review this record before super-admin approval and publish.
-                </p>
-              </div>
-              <button onClick={() => setLeadershipReviewTarget(null)} aria-label="Close" className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]">
-                ×
-              </button>
-            </div>
-
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-                  <p className="text-xs text-[var(--color-text-tertiary)]">Name</p>
-                  <p className="font-semibold text-[var(--color-text-primary)]">{leadershipReviewTarget.firstName} {leadershipReviewTarget.lastName}</p>
-                </div>
-                <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-                  <p className="text-xs text-[var(--color-text-tertiary)]">Role</p>
-                  <p className="font-semibold text-[var(--color-text-primary)]">{roleLabel(leadershipReviewTarget.role)}</p>
-                </div>
-              </div>
-              <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-                <p className="text-xs text-[var(--color-text-tertiary)]">Email</p>
-                <p className="font-medium text-[var(--color-text-primary)]">{leadershipReviewTarget.email || 'No email provided'}</p>
-              </div>
-              {leadershipReviewTarget.bio ? (
-                <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-                  <p className="text-xs text-[var(--color-text-tertiary)]">Bio</p>
-                  <p className="mt-1 text-[var(--color-text-secondary)]">{leadershipReviewTarget.bio}</p>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setLeadershipReviewTarget(null)}>Close</Button>
-              <Button onClick={() => router.push('/dashboard/super/requests')}>
-                Open Super Admin Approval Queue
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {memberReviewTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur p-4">
-          <div className="w-full max-w-xl rounded-[var(--radius-card)] bg-[var(--color-background-primary)] p-6 shadow-xl border border-[var(--color-border-secondary)]">
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Member review</h3>
-                <p className="text-sm text-[var(--color-text-tertiary)]">
-                  Review this submission before approving it for frontend visibility.
-                </p>
-              </div>
-              <button
-                onClick={() => setMemberReviewTarget(null)}
-                aria-label="Close"
-                className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-                  <p className="text-xs text-[var(--color-text-tertiary)]">Name</p>
-                  <p className="font-semibold text-[var(--color-text-primary)]">
-                    {memberReviewTarget.firstName} {memberReviewTarget.lastName}
-                  </p>
-                </div>
-                <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-                  <p className="text-xs text-[var(--color-text-tertiary)]">Submitted</p>
-                  <p className="font-medium text-[var(--color-text-primary)]">
-                    {new Date(memberReviewTarget.createdAt).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-              <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-                <p className="text-xs text-[var(--color-text-tertiary)]">Email</p>
-                <p className="font-medium text-[var(--color-text-primary)]">{memberReviewTarget.email}</p>
-              </div>
-              <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-                <p className="text-xs text-[var(--color-text-tertiary)]">Phone</p>
-                <p className="font-medium text-[var(--color-text-primary)]">{memberReviewTarget.phone || 'No phone provided'}</p>
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setMemberReviewTarget(null)}>
-                Close
-              </Button>
-              <Button
-                onClick={async () => {
-                  await activateMember(memberReviewTarget);
-                  setMemberReviewTarget(null);
-                }}
-                loading={memberActivatingId === memberReviewTarget.id}
-                disabled={memberActivatingId === memberReviewTarget.id}
-                icon={<CheckCircle2 className="h-4 w-4" />}
-              >
-                Approve member
-              </Button>
             </div>
           </div>
         </div>
