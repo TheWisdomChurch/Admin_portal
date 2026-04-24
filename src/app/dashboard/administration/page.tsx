@@ -7,6 +7,7 @@ import {
   BarElement,
   CategoryScale,
   Chart as ChartJS,
+  Filler,
   Legend,
   LineElement,
   LinearScale,
@@ -40,11 +41,13 @@ import { Input } from '@/ui/input';
 import { Badge } from '@/ui/Badge';
 import { PageHeader } from '@/layouts';
 import { apiClient, isApiError } from '@/lib/api';
+import { resolveFormSubmissionEmail, resolveFormSubmissionName } from '@/lib/formSubmissions';
 import { buildPublicFormUrl } from '@/lib/utils';
 import type {
   AdminForm,
   CreateLeadershipRequest,
   CreateMemberRequest,
+  FormSubmission,
   LeadershipMember,
   LeadershipRole,
   Member,
@@ -52,7 +55,11 @@ import type {
   WorkforceStatsResponse,
 } from '@/lib/types';
 
-type TabKey = 'workforce' | 'members' | 'leadership' | 'forms';
+type TabKey = 'overview' | 'workforce' | 'members' | 'leadership' | 'forms';
+type RoutedFormSubmission = FormSubmission & {
+  formTitle: string;
+  formSlug?: string;
+};
 
 const roleOptions: Array<{ value: LeadershipRole; label: string }> = [
   { value: 'senior_pastor', label: 'Senior Pastor' },
@@ -72,6 +79,7 @@ ChartJS.register(
   LineElement,
   BarElement,
   ArcElement,
+  Filler,
   Title,
   Tooltip,
   Legend
@@ -173,6 +181,32 @@ function isTargetMatch(form: AdminForm, allowed: string[]): boolean {
   return allowed.includes(normalized);
 }
 
+async function fetchRoutedFormSubmissions(forms: AdminForm[], label: string): Promise<RoutedFormSubmission[]> {
+  if (forms.length === 0) return [];
+
+  const results = await Promise.allSettled(
+    forms.map(async (form) => {
+      const response = await apiClient.getFormSubmissions(form.id, { page: 1, limit: 100 });
+      return (response.data || []).map((submission) => ({
+        ...submission,
+        formTitle: form.title,
+        formSlug: form.slug,
+      }));
+    })
+  );
+
+  const submissions: RoutedFormSubmission[] = [];
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      submissions.push(...result.value);
+      return;
+    }
+    console.error(`Failed to load ${label} form submissions for ${forms[index]?.title || forms[index]?.id}:`, result.reason);
+  });
+
+  return submissions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
 function buildNewFormRouteForTarget(targetKey: string): string {
   if (targetKey === 'member' || targetKey === 'members' || targetKey === 'membership') {
     return '/dashboard/forms/new?preset=member';
@@ -213,7 +247,7 @@ function AccordionRow({
 
 export default function AdministrationPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabKey>('workforce');
+  const [activeTab, setActiveTab] = useState<TabKey>('overview');
 
   const [workforce, setWorkforce] = useState<WorkforceMember[]>([]);
   const [workforceStatsApi, setWorkforceStatsApi] = useState<WorkforceStatsResponse | null>(null);
@@ -224,6 +258,8 @@ export default function AdministrationPage() {
   const [adminForms, setAdminForms] = useState<AdminForm[]>([]);
   const [memberForms, setMemberForms] = useState<AdminForm[]>([]);
   const [leadershipForms, setLeadershipForms] = useState<AdminForm[]>([]);
+  const [memberFormSubmissions, setMemberFormSubmissions] = useState<RoutedFormSubmission[]>([]);
+  const [leadershipFormSubmissions, setLeadershipFormSubmissions] = useState<RoutedFormSubmission[]>([]);
 
   const [memberModalOpen, setMemberModalOpen] = useState(false);
   const [leaderModalOpen, setLeaderModalOpen] = useState(false);
@@ -255,15 +291,11 @@ export default function AdministrationPage() {
   });
   const [leaderImageFile, setLeaderImageFile] = useState<File | null>(null);
 
-  const loadAll = useCallback(async () => {
+  const loadWorkforce = useCallback(async () => {
     setLoading(true);
-    setFormsLoading(true);
-    const [workforceRes, workforceStatsRes, membersRes, leadershipRes, formsRes] = await Promise.allSettled([
-      apiClient.listWorkforce({ page: 1, limit: 200 }),
+    const [workforceRes, workforceStatsRes] = await Promise.allSettled([
+      apiClient.listWorkforce({ page: 1, limit: 100 }),
       apiClient.getWorkforceStats(),
-      apiClient.listMembers({ page: 1, limit: 200 }),
-      apiClient.listLeadership({ page: 1, limit: 200 }),
-      apiClient.getAdminForms({ page: 1, limit: 300 }),
     ]);
 
     if (workforceRes.status === 'fulfilled') {
@@ -279,34 +311,65 @@ export default function AdministrationPage() {
       reportLoadFailure('Workforce stats', workforceStatsRes.reason);
     }
 
-    if (membersRes.status === 'fulfilled') {
-      setMembers(toArray<Member>(membersRes.value));
-    } else {
-      reportLoadFailure('Members', membersRes.reason);
-    }
-
-    if (leadershipRes.status === 'fulfilled') {
-      setLeaders(toArray<LeadershipMember>(leadershipRes.value));
-    } else {
-      reportLoadFailure('Leadership', leadershipRes.reason);
-    }
-
-    if (formsRes.status === 'fulfilled') {
-      const forms = Array.isArray(formsRes.value.data) ? formsRes.value.data : [];
-      setAdminForms(forms);
-      setMemberForms(forms.filter((form) => isTargetMatch(form, ['member', 'members', 'membership'])));
-      setLeadershipForms(forms.filter((form) => isTargetMatch(form, ['leadership'])));
-    } else {
-      reportLoadFailure('Forms', formsRes.reason);
-    }
-
     setLoading(false);
+  }, []);
+
+  const loadMembers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.listMembers({ page: 1, limit: 100 });
+      setMembers(toArray<Member>(res));
+    } catch (error) {
+      reportLoadFailure('Members', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadLeadership = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.listLeadership({ page: 1, limit: 100 });
+      setLeaders(toArray<LeadershipMember>(res));
+    } catch (error) {
+      reportLoadFailure('Leadership', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadForms = useCallback(async () => {
+    setFormsLoading(true);
+    try {
+      const formsRes = await apiClient.getAdminForms({ page: 1, limit: 100 });
+      const forms = Array.isArray(formsRes.data) ? formsRes.data : [];
+      const nextMemberForms = forms.filter((form) => isTargetMatch(form, ['member', 'members', 'membership']));
+      const nextLeadershipForms = forms.filter((form) => isTargetMatch(form, ['leadership']));
+      setAdminForms(forms);
+      setMemberForms(nextMemberForms);
+      setLeadershipForms(nextLeadershipForms);
+
+      const [memberSubmissions, leadershipSubmissions] = await Promise.all([
+        fetchRoutedFormSubmissions(nextMemberForms, 'member'),
+        fetchRoutedFormSubmissions(nextLeadershipForms, 'leadership'),
+      ]);
+      setMemberFormSubmissions(memberSubmissions);
+      setLeadershipFormSubmissions(leadershipSubmissions);
+    } catch (error) {
+      reportLoadFailure('Forms', error);
+    }
     setFormsLoading(false);
   }, []);
 
   useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+    loadForms();
+  }, [loadForms]);
+
+  useEffect(() => {
+    if (activeTab === 'workforce') void loadWorkforce();
+    if (activeTab === 'members') void loadMembers();
+    if (activeTab === 'leadership') void loadLeadership();
+  }, [activeTab, loadLeadership, loadMembers, loadWorkforce]);
 
   const workforceStats = useMemo(() => {
     return workforce.reduce(
@@ -460,14 +523,14 @@ export default function AdministrationPage() {
       setMemberActivatingId(member.id);
       await apiClient.updateMember(member.id, { isActive: true });
       toast.success('Member approved and activated');
-      await loadAll();
+      await loadMembers();
     } catch (error) {
       console.error('Failed to activate member:', error);
       toast.error('Unable to approve member');
     } finally {
       setMemberActivatingId(null);
     }
-  }, [loadAll]);
+  }, [loadMembers]);
 
   const addMember = useCallback(async () => {
     if (!memberForm.firstName.trim() || !memberForm.lastName.trim() || !memberForm.email.trim()) {
@@ -487,14 +550,14 @@ export default function AdministrationPage() {
       toast.success('Member added');
       setMemberModalOpen(false);
       setMemberForm({ firstName: '', lastName: '', email: '', phone: '', isActive: true });
-      await loadAll();
+      await loadMembers();
     } catch (error) {
       console.error('Failed to add member:', error);
       toast.error('Unable to add member');
     } finally {
       setSavingMember(false);
     }
-  }, [memberForm, loadAll]);
+  }, [memberForm, loadMembers]);
 
   const addLeader = useCallback(async () => {
     if (!leaderForm.firstName?.trim() || !leaderForm.lastName?.trim() || !leaderForm.role) {
@@ -550,14 +613,14 @@ export default function AdministrationPage() {
         anniversary: '',
         imageUrl: '',
       });
-      await loadAll();
+      await loadLeadership();
     } catch (error) {
       console.error('Failed to add leader:', error);
       toast.error(errorMessage(error, 'Unable to create leadership profile'));
     } finally {
       setSavingLeader(false);
     }
-  }, [leaderForm, leaderImageFile, loadAll]);
+  }, [leaderForm, leaderImageFile, loadLeadership]);
 
   const tabButton = (key: TabKey, label: string, icon: ReactNode) => (
     <button
@@ -595,7 +658,7 @@ export default function AdministrationPage() {
     try {
       await apiClient.deleteAdminForm(form.id);
       toast.success('Form deleted');
-      await loadAll();
+      await loadForms();
     } catch (error) {
       console.error('Failed to delete form:', error);
       toast.error('Failed to delete form');
@@ -621,6 +684,7 @@ export default function AdministrationPage() {
 
       <Card>
         <div className="flex flex-wrap gap-3">
+          {tabButton('overview', 'Overview', <LayoutGrid className="h-4 w-4" />)}
           {tabButton('workforce', 'Workforce', <Shield className="h-4 w-4" />)}
           {tabButton('members', 'Members', <Users className="h-4 w-4" />)}
           {tabButton('leadership', 'Leadership', <Sparkles className="h-4 w-4" />)}
@@ -648,6 +712,60 @@ export default function AdministrationPage() {
           </div>
         </div>
       </Card>
+
+      {activeTab === 'overview' && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          {[
+            {
+              key: 'workforce' as TabKey,
+              title: 'Workforce',
+              subtitle: 'Serving teams, departments, and workforce applications.',
+              metric: nf.format(workforce.length),
+              metricLabel: 'records loaded',
+              icon: <Shield className="h-5 w-5" />,
+            },
+            {
+              key: 'members' as TabKey,
+              title: 'Members',
+              subtitle: 'Member records plus member intake form submissions.',
+              metric: nf.format(memberFormSubmissions.length),
+              metricLabel: 'form submissions',
+              icon: <Users className="h-5 w-5" />,
+            },
+            {
+              key: 'leadership' as TabKey,
+              title: 'Leadership',
+              subtitle: 'Leadership biodata submissions and published profiles.',
+              metric: nf.format(leadershipFormSubmissions.length),
+              metricLabel: 'form submissions',
+              icon: <Sparkles className="h-5 w-5" />,
+            },
+            {
+              key: 'forms' as TabKey,
+              title: 'Forms',
+              subtitle: 'Create links and route each form into the right workflow.',
+              metric: nf.format(formsMetrics.total),
+              metricLabel: 'forms',
+              icon: <LayoutGrid className="h-5 w-5" />,
+            },
+          ].map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setActiveTab(item.key)}
+              className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 text-left transition-colors hover:border-[var(--color-border-primary)]"
+            >
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-background-secondary)] text-[var(--color-accent-primary)]">
+                {item.icon}
+              </span>
+              <span className="mt-4 block text-base font-semibold text-[var(--color-text-primary)]">{item.title}</span>
+              <span className="mt-1 block text-sm text-[var(--color-text-tertiary)]">{item.subtitle}</span>
+              <span className="mt-4 block text-2xl font-semibold text-[var(--color-text-primary)]">{item.metric}</span>
+              <span className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">{item.metricLabel}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {activeTab === 'workforce' && (
         <div className="space-y-4">
@@ -923,6 +1041,43 @@ export default function AdministrationPage() {
             )}
           </Card>
 
+          <Card title="Member Form Submissions">
+            {memberFormSubmissions.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">
+                {formsLoading ? 'Loading member form submissions...' : 'No member form submissions found yet.'}
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="text-left text-[var(--color-text-tertiary)]">
+                    <tr>
+                      <th className="py-2 pr-4">Name</th>
+                      <th className="py-2 pr-4">Email</th>
+                      <th className="py-2 pr-4">Form</th>
+                      <th className="py-2 pr-4">Submitted</th>
+                      <th className="py-2 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {memberFormSubmissions.map((submission) => (
+                      <tr key={submission.id} className="border-t border-[var(--color-border-secondary)]">
+                        <td className="py-2 pr-4 text-[var(--color-text-primary)]">{resolveFormSubmissionName(submission, 'Anonymous')}</td>
+                        <td className="py-2 pr-4">{resolveFormSubmissionEmail(submission) || submission.contactNumber || 'No contact'}</td>
+                        <td className="py-2 pr-4">{submission.formTitle}</td>
+                        <td className="py-2 pr-4">{new Date(submission.createdAt).toLocaleString()}</td>
+                        <td className="py-2 text-right">
+                          <Button size="sm" variant="outline" icon={<Eye className="h-4 w-4" />} onClick={() => router.push(`/dashboard/forms/${submission.formId}/submissions`)}>
+                            View
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
           <Card title="Member Form Links">
             {formsLoading ? (
               <p className="text-sm text-[var(--color-text-tertiary)]">Loading forms...</p>
@@ -1024,6 +1179,43 @@ export default function AdministrationPage() {
                         <td className="py-2 text-right">
                           <Button size="sm" variant="outline" icon={<Eye className="h-4 w-4" />} onClick={() => setLeadershipReviewTarget(row)}>
                             Review
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
+          <Card title="Leadership Form Submissions">
+            {leadershipFormSubmissions.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">
+                {formsLoading ? 'Loading leadership form submissions...' : 'No leadership biodata submissions found yet.'}
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="text-left text-[var(--color-text-tertiary)]">
+                    <tr>
+                      <th className="py-2 pr-4">Name</th>
+                      <th className="py-2 pr-4">Email</th>
+                      <th className="py-2 pr-4">Form</th>
+                      <th className="py-2 pr-4">Submitted</th>
+                      <th className="py-2 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leadershipFormSubmissions.map((submission) => (
+                      <tr key={submission.id} className="border-t border-[var(--color-border-secondary)]">
+                        <td className="py-2 pr-4 text-[var(--color-text-primary)]">{resolveFormSubmissionName(submission, 'Anonymous')}</td>
+                        <td className="py-2 pr-4">{resolveFormSubmissionEmail(submission) || submission.contactNumber || 'No contact'}</td>
+                        <td className="py-2 pr-4">{submission.formTitle}</td>
+                        <td className="py-2 pr-4">{new Date(submission.createdAt).toLocaleString()}</td>
+                        <td className="py-2 text-right">
+                          <Button size="sm" variant="outline" icon={<Eye className="h-4 w-4" />} onClick={() => router.push(`/dashboard/forms/${submission.formId}/submissions`)}>
+                            View
                           </Button>
                         </td>
                       </tr>
