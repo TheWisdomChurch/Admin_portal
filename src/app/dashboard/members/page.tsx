@@ -19,7 +19,7 @@ export default function MembersPage() {
     (async () => {
       try {
         setLoading(true);
-        const res = await apiClient.listMembers({ page: 1, limit: 200 });
+        const res = await apiClient.listMembers({ page: 1, limit: 100 });
         const data = Array.isArray(res) ? res : (res as { data?: Member[] }).data;
         setMembers(Array.isArray(data) ? data : []);
       } catch (error) {
