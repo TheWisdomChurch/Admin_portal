@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation';
 import {
   Calendar,
   CheckCircle2,
+  ClipboardList,
   ExternalLink,
   FileText,
   Heart,
   Mail,
   Phone,
+  Plus,
   RefreshCw,
   Shield,
   Sparkles,
@@ -22,8 +24,10 @@ import { Badge } from '@/ui/Badge';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
 import { fetchAllFormSubmissions } from '@/lib/formSubmissions';
+import { buildPublicFormUrl } from '@/lib/utils';
 import type {
   CreateLeadershipRequest,
+  CreateFormRequest,
   AdminForm,
   FormSubmission,
   LeadershipMember,
@@ -47,6 +51,72 @@ const roleOptions: Array<{ value: LeadershipRole; label: string }> = [
 
 const isoDate = /^(\d{4})-(\d{2})-(\d{2})$/;
 const dashedDate = /^(\d{2})-(\d{2})-(\d{4})$/;
+
+function buildLeadershipFormPayload(): CreateFormRequest {
+  return {
+    title: 'Leadership Biodata',
+    description: 'Collect leadership profile details for review and publication.',
+    slug: 'leadership-biodata',
+    fields: [
+      { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
+      { key: 'email', label: 'Email Address', type: 'email', required: true, order: 2 },
+      { key: 'phone', label: 'Contact Number', type: 'tel', required: true, order: 3 },
+      {
+        key: 'leadership_role',
+        label: 'Leadership Role',
+        type: 'select',
+        required: true,
+        order: 4,
+        options: [
+          { label: 'Pastor', value: 'pastor' },
+          { label: 'Associate Pastor', value: 'associate_pastor' },
+          { label: 'Reverend', value: 'reverend' },
+          { label: 'Deacon', value: 'deacon' },
+          { label: 'Deaconess', value: 'deaconess' },
+        ],
+      },
+      {
+        key: 'bio',
+        label: 'Short Bio',
+        type: 'textarea',
+        required: false,
+        order: 5,
+        validation: { maxWords: 400 },
+      },
+      { key: 'birthday', label: 'Birthday (DD/MM/YYYY)', type: 'text', required: false, order: 6 },
+      {
+        key: 'wedding_anniversary',
+        label: 'Wedding Anniversary (DD/MM/YYYY)',
+        type: 'text',
+        required: false,
+        order: 7,
+      },
+      { key: 'photo', label: 'Profile Photo', type: 'image', required: false, order: 8 },
+    ],
+    settings: {
+      formType: 'leadership',
+      submissionTarget: 'leadership',
+      responseEmailEnabled: false,
+      successTitle: 'Leadership biodata received',
+      successSubtitle: 'Thank you. Your profile details have been sent for review.',
+      successMessage: 'The administration team will review this submission before it appears on the public leadership page.',
+      introTitle: 'Leadership Biodata',
+      introSubtitle: 'Provide accurate profile details for review and publication.',
+      introBullets: ['Profile review', 'Public leadership page', 'Secure submission'],
+      introBulletSubtexts: ['Reviewed by administration', 'Published only after approval', 'Submitted through Wisdom Church'],
+      layoutMode: 'split',
+      dateFormat: 'dd/mm/yyyy',
+      footerText: 'Powered by Wisdom Church',
+      footerBg: '#f5c400',
+      footerTextColor: '#111827',
+      submitButtonText: 'Submit Biodata',
+      submitButtonBg: '#f59e0b',
+      submitButtonTextColor: '#111827',
+      submitButtonIcon: 'send',
+      formHeaderNote: 'Leadership submissions are reviewed before publication.',
+    },
+  };
+}
 
 function toArray<T>(value: unknown): T[] {
   if (Array.isArray(value)) return value as T[];
@@ -275,6 +345,7 @@ export default function AdministrationPage() {
   const [formSubmissionsPage, setFormSubmissionsPage] = useState(1);
   const [formSubmissionsLoading, setFormSubmissionsLoading] = useState(false);
   const [publishingSubmissionId, setPublishingSubmissionId] = useState<string | null>(null);
+  const [creatingLeadershipForm, setCreatingLeadershipForm] = useState(false);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -336,6 +407,7 @@ export default function AdministrationPage() {
       leadership: sortByResponses(forms.filter((form) => formMatchesSection(form, 'leadership'))),
     };
   }, [forms]);
+  const primaryLeadershipForm = sectionForms.leadership[0] || null;
 
   const activeSection = activeTab === 'overview' ? null : activeTab;
   const activeSectionForms = useMemo(
@@ -427,6 +499,37 @@ export default function AdministrationPage() {
     [loadAll]
   );
 
+  const createLeadershipForm = useCallback(async () => {
+    if (sectionForms.leadership.length > 0) return;
+
+    setCreatingLeadershipForm(true);
+    try {
+      const created = await apiClient.createAdminForm(buildLeadershipFormPayload());
+      const published = await apiClient.publishAdminForm(created.id);
+      const nextForm = {
+        ...created,
+        isPublished: true,
+        status: published.status || 'published',
+        publishedAt: published.publishedAt || created.publishedAt,
+        slug: published.slug || created.slug,
+        publicUrl: published.publicUrl || created.publicUrl,
+      } as AdminForm;
+
+      setForms((current) => [nextForm, ...current.filter((form) => form.id !== nextForm.id)]);
+      setSelectedFormIds((current) => ({ ...current, leadership: nextForm.id }));
+      setActiveTab('leadership');
+      setFormSubmissionsPage(1);
+
+      const publicUrl = buildPublicFormUrl(nextForm.slug, nextForm.publicUrl);
+      toast.success(publicUrl ? `Leadership form created: ${publicUrl}` : 'Leadership form created');
+    } catch (error) {
+      console.error('Failed to create leadership form:', error);
+      toast.error('Unable to create leadership form');
+    } finally {
+      setCreatingLeadershipForm(false);
+    }
+  }, [sectionForms.leadership.length]);
+
   const tabButton = (key: TabKey, label: string, icon: ReactNode) => (
     <button
       key={key}
@@ -450,15 +553,54 @@ export default function AdministrationPage() {
     const totalForms = forms.length;
     const mappedForms = sectionForms.workforce.length + sectionForms.members.length + sectionForms.leadership.length;
     const responseTotal = forms.reduce((sum, form) => sum + getSubmissionCount(form), 0);
+    const activeMembers = members.filter((member) => member.isActive).length;
     const overviewItems = [
-      { label: 'Workforce Records', value: workforce.length, meta: `${sectionForms.workforce.length} linked forms` },
-      { label: 'Members', value: members.length, meta: `${sectionForms.members.length} linked forms` },
-      { label: 'Leadership Profiles', value: leaders.length, meta: `${sectionForms.leadership.length} linked forms` },
-      { label: 'Form Responses', value: responseTotal, meta: `${mappedForms} mapped of ${totalForms} forms` },
+      { label: 'Workforce', value: workforce.length, meta: `${workforceStats.serving || 0} serving` },
+      { label: 'Members', value: members.length, meta: `${activeMembers} active` },
+      { label: 'Leadership', value: leaders.length, meta: `${leadershipStats.approved || 0} published` },
+      { label: 'Responses', value: responseTotal, meta: `${mappedForms} mapped forms` },
     ];
+    const leadershipFormUrl = primaryLeadershipForm
+      ? buildPublicFormUrl(primaryLeadershipForm.slug, primaryLeadershipForm.publicUrl)
+      : null;
 
     return (
       <div className="space-y-4">
+        <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-5 shadow-sm">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.6fr)] lg:items-center">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="primary" size="sm">Administration</Badge>
+                <Badge variant={primaryLeadershipForm ? 'success' : 'warning'} size="sm">
+                  {primaryLeadershipForm ? 'Leadership form active' : 'Leadership form needed'}
+                </Badge>
+              </div>
+              <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
+                Review form submissions, then publish approved records.
+              </h2>
+              <p className="max-w-2xl text-sm text-[var(--color-text-tertiary)]">
+                Workforce, member, and leadership data should enter through mapped forms so every record keeps a submission trail before it appears in public-facing sections.
+              </p>
+            </div>
+
+            <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)]">
+                  <ClipboardList className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                    {primaryLeadershipForm ? primaryLeadershipForm.title : 'Leadership Biodata'}
+                  </p>
+                  <p className="truncate text-xs text-[var(--color-text-tertiary)]">
+                    {leadershipFormUrl || 'Create from the Leadership tab'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {overviewItems.map((item) => (
             <Card key={item.label}>
@@ -517,6 +659,10 @@ export default function AdministrationPage() {
               <div className="flex items-center justify-between gap-3">
                 <span>Leadership</span>
                 <span className="font-semibold text-[var(--color-text-primary)]">{sectionForms.leadership.length}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3 border-t border-[var(--color-border-secondary)] pt-3">
+                <span>Total forms</span>
+                <span className="font-semibold text-[var(--color-text-primary)]">{totalForms}</span>
               </div>
             </div>
           </Card>
@@ -808,6 +954,47 @@ export default function AdministrationPage() {
 
       {activeTab === 'leadership' && (
         <div className="space-y-4">
+          <Card
+            title="Leadership Form"
+            actions={
+              primaryLeadershipForm ? undefined : (
+                <Button
+                  variant="primary"
+                  icon={<Plus className="h-4 w-4" />}
+                  onClick={createLeadershipForm}
+                  loading={creatingLeadershipForm}
+                >
+                  Create leadership form
+                </Button>
+              )
+            }
+          >
+            {primaryLeadershipForm ? (
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="success" size="sm">Active</Badge>
+                    <p className="font-semibold text-[var(--color-text-primary)]">{primaryLeadershipForm.title}</p>
+                  </div>
+                  <p className="mt-1 truncate text-sm text-[var(--color-text-tertiary)]">
+                    {buildPublicFormUrl(primaryLeadershipForm.slug, primaryLeadershipForm.publicUrl) || 'Published leadership form'}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  icon={<ExternalLink className="h-4 w-4" />}
+                  onClick={() => router.push(`/dashboard/forms/${primaryLeadershipForm.id}/edit`)}
+                >
+                  Manage form
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 text-sm text-[var(--color-text-tertiary)]">
+                Create the Leadership Biodata form from here. Once it exists, this button is hidden until that leadership form is deleted.
+              </div>
+            )}
+          </Card>
+
           {leaders.length === 0 ? (
             <Card>
               <p className="text-sm text-[var(--color-text-tertiary)]">
