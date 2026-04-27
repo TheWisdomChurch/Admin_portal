@@ -148,6 +148,82 @@ function ensureOptions(field: FieldDraft): FieldDraft {
   };
 }
 
+function normalizeFieldOptions(field: FieldDraft): { label: string; value: string }[] | undefined {
+  if (!isOptionField(field.type)) return undefined;
+
+  const normalized = (field.options ?? [])
+    .map((option, index) => {
+      const label = (option.label || '').trim();
+      if (!label) return null;
+
+      return {
+        label,
+        value: slugifyValue(option.value || label, `option-${index + 1}`),
+      };
+    })
+    .filter((option): option is { label: string; value: string } => option !== null);
+
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function buildLeadershipBiodataFields(): FieldDraft[] {
+  return [
+    { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
+    { key: 'email', label: 'Email Address', type: 'email', required: true, order: 2 },
+    { key: 'phone', label: 'Contact Number', type: 'tel', required: true, order: 3 },
+    {
+      key: 'leadership_role',
+      label: 'Leadership Role',
+      type: 'radio',
+      required: true,
+      order: 4,
+      options: [
+        { label: 'Senior Pastor', value: 'senior_pastor' },
+        { label: 'Associate Pastor', value: 'associate_pastor' },
+        { label: 'Reverend', value: 'reverend' },
+        { label: 'Deacon', value: 'deacon' },
+        { label: 'Deaconess', value: 'deaconess' },
+      ],
+    },
+    {
+      key: 'bio',
+      label: 'Short Bio',
+      type: 'textarea',
+      required: false,
+      order: 5,
+    },
+    {
+      key: 'birthday',
+      label: 'Birthday (DD/MM)',
+      type: 'text',
+      required: false,
+      order: 6,
+    },
+    {
+      key: 'wedding_anniversary',
+      label: 'Wedding Anniversary (DD/MM)',
+      type: 'text',
+      required: false,
+      order: 7,
+    },
+    {
+      key: 'profile_photo',
+      label: 'Profile Photo',
+      type: 'image',
+      required: false,
+      order: 8,
+    },
+    {
+      key: 'publish_consent',
+      label: 'I consent to this leadership profile being reviewed and published',
+      type: 'checkbox',
+      required: true,
+      order: 9,
+      options: [{ label: 'Yes, I consent', value: 'yes' }],
+    },
+  ];
+}
+
 function normalizeFormStatus(status?: string): FormStatus | undefined {
   if (status === 'draft' || status === 'published' || status === 'invalid') return status;
   return undefined;
@@ -774,7 +850,10 @@ export default withAuth(
           const next = ensureOptions(field);
           const options = (next.options ?? []).filter((_, currentIndex) => currentIndex !== optionIndex);
 
-          return { ...next, options };
+          return {
+            ...next,
+            options: options.length > 0 ? options : [{ label: 'Option 1', value: 'option-1' }],
+          };
         })
       );
     };
@@ -885,6 +964,24 @@ export default withAuth(
       ]);
     };
 
+    const applyLeadershipBiodataPreset = () => {
+      setTitle('Leadership Biodata');
+      setSlug('leadership-biodata');
+      setDescription('Collect leadership profile details for review and publication.');
+      setFormType('leadership');
+      setSubmissionTarget('leadership');
+      setDateFormat('dd/mm');
+      setIntroTitle('Leadership Biodata');
+      setIntroSubtitle('Provide accurate profile details for review and publication.');
+      setIntroBullets('Profile review\nPublic leadership page\nSecure submission');
+      setIntroBulletSubs('Reviewed by administration\nPublished only after approval\nSubmitted through Wisdom Church');
+      setSuccessTitle('Leadership biodata received');
+      setSuccessSubtitle('Thank you. Your profile details have been sent for review.');
+      setSuccessMessage('The administration team will review this submission before it appears on the public leadership page.');
+      setFormHeaderNote('Leadership submissions are reviewed before publication.');
+      setFields(buildLeadershipBiodataFields());
+    };
+
     const save = async () => {
       setFieldErrors({});
 
@@ -914,6 +1011,17 @@ export default withAuth(
         normalizedResponseTemplateURL = resolved;
       }
 
+      for (const field of fields) {
+        if (isOptionField(field.type)) {
+          const options = normalizeFieldOptions(field);
+
+          if (!options || options.length === 0) {
+            toast.error(`${field.label || 'Option field'} must have at least one option.`);
+            return;
+          }
+        }
+      }
+
       const payload: CreateFormRequest = {
         title: normalizedTitle,
         description: description.trim() || undefined,
@@ -929,16 +1037,9 @@ export default withAuth(
           };
 
           if (isOptionField(field.type)) {
-            const options = (field.options ?? [])
-              .map((option, optionIndex) => ({
-                label: (option.label || '').trim(),
-                value: slugifyValue(option.label || '', `option-${optionIndex + 1}`),
-              }))
-              .filter((option) => option.label.length > 0);
-
             return {
               ...base,
-              options: options.length > 0 ? options : undefined,
+              options: normalizeFieldOptions(field),
             };
           }
 
@@ -1718,6 +1819,19 @@ export default withAuth(
 
             <Card title="Form Builder">
               <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">Leadership Biodata Preset</p>
+                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                      Adds leadership role radio options, consent checkbox, photo upload, and DD/MM birthday fields.
+                    </p>
+                  </div>
+
+                  <Button type="button" variant="outline" onClick={applyLeadershipBiodataPreset}>
+                    Use Leadership Biodata
+                  </Button>
+                </div>
+
                 {fields.map((field, index) => {
                   const optionReadyField = isOptionField(field.type) ? ensureOptions(field) : field;
 
