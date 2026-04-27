@@ -13,20 +13,17 @@ import {
   RefreshCw,
   Shield,
   Sparkles,
-  UploadCloud,
-  UserPlus,
   Users,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
-import { Input } from '@/ui/input';
 import { Badge } from '@/ui/Badge';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
+import { fetchAllFormSubmissions } from '@/lib/formSubmissions';
 import type {
   CreateLeadershipRequest,
-  CreateMemberRequest,
   AdminForm,
   FormSubmission,
   LeadershipMember,
@@ -35,7 +32,10 @@ import type {
   WorkforceMember,
 } from '@/lib/types';
 
-type TabKey = 'workforce' | 'members' | 'leadership';
+type SectionKey = 'workforce' | 'members' | 'leadership';
+type TabKey = 'overview' | SectionKey;
+
+const ALL_FORMS = '__all__';
 
 const roleOptions: Array<{ value: LeadershipRole; label: string }> = [
   { value: 'senior_pastor', label: 'Senior Pastor' },
@@ -45,7 +45,6 @@ const roleOptions: Array<{ value: LeadershipRole; label: string }> = [
   { value: 'deaconess', label: 'Deaconness' },
 ];
 
-const ddmmyyyy = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
 const isoDate = /^(\d{4})-(\d{2})-(\d{2})$/;
 const dashedDate = /^(\d{2})-(\d{2})-(\d{4})$/;
 
@@ -102,7 +101,7 @@ function getSubmissionCount(form: AdminForm) {
   return typeof count === 'number' && Number.isFinite(count) ? count : 0;
 }
 
-function formMatchesSection(form: AdminForm, section: TabKey) {
+function formMatchesSection(form: AdminForm, section: SectionKey) {
   const target = form.settings?.submissionTarget;
   const formType = form.settings?.formType;
   const surface = normalizeToken(`${form.slug || ''} ${form.title || ''}`);
@@ -259,50 +258,23 @@ function AccordionRow({
 
 export default function AdministrationPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabKey>('workforce');
+  const [activeTab, setActiveTab] = useState<TabKey>('overview');
 
   const [workforce, setWorkforce] = useState<WorkforceMember[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [leaders, setLeaders] = useState<LeadershipMember[]>([]);
   const [forms, setForms] = useState<AdminForm[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedFormIds, setSelectedFormIds] = useState<Record<TabKey, string>>({
-    workforce: '',
-    members: '',
-    leadership: '',
+  const [selectedFormIds, setSelectedFormIds] = useState<Record<SectionKey, string>>({
+    workforce: ALL_FORMS,
+    members: ALL_FORMS,
+    leadership: ALL_FORMS,
   });
   const [formSubmissions, setFormSubmissions] = useState<FormSubmission[]>([]);
   const [formSubmissionsTotal, setFormSubmissionsTotal] = useState(0);
   const [formSubmissionsPage, setFormSubmissionsPage] = useState(1);
   const [formSubmissionsLoading, setFormSubmissionsLoading] = useState(false);
   const [publishingSubmissionId, setPublishingSubmissionId] = useState<string | null>(null);
-
-  const [memberModalOpen, setMemberModalOpen] = useState(false);
-  const [leaderModalOpen, setLeaderModalOpen] = useState(false);
-  const [savingMember, setSavingMember] = useState(false);
-  const [savingLeader, setSavingLeader] = useState(false);
-
-  const [memberForm, setMemberForm] = useState<CreateMemberRequest>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    isActive: true,
-  });
-
-  const [leaderForm, setLeaderForm] = useState<CreateLeadershipRequest>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    role: 'associate_pastor',
-    status: 'approved',
-    bio: '',
-    birthday: '',
-    anniversary: '',
-    imageUrl: '',
-  });
-  const [leaderImageFile, setLeaderImageFile] = useState<File | null>(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -344,6 +316,16 @@ export default function AdministrationPage() {
     );
   }, [workforce]);
 
+  const leadershipStats = useMemo(() => {
+    return leaders.reduce(
+      (acc, row) => {
+        acc[row.status] = (acc[row.status] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+  }, [leaders]);
+
   const sectionForms = useMemo(() => {
     const sortByResponses = (items: AdminForm[]) =>
       items.slice().sort((left, right) => getSubmissionCount(right) - getSubmissionCount(left));
@@ -355,25 +337,33 @@ export default function AdministrationPage() {
     };
   }, [forms]);
 
-  const activeSectionForms = sectionForms[activeTab];
-  const selectedFormId = selectedFormIds[activeTab];
-  const selectedForm = activeSectionForms.find((form) => form.id === selectedFormId) || activeSectionForms[0] || null;
-  const selectedSectionFormId = selectedForm?.id || '';
+  const activeSection = activeTab === 'overview' ? null : activeTab;
+  const activeSectionForms = useMemo(
+    () => (activeSection ? sectionForms[activeSection] : []),
+    [activeSection, sectionForms]
+  );
+  const selectedFormId = activeSection ? selectedFormIds[activeSection] : ALL_FORMS;
+  const selectedForm =
+    selectedFormId === ALL_FORMS
+      ? null
+      : activeSectionForms.find((form) => form.id === selectedFormId) || null;
+  const selectedSectionFormId = selectedFormId === ALL_FORMS ? ALL_FORMS : selectedForm?.id || '';
 
   useEffect(() => {
     setSelectedFormIds((prev) => {
       const next = { ...prev };
-      (Object.keys(sectionForms) as TabKey[]).forEach((key) => {
+      (Object.keys(sectionForms) as SectionKey[]).forEach((key) => {
         const current = next[key];
+        if (current === ALL_FORMS) return;
         if (current && sectionForms[key].some((form) => form.id === current)) return;
-        next[key] = sectionForms[key][0]?.id || '';
+        next[key] = ALL_FORMS;
       });
       return next;
     });
   }, [sectionForms]);
 
   const loadSectionSubmissions = useCallback(async () => {
-    if (!selectedSectionFormId) {
+    if (!activeSection || !selectedSectionFormId || activeSectionForms.length === 0) {
       setFormSubmissions([]);
       setFormSubmissionsTotal(0);
       return;
@@ -381,6 +371,19 @@ export default function AdministrationPage() {
 
     setFormSubmissionsLoading(true);
     try {
+      if (selectedSectionFormId === ALL_FORMS) {
+        const results = await Promise.all(
+          activeSectionForms.map((form) => fetchAllFormSubmissions(form.id))
+        );
+        const merged = results
+          .flat()
+          .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+        const start = (formSubmissionsPage - 1) * 8;
+        setFormSubmissions(merged.slice(start, start + 8));
+        setFormSubmissionsTotal(merged.length);
+        return;
+      }
+
       const res = await apiClient.getFormSubmissions(selectedSectionFormId, {
         page: formSubmissionsPage,
         limit: 8,
@@ -395,101 +398,11 @@ export default function AdministrationPage() {
     } finally {
       setFormSubmissionsLoading(false);
     }
-  }, [selectedSectionFormId, formSubmissionsPage]);
+  }, [activeSection, activeSectionForms, selectedSectionFormId, formSubmissionsPage]);
 
   useEffect(() => {
     loadSectionSubmissions();
   }, [loadSectionSubmissions]);
-
-  const addMember = useCallback(async () => {
-    if (!memberForm.firstName.trim() || !memberForm.lastName.trim() || !memberForm.email.trim()) {
-      toast.error('First name, last name, and email are required.');
-      return;
-    }
-
-    setSavingMember(true);
-    try {
-      await apiClient.createMember({
-        firstName: memberForm.firstName.trim(),
-        lastName: memberForm.lastName.trim(),
-        email: memberForm.email.trim(),
-        phone: memberForm.phone?.trim() || undefined,
-        isActive: memberForm.isActive ?? true,
-      });
-      toast.success('Member added');
-      setMemberModalOpen(false);
-      setMemberForm({ firstName: '', lastName: '', email: '', phone: '', isActive: true });
-      await loadAll();
-    } catch (error) {
-      console.error('Failed to add member:', error);
-      toast.error('Unable to add member');
-    } finally {
-      setSavingMember(false);
-    }
-  }, [memberForm, loadAll]);
-
-  const addLeader = useCallback(async () => {
-    if (!leaderForm.firstName?.trim() || !leaderForm.lastName?.trim() || !leaderForm.role) {
-      toast.error('First name, last name, and role are required.');
-      return;
-    }
-    if (leaderForm.birthday && !ddmmyyyy.test(leaderForm.birthday)) {
-      toast.error('Birthday must use DD/MM/YYYY');
-      return;
-    }
-    if (leaderForm.anniversary && !ddmmyyyy.test(leaderForm.anniversary)) {
-      toast.error('Wedding anniversary must use DD/MM/YYYY');
-      return;
-    }
-    if (leaderImageFile && leaderImageFile.size > 5 * 1024 * 1024) {
-      toast.error('Image must be 5MB or less');
-      return;
-    }
-
-    setSavingLeader(true);
-    try {
-      let imageUrl = leaderForm.imageUrl || '';
-      if (leaderImageFile) {
-        const upload = await apiClient.uploadImage(leaderImageFile, 'leadership/profiles');
-        imageUrl = upload.url;
-      }
-
-      await apiClient.createLeadership({
-        firstName: leaderForm.firstName.trim(),
-        lastName: leaderForm.lastName.trim(),
-        email: leaderForm.email?.trim() || undefined,
-        phone: leaderForm.phone?.trim() || undefined,
-        role: leaderForm.role,
-        status: 'approved',
-        bio: leaderForm.bio?.trim() || undefined,
-        birthday: leaderForm.birthday?.trim() || undefined,
-        anniversary: leaderForm.anniversary?.trim() || undefined,
-        imageUrl: imageUrl || undefined,
-      });
-
-      toast.success('Leadership profile created');
-      setLeaderModalOpen(false);
-      setLeaderImageFile(null);
-      setLeaderForm({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        role: 'associate_pastor',
-        status: 'approved',
-        bio: '',
-        birthday: '',
-        anniversary: '',
-        imageUrl: '',
-      });
-      await loadAll();
-    } catch (error) {
-      console.error('Failed to add leader:', error);
-      toast.error('Unable to create leadership profile');
-    } finally {
-      setSavingLeader(false);
-    }
-  }, [leaderForm, leaderImageFile, loadAll]);
 
   const publishLeadershipSubmission = useCallback(
     async (submission: FormSubmission) => {
@@ -533,10 +446,89 @@ export default function AdministrationPage() {
     </button>
   );
 
-  const renderFormResponses = (section: TabKey, label: string) => {
+  const renderOverview = () => {
+    const totalForms = forms.length;
+    const mappedForms = sectionForms.workforce.length + sectionForms.members.length + sectionForms.leadership.length;
+    const responseTotal = forms.reduce((sum, form) => sum + getSubmissionCount(form), 0);
+    const overviewItems = [
+      { label: 'Workforce Records', value: workforce.length, meta: `${sectionForms.workforce.length} linked forms` },
+      { label: 'Members', value: members.length, meta: `${sectionForms.members.length} linked forms` },
+      { label: 'Leadership Profiles', value: leaders.length, meta: `${sectionForms.leadership.length} linked forms` },
+      { label: 'Form Responses', value: responseTotal, meta: `${mappedForms} mapped of ${totalForms} forms` },
+    ];
+
+    return (
+      <div className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {overviewItems.map((item) => (
+            <Card key={item.label}>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">{item.label}</p>
+              <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{item.value}</p>
+              <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{item.meta}</p>
+            </Card>
+          ))}
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card title="Leadership Review">
+            <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
+              <div className="flex items-center justify-between gap-3">
+                <span>Approved</span>
+                <Badge variant="success" size="sm">{leadershipStats.approved || 0}</Badge>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span>Pending</span>
+                <Badge variant="warning" size="sm">{leadershipStats.pending || 0}</Badge>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span>Declined</span>
+                <Badge variant="danger" size="sm">{leadershipStats.declined || 0}</Badge>
+              </div>
+            </div>
+          </Card>
+
+          <Card title="Workforce Status">
+            <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
+              <div className="flex items-center justify-between gap-3">
+                <span>Serving</span>
+                <Badge variant="success" size="sm">{workforceStats.serving || 0}</Badge>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span>Pending</span>
+                <Badge variant="warning" size="sm">{workforceStats.pending || 0}</Badge>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span>Other</span>
+                <Badge variant="default" size="sm">{Math.max(0, workforce.length - (workforceStats.serving || 0) - (workforceStats.pending || 0))}</Badge>
+              </div>
+            </div>
+          </Card>
+
+          <Card title="Form Routing">
+            <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
+              <div className="flex items-center justify-between gap-3">
+                <span>Workforce</span>
+                <span className="font-semibold text-[var(--color-text-primary)]">{sectionForms.workforce.length}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span>Members</span>
+                <span className="font-semibold text-[var(--color-text-primary)]">{sectionForms.members.length}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span>Leadership</span>
+                <span className="font-semibold text-[var(--color-text-primary)]">{sectionForms.leadership.length}</span>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  };
+
+  const renderFormResponses = (section: SectionKey, label: string) => {
     const relatedForms = sectionForms[section];
     const currentFormId = selectedFormIds[section];
-    const currentForm = relatedForms.find((form) => form.id === currentFormId) || relatedForms[0] || null;
+    const currentForm = currentFormId === ALL_FORMS ? null : relatedForms.find((form) => form.id === currentFormId) || null;
     const totalPages = Math.max(1, Math.ceil(formSubmissionsTotal / 8));
     const isLeadershipSection = section === 'leadership';
     const columnCount = isLeadershipSection ? 6 : 4;
@@ -552,7 +544,7 @@ export default function AdministrationPage() {
               icon={<RefreshCw className="h-4 w-4" />}
               onClick={loadSectionSubmissions}
               loading={formSubmissionsLoading}
-              disabled={!currentForm}
+              disabled={relatedForms.length === 0}
             >
               Refresh
             </Button>
@@ -581,12 +573,13 @@ export default function AdministrationPage() {
                 </span>
                 <select
                   className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-                  value={currentForm?.id || ''}
+                  value={currentFormId}
                   onChange={(event) => {
                     setSelectedFormIds((prev) => ({ ...prev, [section]: event.target.value }));
                     setFormSubmissionsPage(1);
                   }}
                 >
+                  <option value={ALL_FORMS}>All {label.toLowerCase()} forms</option>
                   {relatedForms.map((form) => (
                     <option key={form.id} value={form.id}>
                       {form.title} ({getSubmissionCount(form)})
@@ -601,13 +594,17 @@ export default function AdministrationPage() {
               </div>
             </div>
 
-            {currentForm && (
-              <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
-                <FileText className="h-4 w-4" />
-                <span className="font-medium text-[var(--color-text-secondary)]">{currentForm.title}</span>
-                {currentForm.slug && <span>/forms/{currentForm.slug}</span>}
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+              <FileText className="h-4 w-4" />
+              {currentForm ? (
+                <>
+                  <span className="font-medium text-[var(--color-text-secondary)]">{currentForm.title}</span>
+                  {currentForm.slug && <span>/forms/{currentForm.slug}</span>}
+                </>
+              ) : (
+                <span className="font-medium text-[var(--color-text-secondary)]">Showing responses from every mapped {label.toLowerCase()} form</span>
+              )}
+            </div>
 
             <div className="overflow-x-auto rounded-[var(--radius-card)] border border-[var(--color-border-secondary)]">
               <table className="min-w-full divide-y divide-[var(--color-border-secondary)] text-sm">
@@ -718,26 +715,19 @@ export default function AdministrationPage() {
     <div className="space-y-6">
       <PageHeader
         title="Administration"
-        subtitle="Manage workforce, leadership, and member records with structured forms."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" icon={<UserPlus className="h-4 w-4" />} onClick={() => setMemberModalOpen(true)}>
-              Add Member
-            </Button>
-            <Button variant="ghost" icon={<Sparkles className="h-4 w-4" />} onClick={() => setLeaderModalOpen(true)}>
-              Add Leadership
-            </Button>
-          </div>
-        }
+        subtitle="Review form responses and publish approved records to the public frontend."
       />
 
       <Card>
         <div className="flex flex-wrap gap-3">
+          {tabButton('overview', 'Overview', <FileText className="h-4 w-4" />)}
           {tabButton('workforce', 'Workforce', <Shield className="h-4 w-4" />)}
           {tabButton('members', 'Members', <Users className="h-4 w-4" />)}
           {tabButton('leadership', 'Leadership', <Sparkles className="h-4 w-4" />)}
         </div>
       </Card>
+
+      {activeTab === 'overview' && renderOverview()}
 
       {activeTab === 'workforce' && (
         <div className="space-y-4">
@@ -852,123 +842,6 @@ export default function AdministrationPage() {
             ))
           )}
           {renderFormResponses('leadership', 'Leadership')}
-        </div>
-      )}
-
-      {memberModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur">
-          <div className="w-full max-w-lg rounded-[var(--radius-card)] bg-[var(--color-background-primary)] p-6 shadow-xl border border-[var(--color-border-secondary)]">
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Add member</h3>
-                <p className="text-sm text-[var(--color-text-tertiary)]">Capture member contact details.</p>
-              </div>
-              <button onClick={() => setMemberModalOpen(false)} aria-label="Close" className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]">
-                ×
-              </button>
-            </div>
-            <div className="space-y-3">
-              <div className="grid gap-3 md:grid-cols-2">
-                <Input label="First name" value={memberForm.firstName} onChange={(e) => setMemberForm((prev) => ({ ...prev, firstName: e.target.value }))} />
-                <Input label="Last name" value={memberForm.lastName} onChange={(e) => setMemberForm((prev) => ({ ...prev, lastName: e.target.value }))} />
-              </div>
-              <Input label="Email address" value={memberForm.email} onChange={(e) => setMemberForm((prev) => ({ ...prev, email: e.target.value }))} />
-              <Input label="Contact number" value={memberForm.phone} onChange={(e) => setMemberForm((prev) => ({ ...prev, phone: e.target.value }))} />
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setMemberModalOpen(false)}>Cancel</Button>
-              <Button onClick={addMember} loading={savingMember}>Save member</Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {leaderModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur">
-          <div className="w-full max-w-2xl rounded-[var(--radius-card)] bg-[var(--color-background-primary)] p-6 shadow-xl border border-[var(--color-border-secondary)] max-h-[92vh] overflow-auto">
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Create leadership profile</h3>
-                <p className="text-sm text-[var(--color-text-tertiary)]">
-                  Profiles created here power the public leadership page.
-                </p>
-              </div>
-              <button onClick={() => setLeaderModalOpen(false)} aria-label="Close" className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]">
-                ×
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Input label="First name" value={leaderForm.firstName} onChange={(e) => setLeaderForm((prev) => ({ ...prev, firstName: e.target.value }))} />
-                <Input label="Last name" value={leaderForm.lastName} onChange={(e) => setLeaderForm((prev) => ({ ...prev, lastName: e.target.value }))} />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Input label="Email" value={leaderForm.email} onChange={(e) => setLeaderForm((prev) => ({ ...prev, email: e.target.value }))} />
-                <Input label="Phone" value={leaderForm.phone} onChange={(e) => setLeaderForm((prev) => ({ ...prev, phone: e.target.value }))} />
-              </div>
-
-              <label className="space-y-2 block">
-                <span className="text-sm font-medium text-[var(--color-text-secondary)]">Role</span>
-                <select
-                  className="h-10 w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 text-sm text-[var(--color-text-primary)]"
-                  value={leaderForm.role}
-                  onChange={(e) => setLeaderForm((prev) => ({ ...prev, role: e.target.value as LeadershipRole }))}
-                >
-                  {roleOptions.map((role) => (
-                    <option key={role.value} value={role.value}>
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Input
-                  label="Birthday (DD/MM/YYYY)"
-                  value={leaderForm.birthday}
-                  onChange={(e) => setLeaderForm((prev) => ({ ...prev, birthday: e.target.value }))}
-                  placeholder="25/12/1990"
-                />
-                <Input
-                  label="Wedding anniversary (DD/MM/YYYY)"
-                  value={leaderForm.anniversary}
-                  onChange={(e) => setLeaderForm((prev) => ({ ...prev, anniversary: e.target.value }))}
-                  placeholder="16/06/2014"
-                />
-              </div>
-
-              <label className="space-y-2 block">
-                <span className="text-sm font-medium text-[var(--color-text-secondary)]">Profile image (max 5MB)</span>
-                <label className="flex items-center gap-2 h-10 rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 text-sm text-[var(--color-text-secondary)]">
-                  <UploadCloud className="h-4 w-4" />
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/jpg,image/webp"
-                    onChange={(e) => setLeaderImageFile(e.target.files?.[0] || null)}
-                    className="hidden"
-                  />
-                  <span className="truncate">{leaderImageFile ? leaderImageFile.name : 'Choose image'}</span>
-                </label>
-              </label>
-
-              <label className="space-y-2 block">
-                <span className="text-sm font-medium text-[var(--color-text-secondary)]">Bio</span>
-                <textarea
-                  value={leaderForm.bio}
-                  onChange={(e) => setLeaderForm((prev) => ({ ...prev, bio: e.target.value }))}
-                  className="min-h-[110px] w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-3 text-sm text-[var(--color-text-primary)]"
-                  placeholder="Short leadership summary"
-                />
-              </label>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setLeaderModalOpen(false)}>Cancel</Button>
-              <Button onClick={addLeader} loading={savingLeader}>Save leadership profile</Button>
-            </div>
-          </div>
         </div>
       )}
     </div>
