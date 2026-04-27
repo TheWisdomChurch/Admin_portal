@@ -126,7 +126,6 @@ function buildPresetFields(preset: FormPreset): FieldDraft[] {
           { label: 'Reverend', value: 'reverend' },
           { label: 'Deacon', value: 'deacon' },
           { label: 'Deaconess', value: 'deaconess' },
-          { label: 'Ministry Lead', value: 'ministry_lead' },
         ],
       },
       {
@@ -137,6 +136,15 @@ function buildPresetFields(preset: FormPreset): FieldDraft[] {
         order: 5,
         validation: { maxWords: 400 },
       },
+      { key: 'birthday', label: 'Birthday (DD/MM/YYYY)', type: 'text', required: false, order: 6 },
+      {
+        key: 'wedding_anniversary',
+        label: 'Wedding Anniversary (DD/MM/YYYY)',
+        type: 'text',
+        required: false,
+        order: 7,
+      },
+      { key: 'photo', label: 'Profile Photo', type: 'image', required: false, order: 8 },
     ];
   }
 
