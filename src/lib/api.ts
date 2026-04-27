@@ -178,6 +178,32 @@ export function isForbiddenError(err: unknown): boolean {
   return isApiError(err) && err.statusCode === 403;
 }
 
+function getApiStatusCode(err: unknown): number | undefined {
+  if (isApiError(err)) return err.statusCode;
+
+  if (isRecord(err)) {
+    const raw = err.statusCode ?? err.status ?? err.code;
+    const numeric = Number(raw);
+    return Number.isFinite(numeric) ? numeric : undefined;
+  }
+
+  return undefined;
+}
+
+export function isSlugConflictError(err: unknown): boolean {
+  const statusCode = getApiStatusCode(err);
+  const message = getErrorMessage(err).toLowerCase();
+
+  return (
+    statusCode === 409 ||
+    ((statusCode === 400 || statusCode === 422) && message.includes('slug')) ||
+    message.includes('slug already') ||
+    message.includes('slug already in use') ||
+    message.includes('duplicate slug') ||
+    message.includes('already exists')
+  );
+}
+
 export function isMfaRequiredError(err: unknown): boolean {
   if (!isApiError(err)) return false;
   if (err.statusCode !== 403) return false;
@@ -734,20 +760,19 @@ async function uploadFetch<T>(
   const isFormData =
     typeof FormData !== 'undefined' && options.body instanceof FormData;
 
-  const headers: Record<string, string> = {
+  const baseHeaders: Record<string, string> = {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...toHeaderRecord(options.headers),
   };
 
-  if (shouldAttachCsrf(endpoint, method)) {
-    const csrf = await ensureCsrfToken(false);
-    headers[csrf.header] = csrf.token;
-  }
+  const csrfRequired = shouldAttachCsrf(endpoint, method);
 
-  try {
+  const execute = async (
+    requestHeaders: Record<string, string>
+  ): Promise<{ response: Response; payload: unknown }> => {
     const response = await fetch(url, {
       ...options,
-      headers,
+      headers: requestHeaders,
       credentials: 'include',
       cache: 'no-store',
     });
@@ -756,8 +781,31 @@ async function uploadFetch<T>(
     const payload: unknown =
       json ?? { message: await response.text().catch(() => '') };
 
+    return { response, payload };
+  };
+
+  try {
+    let headers = { ...baseHeaders };
+
+    if (csrfRequired) {
+      const csrf = await ensureCsrfToken(false);
+      headers[csrf.header] = csrf.token;
+    }
+
+    let { response, payload } = await execute(headers);
+
+    if (response.status === 403 && csrfRequired) {
+      resetCsrfCache();
+
+      const csrf = await ensureCsrfToken(true);
+      headers = { ...baseHeaders, [csrf.header]: csrf.token };
+
+      ({ response, payload } = await execute(headers));
+    }
+
     if (!response.ok) {
       const validationErrors = extractValidationErrors(payload);
+
       throw createApiError(
         getMessageFromPayload(payload) || 'Request failed',
         response.status,
@@ -1470,7 +1518,8 @@ export const apiClient = {
     params?: Record<string, unknown>
   ): Promise<SimplePaginatedResponse<ReelData>> {
     const qs = toQueryString(params);
-    return apiFetch(`/admin/reels${qs}`, { method: 'GET' });
+    const res = await apiFetch(`/admin/reels${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<ReelData>(res, 'Invalid reels payload');
   },
 
   async createReel(payload: CreateReelData): Promise<ReelData> {
@@ -1606,11 +1655,32 @@ export const apiClient = {
 
   async createAdminForm(payload: CreateFormRequest): Promise<AdminForm> {
     const sanitizedPayload = sanitizeFormPayload(payload);
-    const res = await apiFetch<{ data: AdminForm }>('/admin/forms', {
-      method: 'POST',
-      body: JSON.stringify(sanitizedPayload),
-    });
-    return unwrapData<AdminForm>(res, 'Invalid form payload');
+
+    try {
+      const res = await apiFetch<{ data: AdminForm }>('/admin/forms', {
+        method: 'POST',
+        body: JSON.stringify(sanitizedPayload),
+      });
+
+      return unwrapData<AdminForm>(res, 'Invalid form payload');
+    } catch (err) {
+      if (isSlugConflictError(err)) {
+        throw createApiError(
+          'slug already in use',
+          getApiStatusCode(err) ?? 409,
+          err,
+          [
+            {
+              field: 'slug',
+              code: 'duplicate',
+              message: 'This form link name is already in use.',
+            },
+          ]
+        );
+      }
+
+      throw err;
+    }
   },
 
   async updateAdminForm(
@@ -1836,7 +1906,10 @@ export const apiClient = {
     params?: Record<string, unknown>
   ): Promise<SimplePaginatedResponse<Subscriber>> {
     const qs = toQueryString(params);
-    return apiFetch(`/admin/notifications/subscribers${qs}`, { method: 'GET' });
+    const res = await apiFetch(`/admin/notifications/subscribers${qs}`, {
+      method: 'GET',
+    });
+    return unwrapSimplePaginated<Subscriber>(res, 'Invalid subscribers payload');
   },
 
   async getSubscriberSummary(): Promise<SubscriberSummary> {
@@ -1996,21 +2069,37 @@ export const apiClient = {
     params?: Record<string, unknown>
   ): Promise<SimplePaginatedResponse<PastoralCareRequestAdmin>> {
     const qs = toQueryString(params);
-    return apiFetch(`/admin/pastoral-care/requests${qs}`, { method: 'GET' });
+    const res = await apiFetch(`/admin/pastoral-care/requests${qs}`, {
+      method: 'GET',
+    });
+    return unwrapSimplePaginated<PastoralCareRequestAdmin>(
+      res,
+      'Invalid pastoral care requests payload'
+    );
   },
 
   async listGivingIntents(
     params?: Record<string, unknown>
   ): Promise<SimplePaginatedResponse<GivingIntentAdmin>> {
     const qs = toQueryString(params);
-    return apiFetch(`/admin/giving/intents${qs}`, { method: 'GET' });
+    const res = await apiFetch(`/admin/giving/intents${qs}`, {
+      method: 'GET',
+    });
+    return unwrapSimplePaginated<GivingIntentAdmin>(
+      res,
+      'Invalid giving intents payload'
+    );
   },
 
   async listWorkforce(
     params?: Record<string, unknown>
   ): Promise<SimplePaginatedResponse<WorkforceMember>> {
     const qs = toQueryString(params);
-    return apiFetch(`/admin/workforce${qs}`, { method: 'GET' });
+    const res = await apiFetch(`/admin/workforce${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<WorkforceMember>(
+      res,
+      'Invalid workforce payload'
+    );
   },
 
   async createWorkforce(
@@ -2082,7 +2171,8 @@ export const apiClient = {
     params?: Record<string, unknown>
   ): Promise<SimplePaginatedResponse<Member>> {
     const qs = toQueryString(params);
-    return apiFetch(`/admin/members${qs}`, { method: 'GET' });
+    const res = await apiFetch(`/admin/members${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<Member>(res, 'Invalid members payload');
   },
 
   async createMember(payload: CreateMemberRequest): Promise<Member> {

@@ -18,6 +18,7 @@ import {
   Users,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
@@ -25,6 +26,7 @@ import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
 import { fetchAllFormSubmissions } from '@/lib/formSubmissions';
 import { buildPublicFormUrl } from '@/lib/utils';
+
 import type {
   CreateLeadershipRequest,
   CreateFormRequest,
@@ -40,13 +42,14 @@ type SectionKey = 'workforce' | 'members' | 'leadership';
 type TabKey = 'overview' | SectionKey;
 
 const ALL_FORMS = '__all__';
+const LEADERSHIP_FORM_SLUG = 'leadership-biodata';
 
 const roleOptions: Array<{ value: LeadershipRole; label: string }> = [
   { value: 'senior_pastor', label: 'Senior Pastor' },
   { value: 'associate_pastor', label: 'Associate Pastor' },
   { value: 'reverend', label: 'Reverend' },
   { value: 'deacon', label: 'Deacon' },
-  { value: 'deaconess', label: 'Deaconness' },
+  { value: 'deaconess', label: 'Deaconess' },
 ];
 
 const isoDate = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -56,7 +59,7 @@ function buildLeadershipFormPayload(): CreateFormRequest {
   return {
     title: 'Leadership Biodata',
     description: 'Collect leadership profile details for review and publication.',
-    slug: 'leadership-biodata',
+    slug: LEADERSHIP_FORM_SLUG,
     fields: [
       { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
       { key: 'email', label: 'Email Address', type: 'email', required: true, order: 2 },
@@ -120,16 +123,21 @@ function buildLeadershipFormPayload(): CreateFormRequest {
 
 function toArray<T>(value: unknown): T[] {
   if (Array.isArray(value)) return value as T[];
+
   if (value && typeof value === 'object') {
     const record = value as Record<string, unknown>;
+
     if (Array.isArray(record.data)) return record.data as T[];
+
     if (record.data && typeof record.data === 'object') {
       const nested = record.data as Record<string, unknown>;
       if (Array.isArray(nested.data)) return nested.data as T[];
       if (Array.isArray(nested.items)) return nested.items as T[];
     }
+
     if (Array.isArray(record.items)) return record.items as T[];
   }
+
   return [];
 }
 
@@ -188,80 +196,97 @@ function formMatchesSection(form: AdminForm, section: SectionKey) {
   }
 
   if (section === 'members') {
-    return (
-      target === 'member' ||
-      formType === 'membership' ||
-      surface.includes('member') ||
-      surface.includes('membership')
-    );
+    return target === 'member' || formType === 'membership' || surface.includes('member') || surface.includes('membership');
   }
 
-  return target === 'leadership' || formType === 'leadership' || surface.includes('leadership');
+  return (
+    form.slug === LEADERSHIP_FORM_SLUG ||
+    target === 'leadership' ||
+    formType === 'leadership' ||
+    surface.includes('leadership')
+  );
 }
 
 function resolveSubmissionName(submission: FormSubmission) {
   const values = submission.values || {};
   const direct = submission.name || values.fullName || values.full_name || values.name;
+
   if (typeof direct === 'string' && direct.trim()) return direct.trim();
+
   const first = typeof values.firstName === 'string' ? values.firstName : values.first_name;
   const last = typeof values.lastName === 'string' ? values.lastName : values.last_name;
   const combined = `${typeof first === 'string' ? first : ''} ${typeof last === 'string' ? last : ''}`.trim();
+
   return combined || 'Anonymous';
 }
 
 function resolveSubmissionEmail(submission: FormSubmission) {
   const values = submission.values || {};
   const email = submission.email || values.email || values.contactEmail || values.email_address;
+
   return typeof email === 'string' && email.trim() ? email.trim() : 'No email';
 }
 
 function resolveSubmissionPhone(submission: FormSubmission) {
   const values = submission.values || {};
   const phone = submission.contactNumber || values.phone || values.contactPhone || values.phone_number || values.contact_number;
+
   return typeof phone === 'string' && phone.trim() ? phone.trim() : '—';
 }
 
 function readSubmissionText(submission: FormSubmission, keys: string[]) {
   const values = submission.values || {};
+
   for (const key of keys) {
     const raw = values[key];
+
     if (typeof raw === 'string' && raw.trim()) return raw.trim();
     if (typeof raw === 'number' && Number.isFinite(raw)) return String(raw);
     if (Array.isArray(raw) && raw.length > 0) return raw.join(', ');
   }
+
   return '';
 }
 
 function splitFullName(fullName: string) {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
+
   if (parts.length === 0) return { firstName: '', lastName: '' };
   if (parts.length === 1) return { firstName: parts[0], lastName: 'Unknown' };
+
   return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
 }
 
 function normalizeLeadershipRole(value: string): LeadershipRole {
   const normalized = value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+
   if (normalized === 'senior_pastor' || normalized === 'pastor') return 'senior_pastor';
   if (normalized === 'associate_pastor') return 'associate_pastor';
   if (normalized === 'reverend' || normalized === 'rev') return 'reverend';
   if (normalized === 'deacon') return 'deacon';
   if (normalized === 'deaconess' || normalized === 'deaconness') return 'deaconess';
+
   return 'associate_pastor';
 }
 
 function normalizeLeadershipDate(value: string) {
   const trimmed = value.trim();
+
   if (!trimmed) return undefined;
+
   const isoMatch = trimmed.match(isoDate);
   if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+
   const dashedMatch = trimmed.match(dashedDate);
   if (dashedMatch) return `${dashedMatch[1]}/${dashedMatch[2]}/${dashedMatch[3]}`;
+
   return trimmed.replace(/-/g, '/');
 }
 
 function buildLeadershipPayloadFromSubmission(submission: FormSubmission): CreateLeadershipRequest {
   const fullName = resolveSubmissionName(submission);
   const split = splitFullName(fullName);
+
   const firstName = readSubmissionText(submission, ['first_name', 'firstName']) || split.firstName;
   const lastName = readSubmissionText(submission, ['last_name', 'lastName']) || split.lastName;
   const role = readSubmissionText(submission, ['leadership_role', 'role', 'position', 'title']);
@@ -290,15 +315,61 @@ function leadershipSubmissionAlreadyPublished(submission: FormSubmission, leader
   return leaders.some((leader) => {
     const leaderEmail = (leader.email || '').toLowerCase();
     const leaderName = `${leader.firstName} ${leader.lastName}`.trim().toLowerCase();
+
     return (email !== 'no email' && leaderEmail === email) || (name !== 'anonymous' && leaderName === name);
   });
 }
 
 function formatDateTime(value?: string) {
   if (!value) return '—';
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
+
   return date.toLocaleString();
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+
+  if (error && typeof error === 'object') {
+    const record = error as Record<string, unknown>;
+    const response = record.response as Record<string, unknown> | undefined;
+    const data = response?.data as Record<string, unknown> | undefined;
+
+    if (typeof data?.message === 'string') return data.message;
+    if (typeof data?.error === 'string') return data.error;
+    if (typeof record.message === 'string') return record.message;
+  }
+
+  return '';
+}
+
+function StatCard({
+  label,
+  value,
+  meta,
+  icon,
+}: {
+  label: string;
+  value: number | string;
+  meta: string;
+  icon: ReactNode;
+}) {
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</p>
+          <p className="mt-2 text-3xl font-bold tracking-tight text-[var(--color-text-primary)]">{value}</p>
+          <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{meta}</p>
+        </div>
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-accent-primary)]">
+          {icon}
+        </div>
+      </div>
+    </Card>
+  );
 }
 
 function AccordionRow({
@@ -313,14 +384,15 @@ function AccordionRow({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+    <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm transition hover:border-[var(--color-border-primary)]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-semibold text-[var(--color-text-primary)] truncate">{title}</p>
-          {subtitle && <p className="text-xs text-[var(--color-text-tertiary)] truncate">{subtitle}</p>}
+          <p className="truncate font-semibold text-[var(--color-text-primary)]">{title}</p>
+          {subtitle && <p className="truncate text-xs text-[var(--color-text-tertiary)]">{subtitle}</p>}
         </div>
         {badge}
       </div>
+
       <div className="pt-3">{children}</div>
     </div>
   );
@@ -328,18 +400,20 @@ function AccordionRow({
 
 export default function AdministrationPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabKey>('overview');
 
+  const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [workforce, setWorkforce] = useState<WorkforceMember[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [leaders, setLeaders] = useState<LeadershipMember[]>([]);
   const [forms, setForms] = useState<AdminForm[]>([]);
   const [loading, setLoading] = useState(false);
+
   const [selectedFormIds, setSelectedFormIds] = useState<Record<SectionKey, string>>({
     workforce: ALL_FORMS,
     members: ALL_FORMS,
     leadership: ALL_FORMS,
   });
+
   const [formSubmissions, setFormSubmissions] = useState<FormSubmission[]>([]);
   const [formSubmissionsTotal, setFormSubmissionsTotal] = useState(0);
   const [formSubmissionsPage, setFormSubmissionsPage] = useState(1);
@@ -349,21 +423,49 @@ export default function AdministrationPage() {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
+
     try {
-      const [workforceRes, membersRes, leadershipRes, formsRes] = await Promise.all([
+      const [workforceRes, membersRes, leadershipRes, formsRes] = await Promise.allSettled([
         apiClient.listWorkforce({ page: 1, limit: 200 }),
         apiClient.listMembers({ page: 1, limit: 200 }),
         apiClient.listLeadership({ page: 1, limit: 200 }),
         apiClient.getAdminForms({ page: 1, limit: 300 }),
       ]);
 
-      setWorkforce(toArray<WorkforceMember>(workforceRes));
-      setMembers(toArray<Member>(membersRes));
-      setLeaders(toArray<LeadershipMember>(leadershipRes));
-      setForms(Array.isArray(formsRes.data) ? formsRes.data : []);
+      if (workforceRes.status === 'fulfilled') {
+        setWorkforce(toArray<WorkforceMember>(workforceRes.value));
+      } else {
+        console.error('Failed to load workforce:', workforceRes.reason);
+        setWorkforce([]);
+      }
+
+      if (membersRes.status === 'fulfilled') {
+        setMembers(toArray<Member>(membersRes.value));
+      } else {
+        console.error('Failed to load members:', membersRes.reason);
+        setMembers([]);
+      }
+
+      if (leadershipRes.status === 'fulfilled') {
+        setLeaders(toArray<LeadershipMember>(leadershipRes.value));
+      } else {
+        console.error('Failed to load leadership:', leadershipRes.reason);
+        setLeaders([]);
+      }
+
+      if (formsRes.status === 'fulfilled') {
+        setForms(Array.isArray(formsRes.value.data) ? formsRes.value.data : []);
+      } else {
+        console.error('Failed to load forms:', formsRes.reason);
+        setForms([]);
+      }
+
+      const failed = [workforceRes, membersRes, leadershipRes, formsRes].some((result) => result.status === 'rejected');
+      if (failed) toast.error('Some administration records could not be loaded');
     } catch (error) {
       console.error('Failed to load administration data:', error);
       toast.error('Unable to load administration records');
+
       setWorkforce([]);
       setMembers([]);
       setLeaders([]);
@@ -407,29 +509,39 @@ export default function AdministrationPage() {
       leadership: sortByResponses(forms.filter((form) => formMatchesSection(form, 'leadership'))),
     };
   }, [forms]);
-  const primaryLeadershipForm = sectionForms.leadership[0] || null;
+
+  const primaryLeadershipForm =
+    forms.find((form) => form.slug === LEADERSHIP_FORM_SLUG) || sectionForms.leadership[0] || null;
 
   const activeSection = activeTab === 'overview' ? null : activeTab;
+
   const activeSectionForms = useMemo(
     () => (activeSection ? sectionForms[activeSection] : []),
     [activeSection, sectionForms]
   );
+
   const selectedFormId = activeSection ? selectedFormIds[activeSection] : ALL_FORMS;
+
   const selectedForm =
     selectedFormId === ALL_FORMS
       ? null
       : activeSectionForms.find((form) => form.id === selectedFormId) || null;
+
   const selectedSectionFormId = selectedFormId === ALL_FORMS ? ALL_FORMS : selectedForm?.id || '';
 
   useEffect(() => {
     setSelectedFormIds((prev) => {
       const next = { ...prev };
+
       (Object.keys(sectionForms) as SectionKey[]).forEach((key) => {
         const current = next[key];
+
         if (current === ALL_FORMS) return;
         if (current && sectionForms[key].some((form) => form.id === current)) return;
+
         next[key] = ALL_FORMS;
       });
+
       return next;
     });
   }, [sectionForms]);
@@ -442,15 +554,17 @@ export default function AdministrationPage() {
     }
 
     setFormSubmissionsLoading(true);
+
     try {
       if (selectedSectionFormId === ALL_FORMS) {
-        const results = await Promise.all(
-          activeSectionForms.map((form) => fetchAllFormSubmissions(form.id))
-        );
+        const results = await Promise.all(activeSectionForms.map((form) => fetchAllFormSubmissions(form.id)));
+
         const merged = results
           .flat()
           .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+
         const start = (formSubmissionsPage - 1) * 8;
+
         setFormSubmissions(merged.slice(start, start + 8));
         setFormSubmissionsTotal(merged.length);
         return;
@@ -460,11 +574,13 @@ export default function AdministrationPage() {
         page: formSubmissionsPage,
         limit: 8,
       });
+
       setFormSubmissions(Array.isArray(res.data) ? res.data : []);
       setFormSubmissionsTotal(typeof res.total === 'number' ? res.total : 0);
     } catch (error) {
       console.error('Failed to load form submissions:', error);
       toast.error('Unable to load form responses');
+
       setFormSubmissions([]);
       setFormSubmissionsTotal(0);
     } finally {
@@ -479,12 +595,14 @@ export default function AdministrationPage() {
   const publishLeadershipSubmission = useCallback(
     async (submission: FormSubmission) => {
       const payload = buildLeadershipPayloadFromSubmission(submission);
+
       if (!payload.firstName.trim() || !payload.lastName.trim()) {
         toast.error('This response needs a name before it can be published.');
         return;
       }
 
       setPublishingSubmissionId(submission.id);
+
       try {
         await apiClient.createLeadership(payload);
         toast.success('Leadership profile published');
@@ -500,20 +618,63 @@ export default function AdministrationPage() {
   );
 
   const createLeadershipForm = useCallback(async () => {
-    if (sectionForms.leadership.length > 0) return;
-
     setCreatingLeadershipForm(true);
+
     try {
+      const freshFormsRes = await apiClient.getAdminForms({ page: 1, limit: 300 });
+      const freshForms = Array.isArray(freshFormsRes.data) ? freshFormsRes.data : [];
+
+      const existingLeadershipForm =
+        freshForms.find((form) => form.slug === LEADERSHIP_FORM_SLUG) ||
+        freshForms.find((form) => formMatchesSection(form, 'leadership'));
+
+      if (existingLeadershipForm) {
+        let nextForm = existingLeadershipForm as AdminForm;
+
+        if (!nextForm.isPublished && nextForm.status !== 'published') {
+          try {
+            const published = await apiClient.publishAdminForm(nextForm.id);
+
+            nextForm = {
+              ...nextForm,
+              isPublished: true,
+              status: published.status || 'published',
+              publishedAt: published.publishedAt || nextForm.publishedAt,
+              slug: published.slug || nextForm.slug,
+              publicUrl: published.publicUrl || nextForm.publicUrl,
+            } as AdminForm;
+          } catch (publishError) {
+            console.warn('Leadership form exists but could not be published automatically:', publishError);
+          }
+        }
+
+        setForms((current) => [nextForm, ...current.filter((form) => form.id !== nextForm.id)]);
+        setSelectedFormIds((current) => ({ ...current, leadership: nextForm.id }));
+        setActiveTab('leadership');
+        setFormSubmissionsPage(1);
+
+        toast.success('Existing leadership form loaded');
+        return;
+      }
+
       const created = await apiClient.createAdminForm(buildLeadershipFormPayload());
-      const published = await apiClient.publishAdminForm(created.id);
-      const nextForm = {
-        ...created,
-        isPublished: true,
-        status: published.status || 'published',
-        publishedAt: published.publishedAt || created.publishedAt,
-        slug: published.slug || created.slug,
-        publicUrl: published.publicUrl || created.publicUrl,
-      } as AdminForm;
+
+      let nextForm = created as AdminForm;
+
+      try {
+        const published = await apiClient.publishAdminForm(created.id);
+
+        nextForm = {
+          ...created,
+          isPublished: true,
+          status: published.status || 'published',
+          publishedAt: published.publishedAt || created.publishedAt,
+          slug: published.slug || created.slug,
+          publicUrl: published.publicUrl || created.publicUrl,
+        } as AdminForm;
+      } catch (publishError) {
+        console.warn('Leadership form created but publish failed:', publishError);
+      }
 
       setForms((current) => [nextForm, ...current.filter((form) => form.id !== nextForm.id)]);
       setSelectedFormIds((current) => ({ ...current, leadership: nextForm.id }));
@@ -521,27 +682,39 @@ export default function AdministrationPage() {
       setFormSubmissionsPage(1);
 
       const publicUrl = buildPublicFormUrl(nextForm.slug, nextForm.publicUrl);
-      toast.success(publicUrl ? `Leadership form created: ${publicUrl}` : 'Leadership form created');
+      toast.success(publicUrl ? `Leadership form ready: ${publicUrl}` : 'Leadership form ready');
     } catch (error) {
-      console.error('Failed to create leadership form:', error);
-      toast.error('Unable to create leadership form');
+      console.error('Failed to create/load leadership form:', error);
+
+      const message = getErrorMessage(error);
+
+      if (message.toLowerCase().includes('slug already')) {
+        toast.error('Leadership form already exists. Refreshing forms...');
+        await loadAll();
+        return;
+      }
+
+      toast.error('Unable to prepare leadership form');
     } finally {
       setCreatingLeadershipForm(false);
     }
-  }, [sectionForms.leadership.length]);
+  }, [loadAll]);
 
   const tabButton = (key: TabKey, label: string, icon: ReactNode) => (
     <button
       key={key}
+      type="button"
       onClick={() => {
         setActiveTab(key);
         setFormSubmissionsPage(1);
       }}
       className={`
-        inline-flex items-center gap-2 rounded-[var(--radius-button)] border px-3 py-2 text-sm font-semibold transition-colors
-        ${activeTab === key
-          ? 'border-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)]'
-          : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-primary)]'}
+        inline-flex items-center gap-2 rounded-[var(--radius-button)] border px-4 py-2.5 text-sm font-semibold transition
+        ${
+          activeTab === key
+            ? 'border-[var(--color-accent-primary)] bg-[var(--color-accent-primary)] text-white shadow-sm'
+            : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-primary)] hover:bg-[var(--color-background-tertiary)]'
+        }
       `}
     >
       {icon}
@@ -554,47 +727,94 @@ export default function AdministrationPage() {
     const mappedForms = sectionForms.workforce.length + sectionForms.members.length + sectionForms.leadership.length;
     const responseTotal = forms.reduce((sum, form) => sum + getSubmissionCount(form), 0);
     const activeMembers = members.filter((member) => member.isActive).length;
-    const overviewItems = [
-      { label: 'Workforce', value: workforce.length, meta: `${workforceStats.serving || 0} serving` },
-      { label: 'Members', value: members.length, meta: `${activeMembers} active` },
-      { label: 'Leadership', value: leaders.length, meta: `${leadershipStats.approved || 0} published` },
-      { label: 'Responses', value: responseTotal, meta: `${mappedForms} mapped forms` },
-    ];
+
     const leadershipFormUrl = primaryLeadershipForm
       ? buildPublicFormUrl(primaryLeadershipForm.slug, primaryLeadershipForm.publicUrl)
       : null;
 
     return (
-      <div className="space-y-4">
-        <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-5 shadow-sm">
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.6fr)] lg:items-center">
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="primary" size="sm">Administration</Badge>
-                <Badge variant={primaryLeadershipForm ? 'success' : 'warning'} size="sm">
-                  {primaryLeadershipForm ? 'Leadership form active' : 'Leadership form needed'}
-                </Badge>
-              </div>
-              <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
-                Review form submissions, then publish approved records.
-              </h2>
-              <p className="max-w-2xl text-sm text-[var(--color-text-tertiary)]">
-                Workforce, member, and leadership data should enter through mapped forms so every record keeps a submission trail before it appears in public-facing sections.
-              </p>
-            </div>
+      <div className="space-y-5">
+        <div className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] shadow-sm">
+          <div className="relative p-6 lg:p-7">
+            <div className="absolute right-0 top-0 h-32 w-32 rounded-bl-full bg-[var(--color-accent-primary)]/10" />
+            <div className="absolute bottom-0 right-20 h-20 w-20 rounded-t-full bg-[var(--color-accent-primary)]/5" />
 
-            <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)]">
-                  <ClipboardList className="h-5 w-5" />
+            <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.6fr)] lg:items-center">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="primary" size="sm">
+                    Administration
+                  </Badge>
+                  <Badge variant={primaryLeadershipForm ? 'success' : 'warning'} size="sm">
+                    {primaryLeadershipForm ? 'Leadership form active' : 'Leadership form needed'}
+                  </Badge>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                    {primaryLeadershipForm ? primaryLeadershipForm.title : 'Leadership Biodata'}
+
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
+                    Manage church records from one professional review desk.
+                  </h2>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-text-tertiary)]">
+                    Review workforce, membership, and leadership submissions before publishing approved records to the public frontend.
                   </p>
-                  <p className="truncate text-xs text-[var(--color-text-tertiary)]">
-                    {leadershipFormUrl || 'Create from the Leadership tab'}
-                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    icon={<RefreshCw className="h-4 w-4" />}
+                    onClick={loadAll}
+                    loading={loading}
+                  >
+                    Refresh records
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant={primaryLeadershipForm ? 'outline' : 'secondary'}
+                    icon={primaryLeadershipForm ? <ExternalLink className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                    onClick={() => {
+                      if (primaryLeadershipForm && leadershipFormUrl) {
+                        window.open(leadershipFormUrl, '_blank', 'noopener,noreferrer');
+                        return;
+                      }
+
+                      createLeadershipForm();
+                    }}
+                    loading={creatingLeadershipForm}
+                  >
+                    {primaryLeadershipForm ? 'Open leadership form' : 'Prepare leadership form'}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)]">
+                    <ClipboardList className="h-6 w-6" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                      {primaryLeadershipForm ? primaryLeadershipForm.title : 'Leadership Biodata'}
+                    </p>
+                    <p className="truncate text-xs text-[var(--color-text-tertiary)]">
+                      {leadershipFormUrl || 'No connected leadership form yet'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-[var(--radius-button)] bg-[var(--color-background-secondary)] p-3">
+                    <p className="text-xs text-[var(--color-text-tertiary)]">Mapped forms</p>
+                    <p className="font-bold text-[var(--color-text-primary)]">{mappedForms}</p>
+                  </div>
+
+                  <div className="rounded-[var(--radius-button)] bg-[var(--color-background-secondary)] p-3">
+                    <p className="text-xs text-[var(--color-text-tertiary)]">Responses</p>
+                    <p className="font-bold text-[var(--color-text-primary)]">{responseTotal}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -602,13 +822,30 @@ export default function AdministrationPage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {overviewItems.map((item) => (
-            <Card key={item.label}>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">{item.label}</p>
-              <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{item.value}</p>
-              <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{item.meta}</p>
-            </Card>
-          ))}
+          <StatCard
+            label="Workforce"
+            value={workforce.length}
+            meta={`${workforceStats.serving || 0} serving`}
+            icon={<Shield className="h-5 w-5" />}
+          />
+          <StatCard
+            label="Members"
+            value={members.length}
+            meta={`${activeMembers} active`}
+            icon={<Users className="h-5 w-5" />}
+          />
+          <StatCard
+            label="Leadership"
+            value={leaders.length}
+            meta={`${leadershipStats.approved || 0} published`}
+            icon={<Sparkles className="h-5 w-5" />}
+          />
+          <StatCard
+            label="Responses"
+            value={responseTotal}
+            meta={`${totalForms} total forms`}
+            icon={<FileText className="h-5 w-5" />}
+          />
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
@@ -616,15 +853,21 @@ export default function AdministrationPage() {
             <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
               <div className="flex items-center justify-between gap-3">
                 <span>Approved</span>
-                <Badge variant="success" size="sm">{leadershipStats.approved || 0}</Badge>
+                <Badge variant="success" size="sm">
+                  {leadershipStats.approved || 0}
+                </Badge>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span>Pending</span>
-                <Badge variant="warning" size="sm">{leadershipStats.pending || 0}</Badge>
+                <Badge variant="warning" size="sm">
+                  {leadershipStats.pending || 0}
+                </Badge>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span>Declined</span>
-                <Badge variant="danger" size="sm">{leadershipStats.declined || 0}</Badge>
+                <Badge variant="danger" size="sm">
+                  {leadershipStats.declined || 0}
+                </Badge>
               </div>
             </div>
           </Card>
@@ -633,15 +876,21 @@ export default function AdministrationPage() {
             <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
               <div className="flex items-center justify-between gap-3">
                 <span>Serving</span>
-                <Badge variant="success" size="sm">{workforceStats.serving || 0}</Badge>
+                <Badge variant="success" size="sm">
+                  {workforceStats.serving || 0}
+                </Badge>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span>Pending</span>
-                <Badge variant="warning" size="sm">{workforceStats.pending || 0}</Badge>
+                <Badge variant="warning" size="sm">
+                  {workforceStats.pending || 0}
+                </Badge>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span>Other</span>
-                <Badge variant="default" size="sm">{Math.max(0, workforce.length - (workforceStats.serving || 0) - (workforceStats.pending || 0))}</Badge>
+                <Badge variant="default" size="sm">
+                  {Math.max(0, workforce.length - (workforceStats.serving || 0) - (workforceStats.pending || 0))}
+                </Badge>
               </div>
             </div>
           </Card>
@@ -694,6 +943,7 @@ export default function AdministrationPage() {
             >
               Refresh
             </Button>
+
             <Button
               size="sm"
               variant="ghost"
@@ -707,18 +957,20 @@ export default function AdministrationPage() {
         }
       >
         {relatedForms.length === 0 ? (
-          <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 text-sm text-[var(--color-text-tertiary)]">
-            No {label.toLowerCase()} forms found. Set a form&apos;s type or submission target to {section === 'members' ? 'member' : section} to show responses here.
+          <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 text-sm text-[var(--color-text-tertiary)]">
+            No {label.toLowerCase()} forms found. Set a form&apos;s type or submission target to{' '}
+            {section === 'members' ? 'member' : section} to show responses here.
           </div>
         ) : (
           <div className="space-y-4">
             <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
               <label className="space-y-1">
-                <span className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
                   {label} form
                 </span>
+
                 <select
-                  className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                  className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-accent-primary)]"
                   value={currentFormId}
                   onChange={(event) => {
                     setSelectedFormIds((prev) => ({ ...prev, [section]: event.target.value }));
@@ -740,7 +992,7 @@ export default function AdministrationPage() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+            <div className="flex flex-wrap items-center gap-2 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs text-[var(--color-text-tertiary)]">
               <FileText className="h-4 w-4" />
               {currentForm ? (
                 <>
@@ -748,7 +1000,9 @@ export default function AdministrationPage() {
                   {currentForm.slug && <span>/forms/{currentForm.slug}</span>}
                 </>
               ) : (
-                <span className="font-medium text-[var(--color-text-secondary)]">Showing responses from every mapped {label.toLowerCase()} form</span>
+                <span className="font-medium text-[var(--color-text-secondary)]">
+                  Showing responses from every mapped {label.toLowerCase()} form
+                </span>
               )}
             </div>
 
@@ -768,6 +1022,7 @@ export default function AdministrationPage() {
                     )}
                   </tr>
                 </thead>
+
                 <tbody className="divide-y divide-[var(--color-border-secondary)] bg-[var(--color-background-primary)]">
                   {formSubmissionsLoading ? (
                     <tr>
@@ -783,29 +1038,37 @@ export default function AdministrationPage() {
                     </tr>
                   ) : (
                     formSubmissions.map((submission) => {
-                      const leadershipPayload = isLeadershipSection
-                        ? buildLeadershipPayloadFromSubmission(submission)
-                        : null;
-                      const alreadyPublished =
-                        isLeadershipSection && leadershipSubmissionAlreadyPublished(submission, leaders);
+                      const leadershipPayload = isLeadershipSection ? buildLeadershipPayloadFromSubmission(submission) : null;
+                      const alreadyPublished = isLeadershipSection && leadershipSubmissionAlreadyPublished(submission, leaders);
 
                       return (
-                        <tr key={submission.id}>
+                        <tr key={submission.id} className="transition hover:bg-[var(--color-background-secondary)]">
                           <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">
                             {resolveSubmissionName(submission)}
                           </td>
-                          <td className="px-4 py-3 text-[var(--color-text-secondary)]">{resolveSubmissionEmail(submission)}</td>
-                          <td className="px-4 py-3 text-[var(--color-text-secondary)]">{resolveSubmissionPhone(submission)}</td>
+                          <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                            {resolveSubmissionEmail(submission)}
+                          </td>
+                          <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                            {resolveSubmissionPhone(submission)}
+                          </td>
+
                           {isLeadershipSection && (
                             <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                               {leadershipPayload ? roleLabel(leadershipPayload.role) : '—'}
                             </td>
                           )}
-                          <td className="px-4 py-3 text-[var(--color-text-tertiary)]">{formatDateTime(submission.createdAt)}</td>
+
+                          <td className="px-4 py-3 text-[var(--color-text-tertiary)]">
+                            {formatDateTime(submission.createdAt)}
+                          </td>
+
                           {isLeadershipSection && (
                             <td className="px-4 py-3 text-right">
                               {alreadyPublished ? (
-                                <Badge variant="success" size="sm">Published</Badge>
+                                <Badge variant="success" size="sm">
+                                  Published
+                                </Badge>
                               ) : (
                                 <Button
                                   size="sm"
@@ -832,6 +1095,7 @@ export default function AdministrationPage() {
               <p className="text-xs text-[var(--color-text-tertiary)]">
                 Page {formSubmissionsPage} of {totalPages}
               </p>
+
               <div className="flex gap-2">
                 <Button
                   size="sm"
@@ -841,6 +1105,7 @@ export default function AdministrationPage() {
                 >
                   Previous
                 </Button>
+
                 <Button
                   size="sm"
                   variant="outline"
@@ -878,18 +1143,24 @@ export default function AdministrationPage() {
       {activeTab === 'workforce' && (
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Total workforce</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">{workforce.length}</p>
-            </Card>
-            <Card>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Serving</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">{workforceStats.serving || 0}</p>
-            </Card>
-            <Card>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)] mt-1">{workforceStats.pending || 0}</p>
-            </Card>
+            <StatCard
+              label="Total workforce"
+              value={workforce.length}
+              meta="All workforce records"
+              icon={<Shield className="h-5 w-5" />}
+            />
+            <StatCard
+              label="Serving"
+              value={workforceStats.serving || 0}
+              meta="Currently active"
+              icon={<CheckCircle2 className="h-5 w-5" />}
+            />
+            <StatCard
+              label="Pending"
+              value={workforceStats.pending || 0}
+              meta="Awaiting review"
+              icon={<ClipboardList className="h-5 w-5" />}
+            />
           </div>
 
           <div className="space-y-3">
@@ -905,7 +1176,11 @@ export default function AdministrationPage() {
                   key={row.id}
                   title={`${row.firstName} ${row.lastName}`}
                   subtitle={row.email}
-                  badge={<Badge variant={row.status === 'serving' ? 'success' : 'warning'} size="sm">{row.status}</Badge>}
+                  badge={
+                    <Badge variant={row.status === 'serving' ? 'success' : 'warning'} size="sm">
+                      {row.status}
+                    </Badge>
+                  }
                 >
                   <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
                     <div className="flex items-center gap-2">
@@ -925,6 +1200,27 @@ export default function AdministrationPage() {
 
       {activeTab === 'members' && (
         <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            <StatCard
+              label="Total members"
+              value={members.length}
+              meta="All member records"
+              icon={<Users className="h-5 w-5" />}
+            />
+            <StatCard
+              label="Active"
+              value={members.filter((member) => member.isActive).length}
+              meta="Currently active"
+              icon={<CheckCircle2 className="h-5 w-5" />}
+            />
+            <StatCard
+              label="Inactive"
+              value={members.filter((member) => !member.isActive).length}
+              meta="Needs attention"
+              icon={<ClipboardList className="h-5 w-5" />}
+            />
+          </div>
+
           {members.length === 0 ? (
             <Card>
               <p className="text-sm text-[var(--color-text-tertiary)]">
@@ -932,22 +1228,29 @@ export default function AdministrationPage() {
               </p>
             </Card>
           ) : (
-            members.map((row) => (
-              <AccordionRow
-                key={row.id}
-                title={`${row.firstName} ${row.lastName}`}
-                subtitle={row.email}
-                badge={<Badge variant={row.isActive ? 'success' : 'warning'} size="sm">{row.isActive ? 'Active' : 'Inactive'}</Badge>}
-              >
-                <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                    {row.phone || '—'}
+            <div className="space-y-3">
+              {members.map((row) => (
+                <AccordionRow
+                  key={row.id}
+                  title={`${row.firstName} ${row.lastName}`}
+                  subtitle={row.email}
+                  badge={
+                    <Badge variant={row.isActive ? 'success' : 'warning'} size="sm">
+                      {row.isActive ? 'Active' : 'Inactive'}
+                    </Badge>
+                  }
+                >
+                  <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                      {row.phone || '—'}
+                    </div>
                   </div>
-                </div>
-              </AccordionRow>
-            ))
+                </AccordionRow>
+              ))}
+            </div>
           )}
+
           {renderFormResponses('members', 'Member')}
         </div>
       )}
@@ -957,43 +1260,130 @@ export default function AdministrationPage() {
           <Card
             title="Leadership Form"
             actions={
-              primaryLeadershipForm ? undefined : (
-                <Button
-                  variant="primary"
-                  icon={<Plus className="h-4 w-4" />}
-                  onClick={createLeadershipForm}
-                  loading={creatingLeadershipForm}
-                >
-                  Create leadership form
-                </Button>
-              )
+              <Button
+                variant={primaryLeadershipForm ? 'outline' : 'primary'}
+                icon={primaryLeadershipForm ? <RefreshCw className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                onClick={createLeadershipForm}
+                loading={creatingLeadershipForm}
+              >
+                {primaryLeadershipForm ? 'Reload leadership form' : 'Create leadership form'}
+              </Button>
             }
           >
             {primaryLeadershipForm ? (
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="success" size="sm">Active</Badge>
-                    <p className="font-semibold text-[var(--color-text-primary)]">{primaryLeadershipForm.title}</p>
+              <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-gradient-to-br from-[var(--color-background-primary)] to-[var(--color-background-secondary)] p-5">
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                  <div className="min-w-0 space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="success" size="sm">
+                        Active
+                      </Badge>
+                      <Badge variant="primary" size="sm">
+                        Leadership
+                      </Badge>
+                      <Badge variant="default" size="sm">
+                        {getSubmissionCount(primaryLeadershipForm)} responses
+                      </Badge>
+                    </div>
+
+                    <div>
+                      <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                        {primaryLeadershipForm.title}
+                      </h3>
+                      <p className="mt-1 max-w-2xl text-sm text-[var(--color-text-tertiary)]">
+                        This form collects leadership biodata, profile details, photos, birthdays, anniversaries, and
+                        ministry role information for review before publication.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+                      <FileText className="h-4 w-4" />
+                      <span className="font-medium text-[var(--color-text-secondary)]">
+                        /forms/{primaryLeadershipForm.slug}
+                      </span>
+                    </div>
+
+                    <p className="truncate rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs text-[var(--color-text-tertiary)]">
+                      {buildPublicFormUrl(primaryLeadershipForm.slug, primaryLeadershipForm.publicUrl) ||
+                        'Published leadership form'}
+                    </p>
                   </div>
-                  <p className="mt-1 truncate text-sm text-[var(--color-text-tertiary)]">
-                    {buildPublicFormUrl(primaryLeadershipForm.slug, primaryLeadershipForm.publicUrl) || 'Published leadership form'}
-                  </p>
+
+                  <div className="flex flex-wrap gap-2 lg:justify-end">
+                    <Button
+                      variant="outline"
+                      icon={<ExternalLink className="h-4 w-4" />}
+                      onClick={() => {
+                        const url = buildPublicFormUrl(primaryLeadershipForm.slug, primaryLeadershipForm.publicUrl);
+                        if (url) window.open(url, '_blank', 'noopener,noreferrer');
+                      }}
+                    >
+                      Open public form
+                    </Button>
+
+                    <Button
+                      variant="secondary"
+                      icon={<ClipboardList className="h-4 w-4" />}
+                      onClick={() => router.push(`/dashboard/forms/${primaryLeadershipForm.id}/submissions`)}
+                    >
+                      View responses
+                    </Button>
+
+                    <Button
+                      variant="primary"
+                      icon={<Sparkles className="h-4 w-4" />}
+                      onClick={() => router.push(`/dashboard/forms/${primaryLeadershipForm.id}/edit`)}
+                    >
+                      Manage form
+                    </Button>
+                  </div>
                 </div>
-                <Button
-                  variant="outline"
-                  icon={<ExternalLink className="h-4 w-4" />}
-                  onClick={() => router.push(`/dashboard/forms/${primaryLeadershipForm.id}/edit`)}
-                >
-                  Manage form
-                </Button>
               </div>
             ) : (
-              <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 text-sm text-[var(--color-text-tertiary)]">
-                Create the Leadership Biodata form from here. Once it exists, this button is hidden until that leadership form is deleted.
+              <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-6">
+                <div className="max-w-2xl space-y-3">
+                  <Badge variant="warning" size="sm">
+                    Setup required
+                  </Badge>
+                  <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                    Leadership biodata form is not connected yet
+                  </h3>
+                  <p className="text-sm text-[var(--color-text-tertiary)]">
+                    Create or reload the leadership form so submitted biodata can appear here for review and publication.
+                  </p>
+                  <Button
+                    variant="primary"
+                    icon={<Plus className="h-4 w-4" />}
+                    onClick={createLeadershipForm}
+                    loading={creatingLeadershipForm}
+                  >
+                    Create leadership form
+                  </Button>
+                </div>
               </div>
             )}
           </Card>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <StatCard
+              label="Total leaders"
+              value={leaders.length}
+              meta="All leadership records"
+              icon={<Sparkles className="h-5 w-5" />}
+            />
+            <StatCard
+              label="Approved"
+              value={leadershipStats.approved || 0}
+              meta="Visible or ready"
+              icon={<CheckCircle2 className="h-5 w-5" />}
+            />
+            <StatCard
+              label="Pending"
+              value={leadershipStats.pending || 0}
+              meta="Awaiting approval"
+              icon={<ClipboardList className="h-5 w-5" />}
+            />
+          </div>
 
           {leaders.length === 0 ? (
             <Card>
@@ -1002,32 +1392,46 @@ export default function AdministrationPage() {
               </p>
             </Card>
           ) : (
-            leaders.map((row) => (
-              <AccordionRow
-                key={row.id}
-                title={`${row.firstName} ${row.lastName}`}
-                subtitle={row.email}
-                badge={<Badge variant={row.status === 'approved' ? 'success' : row.status === 'declined' ? 'danger' : 'warning'} size="sm">{row.status}</Badge>}
-              >
-                <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                  <div className="text-xs text-[var(--color-text-tertiary)]">Role: {roleLabel(row.role)}</div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                    Birthday: {formatMonthDay(row.birthdayMonth, row.birthdayDay)}
+            <div className="space-y-3">
+              {leaders.map((row) => (
+                <AccordionRow
+                  key={row.id}
+                  title={`${row.firstName} ${row.lastName}`}
+                  subtitle={row.email}
+                  badge={
+                    <Badge
+                      variant={row.status === 'approved' ? 'success' : row.status === 'declined' ? 'danger' : 'warning'}
+                      size="sm"
+                    >
+                      {row.status}
+                    </Badge>
+                  }
+                >
+                  <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
+                    <div className="text-xs text-[var(--color-text-tertiary)]">Role: {roleLabel(row.role)}</div>
+
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                      Birthday: {formatMonthDay(row.birthdayMonth, row.birthdayDay)}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Heart className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                      Anniversary: {formatMonthDay(row.anniversaryMonth, row.anniversaryDay)}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                      {row.email || 'No email'}
+                    </div>
+
+                    {row.bio && <p className="mt-1 text-xs leading-5 text-[var(--color-text-tertiary)]">{row.bio}</p>}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Heart className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                    Anniversary: {formatMonthDay(row.anniversaryMonth, row.anniversaryDay)}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                    {row.email || 'No email'}
-                  </div>
-                  {row.bio && <p className="text-xs text-[var(--color-text-tertiary)] mt-1">{row.bio}</p>}
-                </div>
-              </AccordionRow>
-            ))
+                </AccordionRow>
+              ))}
+            </div>
           )}
+
           {renderFormResponses('leadership', 'Leadership')}
         </div>
       )}
