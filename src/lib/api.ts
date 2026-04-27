@@ -2171,8 +2171,21 @@ export const apiClient = {
     params?: Record<string, unknown>
   ): Promise<SimplePaginatedResponse<Member>> {
     const qs = toQueryString(params);
-    const res = await apiFetch(`/admin/members${qs}`, { method: 'GET' });
-    return unwrapSimplePaginated<Member>(res, 'Invalid members payload');
+
+    try {
+      const res = await apiFetch(`/admin/members${qs}`, { method: 'GET' });
+      return unwrapSimplePaginated<Member>(res, 'Invalid members payload');
+    } catch (error) {
+      console.error('[api] listMembers failed:', error);
+
+      return {
+        data: [],
+        total: 0,
+        page: Number(params?.page || 1),
+        limit: Number(params?.limit || 100),
+        totalPages: 1,
+      };
+    }
   },
 
   async createMember(payload: CreateMemberRequest): Promise<Member> {
@@ -2207,11 +2220,24 @@ export const apiClient = {
     params?: Record<string, unknown>
   ): Promise<SimplePaginatedResponse<LeadershipMember>> {
     const qs = toQueryString(params);
-    const res = await apiFetch(`/admin/leadership${qs}`, { method: 'GET' });
-    return unwrapSimplePaginated<LeadershipMember>(
-      res,
-      'Invalid leadership payload'
-    );
+
+    try {
+      const res = await apiFetch(`/admin/leadership${qs}`, { method: 'GET' });
+      return unwrapSimplePaginated<LeadershipMember>(
+        res,
+        'Invalid leadership payload'
+      );
+    } catch (error) {
+      console.error('[api] listLeadership failed:', error);
+
+      return {
+        data: [],
+        total: 0,
+        page: Number(params?.page || 1),
+        limit: Number(params?.limit || 100),
+        totalPages: 1,
+      };
+    }
   },
 
   async createLeadership(
