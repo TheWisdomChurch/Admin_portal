@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useRouter } from 'next/navigation';
 import {
   Calendar,
+  CheckCircle2,
   ExternalLink,
   FileText,
   Heart,
@@ -45,6 +46,8 @@ const roleOptions: Array<{ value: LeadershipRole; label: string }> = [
 ];
 
 const ddmmyyyy = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
+const isoDate = /^(\d{4})-(\d{2})-(\d{2})$/;
+const dashedDate = /^(\d{2})-(\d{2})-(\d{4})$/;
 
 function toArray<T>(value: unknown): T[] {
   if (Array.isArray(value)) return value as T[];
@@ -149,6 +152,79 @@ function resolveSubmissionPhone(submission: FormSubmission) {
   return typeof phone === 'string' && phone.trim() ? phone.trim() : '—';
 }
 
+function readSubmissionText(submission: FormSubmission, keys: string[]) {
+  const values = submission.values || {};
+  for (const key of keys) {
+    const raw = values[key];
+    if (typeof raw === 'string' && raw.trim()) return raw.trim();
+    if (typeof raw === 'number' && Number.isFinite(raw)) return String(raw);
+    if (Array.isArray(raw) && raw.length > 0) return raw.join(', ');
+  }
+  return '';
+}
+
+function splitFullName(fullName: string) {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: '', lastName: '' };
+  if (parts.length === 1) return { firstName: parts[0], lastName: 'Unknown' };
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+}
+
+function normalizeLeadershipRole(value: string): LeadershipRole {
+  const normalized = value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  if (normalized === 'senior_pastor' || normalized === 'pastor') return 'senior_pastor';
+  if (normalized === 'associate_pastor') return 'associate_pastor';
+  if (normalized === 'reverend' || normalized === 'rev') return 'reverend';
+  if (normalized === 'deacon') return 'deacon';
+  if (normalized === 'deaconess' || normalized === 'deaconness') return 'deaconess';
+  return 'associate_pastor';
+}
+
+function normalizeLeadershipDate(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const isoMatch = trimmed.match(isoDate);
+  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  const dashedMatch = trimmed.match(dashedDate);
+  if (dashedMatch) return `${dashedMatch[1]}/${dashedMatch[2]}/${dashedMatch[3]}`;
+  return trimmed.replace(/-/g, '/');
+}
+
+function buildLeadershipPayloadFromSubmission(submission: FormSubmission): CreateLeadershipRequest {
+  const fullName = resolveSubmissionName(submission);
+  const split = splitFullName(fullName);
+  const firstName = readSubmissionText(submission, ['first_name', 'firstName']) || split.firstName;
+  const lastName = readSubmissionText(submission, ['last_name', 'lastName']) || split.lastName;
+  const role = readSubmissionText(submission, ['leadership_role', 'role', 'position', 'title']);
+  const birthday = readSubmissionText(submission, ['birthday', 'date_of_birth', 'birth_date', 'dob']);
+  const anniversary = readSubmissionText(submission, ['anniversary', 'wedding_anniversary', 'marriage_anniversary']);
+  const imageUrl = readSubmissionText(submission, ['imageUrl', 'image_url', 'profile_image', 'photo']);
+
+  return {
+    firstName,
+    lastName,
+    email: resolveSubmissionEmail(submission) !== 'No email' ? resolveSubmissionEmail(submission) : undefined,
+    phone: resolveSubmissionPhone(submission) !== '—' ? resolveSubmissionPhone(submission) : undefined,
+    role: normalizeLeadershipRole(role),
+    status: 'approved',
+    bio: readSubmissionText(submission, ['bio', 'short_bio', 'profile', 'about']) || undefined,
+    birthday: birthday ? normalizeLeadershipDate(birthday) : undefined,
+    anniversary: anniversary ? normalizeLeadershipDate(anniversary) : undefined,
+    imageUrl: imageUrl.startsWith('http://') || imageUrl.startsWith('https://') ? imageUrl : undefined,
+  };
+}
+
+function leadershipSubmissionAlreadyPublished(submission: FormSubmission, leaders: LeadershipMember[]) {
+  const email = resolveSubmissionEmail(submission).toLowerCase();
+  const name = resolveSubmissionName(submission).toLowerCase();
+
+  return leaders.some((leader) => {
+    const leaderEmail = (leader.email || '').toLowerCase();
+    const leaderName = `${leader.firstName} ${leader.lastName}`.trim().toLowerCase();
+    return (email !== 'no email' && leaderEmail === email) || (name !== 'anonymous' && leaderName === name);
+  });
+}
+
 function formatDateTime(value?: string) {
   if (!value) return '—';
   const date = new Date(value);
@@ -199,6 +275,7 @@ export default function AdministrationPage() {
   const [formSubmissionsTotal, setFormSubmissionsTotal] = useState(0);
   const [formSubmissionsPage, setFormSubmissionsPage] = useState(1);
   const [formSubmissionsLoading, setFormSubmissionsLoading] = useState(false);
+  const [publishingSubmissionId, setPublishingSubmissionId] = useState<string | null>(null);
 
   const [memberModalOpen, setMemberModalOpen] = useState(false);
   const [leaderModalOpen, setLeaderModalOpen] = useState(false);
@@ -414,6 +491,29 @@ export default function AdministrationPage() {
     }
   }, [leaderForm, leaderImageFile, loadAll]);
 
+  const publishLeadershipSubmission = useCallback(
+    async (submission: FormSubmission) => {
+      const payload = buildLeadershipPayloadFromSubmission(submission);
+      if (!payload.firstName.trim() || !payload.lastName.trim()) {
+        toast.error('This response needs a name before it can be published.');
+        return;
+      }
+
+      setPublishingSubmissionId(submission.id);
+      try {
+        await apiClient.createLeadership(payload);
+        toast.success('Leadership profile published');
+        await loadAll();
+      } catch (error) {
+        console.error('Failed to publish leadership submission:', error);
+        toast.error('Unable to publish leadership profile');
+      } finally {
+        setPublishingSubmissionId(null);
+      }
+    },
+    [loadAll]
+  );
+
   const tabButton = (key: TabKey, label: string, icon: ReactNode) => (
     <button
       key={key}
@@ -438,6 +538,8 @@ export default function AdministrationPage() {
     const currentFormId = selectedFormIds[section];
     const currentForm = relatedForms.find((form) => form.id === currentFormId) || relatedForms[0] || null;
     const totalPages = Math.max(1, Math.ceil(formSubmissionsTotal / 8));
+    const isLeadershipSection = section === 'leadership';
+    const columnCount = isLeadershipSection ? 6 : 4;
 
     return (
       <Card
@@ -514,33 +616,70 @@ export default function AdministrationPage() {
                     <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Name</th>
                     <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Email</th>
                     <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Phone</th>
+                    {isLeadershipSection && (
+                      <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Role</th>
+                    )}
                     <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Submitted</th>
+                    {isLeadershipSection && (
+                      <th className="px-4 py-3 text-right font-semibold text-[var(--color-text-secondary)]">Review</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border-secondary)] bg-[var(--color-background-primary)]">
                   {formSubmissionsLoading ? (
                     <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
+                      <td colSpan={columnCount} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
                         Loading responses...
                       </td>
                     </tr>
                   ) : formSubmissions.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
+                      <td colSpan={columnCount} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
                         No responses for this form yet.
                       </td>
                     </tr>
                   ) : (
-                    formSubmissions.map((submission) => (
-                      <tr key={submission.id}>
-                        <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">
-                          {resolveSubmissionName(submission)}
-                        </td>
-                        <td className="px-4 py-3 text-[var(--color-text-secondary)]">{resolveSubmissionEmail(submission)}</td>
-                        <td className="px-4 py-3 text-[var(--color-text-secondary)]">{resolveSubmissionPhone(submission)}</td>
-                        <td className="px-4 py-3 text-[var(--color-text-tertiary)]">{formatDateTime(submission.createdAt)}</td>
-                      </tr>
-                    ))
+                    formSubmissions.map((submission) => {
+                      const leadershipPayload = isLeadershipSection
+                        ? buildLeadershipPayloadFromSubmission(submission)
+                        : null;
+                      const alreadyPublished =
+                        isLeadershipSection && leadershipSubmissionAlreadyPublished(submission, leaders);
+
+                      return (
+                        <tr key={submission.id}>
+                          <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">
+                            {resolveSubmissionName(submission)}
+                          </td>
+                          <td className="px-4 py-3 text-[var(--color-text-secondary)]">{resolveSubmissionEmail(submission)}</td>
+                          <td className="px-4 py-3 text-[var(--color-text-secondary)]">{resolveSubmissionPhone(submission)}</td>
+                          {isLeadershipSection && (
+                            <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                              {leadershipPayload ? roleLabel(leadershipPayload.role) : '—'}
+                            </td>
+                          )}
+                          <td className="px-4 py-3 text-[var(--color-text-tertiary)]">{formatDateTime(submission.createdAt)}</td>
+                          {isLeadershipSection && (
+                            <td className="px-4 py-3 text-right">
+                              {alreadyPublished ? (
+                                <Badge variant="success" size="sm">Published</Badge>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  icon={<CheckCircle2 className="h-4 w-4" />}
+                                  onClick={() => publishLeadershipSubmission(submission)}
+                                  loading={publishingSubmissionId === submission.id}
+                                  disabled={Boolean(publishingSubmissionId)}
+                                >
+                                  Publish
+                                </Button>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
