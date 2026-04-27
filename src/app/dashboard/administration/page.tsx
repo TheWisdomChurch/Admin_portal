@@ -182,6 +182,7 @@ function getSubmissionCount(form: AdminForm) {
 function formMatchesSection(form: AdminForm, section: SectionKey) {
   const target = form.settings?.submissionTarget;
   const formType = form.settings?.formType;
+  const slug = form.slug || '';
   const surface = normalizeToken(`${form.slug || ''} ${form.title || ''}`);
 
   if (section === 'workforce') {
@@ -196,15 +197,15 @@ function formMatchesSection(form: AdminForm, section: SectionKey) {
   }
 
   if (section === 'members') {
-    return target === 'member' || formType === 'membership' || surface.includes('member') || surface.includes('membership');
+    return (
+      target === 'member' ||
+      formType === 'membership' ||
+      surface.includes('member') ||
+      surface.includes('membership')
+    );
   }
 
-  return (
-    form.slug === LEADERSHIP_FORM_SLUG ||
-    target === 'leadership' ||
-    formType === 'leadership' ||
-    surface.includes('leadership')
-  );
+  return slug === LEADERSHIP_FORM_SLUG || target === 'leadership';
 }
 
 function resolveSubmissionName(submission: FormSubmission) {
@@ -229,7 +230,12 @@ function resolveSubmissionEmail(submission: FormSubmission) {
 
 function resolveSubmissionPhone(submission: FormSubmission) {
   const values = submission.values || {};
-  const phone = submission.contactNumber || values.phone || values.contactPhone || values.phone_number || values.contact_number;
+  const phone =
+    submission.contactNumber ||
+    values.phone ||
+    values.contactPhone ||
+    values.phone_number ||
+    values.contact_number;
 
   return typeof phone === 'string' && phone.trim() ? phone.trim() : '—';
 }
@@ -503,15 +509,16 @@ export default function AdministrationPage() {
     const sortByResponses = (items: AdminForm[]) =>
       items.slice().sort((left, right) => getSubmissionCount(right) - getSubmissionCount(left));
 
+    const leadershipForm = forms.find((form) => form.slug === LEADERSHIP_FORM_SLUG) || null;
+
     return {
       workforce: sortByResponses(forms.filter((form) => formMatchesSection(form, 'workforce'))),
       members: sortByResponses(forms.filter((form) => formMatchesSection(form, 'members'))),
-      leadership: sortByResponses(forms.filter((form) => formMatchesSection(form, 'leadership'))),
+      leadership: leadershipForm ? [leadershipForm] : [],
     };
   }, [forms]);
 
-  const primaryLeadershipForm =
-    forms.find((form) => form.slug === LEADERSHIP_FORM_SLUG) || sectionForms.leadership[0] || null;
+  const primaryLeadershipForm = sectionForms.leadership[0] || null;
 
   const activeSection = activeTab === 'overview' ? null : activeTab;
 
@@ -547,7 +554,7 @@ export default function AdministrationPage() {
   }, [sectionForms]);
 
   const loadSectionSubmissions = useCallback(async () => {
-    if (!activeSection || !selectedSectionFormId || activeSectionForms.length === 0) {
+    if (!activeSection || activeSectionForms.length === 0) {
       setFormSubmissions([]);
       setFormSubmissionsTotal(0);
       return;
@@ -607,6 +614,7 @@ export default function AdministrationPage() {
         await apiClient.createLeadership(payload);
         toast.success('Leadership profile published');
         await loadAll();
+        await loadSectionSubmissions();
       } catch (error) {
         console.error('Failed to publish leadership submission:', error);
         toast.error('Unable to publish leadership profile');
@@ -614,7 +622,7 @@ export default function AdministrationPage() {
         setPublishingSubmissionId(null);
       }
     },
-    [loadAll]
+    [loadAll, loadSectionSubmissions]
   );
 
   const createLeadershipForm = useCallback(async () => {
@@ -624,9 +632,7 @@ export default function AdministrationPage() {
       const freshFormsRes = await apiClient.getAdminForms({ page: 1, limit: 300 });
       const freshForms = Array.isArray(freshFormsRes.data) ? freshFormsRes.data : [];
 
-      const existingLeadershipForm =
-        freshForms.find((form) => form.slug === LEADERSHIP_FORM_SLUG) ||
-        freshForms.find((form) => formMatchesSection(form, 'leadership'));
+      const existingLeadershipForm = freshForms.find((form) => form.slug === LEADERSHIP_FORM_SLUG);
 
       if (existingLeadershipForm) {
         let nextForm = existingLeadershipForm as AdminForm;
@@ -724,8 +730,16 @@ export default function AdministrationPage() {
 
   const renderOverview = () => {
     const totalForms = forms.length;
-    const mappedForms = sectionForms.workforce.length + sectionForms.members.length + sectionForms.leadership.length;
-    const responseTotal = forms.reduce((sum, form) => sum + getSubmissionCount(form), 0);
+    const mappedForms =
+      sectionForms.workforce.length +
+      sectionForms.members.length +
+      (primaryLeadershipForm ? 1 : 0);
+
+    const responseTotal =
+      sectionForms.workforce.reduce((sum, form) => sum + getSubmissionCount(form), 0) +
+      sectionForms.members.reduce((sum, form) => sum + getSubmissionCount(form), 0) +
+      (primaryLeadershipForm ? getSubmissionCount(primaryLeadershipForm) : 0);
+
     const activeMembers = members.filter((member) => member.isActive).length;
 
     const leadershipFormUrl = primaryLeadershipForm
@@ -847,81 +861,12 @@ export default function AdministrationPage() {
             icon={<FileText className="h-5 w-5" />}
           />
         </div>
-
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card title="Leadership Review">
-            <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
-              <div className="flex items-center justify-between gap-3">
-                <span>Approved</span>
-                <Badge variant="success" size="sm">
-                  {leadershipStats.approved || 0}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span>Pending</span>
-                <Badge variant="warning" size="sm">
-                  {leadershipStats.pending || 0}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span>Declined</span>
-                <Badge variant="danger" size="sm">
-                  {leadershipStats.declined || 0}
-                </Badge>
-              </div>
-            </div>
-          </Card>
-
-          <Card title="Workforce Status">
-            <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
-              <div className="flex items-center justify-between gap-3">
-                <span>Serving</span>
-                <Badge variant="success" size="sm">
-                  {workforceStats.serving || 0}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span>Pending</span>
-                <Badge variant="warning" size="sm">
-                  {workforceStats.pending || 0}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span>Other</span>
-                <Badge variant="default" size="sm">
-                  {Math.max(0, workforce.length - (workforceStats.serving || 0) - (workforceStats.pending || 0))}
-                </Badge>
-              </div>
-            </div>
-          </Card>
-
-          <Card title="Form Routing">
-            <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
-              <div className="flex items-center justify-between gap-3">
-                <span>Workforce</span>
-                <span className="font-semibold text-[var(--color-text-primary)]">{sectionForms.workforce.length}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span>Members</span>
-                <span className="font-semibold text-[var(--color-text-primary)]">{sectionForms.members.length}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span>Leadership</span>
-                <span className="font-semibold text-[var(--color-text-primary)]">{sectionForms.leadership.length}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3 border-t border-[var(--color-border-secondary)] pt-3">
-                <span>Total forms</span>
-                <span className="font-semibold text-[var(--color-text-primary)]">{totalForms}</span>
-              </div>
-            </div>
-          </Card>
-        </div>
       </div>
     );
   };
 
   const renderFormResponses = (section: SectionKey, label: string) => {
-    const relatedForms = sectionForms[section];
+    const relatedForms = section === 'leadership' ? (primaryLeadershipForm ? [primaryLeadershipForm] : []) : sectionForms[section];
     const currentFormId = selectedFormIds[section];
     const currentForm = currentFormId === ALL_FORMS ? null : relatedForms.find((form) => form.id === currentFormId) || null;
     const totalPages = Math.max(1, Math.ceil(formSubmissionsTotal / 8));
@@ -948,8 +893,11 @@ export default function AdministrationPage() {
               size="sm"
               variant="ghost"
               icon={<ExternalLink className="h-4 w-4" />}
-              onClick={() => currentForm && router.push(`/dashboard/forms/${currentForm.id}/submissions`)}
-              disabled={!currentForm}
+              onClick={() => {
+                const target = currentForm || primaryLeadershipForm;
+                if (target) router.push(`/dashboard/forms/${target.id}/submissions`);
+              }}
+              disabled={!currentForm && !(isLeadershipSection && primaryLeadershipForm)}
             >
               Full View
             </Button>
@@ -958,8 +906,7 @@ export default function AdministrationPage() {
       >
         {relatedForms.length === 0 ? (
           <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 text-sm text-[var(--color-text-tertiary)]">
-            No {label.toLowerCase()} forms found. Set a form&apos;s type or submission target to{' '}
-            {section === 'members' ? 'member' : section} to show responses here.
+            No {label.toLowerCase()} forms found. Create or connect the {label.toLowerCase()} form first.
           </div>
         ) : (
           <div className="space-y-4">
@@ -1143,24 +1090,9 @@ export default function AdministrationPage() {
       {activeTab === 'workforce' && (
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
-            <StatCard
-              label="Total workforce"
-              value={workforce.length}
-              meta="All workforce records"
-              icon={<Shield className="h-5 w-5" />}
-            />
-            <StatCard
-              label="Serving"
-              value={workforceStats.serving || 0}
-              meta="Currently active"
-              icon={<CheckCircle2 className="h-5 w-5" />}
-            />
-            <StatCard
-              label="Pending"
-              value={workforceStats.pending || 0}
-              meta="Awaiting review"
-              icon={<ClipboardList className="h-5 w-5" />}
-            />
+            <StatCard label="Total workforce" value={workforce.length} meta="All workforce records" icon={<Shield className="h-5 w-5" />} />
+            <StatCard label="Serving" value={workforceStats.serving || 0} meta="Currently active" icon={<CheckCircle2 className="h-5 w-5" />} />
+            <StatCard label="Pending" value={workforceStats.pending || 0} meta="Awaiting review" icon={<ClipboardList className="h-5 w-5" />} />
           </div>
 
           <div className="space-y-3">
@@ -1176,11 +1108,7 @@ export default function AdministrationPage() {
                   key={row.id}
                   title={`${row.firstName} ${row.lastName}`}
                   subtitle={row.email}
-                  badge={
-                    <Badge variant={row.status === 'serving' ? 'success' : 'warning'} size="sm">
-                      {row.status}
-                    </Badge>
-                  }
+                  badge={<Badge variant={row.status === 'serving' ? 'success' : 'warning'} size="sm">{row.status}</Badge>}
                 >
                   <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
                     <div className="flex items-center gap-2">
@@ -1201,24 +1129,9 @@ export default function AdministrationPage() {
       {activeTab === 'members' && (
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
-            <StatCard
-              label="Total members"
-              value={members.length}
-              meta="All member records"
-              icon={<Users className="h-5 w-5" />}
-            />
-            <StatCard
-              label="Active"
-              value={members.filter((member) => member.isActive).length}
-              meta="Currently active"
-              icon={<CheckCircle2 className="h-5 w-5" />}
-            />
-            <StatCard
-              label="Inactive"
-              value={members.filter((member) => !member.isActive).length}
-              meta="Needs attention"
-              icon={<ClipboardList className="h-5 w-5" />}
-            />
+            <StatCard label="Total members" value={members.length} meta="All member records" icon={<Users className="h-5 w-5" />} />
+            <StatCard label="Active" value={members.filter((member) => member.isActive).length} meta="Currently active" icon={<CheckCircle2 className="h-5 w-5" />} />
+            <StatCard label="Inactive" value={members.filter((member) => !member.isActive).length} meta="Needs attention" icon={<ClipboardList className="h-5 w-5" />} />
           </div>
 
           {members.length === 0 ? (
@@ -1234,11 +1147,7 @@ export default function AdministrationPage() {
                   key={row.id}
                   title={`${row.firstName} ${row.lastName}`}
                   subtitle={row.email}
-                  badge={
-                    <Badge variant={row.isActive ? 'success' : 'warning'} size="sm">
-                      {row.isActive ? 'Active' : 'Inactive'}
-                    </Badge>
-                  }
+                  badge={<Badge variant={row.isActive ? 'success' : 'warning'} size="sm">{row.isActive ? 'Active' : 'Inactive'}</Badge>}
                 >
                   <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
                     <div className="flex items-center gap-2">
@@ -1275,37 +1184,25 @@ export default function AdministrationPage() {
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                   <div className="min-w-0 space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="success" size="sm">
-                        Active
-                      </Badge>
-                      <Badge variant="primary" size="sm">
-                        Leadership
-                      </Badge>
-                      <Badge variant="default" size="sm">
-                        {getSubmissionCount(primaryLeadershipForm)} responses
-                      </Badge>
+                      <Badge variant="success" size="sm">Active</Badge>
+                      <Badge variant="primary" size="sm">Leadership</Badge>
+                      <Badge variant="default" size="sm">{getSubmissionCount(primaryLeadershipForm)} responses</Badge>
                     </div>
 
                     <div>
-                      <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                        {primaryLeadershipForm.title}
-                      </h3>
+                      <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{primaryLeadershipForm.title}</h3>
                       <p className="mt-1 max-w-2xl text-sm text-[var(--color-text-tertiary)]">
-                        This form collects leadership biodata, profile details, photos, birthdays, anniversaries, and
-                        ministry role information for review before publication.
+                        This form collects leadership biodata, profile details, photos, birthdays, anniversaries, and ministry role information for review before publication.
                       </p>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
                       <FileText className="h-4 w-4" />
-                      <span className="font-medium text-[var(--color-text-secondary)]">
-                        /forms/{primaryLeadershipForm.slug}
-                      </span>
+                      <span className="font-medium text-[var(--color-text-secondary)]">/forms/{primaryLeadershipForm.slug}</span>
                     </div>
 
                     <p className="truncate rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs text-[var(--color-text-tertiary)]">
-                      {buildPublicFormUrl(primaryLeadershipForm.slug, primaryLeadershipForm.publicUrl) ||
-                        'Published leadership form'}
+                      {buildPublicFormUrl(primaryLeadershipForm.slug, primaryLeadershipForm.publicUrl) || 'Published leadership form'}
                     </p>
                   </div>
 
@@ -1342,21 +1239,12 @@ export default function AdministrationPage() {
             ) : (
               <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-6">
                 <div className="max-w-2xl space-y-3">
-                  <Badge variant="warning" size="sm">
-                    Setup required
-                  </Badge>
-                  <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                    Leadership biodata form is not connected yet
-                  </h3>
+                  <Badge variant="warning" size="sm">Setup required</Badge>
+                  <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Leadership biodata form is not connected yet</h3>
                   <p className="text-sm text-[var(--color-text-tertiary)]">
                     Create or reload the leadership form so submitted biodata can appear here for review and publication.
                   </p>
-                  <Button
-                    variant="primary"
-                    icon={<Plus className="h-4 w-4" />}
-                    onClick={createLeadershipForm}
-                    loading={creatingLeadershipForm}
-                  >
+                  <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={createLeadershipForm} loading={creatingLeadershipForm}>
                     Create leadership form
                   </Button>
                 </div>
@@ -1365,30 +1253,15 @@ export default function AdministrationPage() {
           </Card>
 
           <div className="grid gap-4 md:grid-cols-3">
-            <StatCard
-              label="Total leaders"
-              value={leaders.length}
-              meta="All leadership records"
-              icon={<Sparkles className="h-5 w-5" />}
-            />
-            <StatCard
-              label="Approved"
-              value={leadershipStats.approved || 0}
-              meta="Visible or ready"
-              icon={<CheckCircle2 className="h-5 w-5" />}
-            />
-            <StatCard
-              label="Pending"
-              value={leadershipStats.pending || 0}
-              meta="Awaiting approval"
-              icon={<ClipboardList className="h-5 w-5" />}
-            />
+            <StatCard label="Total leaders" value={leaders.length} meta="All leadership records" icon={<Sparkles className="h-5 w-5" />} />
+            <StatCard label="Approved" value={leadershipStats.approved || 0} meta="Visible or ready" icon={<CheckCircle2 className="h-5 w-5" />} />
+            <StatCard label="Pending" value={leadershipStats.pending || 0} meta="Awaiting approval" icon={<ClipboardList className="h-5 w-5" />} />
           </div>
 
           {leaders.length === 0 ? (
             <Card>
               <p className="text-sm text-[var(--color-text-tertiary)]">
-                {loading ? 'Loading leadership...' : 'No leadership records yet.'}
+                {loading ? 'Loading leadership...' : 'No leadership records yet. Use the form responses below and click Publish to create leadership records.'}
               </p>
             </Card>
           ) : (
@@ -1398,14 +1271,7 @@ export default function AdministrationPage() {
                   key={row.id}
                   title={`${row.firstName} ${row.lastName}`}
                   subtitle={row.email}
-                  badge={
-                    <Badge
-                      variant={row.status === 'approved' ? 'success' : row.status === 'declined' ? 'danger' : 'warning'}
-                      size="sm"
-                    >
-                      {row.status}
-                    </Badge>
-                  }
+                  badge={<Badge variant={row.status === 'approved' ? 'success' : row.status === 'declined' ? 'danger' : 'warning'} size="sm">{row.status}</Badge>}
                 >
                   <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
                     <div className="text-xs text-[var(--color-text-tertiary)]">Role: {roleLabel(row.role)}</div>
