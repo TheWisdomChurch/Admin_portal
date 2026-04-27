@@ -10,18 +10,22 @@ import {
   FileText,
   Heart,
   Mail,
+  Pencil,
   Phone,
   Plus,
   RefreshCw,
   Shield,
   Sparkles,
+  Trash2,
   Users,
+  X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
+import { Input } from '@/ui/input';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
 import { fetchAllFormSubmissions } from '@/lib/formSubmissions';
@@ -30,6 +34,7 @@ import { buildPublicFormUrl } from '@/lib/utils';
 import type {
   CreateLeadershipRequest,
   CreateFormRequest,
+  UpdateLeadershipRequest,
   AdminForm,
   FormSubmission,
   LeadershipMember,
@@ -54,6 +59,7 @@ const roleOptions: Array<{ value: LeadershipRole; label: string }> = [
 
 const isoDate = /^(\d{4})-(\d{2})-(\d{2})$/;
 const dashedDate = /^(\d{2})-(\d{2})-(\d{4})$/;
+const slashDate = /^(\d{2})\/(\d{2})(?:\/(\d{4}))?$/;
 
 function buildLeadershipFormPayload(): CreateFormRequest {
   return {
@@ -71,29 +77,16 @@ function buildLeadershipFormPayload(): CreateFormRequest {
         required: true,
         order: 4,
         options: [
-          { label: 'Pastor', value: 'pastor' },
+          { label: 'Senior Pastor', value: 'senior_pastor' },
           { label: 'Associate Pastor', value: 'associate_pastor' },
           { label: 'Reverend', value: 'reverend' },
           { label: 'Deacon', value: 'deacon' },
           { label: 'Deaconess', value: 'deaconess' },
         ],
       },
-      {
-        key: 'bio',
-        label: 'Short Bio',
-        type: 'textarea',
-        required: false,
-        order: 5,
-        validation: { maxWords: 400 },
-      },
-      { key: 'birthday', label: 'Birthday (DD/MM/YYYY)', type: 'text', required: false, order: 6 },
-      {
-        key: 'wedding_anniversary',
-        label: 'Wedding Anniversary (DD/MM/YYYY)',
-        type: 'text',
-        required: false,
-        order: 7,
-      },
+      { key: 'bio', label: 'Short Bio', type: 'textarea', required: false, order: 5, validation: { maxWords: 400 } },
+      { key: 'birthday', label: 'Birthday (DD/MM)', type: 'text', required: false, order: 6 },
+      { key: 'wedding_anniversary', label: 'Wedding Anniversary (DD/MM)', type: 'text', required: false, order: 7 },
       { key: 'photo', label: 'Profile Photo', type: 'image', required: false, order: 8 },
     ],
     settings: {
@@ -108,7 +101,7 @@ function buildLeadershipFormPayload(): CreateFormRequest {
       introBullets: ['Profile review', 'Public leadership page', 'Secure submission'],
       introBulletSubtexts: ['Reviewed by administration', 'Published only after approval', 'Submitted through Wisdom Church'],
       layoutMode: 'split',
-      dateFormat: 'dd/mm/yyyy',
+      dateFormat: 'dd/mm',
       footerText: 'Powered by Wisdom Church',
       footerBg: '#f5c400',
       footerTextColor: '#111827',
@@ -126,16 +119,15 @@ function toArray<T>(value: unknown): T[] {
 
   if (value && typeof value === 'object') {
     const record = value as Record<string, unknown>;
-
     if (Array.isArray(record.data)) return record.data as T[];
+    if (Array.isArray(record.items)) return record.items as T[];
 
     if (record.data && typeof record.data === 'object') {
       const nested = record.data as Record<string, unknown>;
       if (Array.isArray(nested.data)) return nested.data as T[];
       if (Array.isArray(nested.items)) return nested.items as T[];
+      if (Array.isArray(nested.results)) return nested.results as T[];
     }
-
-    if (Array.isArray(record.items)) return record.items as T[];
   }
 
   return [];
@@ -147,8 +139,7 @@ function formatMonthDay(month?: number, day?: number) {
 }
 
 function roleLabel(role: LeadershipRole) {
-  const found = roleOptions.find((item) => item.value === role);
-  return found ? found.label : role;
+  return roleOptions.find((item) => item.value === role)?.label || role;
 }
 
 function normalizeToken(value?: string | null) {
@@ -197,15 +188,10 @@ function formMatchesSection(form: AdminForm, section: SectionKey) {
   }
 
   if (section === 'members') {
-    return (
-      target === 'member' ||
-      formType === 'membership' ||
-      surface.includes('member') ||
-      surface.includes('membership')
-    );
+    return target === 'member' || formType === 'membership' || surface.includes('member') || surface.includes('membership');
   }
 
-  return slug === LEADERSHIP_FORM_SLUG || target === 'leadership';
+  return slug === LEADERSHIP_FORM_SLUG || target === 'leadership' || formType === 'leadership' || surface.includes('leadership');
 }
 
 function resolveSubmissionName(submission: FormSubmission) {
@@ -235,7 +221,8 @@ function resolveSubmissionPhone(submission: FormSubmission) {
     values.phone ||
     values.contactPhone ||
     values.phone_number ||
-    values.contact_number;
+    values.contact_number ||
+    values.contactNumber;
 
   return typeof phone === 'string' && phone.trim() ? phone.trim() : '—';
 }
@@ -256,10 +243,8 @@ function readSubmissionText(submission: FormSubmission, keys: string[]) {
 
 function splitFullName(fullName: string) {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
-
   if (parts.length === 0) return { firstName: '', lastName: '' };
   if (parts.length === 1) return { firstName: parts[0], lastName: 'Unknown' };
-
   return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
 }
 
@@ -277,14 +262,16 @@ function normalizeLeadershipRole(value: string): LeadershipRole {
 
 function normalizeLeadershipDate(value: string) {
   const trimmed = value.trim();
-
   if (!trimmed) return undefined;
 
   const isoMatch = trimmed.match(isoDate);
-  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}`;
 
   const dashedMatch = trimmed.match(dashedDate);
-  if (dashedMatch) return `${dashedMatch[1]}/${dashedMatch[2]}/${dashedMatch[3]}`;
+  if (dashedMatch) return `${dashedMatch[1]}/${dashedMatch[2]}`;
+
+  const slashMatch = trimmed.match(slashDate);
+  if (slashMatch) return `${slashMatch[1]}/${slashMatch[2]}`;
 
   return trimmed.replace(/-/g, '/');
 }
@@ -321,17 +308,14 @@ function leadershipSubmissionAlreadyPublished(submission: FormSubmission, leader
   return leaders.some((leader) => {
     const leaderEmail = (leader.email || '').toLowerCase();
     const leaderName = `${leader.firstName} ${leader.lastName}`.trim().toLowerCase();
-
     return (email !== 'no email' && leaderEmail === email) || (name !== 'anonymous' && leaderName === name);
   });
 }
 
 function formatDateTime(value?: string) {
   if (!value) return '—';
-
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-
   return date.toLocaleString();
 }
 
@@ -348,20 +332,10 @@ function getErrorMessage(error: unknown) {
     if (typeof record.message === 'string') return record.message;
   }
 
-  return '';
+  return 'Request failed';
 }
 
-function StatCard({
-  label,
-  value,
-  meta,
-  icon,
-}: {
-  label: string;
-  value: number | string;
-  meta: string;
-  icon: ReactNode;
-}) {
+function StatCard({ label, value, meta, icon }: { label: string; value: number | string; meta: string; icon: ReactNode }) {
   return (
     <Card>
       <div className="flex items-start justify-between gap-4">
@@ -378,17 +352,7 @@ function StatCard({
   );
 }
 
-function AccordionRow({
-  title,
-  subtitle,
-  badge,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  badge?: ReactNode;
-  children: ReactNode;
-}) {
+function AccordionRow({ title, subtitle, badge, children }: { title: string; subtitle?: string; badge?: ReactNode; children: ReactNode }) {
   return (
     <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm transition hover:border-[var(--color-border-primary)]">
       <div className="flex items-start justify-between gap-3">
@@ -398,7 +362,6 @@ function AccordionRow({
         </div>
         {badge}
       </div>
-
       <div className="pt-3">{children}</div>
     </div>
   );
@@ -427,6 +390,10 @@ export default function AdministrationPage() {
   const [publishingSubmissionId, setPublishingSubmissionId] = useState<string | null>(null);
   const [creatingLeadershipForm, setCreatingLeadershipForm] = useState(false);
 
+  const [editingLeaderId, setEditingLeaderId] = useState<string | null>(null);
+  const [deletingLeaderId, setDeletingLeaderId] = useState<string | null>(null);
+  const [leaderDraft, setLeaderDraft] = useState<Partial<UpdateLeadershipRequest>>({});
+
   const loadAll = useCallback(async () => {
     setLoading(true);
 
@@ -438,40 +405,17 @@ export default function AdministrationPage() {
         apiClient.getAdminForms({ page: 1, limit: 300 }),
       ]);
 
-      if (workforceRes.status === 'fulfilled') {
-        setWorkforce(toArray<WorkforceMember>(workforceRes.value));
-      } else {
-        console.error('Failed to load workforce:', workforceRes.reason);
-        setWorkforce([]);
-      }
+      setWorkforce(workforceRes.status === 'fulfilled' ? toArray<WorkforceMember>(workforceRes.value) : []);
+      setMembers(membersRes.status === 'fulfilled' ? toArray<Member>(membersRes.value) : []);
+      setLeaders(leadershipRes.status === 'fulfilled' ? toArray<LeadershipMember>(leadershipRes.value) : []);
+      setForms(formsRes.status === 'fulfilled' && Array.isArray(formsRes.value.data) ? formsRes.value.data : []);
 
-      if (membersRes.status === 'fulfilled') {
-        setMembers(toArray<Member>(membersRes.value));
-      } else {
-        console.error('Failed to load members:', membersRes.reason);
-        setMembers([]);
+      if ([workforceRes, membersRes, leadershipRes, formsRes].some((result) => result.status === 'rejected')) {
+        toast.error('Some administration records could not be loaded');
       }
-
-      if (leadershipRes.status === 'fulfilled') {
-        setLeaders(toArray<LeadershipMember>(leadershipRes.value));
-      } else {
-        console.error('Failed to load leadership:', leadershipRes.reason);
-        setLeaders([]);
-      }
-
-      if (formsRes.status === 'fulfilled') {
-        setForms(Array.isArray(formsRes.value.data) ? formsRes.value.data : []);
-      } else {
-        console.error('Failed to load forms:', formsRes.reason);
-        setForms([]);
-      }
-
-      const failed = [workforceRes, membersRes, leadershipRes, formsRes].some((result) => result.status === 'rejected');
-      if (failed) toast.error('Some administration records could not be loaded');
     } catch (error) {
       console.error('Failed to load administration data:', error);
       toast.error('Unable to load administration records');
-
       setWorkforce([]);
       setMembers([]);
       setLeaders([]);
@@ -485,55 +429,42 @@ export default function AdministrationPage() {
     loadAll();
   }, [loadAll]);
 
-  const workforceStats = useMemo(() => {
-    return workforce.reduce(
-      (acc, row) => {
+  const workforceStats = useMemo(
+    () =>
+      workforce.reduce((acc, row) => {
         acc[row.status] = (acc[row.status] || 0) + 1;
         return acc;
-      },
-      {} as Record<string, number>
-    );
-  }, [workforce]);
+      }, {} as Record<string, number>),
+    [workforce]
+  );
 
-  const leadershipStats = useMemo(() => {
-    return leaders.reduce(
-      (acc, row) => {
+  const leadershipStats = useMemo(
+    () =>
+      leaders.reduce((acc, row) => {
         acc[row.status] = (acc[row.status] || 0) + 1;
         return acc;
-      },
-      {} as Record<string, number>
-    );
-  }, [leaders]);
+      }, {} as Record<string, number>),
+    [leaders]
+  );
 
   const sectionForms = useMemo(() => {
     const sortByResponses = (items: AdminForm[]) =>
       items.slice().sort((left, right) => getSubmissionCount(right) - getSubmissionCount(left));
 
-    const leadershipForm = forms.find((form) => form.slug === LEADERSHIP_FORM_SLUG) || null;
-
     return {
       workforce: sortByResponses(forms.filter((form) => formMatchesSection(form, 'workforce'))),
       members: sortByResponses(forms.filter((form) => formMatchesSection(form, 'members'))),
-      leadership: leadershipForm ? [leadershipForm] : [],
+      leadership: sortByResponses(forms.filter((form) => formMatchesSection(form, 'leadership'))),
     };
   }, [forms]);
 
-  const primaryLeadershipForm = sectionForms.leadership[0] || null;
+  const primaryLeadershipForm =
+    forms.find((form) => form.slug === LEADERSHIP_FORM_SLUG) || sectionForms.leadership[0] || null;
 
   const activeSection = activeTab === 'overview' ? null : activeTab;
-
-  const activeSectionForms = useMemo(
-    () => (activeSection ? sectionForms[activeSection] : []),
-    [activeSection, sectionForms]
-  );
-
+  const activeSectionForms = useMemo(() => (activeSection ? sectionForms[activeSection] : []), [activeSection, sectionForms]);
   const selectedFormId = activeSection ? selectedFormIds[activeSection] : ALL_FORMS;
-
-  const selectedForm =
-    selectedFormId === ALL_FORMS
-      ? null
-      : activeSectionForms.find((form) => form.id === selectedFormId) || null;
-
+  const selectedForm = selectedFormId === ALL_FORMS ? null : activeSectionForms.find((form) => form.id === selectedFormId) || null;
   const selectedSectionFormId = selectedFormId === ALL_FORMS ? ALL_FORMS : selectedForm?.id || '';
 
   useEffect(() => {
@@ -542,10 +473,8 @@ export default function AdministrationPage() {
 
       (Object.keys(sectionForms) as SectionKey[]).forEach((key) => {
         const current = next[key];
-
         if (current === ALL_FORMS) return;
         if (current && sectionForms[key].some((form) => form.id === current)) return;
-
         next[key] = ALL_FORMS;
       });
 
@@ -565,11 +494,7 @@ export default function AdministrationPage() {
     try {
       if (selectedSectionFormId === ALL_FORMS) {
         const results = await Promise.all(activeSectionForms.map((form) => fetchAllFormSubmissions(form.id)));
-
-        const merged = results
-          .flat()
-          .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
-
+        const merged = results.flat().sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
         const start = (formSubmissionsPage - 1) * 8;
 
         setFormSubmissions(merged.slice(start, start + 8));
@@ -577,17 +502,12 @@ export default function AdministrationPage() {
         return;
       }
 
-      const res = await apiClient.getFormSubmissions(selectedSectionFormId, {
-        page: formSubmissionsPage,
-        limit: 8,
-      });
-
+      const res = await apiClient.getFormSubmissions(selectedSectionFormId, { page: formSubmissionsPage, limit: 8 });
       setFormSubmissions(Array.isArray(res.data) ? res.data : []);
       setFormSubmissionsTotal(typeof res.total === 'number' ? res.total : 0);
     } catch (error) {
       console.error('Failed to load form submissions:', error);
       toast.error('Unable to load form responses');
-
       setFormSubmissions([]);
       setFormSubmissionsTotal(0);
     } finally {
@@ -603,7 +523,7 @@ export default function AdministrationPage() {
     async (submission: FormSubmission) => {
       const payload = buildLeadershipPayloadFromSubmission(submission);
 
-      if (!payload.firstName.trim() || !payload.lastName.trim()) {
+      if (!payload.firstName?.trim() || !payload.lastName?.trim()) {
         toast.error('This response needs a name before it can be published.');
         return;
       }
@@ -617,7 +537,7 @@ export default function AdministrationPage() {
         await loadSectionSubmissions();
       } catch (error) {
         console.error('Failed to publish leadership submission:', error);
-        toast.error('Unable to publish leadership profile');
+        toast.error(getErrorMessage(error) || 'Unable to publish leadership profile');
       } finally {
         setPublishingSubmissionId(null);
       }
@@ -632,15 +552,16 @@ export default function AdministrationPage() {
       const freshFormsRes = await apiClient.getAdminForms({ page: 1, limit: 300 });
       const freshForms = Array.isArray(freshFormsRes.data) ? freshFormsRes.data : [];
 
-      const existingLeadershipForm = freshForms.find((form) => form.slug === LEADERSHIP_FORM_SLUG);
+      const existingLeadershipForm =
+        freshForms.find((form) => form.slug === LEADERSHIP_FORM_SLUG) ||
+        freshForms.find((form) => formMatchesSection(form, 'leadership'));
 
       if (existingLeadershipForm) {
-        let nextForm = existingLeadershipForm as AdminForm;
+        let nextForm = existingLeadershipForm;
 
         if (!nextForm.isPublished && nextForm.status !== 'published') {
           try {
             const published = await apiClient.publishAdminForm(nextForm.id);
-
             nextForm = {
               ...nextForm,
               isPublished: true,
@@ -648,7 +569,7 @@ export default function AdministrationPage() {
               publishedAt: published.publishedAt || nextForm.publishedAt,
               slug: published.slug || nextForm.slug,
               publicUrl: published.publicUrl || nextForm.publicUrl,
-            } as AdminForm;
+            };
           } catch (publishError) {
             console.warn('Leadership form exists but could not be published automatically:', publishError);
           }
@@ -658,18 +579,15 @@ export default function AdministrationPage() {
         setSelectedFormIds((current) => ({ ...current, leadership: nextForm.id }));
         setActiveTab('leadership');
         setFormSubmissionsPage(1);
-
         toast.success('Existing leadership form loaded');
         return;
       }
 
       const created = await apiClient.createAdminForm(buildLeadershipFormPayload());
-
-      let nextForm = created as AdminForm;
+      let nextForm = created;
 
       try {
         const published = await apiClient.publishAdminForm(created.id);
-
         nextForm = {
           ...created,
           isPublished: true,
@@ -677,7 +595,7 @@ export default function AdministrationPage() {
           publishedAt: published.publishedAt || created.publishedAt,
           slug: published.slug || created.slug,
           publicUrl: published.publicUrl || created.publicUrl,
-        } as AdminForm;
+        };
       } catch (publishError) {
         console.warn('Leadership form created but publish failed:', publishError);
       }
@@ -691,20 +609,66 @@ export default function AdministrationPage() {
       toast.success(publicUrl ? `Leadership form ready: ${publicUrl}` : 'Leadership form ready');
     } catch (error) {
       console.error('Failed to create/load leadership form:', error);
-
-      const message = getErrorMessage(error);
-
-      if (message.toLowerCase().includes('slug already')) {
-        toast.error('Leadership form already exists. Refreshing forms...');
-        await loadAll();
-        return;
-      }
-
-      toast.error('Unable to prepare leadership form');
+      toast.error(getErrorMessage(error) || 'Unable to prepare leadership form');
+      await loadAll();
     } finally {
       setCreatingLeadershipForm(false);
     }
   }, [loadAll]);
+
+ const beginEditLeader = (leader: LeadershipMember) => {
+  const birthday = formatMonthDay(leader.birthdayMonth, leader.birthdayDay);
+  const anniversary = formatMonthDay(leader.anniversaryMonth, leader.anniversaryDay);
+
+  setEditingLeaderId(leader.id);
+  setLeaderDraft({
+    firstName: leader.firstName ?? '',
+    lastName: leader.lastName ?? '',
+    email: leader.email ?? undefined,
+    phone: leader.phone ?? undefined,
+    role: leader.role,
+    status: leader.status,
+    bio: leader.bio ?? undefined,
+    birthday: birthday === '—' ? undefined : birthday,
+    anniversary: anniversary === '—' ? undefined : anniversary,
+    imageUrl: leader.imageUrl ?? undefined,
+  });
+};
+
+  const cancelEditLeader = () => {
+    setEditingLeaderId(null);
+    setLeaderDraft({});
+  };
+
+  const saveLeaderEdit = async (leaderId: string) => {
+    try {
+      await apiClient.updateLeadership(leaderId, leaderDraft as UpdateLeadershipRequest);
+      toast.success('Leadership profile updated');
+      cancelEditLeader();
+      await loadAll();
+    } catch (error) {
+      console.error('Failed to update leadership profile:', error);
+      toast.error(getErrorMessage(error) || 'Unable to update leadership profile');
+    }
+  };
+
+  const deleteLeader = async (leaderId: string) => {
+    const ok = window.confirm('Delete this leadership profile? This cannot be undone.');
+    if (!ok) return;
+
+    setDeletingLeaderId(leaderId);
+
+    try {
+      await apiClient.deleteLeadership(leaderId);
+      toast.success('Leadership profile deleted');
+      await loadAll();
+    } catch (error) {
+      console.error('Failed to delete leadership profile:', error);
+      toast.error(getErrorMessage(error) || 'Unable to delete leadership profile');
+    } finally {
+      setDeletingLeaderId(null);
+    }
+  };
 
   const tabButton = (key: TabKey, label: string, icon: ReactNode) => (
     <button
@@ -714,14 +678,11 @@ export default function AdministrationPage() {
         setActiveTab(key);
         setFormSubmissionsPage(1);
       }}
-      className={`
-        inline-flex items-center gap-2 rounded-[var(--radius-button)] border px-4 py-2.5 text-sm font-semibold transition
-        ${
-          activeTab === key
-            ? 'border-[var(--color-accent-primary)] bg-[var(--color-accent-primary)] text-white shadow-sm'
-            : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-primary)] hover:bg-[var(--color-background-tertiary)]'
-        }
-      `}
+      className={`inline-flex items-center gap-2 rounded-[var(--radius-button)] border px-4 py-2.5 text-sm font-semibold transition ${
+        activeTab === key
+          ? 'border-[var(--color-accent-primary)] bg-[var(--color-accent-primary)] text-white shadow-sm'
+          : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-primary)] hover:bg-[var(--color-background-tertiary)]'
+      }`}
     >
       {icon}
       {label}
@@ -730,35 +691,23 @@ export default function AdministrationPage() {
 
   const renderOverview = () => {
     const totalForms = forms.length;
-    const mappedForms =
-      sectionForms.workforce.length +
-      sectionForms.members.length +
-      (primaryLeadershipForm ? 1 : 0);
-
+    const mappedForms = sectionForms.workforce.length + sectionForms.members.length + sectionForms.leadership.length;
     const responseTotal =
       sectionForms.workforce.reduce((sum, form) => sum + getSubmissionCount(form), 0) +
       sectionForms.members.reduce((sum, form) => sum + getSubmissionCount(form), 0) +
-      (primaryLeadershipForm ? getSubmissionCount(primaryLeadershipForm) : 0);
+      sectionForms.leadership.reduce((sum, form) => sum + getSubmissionCount(form), 0);
 
     const activeMembers = members.filter((member) => member.isActive).length;
-
-    const leadershipFormUrl = primaryLeadershipForm
-      ? buildPublicFormUrl(primaryLeadershipForm.slug, primaryLeadershipForm.publicUrl)
-      : null;
+    const leadershipFormUrl = primaryLeadershipForm ? buildPublicFormUrl(primaryLeadershipForm.slug, primaryLeadershipForm.publicUrl) : null;
 
     return (
       <div className="space-y-5">
         <div className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] shadow-sm">
           <div className="relative p-6 lg:p-7">
-            <div className="absolute right-0 top-0 h-32 w-32 rounded-bl-full bg-[var(--color-accent-primary)]/10" />
-            <div className="absolute bottom-0 right-20 h-20 w-20 rounded-t-full bg-[var(--color-accent-primary)]/5" />
-
             <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.6fr)] lg:items-center">
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="primary" size="sm">
-                    Administration
-                  </Badge>
+                  <Badge variant="primary" size="sm">Administration</Badge>
                   <Badge variant={primaryLeadershipForm ? 'success' : 'warning'} size="sm">
                     {primaryLeadershipForm ? 'Leadership form active' : 'Leadership form needed'}
                   </Badge>
@@ -774,13 +723,7 @@ export default function AdministrationPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    icon={<RefreshCw className="h-4 w-4" />}
-                    onClick={loadAll}
-                    loading={loading}
-                  >
+                  <Button size="sm" variant="primary" icon={<RefreshCw className="h-4 w-4" />} onClick={loadAll} loading={loading}>
                     Refresh records
                   </Button>
 
@@ -793,7 +736,6 @@ export default function AdministrationPage() {
                         window.open(leadershipFormUrl, '_blank', 'noopener,noreferrer');
                         return;
                       }
-
                       createLeadershipForm();
                     }}
                     loading={creatingLeadershipForm}
@@ -836,37 +778,17 @@ export default function AdministrationPage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            label="Workforce"
-            value={workforce.length}
-            meta={`${workforceStats.serving || 0} serving`}
-            icon={<Shield className="h-5 w-5" />}
-          />
-          <StatCard
-            label="Members"
-            value={members.length}
-            meta={`${activeMembers} active`}
-            icon={<Users className="h-5 w-5" />}
-          />
-          <StatCard
-            label="Leadership"
-            value={leaders.length}
-            meta={`${leadershipStats.approved || 0} published`}
-            icon={<Sparkles className="h-5 w-5" />}
-          />
-          <StatCard
-            label="Responses"
-            value={responseTotal}
-            meta={`${totalForms} total forms`}
-            icon={<FileText className="h-5 w-5" />}
-          />
+          <StatCard label="Workforce" value={workforce.length} meta={`${workforceStats.serving || 0} serving`} icon={<Shield className="h-5 w-5" />} />
+          <StatCard label="Members" value={members.length} meta={`${activeMembers} active`} icon={<Users className="h-5 w-5" />} />
+          <StatCard label="Leadership" value={leaders.length} meta={`${leadershipStats.approved || 0} published`} icon={<Sparkles className="h-5 w-5" />} />
+          <StatCard label="Responses" value={responseTotal} meta={`${totalForms} total forms`} icon={<FileText className="h-5 w-5" />} />
         </div>
       </div>
     );
   };
 
   const renderFormResponses = (section: SectionKey, label: string) => {
-    const relatedForms = section === 'leadership' ? (primaryLeadershipForm ? [primaryLeadershipForm] : []) : sectionForms[section];
+    const relatedForms = sectionForms[section];
     const currentFormId = selectedFormIds[section];
     const currentForm = currentFormId === ALL_FORMS ? null : relatedForms.find((form) => form.id === currentFormId) || null;
     const totalPages = Math.max(1, Math.ceil(formSubmissionsTotal / 8));
@@ -878,14 +800,7 @@ export default function AdministrationPage() {
         title={`${label} Form Responses`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              icon={<RefreshCw className="h-4 w-4" />}
-              onClick={loadSectionSubmissions}
-              loading={formSubmissionsLoading}
-              disabled={relatedForms.length === 0}
-            >
+            <Button size="sm" variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={loadSectionSubmissions} loading={formSubmissionsLoading} disabled={relatedForms.length === 0}>
               Refresh
             </Button>
 
@@ -894,10 +809,10 @@ export default function AdministrationPage() {
               variant="ghost"
               icon={<ExternalLink className="h-4 w-4" />}
               onClick={() => {
-                const target = currentForm || primaryLeadershipForm;
+                const target = currentForm || relatedForms[0];
                 if (target) router.push(`/dashboard/forms/${target.id}/submissions`);
               }}
-              disabled={!currentForm && !(isLeadershipSection && primaryLeadershipForm)}
+              disabled={relatedForms.length === 0}
             >
               Full View
             </Button>
@@ -939,20 +854,6 @@ export default function AdministrationPage() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs text-[var(--color-text-tertiary)]">
-              <FileText className="h-4 w-4" />
-              {currentForm ? (
-                <>
-                  <span className="font-medium text-[var(--color-text-secondary)]">{currentForm.title}</span>
-                  {currentForm.slug && <span>/forms/{currentForm.slug}</span>}
-                </>
-              ) : (
-                <span className="font-medium text-[var(--color-text-secondary)]">
-                  Showing responses from every mapped {label.toLowerCase()} form
-                </span>
-              )}
-            </div>
-
             <div className="overflow-x-auto rounded-[var(--radius-card)] border border-[var(--color-border-secondary)]">
               <table className="min-w-full divide-y divide-[var(--color-border-secondary)] text-sm">
                 <thead className="bg-[var(--color-background-tertiary)]">
@@ -960,28 +861,20 @@ export default function AdministrationPage() {
                     <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Name</th>
                     <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Email</th>
                     <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Phone</th>
-                    {isLeadershipSection && (
-                      <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Role</th>
-                    )}
+                    {isLeadershipSection && <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Role</th>}
                     <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Submitted</th>
-                    {isLeadershipSection && (
-                      <th className="px-4 py-3 text-right font-semibold text-[var(--color-text-secondary)]">Review</th>
-                    )}
+                    {isLeadershipSection && <th className="px-4 py-3 text-right font-semibold text-[var(--color-text-secondary)]">Review</th>}
                   </tr>
                 </thead>
 
                 <tbody className="divide-y divide-[var(--color-border-secondary)] bg-[var(--color-background-primary)]">
                   {formSubmissionsLoading ? (
                     <tr>
-                      <td colSpan={columnCount} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
-                        Loading responses...
-                      </td>
+                      <td colSpan={columnCount} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">Loading responses...</td>
                     </tr>
                   ) : formSubmissions.length === 0 ? (
                     <tr>
-                      <td colSpan={columnCount} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
-                        No responses for this form yet.
-                      </td>
+                      <td colSpan={columnCount} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">No responses for this form yet.</td>
                     </tr>
                   ) : (
                     formSubmissions.map((submission) => {
@@ -990,32 +883,16 @@ export default function AdministrationPage() {
 
                       return (
                         <tr key={submission.id} className="transition hover:bg-[var(--color-background-secondary)]">
-                          <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">
-                            {resolveSubmissionName(submission)}
-                          </td>
-                          <td className="px-4 py-3 text-[var(--color-text-secondary)]">
-                            {resolveSubmissionEmail(submission)}
-                          </td>
-                          <td className="px-4 py-3 text-[var(--color-text-secondary)]">
-                            {resolveSubmissionPhone(submission)}
-                          </td>
-
-                          {isLeadershipSection && (
-                            <td className="px-4 py-3 text-[var(--color-text-secondary)]">
-                              {leadershipPayload ? roleLabel(leadershipPayload.role) : '—'}
-                            </td>
-                          )}
-
-                          <td className="px-4 py-3 text-[var(--color-text-tertiary)]">
-                            {formatDateTime(submission.createdAt)}
-                          </td>
+                          <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">{resolveSubmissionName(submission)}</td>
+                          <td className="px-4 py-3 text-[var(--color-text-secondary)]">{resolveSubmissionEmail(submission)}</td>
+                          <td className="px-4 py-3 text-[var(--color-text-secondary)]">{resolveSubmissionPhone(submission)}</td>
+                          {isLeadershipSection && <td className="px-4 py-3 text-[var(--color-text-secondary)]">{leadershipPayload ? roleLabel(leadershipPayload.role) : '—'}</td>}
+                          <td className="px-4 py-3 text-[var(--color-text-tertiary)]">{formatDateTime(submission.createdAt)}</td>
 
                           {isLeadershipSection && (
                             <td className="px-4 py-3 text-right">
                               {alreadyPublished ? (
-                                <Badge variant="success" size="sm">
-                                  Published
-                                </Badge>
+                                <Badge variant="success" size="sm">Published</Badge>
                               ) : (
                                 <Button
                                   size="sm"
@@ -1039,26 +916,12 @@ export default function AdministrationPage() {
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs text-[var(--color-text-tertiary)]">
-                Page {formSubmissionsPage} of {totalPages}
-              </p>
-
+              <p className="text-xs text-[var(--color-text-tertiary)]">Page {formSubmissionsPage} of {totalPages}</p>
               <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setFormSubmissionsPage((page) => Math.max(1, page - 1))}
-                  disabled={formSubmissionsPage <= 1 || formSubmissionsLoading}
-                >
+                <Button size="sm" variant="outline" onClick={() => setFormSubmissionsPage((page) => Math.max(1, page - 1))} disabled={formSubmissionsPage <= 1 || formSubmissionsLoading}>
                   Previous
                 </Button>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setFormSubmissionsPage((page) => Math.min(totalPages, page + 1))}
-                  disabled={formSubmissionsPage >= totalPages || formSubmissionsLoading}
-                >
+                <Button size="sm" variant="outline" onClick={() => setFormSubmissionsPage((page) => Math.min(totalPages, page + 1))} disabled={formSubmissionsPage >= totalPages || formSubmissionsLoading}>
                   Next
                 </Button>
               </div>
@@ -1071,10 +934,7 @@ export default function AdministrationPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Administration"
-        subtitle="Review form responses and publish approved records to the public frontend."
-      />
+      <PageHeader title="Administration" subtitle="Review form responses and publish approved records to the public frontend." />
 
       <Card>
         <div className="flex flex-wrap gap-3">
@@ -1098,23 +958,13 @@ export default function AdministrationPage() {
           <div className="space-y-3">
             {workforce.length === 0 ? (
               <Card>
-                <p className="text-sm text-[var(--color-text-tertiary)]">
-                  {loading ? 'Loading workforce...' : 'No workforce entries yet.'}
-                </p>
+                <p className="text-sm text-[var(--color-text-tertiary)]">{loading ? 'Loading workforce...' : 'No workforce entries yet.'}</p>
               </Card>
             ) : (
               workforce.map((row) => (
-                <AccordionRow
-                  key={row.id}
-                  title={`${row.firstName} ${row.lastName}`}
-                  subtitle={row.email}
-                  badge={<Badge variant={row.status === 'serving' ? 'success' : 'warning'} size="sm">{row.status}</Badge>}
-                >
+                <AccordionRow key={row.id} title={`${row.firstName} ${row.lastName}`} subtitle={row.email} badge={<Badge variant={row.status === 'serving' ? 'success' : 'warning'} size="sm">{row.status}</Badge>}>
                   <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                      {row.phone || '—'}
-                    </div>
+                    <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-[var(--color-text-tertiary)]" />{row.phone || '—'}</div>
                     <div className="text-xs text-[var(--color-text-tertiary)]">Department: {row.department}</div>
                   </div>
                 </AccordionRow>
@@ -1136,24 +986,14 @@ export default function AdministrationPage() {
 
           {members.length === 0 ? (
             <Card>
-              <p className="text-sm text-[var(--color-text-tertiary)]">
-                {loading ? 'Loading members...' : 'No members available yet.'}
-              </p>
+              <p className="text-sm text-[var(--color-text-tertiary)]">{loading ? 'Loading members...' : 'No members available yet.'}</p>
             </Card>
           ) : (
             <div className="space-y-3">
               {members.map((row) => (
-                <AccordionRow
-                  key={row.id}
-                  title={`${row.firstName} ${row.lastName}`}
-                  subtitle={row.email}
-                  badge={<Badge variant={row.isActive ? 'success' : 'warning'} size="sm">{row.isActive ? 'Active' : 'Inactive'}</Badge>}
-                >
+                <AccordionRow key={row.id} title={`${row.firstName} ${row.lastName}`} subtitle={row.email} badge={<Badge variant={row.isActive ? 'success' : 'warning'} size="sm">{row.isActive ? 'Active' : 'Inactive'}</Badge>}>
                   <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                      {row.phone || '—'}
-                    </div>
+                    <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-[var(--color-text-tertiary)]" />{row.phone || '—'}</div>
                   </div>
                 </AccordionRow>
               ))}
@@ -1169,12 +1009,7 @@ export default function AdministrationPage() {
           <Card
             title="Leadership Form"
             actions={
-              <Button
-                variant={primaryLeadershipForm ? 'outline' : 'primary'}
-                icon={primaryLeadershipForm ? <RefreshCw className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                onClick={createLeadershipForm}
-                loading={creatingLeadershipForm}
-              >
+              <Button variant={primaryLeadershipForm ? 'outline' : 'primary'} icon={primaryLeadershipForm ? <RefreshCw className="h-4 w-4" /> : <Plus className="h-4 w-4" />} onClick={createLeadershipForm} loading={creatingLeadershipForm}>
                 {primaryLeadershipForm ? 'Reload leadership form' : 'Create leadership form'}
               </Button>
             }
@@ -1196,41 +1031,22 @@ export default function AdministrationPage() {
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
-                      <FileText className="h-4 w-4" />
-                      <span className="font-medium text-[var(--color-text-secondary)]">/forms/{primaryLeadershipForm.slug}</span>
-                    </div>
-
                     <p className="truncate rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs text-[var(--color-text-tertiary)]">
                       {buildPublicFormUrl(primaryLeadershipForm.slug, primaryLeadershipForm.publicUrl) || 'Published leadership form'}
                     </p>
                   </div>
 
                   <div className="flex flex-wrap gap-2 lg:justify-end">
-                    <Button
-                      variant="outline"
-                      icon={<ExternalLink className="h-4 w-4" />}
-                      onClick={() => {
-                        const url = buildPublicFormUrl(primaryLeadershipForm.slug, primaryLeadershipForm.publicUrl);
-                        if (url) window.open(url, '_blank', 'noopener,noreferrer');
-                      }}
-                    >
+                    <Button variant="outline" icon={<ExternalLink className="h-4 w-4" />} onClick={() => {
+                      const url = buildPublicFormUrl(primaryLeadershipForm.slug, primaryLeadershipForm.publicUrl);
+                      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+                    }}>
                       Open public form
                     </Button>
-
-                    <Button
-                      variant="secondary"
-                      icon={<ClipboardList className="h-4 w-4" />}
-                      onClick={() => router.push(`/dashboard/forms/${primaryLeadershipForm.id}/submissions`)}
-                    >
+                    <Button variant="secondary" icon={<ClipboardList className="h-4 w-4" />} onClick={() => router.push(`/dashboard/forms/${primaryLeadershipForm.id}/submissions`)}>
                       View responses
                     </Button>
-
-                    <Button
-                      variant="primary"
-                      icon={<Sparkles className="h-4 w-4" />}
-                      onClick={() => router.push(`/dashboard/forms/${primaryLeadershipForm.id}/edit`)}
-                    >
+                    <Button variant="primary" icon={<Sparkles className="h-4 w-4" />} onClick={() => router.push(`/dashboard/forms/${primaryLeadershipForm.id}/edit`)}>
                       Manage form
                     </Button>
                   </div>
@@ -1266,35 +1082,79 @@ export default function AdministrationPage() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {leaders.map((row) => (
-                <AccordionRow
-                  key={row.id}
-                  title={`${row.firstName} ${row.lastName}`}
-                  subtitle={row.email}
-                  badge={<Badge variant={row.status === 'approved' ? 'success' : row.status === 'declined' ? 'danger' : 'warning'} size="sm">{row.status}</Badge>}
-                >
-                  <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                    <div className="text-xs text-[var(--color-text-tertiary)]">Role: {roleLabel(row.role)}</div>
+              {leaders.map((row) => {
+                const isEditing = editingLeaderId === row.id;
 
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                      Birthday: {formatMonthDay(row.birthdayMonth, row.birthdayDay)}
-                    </div>
+                return (
+                  <AccordionRow
+                    key={row.id}
+                    title={`${row.firstName} ${row.lastName}`}
+                    subtitle={row.email}
+                    badge={<Badge variant={row.status === 'approved' ? 'success' : row.status === 'declined' ? 'danger' : 'warning'} size="sm">{row.status}</Badge>}
+                  >
+                    {isEditing ? (
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <Input label="First name" value={String(leaderDraft.firstName || '')} onChange={(e) => setLeaderDraft((prev) => ({ ...prev, firstName: e.target.value }))} />
+                        <Input label="Last name" value={String(leaderDraft.lastName || '')} onChange={(e) => setLeaderDraft((prev) => ({ ...prev, lastName: e.target.value }))} />
+                        <Input label="Email" value={String(leaderDraft.email || '')} onChange={(e) => setLeaderDraft((prev) => ({ ...prev, email: e.target.value }))} />
+                        <Input label="Phone" value={String(leaderDraft.phone || '')} onChange={(e) => setLeaderDraft((prev) => ({ ...prev, phone: e.target.value }))} />
 
-                    <div className="flex items-center gap-2">
-                      <Heart className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                      Anniversary: {formatMonthDay(row.anniversaryMonth, row.anniversaryDay)}
-                    </div>
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Role</label>
+                          <select
+                            className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                            value={String(leaderDraft.role || row.role)}
+                            onChange={(e) => setLeaderDraft((prev) => ({ ...prev, role: e.target.value as LeadershipRole }))}
+                          >
+                            {roleOptions.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </div>
 
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                      {row.email || 'No email'}
-                    </div>
+                        <Input label="Birthday (DD/MM)" value={String(leaderDraft.birthday || '')} onChange={(e) => setLeaderDraft((prev) => ({ ...prev, birthday: e.target.value }))} />
+                        <Input label="Anniversary (DD/MM)" value={String(leaderDraft.anniversary || '')} onChange={(e) => setLeaderDraft((prev) => ({ ...prev, anniversary: e.target.value }))} />
 
-                    {row.bio && <p className="mt-1 text-xs leading-5 text-[var(--color-text-tertiary)]">{row.bio}</p>}
-                  </div>
-                </AccordionRow>
-              ))}
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Bio</label>
+                          <textarea
+                            className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                            rows={3}
+                            value={String(leaderDraft.bio || '')}
+                            onChange={(e) => setLeaderDraft((prev) => ({ ...prev, bio: e.target.value }))}
+                          />
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 md:col-span-2">
+                          <Button size="sm" variant="primary" onClick={() => saveLeaderEdit(row.id)} icon={<CheckCircle2 className="h-4 w-4" />}>
+                            Save changes
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={cancelEditLeader} icon={<X className="h-4 w-4" />}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
+                        <div className="text-xs text-[var(--color-text-tertiary)]">Role: {roleLabel(row.role)}</div>
+                        <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-[var(--color-text-tertiary)]" />Birthday: {formatMonthDay(row.birthdayMonth, row.birthdayDay)}</div>
+                        <div className="flex items-center gap-2"><Heart className="h-4 w-4 text-[var(--color-text-tertiary)]" />Anniversary: {formatMonthDay(row.anniversaryMonth, row.anniversaryDay)}</div>
+                        <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-[var(--color-text-tertiary)]" />{row.email || 'No email'}</div>
+                        {row.bio && <p className="mt-1 text-xs leading-5 text-[var(--color-text-tertiary)]">{row.bio}</p>}
+
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          <Button size="sm" variant="outline" icon={<Pencil className="h-4 w-4" />} onClick={() => beginEditLeader(row)}>
+                            Edit
+                          </Button>
+                          <Button size="sm" variant="outline" icon={<Trash2 className="h-4 w-4" />} onClick={() => deleteLeader(row.id)} loading={deletingLeaderId === row.id}>
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </AccordionRow>
+                );
+              })}
             </div>
           )}
 
