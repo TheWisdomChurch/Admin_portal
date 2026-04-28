@@ -82,8 +82,8 @@ function buildLeadershipFormPayload(): CreateFormRequest {
         ],
       },
       { key: 'bio', label: 'Short Bio', type: 'textarea', required: false, order: 5, validation: { maxWords: 400 } },
-      { key: 'birthday', label: 'Birthday (DD/MM)', type: 'text', required: false, order: 6 },
-      { key: 'wedding_anniversary', label: 'Wedding Anniversary (DD/MM)', type: 'text', required: false, order: 7 },
+      { key: 'birthday', label: 'Birthday (DD/MM)', type: 'text', required: false, order: 6},
+      { key: 'wedding_anniversary', label: 'Wedding Anniversary (DD/MM)', type: 'text', required: false, order: 7},
       { key: 'photo', label: 'Profile Photo', type: 'image', required: false, order: 8 },
     ],
     settings: {
@@ -261,16 +261,20 @@ function normalizeLeadershipDate(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
 
-  const parsed = new Date(trimmed);
-  if (!Number.isNaN(parsed.getTime())) {
-    const day = String(parsed.getDate()).padStart(2, '0');
-    const month = String(parsed.getMonth() + 1).padStart(2, '0');
-    return `${day}/${month}`;
+  // Browser date input sends YYYY-MM-DD.
+  const isoDateOnly = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoDateOnly) {
+    return `${isoDateOnly[3]}/${isoDateOnly[2]}`;
   }
 
+  // Already correct DD/MM.
+  const ddmm = trimmed.match(/^(\d{1,2})\/(\d{1,2})$/);
+  if (ddmm) {
+    return `${ddmm[1].padStart(2, '0')}/${ddmm[2].padStart(2, '0')}`;
+  }
+
+  // Handles DD-MM, DD-MM-YYYY, DD/MM/YYYY.
   const parts = trimmed
-    .replace(/,/g, '')
-    .replace(/\s+/g, '/')
     .replace(/-/g, '/')
     .split('/')
     .map((part) => part.trim())
@@ -280,25 +284,24 @@ function normalizeLeadershipDate(value: string) {
     let day = parts[0];
     let month = parts[1];
 
-    // Handles YYYY/MM/DD
+    // Handles YYYY/MM/DD.
     if (parts[0].length === 4 && parts[2]) {
       day = parts[2];
       month = parts[1];
     }
 
-    // Handles MM/DD/YYYY from browser/locale values where month comes first.
     const dayNum = Number(day);
     const monthNum = Number(month);
-    if (dayNum <= 12 && monthNum > 12) {
-      day = parts[1];
-      month = parts[0];
-    }
 
-    day = String(Number(day)).padStart(2, '0');
-    month = String(Number(month)).padStart(2, '0');
-
-    if (/^\d{2}$/.test(day) && /^\d{2}$/.test(month)) {
-      return `${day}/${month}`;
+    if (
+      Number.isInteger(dayNum) &&
+      Number.isInteger(monthNum) &&
+      dayNum >= 1 &&
+      dayNum <= 31 &&
+      monthNum >= 1 &&
+      monthNum <= 12
+    ) {
+      return `${String(dayNum).padStart(2, '0')}/${String(monthNum).padStart(2, '0')}`;
     }
   }
 
@@ -322,7 +325,7 @@ function buildLeadershipPayloadFromSubmission(submission: FormSubmission): Creat
     email: resolveSubmissionEmail(submission) !== 'No email' ? resolveSubmissionEmail(submission) : undefined,
     phone: resolveSubmissionPhone(submission) !== '—' ? resolveSubmissionPhone(submission) : undefined,
     role: normalizeLeadershipRole(role),
-    status: 'awaiting_super_admin_approval' as LeadershipMember['status'],
+    status: 'pending',
     bio: readSubmissionText(submission, ['bio', 'short_bio', 'profile', 'about']) || undefined,
     birthday: birthday ? normalizeLeadershipDate(birthday) : undefined,
     anniversary: anniversary ? normalizeLeadershipDate(anniversary) : undefined,
@@ -562,12 +565,12 @@ export default function AdministrationPage() {
 
       try {
         await apiClient.createLeadership(payload);
-        toast.success('Sent to Super Admin for final approval');
+        toast.success('Leadership profile saved as pending review');
         await loadAll();
         await loadSectionSubmissions();
       } catch (error) {
         console.error('Failed to send leadership submission for review:', error);
-        toast.error(getErrorMessage(error) || 'Unable to send leadership profile for review');
+        toast.error(getErrorMessage(error) || 'Unable to save leadership profile for review');
       } finally {
         setPublishingSubmissionId(null);
       }
