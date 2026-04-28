@@ -388,6 +388,7 @@ export default function AdministrationPage() {
   const [formSubmissionsPage, setFormSubmissionsPage] = useState(1);
   const [formSubmissionsLoading, setFormSubmissionsLoading] = useState(false);
   const [publishingSubmissionId, setPublishingSubmissionId] = useState<string | null>(null);
+  const [deletingSubmissionId, setDeletingSubmissionId] = useState<string | null>(null);
   const [creatingLeadershipForm, setCreatingLeadershipForm] = useState(false);
 
   const [editingLeaderId, setEditingLeaderId] = useState<string | null>(null);
@@ -543,6 +544,27 @@ export default function AdministrationPage() {
       }
     },
     [loadAll, loadSectionSubmissions]
+  );
+
+  const deleteFormSubmission = useCallback(
+    async (submissionId: string) => {
+      const ok = window.confirm('Delete this form response? This cannot be undone.');
+      if (!ok) return;
+
+      setDeletingSubmissionId(submissionId);
+
+      try {
+        await apiClient.deleteFormSubmission(submissionId);
+        toast.success('Form response deleted');
+        await loadSectionSubmissions();
+      } catch (error) {
+        console.error('Failed to delete form response:', error);
+        toast.error(getErrorMessage(error) || 'Unable to delete form response');
+      } finally {
+        setDeletingSubmissionId(null);
+      }
+    },
+    [loadSectionSubmissions]
   );
 
   const createLeadershipForm = useCallback(async () => {
@@ -891,20 +913,33 @@ export default function AdministrationPage() {
 
                           {isLeadershipSection && (
                             <td className="px-4 py-3 text-right">
-                              {alreadyPublished ? (
-                                <Badge variant="success" size="sm">Published</Badge>
-                              ) : (
+                              <div className="flex justify-end gap-2">
+                                {alreadyPublished ? (
+                                  <Badge variant="success" size="sm">Published</Badge>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    icon={<CheckCircle2 className="h-4 w-4" />}
+                                    onClick={() => publishLeadershipSubmission(submission)}
+                                    loading={publishingSubmissionId === submission.id}
+                                    disabled={Boolean(publishingSubmissionId || deletingSubmissionId)}
+                                  >
+                                    Publish
+                                  </Button>
+                                )}
+
                                 <Button
                                   size="sm"
-                                  variant="secondary"
-                                  icon={<CheckCircle2 className="h-4 w-4" />}
-                                  onClick={() => publishLeadershipSubmission(submission)}
-                                  loading={publishingSubmissionId === submission.id}
-                                  disabled={Boolean(publishingSubmissionId)}
+                                  variant="outline"
+                                  icon={<Trash2 className="h-4 w-4" />}
+                                  onClick={() => deleteFormSubmission(submission.id)}
+                                  loading={deletingSubmissionId === submission.id}
+                                  disabled={Boolean(publishingSubmissionId || deletingSubmissionId)}
                                 >
-                                  Publish
+                                  Delete
                                 </Button>
-                              )}
+                              </div>
                             </td>
                           )}
                         </tr>
