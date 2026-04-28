@@ -971,7 +971,7 @@ export type LeadershipRole =
   | 'deaconess'
   | 'reverend';
 
-export type LeadershipStatus = 'pending' | 'approved' | 'declined';
+export type LeadershipStatus = 'pending' | 'awaiting_super_admin_approval' | 'approved' | 'declined';
 
 export interface LeadershipMember {
   id: string;
