@@ -57,9 +57,6 @@ const roleOptions: Array<{ value: LeadershipRole; label: string }> = [
   { value: 'deaconess', label: 'Deaconess' },
 ];
 
-const isoDate = /^(\d{4})-(\d{2})-(\d{2})$/;
-const dashedDate = /^(\d{2})-(\d{2})-(\d{4})$/;
-const slashDate = /^(\d{2})\/(\d{2})(?:\/(\d{4}))?$/;
 
 function buildLeadershipFormPayload(): CreateFormRequest {
   return {
