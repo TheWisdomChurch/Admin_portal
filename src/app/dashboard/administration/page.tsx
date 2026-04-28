@@ -57,9 +57,6 @@ const roleOptions: Array<{ value: LeadershipRole; label: string }> = [
   { value: 'deaconess', label: 'Deaconess' },
 ];
 
-const isoDate = /^(\d{4})-(\d{2})-(\d{2})$/;
-const dashedDate = /^(\d{2})-(\d{2})-(\d{4})$/;
-const slashDate = /^(\d{2})\/(\d{2})(?:\/(\d{4}))?$/;
 
 function buildLeadershipFormPayload(): CreateFormRequest {
   return {
@@ -264,16 +261,48 @@ function normalizeLeadershipDate(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
 
-  const isoMatch = trimmed.match(isoDate);
-  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}`;
+  const parsed = new Date(trimmed);
+  if (!Number.isNaN(parsed.getTime())) {
+    const day = String(parsed.getDate()).padStart(2, '0');
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    return `${day}/${month}`;
+  }
 
-  const dashedMatch = trimmed.match(dashedDate);
-  if (dashedMatch) return `${dashedMatch[1]}/${dashedMatch[2]}`;
+  const parts = trimmed
+    .replace(/,/g, '')
+    .replace(/\s+/g, '/')
+    .replace(/-/g, '/')
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
 
-  const slashMatch = trimmed.match(slashDate);
-  if (slashMatch) return `${slashMatch[1]}/${slashMatch[2]}`;
+  if (parts.length >= 2) {
+    let day = parts[0];
+    let month = parts[1];
 
-  return trimmed.replace(/-/g, '/');
+    // Handles YYYY/MM/DD
+    if (parts[0].length === 4 && parts[2]) {
+      day = parts[2];
+      month = parts[1];
+    }
+
+    // Handles MM/DD/YYYY from browser/locale values where month comes first.
+    const dayNum = Number(day);
+    const monthNum = Number(month);
+    if (dayNum <= 12 && monthNum > 12) {
+      day = parts[1];
+      month = parts[0];
+    }
+
+    day = String(Number(day)).padStart(2, '0');
+    month = String(Number(month)).padStart(2, '0');
+
+    if (/^\d{2}$/.test(day) && /^\d{2}$/.test(month)) {
+      return `${day}/${month}`;
+    }
+  }
+
+  return undefined;
 }
 
 function buildLeadershipPayloadFromSubmission(submission: FormSubmission): CreateLeadershipRequest {
@@ -293,7 +322,7 @@ function buildLeadershipPayloadFromSubmission(submission: FormSubmission): Creat
     email: resolveSubmissionEmail(submission) !== 'No email' ? resolveSubmissionEmail(submission) : undefined,
     phone: resolveSubmissionPhone(submission) !== '—' ? resolveSubmissionPhone(submission) : undefined,
     role: normalizeLeadershipRole(role),
-    status: 'approved',
+    status: 'awaiting_super_admin_approval' as LeadershipMember['status'],
     bio: readSubmissionText(submission, ['bio', 'short_bio', 'profile', 'about']) || undefined,
     birthday: birthday ? normalizeLeadershipDate(birthday) : undefined,
     anniversary: anniversary ? normalizeLeadershipDate(anniversary) : undefined,
@@ -533,12 +562,12 @@ export default function AdministrationPage() {
 
       try {
         await apiClient.createLeadership(payload);
-        toast.success('Leadership profile published');
+        toast.success('Sent to Super Admin for final approval');
         await loadAll();
         await loadSectionSubmissions();
       } catch (error) {
-        console.error('Failed to publish leadership submission:', error);
-        toast.error(getErrorMessage(error) || 'Unable to publish leadership profile');
+        console.error('Failed to send leadership submission for review:', error);
+        toast.error(getErrorMessage(error) || 'Unable to send leadership profile for review');
       } finally {
         setPublishingSubmissionId(null);
       }
@@ -915,7 +944,7 @@ export default function AdministrationPage() {
                             <td className="px-4 py-3 text-right">
                               <div className="flex justify-end gap-2">
                                 {alreadyPublished ? (
-                                  <Badge variant="success" size="sm">Published</Badge>
+                                  <Badge variant="success" size="sm">Sent</Badge>
                                 ) : (
                                   <Button
                                     size="sm"
@@ -925,7 +954,7 @@ export default function AdministrationPage() {
                                     loading={publishingSubmissionId === submission.id}
                                     disabled={Boolean(publishingSubmissionId || deletingSubmissionId)}
                                   >
-                                    Publish
+                                    Send to Super Admin
                                   </Button>
                                 )}
 
@@ -1104,20 +1133,35 @@ export default function AdministrationPage() {
           </Card>
 
           <div className="grid gap-4 md:grid-cols-3">
-            <StatCard label="Total leaders" value={leaders.length} meta="All leadership records" icon={<Sparkles className="h-5 w-5" />} />
-            <StatCard label="Approved" value={leadershipStats.approved || 0} meta="Visible or ready" icon={<CheckCircle2 className="h-5 w-5" />} />
-            <StatCard label="Pending" value={leadershipStats.pending || 0} meta="Awaiting approval" icon={<ClipboardList className="h-5 w-5" />} />
+            <StatCard
+              label="Total leaders"
+              value={leaders.filter((leader) => leader.status !== 'declined').length}
+              meta="Active leadership records"
+              icon={<Sparkles className="h-5 w-5" />}
+            />
+            <StatCard
+              label="Pending"
+              value={formSubmissions.filter((submission) => !leadershipSubmissionAlreadyPublished(submission, leaders)).length + (leadershipStats.pending || 0)}
+              meta="Admin needs to review"
+              icon={<ClipboardList className="h-5 w-5" />}
+            />
+            <StatCard
+              label="Awaiting Super Admin"
+              value={leaders.filter((leader) => leader.status === 'awaiting_super_admin_approval').length}
+              meta="Submitted for final approval"
+              icon={<CheckCircle2 className="h-5 w-5" />}
+            />
           </div>
 
           {leaders.length === 0 ? (
             <Card>
               <p className="text-sm text-[var(--color-text-tertiary)]">
-                {loading ? 'Loading leadership...' : 'No leadership records yet. Use the form responses below and click Publish to create leadership records.'}
+                {loading ? 'Loading leadership...' : 'No leadership records yet. Form responses below are pending admin review. Send reviewed responses to Super Admin for final approval.'}
               </p>
             </Card>
           ) : (
             <div className="space-y-3">
-              {leaders.map((row) => {
+              {leaders.filter((leader) => leader.status !== 'declined').map((row) => {
                 const isEditing = editingLeaderId === row.id;
 
                 return (
