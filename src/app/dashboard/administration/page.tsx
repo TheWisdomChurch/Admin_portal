@@ -322,7 +322,7 @@ function buildLeadershipPayloadFromSubmission(submission: FormSubmission): Creat
     email: resolveSubmissionEmail(submission) !== 'No email' ? resolveSubmissionEmail(submission) : undefined,
     phone: resolveSubmissionPhone(submission) !== '—' ? resolveSubmissionPhone(submission) : undefined,
     role: normalizeLeadershipRole(role),
-    status: 'awaiting_super_admin_approval' as LeadershipMember['status'],
+    status: 'pending',
     bio: readSubmissionText(submission, ['bio', 'short_bio', 'profile', 'about']) || undefined,
     birthday: birthday ? normalizeLeadershipDate(birthday) : undefined,
     anniversary: anniversary ? normalizeLeadershipDate(anniversary) : undefined,
@@ -562,12 +562,12 @@ export default function AdministrationPage() {
 
       try {
         await apiClient.createLeadership(payload);
-        toast.success('Sent to Super Admin for final approval');
+        toast.success('Leadership profile saved as pending review');
         await loadAll();
         await loadSectionSubmissions();
       } catch (error) {
         console.error('Failed to send leadership submission for review:', error);
-        toast.error(getErrorMessage(error) || 'Unable to send leadership profile for review');
+        toast.error(getErrorMessage(error) || 'Unable to save leadership profile for review');
       } finally {
         setPublishingSubmissionId(null);
       }
