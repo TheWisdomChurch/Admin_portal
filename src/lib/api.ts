@@ -1770,6 +1770,12 @@ export const apiClient = {
     );
   },
 
+  async deleteFormSubmission(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/form-submissions/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  },
+
   async getFormSubmissionStats(id: string): Promise<FormSubmissionDailyStat[]> {
     const res = await apiFetch<unknown>(
       `/admin/forms/${encodeURIComponent(id)}/submissions/stats`,
