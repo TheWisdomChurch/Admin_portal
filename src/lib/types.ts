@@ -268,9 +268,26 @@ export interface UploadAssetData {
 }
 
 export interface UploadImageResponse {
-  folder: string;
+  folder?: string;
   key: string;
   url: string;
+  id?: string;
+  assetId?: string;
+  publicUrl?: string;
+  public_url?: string;
+  objectKey?: string;
+  kind?: string;
+  module?: string;
+  ownerType?: string;
+  ownerId?: string;
+  contentType?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  originalName?: string;
+  provider?: string;
+  bucket?: string;
+  checksum?: string;
+  status?: string;
 }
 
 /* =========================
@@ -629,8 +646,22 @@ export interface CreateFormRequest {
 
 export type UpdateFormRequest = Partial<CreateFormRequest>;
 
+export type UploadedFormAssetValue = {
+  id?: string;
+  assetId?: string;
+  url: string;
+  publicUrl?: string;
+  key?: string;
+  objectKey?: string;
+  kind?: 'image' | 'video' | 'audio' | 'document' | 'file';
+  contentType?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  originalName?: string;
+};
+
 export interface SubmitFormRequest {
-  values: Record<string, string | boolean | number | string[] | File | null>;
+  values: Record<string, string | boolean | number | string[] | File | UploadedFormAssetValue | null>;
 }
 
 export interface FormSubmission {
@@ -641,7 +672,7 @@ export interface FormSubmission {
   contactNumber?: string;
   contactAddress?: string;
   registrationCode?: string;
-  values: Record<string, string | boolean | number | string[] | null>;
+  values: Record<string, string | boolean | number | string[] | UploadedFormAssetValue | null>;
   createdAt: string;
   updatedAt: string;
 }
@@ -666,7 +697,7 @@ export interface FormSubmissionWithForm {
   contactNumber?: string;
   contactAddress?: string;
   registrationCode?: string;
-  values: Record<string, string | boolean | number | string[] | null>;
+  values: Record<string, string | boolean | number | string[] | UploadedFormAssetValue | null>;
   createdAt: string;
 }
 
