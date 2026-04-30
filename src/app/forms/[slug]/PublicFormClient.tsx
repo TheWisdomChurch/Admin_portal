@@ -8,12 +8,278 @@ import { useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Calendar, Check, MousePointer2, Send } from 'lucide-react';
 import { apiClient } from '@/lib/api';
-import type { PublicFormPayload, FormField } from '@/lib/types';
+import type { PublicFormPayload, FormField, UploadedFormAssetValue } from '@/lib/types';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { SuccessModal } from '@/ui/SuccessModal';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 
+
+/* ========================================================================
+   Leadership public form hardening:
+   - Uploads data:image/base64 images before submit.
+   - Stores S3/Supabase public URL in values instead of raw base64.
+   - Normalizes birthday from DD-MM/DD/MM to DD/MM.
+   - Prevents bad field-key mappings like birthday="single" from breaking sync.
+======================================================================== */
+
+const LEADERSHIP_PUBLIC_SUBMISSION_HELPERS = true;
+
+type PublicSubmissionValue =
+  | string
+  | boolean
+  | number
+  | string[]
+  | UploadedFormAssetValue
+  | File
+  | null;
+type PublicSubmissionValues = Record<string, PublicSubmissionValue>;
+
+const DATA_URL_RE = /^data:([^;,]+);base64,/i;
+const DATA_IMAGE_URL_RE = /^data:image\/(?:png|jpe?g|webp);base64,/i;
+
+function isDataImageUrl(value: unknown): value is string {
+  return typeof value === 'string' && DATA_IMAGE_URL_RE.test(value.trim());
+}
+
+function getUploadUrl(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object') return undefined;
+
+  const record = payload as Record<string, unknown>;
+  const candidates = [
+    record.url,
+    record.publicUrl,
+    record.public_url,
+    record.imageUrl,
+    record.image_url,
+    record.secureUrl,
+    record.secure_url,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && /^https?:\/\//i.test(candidate)) {
+      return candidate;
+    }
+  }
+
+  if (record.data && typeof record.data === 'object') {
+    return getUploadUrl(record.data);
+  }
+
+  return undefined;
+}
+
+function toUploadedAssetValue(payload: unknown): UploadedFormAssetValue | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const record = payload as Record<string, unknown>;
+  const url = getUploadUrl(record);
+  if (!url) return null;
+
+  return {
+    id: typeof record.id === 'string' ? record.id : undefined,
+    assetId: typeof record.assetId === 'string' ? record.assetId : undefined,
+    url,
+    publicUrl: typeof record.publicUrl === 'string' ? record.publicUrl : url,
+    key: typeof record.key === 'string' ? record.key : undefined,
+    objectKey: typeof record.objectKey === 'string' ? record.objectKey : undefined,
+    kind:
+      record.kind === 'image' ||
+      record.kind === 'video' ||
+      record.kind === 'audio' ||
+      record.kind === 'document' ||
+      record.kind === 'file'
+        ? record.kind
+        : undefined,
+    contentType: typeof record.contentType === 'string' ? record.contentType : undefined,
+    mimeType: typeof record.mimeType === 'string' ? record.mimeType : undefined,
+    sizeBytes: typeof record.sizeBytes === 'number' ? record.sizeBytes : undefined,
+    originalName: typeof record.originalName === 'string' ? record.originalName : undefined,
+  };
+}
+
+async function dataImageUrlToFile(dataUrl: string, filename: string): Promise<File> {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+
+  const contentType =
+    blob.type ||
+    dataUrl.match(/^data:(image\/(?:png|jpe?g|webp));base64,/i)?.[1] ||
+    'image/jpeg';
+
+  const extension =
+    contentType.includes('png')
+      ? 'png'
+      : contentType.includes('webp')
+      ? 'webp'
+      : 'jpg';
+
+  return new File([blob], `${filename}.${extension}`, { type: contentType });
+}
+
+async function dataUrlToFile(dataUrl: string, filename: string): Promise<File> {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  const contentType =
+    blob.type ||
+    dataUrl.match(DATA_URL_RE)?.[1] ||
+    'application/octet-stream';
+  const extension = contentType.split('/')[1]?.replace(/[^a-z0-9.+-]/gi, '') || 'bin';
+
+  return new File([blob], `${filename}.${extension}`, { type: contentType });
+}
+
+function normalizeDayMonth(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  const match = trimmed.match(/^(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.]\d{2,4})?$/);
+  if (!match) return undefined;
+
+  const first = Number(match[1]);
+  const second = Number(match[2]);
+
+  if (!Number.isInteger(first) || !Number.isInteger(second)) return undefined;
+
+  let day = first;
+  let month = second;
+
+  // If user supplied MM/DD, convert it to DD/MM.
+  if (first <= 12 && second > 12) {
+    day = second;
+    month = first;
+  }
+
+  if (month < 1 || month > 12) return undefined;
+  if (day < 1 || day > 31) return undefined;
+
+  return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`;
+}
+
+function normalizeLeadershipRole(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/-/g, '_');
+
+  const allowed = new Set([
+    'senior_pastor',
+    'associate_pastor',
+    'deacon',
+    'deaconess',
+    'reverend',
+  ]);
+
+  return allowed.has(normalized) ? normalized : undefined;
+}
+
+function findLeadershipBirthday(values: PublicSubmissionValues): string | undefined {
+  const preferredKeys = [
+    'birthday',
+    'birthDay',
+    'dateOfBirth',
+    'date_of_birth',
+    'dob',
+    'bio',
+  ];
+
+  for (const key of preferredKeys) {
+    const normalized = normalizeDayMonth(values[key]);
+    if (normalized) return normalized;
+  }
+
+  for (const value of Object.values(values)) {
+    const normalized = normalizeDayMonth(value);
+    if (normalized) return normalized;
+  }
+
+  return undefined;
+}
+
+function shouldNormalizeLeadershipValues(slug: string): boolean {
+  const normalized = slug.trim().toLowerCase();
+  return (
+    normalized === 'leadership-biodata' ||
+    normalized === 'leadership' ||
+    normalized.includes('leadership')
+  );
+}
+
+async function prepareLeadershipPublicSubmissionValues(
+  slug: string,
+  values: PublicSubmissionValues
+): Promise<PublicSubmissionValues> {
+  if (!shouldNormalizeLeadershipValues(slug)) {
+    return values;
+  }
+
+  const next: PublicSubmissionValues = { ...values };
+
+  const birthday = findLeadershipBirthday(next);
+  if (birthday) {
+    next.birthday = birthday;
+
+    // Your current form is sending bio="28-01".
+    // That is not a real bio, so remove it from bio after using it as birthday.
+    if (normalizeDayMonth(next.bio)) {
+      delete next.bio;
+    }
+  }
+
+  const role =
+    normalizeLeadershipRole(next.role) ||
+    normalizeLeadershipRole(next.leadership_role) ||
+    normalizeLeadershipRole(next.leadershipRole);
+
+  if (role) {
+    next.role = role;
+    next.leadership_role = role;
+    next.leadershipRole = role;
+  }
+
+  const imageEntry =
+    Object.entries(next).find(([key, value]) => {
+      const lower = key.toLowerCase();
+      return (
+        isDataImageUrl(value) &&
+        (lower.includes('image') ||
+          lower.includes('photo') ||
+          lower.includes('passport') ||
+          lower.includes('picture') ||
+          lower.includes('headshot') ||
+          lower.startsWith('field_'))
+      );
+    }) || Object.entries(next).find(([, value]) => isDataImageUrl(value));
+
+  if (imageEntry) {
+    const [imageKey, imageValue] = imageEntry;
+    const file = await dataImageUrlToFile(
+      imageValue as string,
+      `leadership-${Date.now()}`
+    );
+
+    const uploaded = await apiClient.uploadPublicLeadershipImage(file);
+    const uploadedUrl = getUploadUrl(uploaded);
+
+    if (!uploadedUrl) {
+      throw new Error('Image uploaded but no public URL was returned by the API.');
+    }
+
+    next[imageKey] = uploadedUrl;
+    next.imageUrl = uploadedUrl;
+    next.image_url = uploadedUrl;
+    next.photo = uploadedUrl;
+  }
+
+  return next;
+}
+
+
+type UploadKind = 'image' | 'video' | 'audio' | 'document' | 'file';
 type FieldValue = string | boolean | string[] | File | null;
 type ValuesState = Record<string, FieldValue>;
 type SuccessDetail = { label: string; value: string };
@@ -28,10 +294,36 @@ type PublicFormClientProps = {
   slug: string;
 };
 
-const MAX_IMAGE_MB = 5;
-const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
-const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const ACCEPTED_IMAGE_ACCEPT = ACCEPTED_IMAGE_TYPES.join(',');
+const MB = 1024 * 1024;
+const DEFAULT_UPLOAD_LIMIT_MB: Record<UploadKind, number> = {
+  image: 5,
+  video: 100,
+  audio: 50,
+  document: 20,
+  file: 25,
+};
+const ACCEPTED_UPLOAD_TYPES: Record<UploadKind, string[]> = {
+  image: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+  video: ['video/mp4', 'video/quicktime', 'video/webm'],
+  audio: ['audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/webm', 'audio/ogg'],
+  document: [
+    'application/pdf',
+    'text/plain',
+    'text/csv',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ],
+  file: [],
+};
+const ACCEPTED_UPLOAD_EXTENSIONS: Record<UploadKind, string[]> = {
+  image: ['.jpg', '.jpeg', '.png', '.webp', '.gif'],
+  video: ['.mp4', '.mov', '.webm'],
+  audio: ['.mp3', '.m4a', '.wav', '.webm', '.ogg'],
+  document: ['.pdf', '.txt', '.csv', '.doc', '.docx', '.xls', '.xlsx'],
+  file: [],
+};
 const FETCH_TIMEOUT_MS = 12000; // give backend time; avoid false negatives
 const RETRY_BASE_MS = 1200;
 const RETRY_MAX_MS = 6000;
@@ -65,7 +357,53 @@ const isRadioType = (value: string) =>
   value === 'radio' || value === 'radio_group' || value === 'radio_button' || value === 'radio_buttons';
 const isCheckboxType = (value: string) =>
   value === 'checkbox' || value === 'checkboxes' || value === 'check_box' || value === 'multi_select';
-const isImageType = (value: string) => value === 'image' || value === 'file' || value === 'upload';
+const isUploadType = (value: string) =>
+  value === 'image' ||
+  value === 'file' ||
+  value === 'upload' ||
+  value === 'video' ||
+  value === 'audio' ||
+  value === 'document';
+const isImageType = isUploadType;
+const getFieldText = (field: FormField) => `${field.type} ${field.key} ${field.label}`.toLowerCase();
+const inferUploadKindFromField = (field: FormField): UploadKind => {
+  const hay = getFieldText(field);
+  if (/\b(image|photo|picture|passport|headshot|avatar|banner|thumbnail)\b/.test(hay)) return 'image';
+  if (/\b(video|reel|mp4|mov|webm)\b/.test(hay)) return 'video';
+  if (/\b(audio|voice|sermon|mp3|m4a|wav)\b/.test(hay)) return 'audio';
+  if (/\b(document|pdf|doc|docx|xls|xlsx|csv|resume|cv|attachment)\b/.test(hay)) return 'document';
+  return 'file';
+};
+const inferUploadKindFromFile = (file: File, field: FormField): UploadKind => {
+  if (file.type.startsWith('image/')) return 'image';
+  if (file.type.startsWith('video/')) return 'video';
+  if (file.type.startsWith('audio/')) return 'audio';
+  if (
+    file.type === 'application/pdf' ||
+    file.type.startsWith('text/') ||
+    file.type.includes('word') ||
+    file.type.includes('excel') ||
+    file.type.includes('spreadsheet')
+  ) {
+    return 'document';
+  }
+  return inferUploadKindFromField(field);
+};
+const getUploadLimitMb = (field: FormField, kind: UploadKind) => {
+  const configuredMax = field.validation?.max;
+  if (typeof configuredMax === 'number' && configuredMax > 0) {
+    return configuredMax > 512 ? Math.ceil(configuredMax / MB) : configuredMax;
+  }
+  return DEFAULT_UPLOAD_LIMIT_MB[kind];
+};
+const getUploadAccept = (kind: UploadKind) => {
+  const values = [...ACCEPTED_UPLOAD_TYPES[kind], ...ACCEPTED_UPLOAD_EXTENSIONS[kind]];
+  return values.length > 0 ? values.join(',') : undefined;
+};
+const getUploadFormatLabel = (kind: UploadKind) => {
+  const extensions = ACCEPTED_UPLOAD_EXTENSIONS[kind];
+  return extensions.length > 0 ? extensions.join(', ') : 'common file types';
+};
 const phoneTypeTokens = new Set([
   'tel',
   'phone',
@@ -507,17 +845,21 @@ function FieldInput({
   if (showAsImage) {
     const selected = value instanceof File ? value : null;
     const fileKey = selected ? `${selected.name}-${selected.lastModified}` : 'empty';
+    const kind = selected ? inferUploadKindFromFile(selected, field) : inferUploadKindFromField(field);
+    const maxMb = getUploadLimitMb(field, kind);
     return (
       <div className="space-y-2">
         <input
           key={fileKey}
           type="file"
-          accept={ACCEPTED_IMAGE_ACCEPT}
+          accept={getUploadAccept(kind)}
           className={inputClass}
           onChange={(e) => onChange(e.target.files?.[0] || null)}
           required={field.required}
         />
-        <div className="text-xs text-gray-500">Accepted formats: JPEG, PNG, WebP (max {MAX_IMAGE_MB}MB)</div>
+        <div className="text-xs text-gray-500">
+          Accepted formats: {getUploadFormatLabel(kind)} (max {maxMb}MB)
+        </div>
         {selected ? (
           <div className="text-xs text-gray-700">
             Selected: {selected.name} ({Math.round(selected.size / 1024)} KB)
@@ -813,14 +1155,24 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
       .replace(/\s{2,}/g, ' ')
       .trim();
 
-  const validateImageFile = (file: File): string | null => {
-    const typeOk = ACCEPTED_IMAGE_TYPES.includes(file.type);
-    if (!typeOk) {
-      const ext = file.name.toLowerCase().split('.').pop();
-      const extOk = ext ? ['jpg', 'jpeg', 'png', 'webp'].includes(ext) : false;
-      if (!extOk) return 'Unsupported file type. Use JPEG, PNG, or WebP.';
+  const validateUploadFile = (field: FormField, file: File): string | null => {
+    const kind = inferUploadKindFromFile(file, field);
+    const acceptedTypes = ACCEPTED_UPLOAD_TYPES[kind];
+    const acceptedExts = ACCEPTED_UPLOAD_EXTENSIONS[kind];
+    const maxMb = getUploadLimitMb(field, kind);
+
+    if (acceptedTypes.length > 0 && !acceptedTypes.includes(file.type)) {
+      const lowerName = file.name.toLowerCase();
+      const extOk = acceptedExts.some((ext) => lowerName.endsWith(ext));
+      if (!extOk) {
+        return `Unsupported file type. Accepted formats: ${getUploadFormatLabel(kind)}.`;
+      }
     }
-    if (file.size > MAX_IMAGE_BYTES) return `Image must be ${MAX_IMAGE_MB}MB or smaller.`;
+
+    if (file.size > maxMb * MB) {
+      return `File must be ${maxMb}MB or smaller.`;
+    }
+
     return null;
   };
 
@@ -831,7 +1183,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     const isPhoneField = isPhoneType(fieldType) || isPhoneLikeField(field);
 
     if (isImageType(fieldType)) {
-      if (next instanceof File) return validateImageFile(next);
+      if (next instanceof File) return validateUploadFile(field, next);
       return field.required ? `${label} is required.` : null;
     }
 
@@ -870,7 +1222,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     setTouchedFields((prev) => (prev[field.key] ? prev : { ...prev, [field.key]: true }));
 
     if (isImageType(fieldType) && next instanceof File) {
-      const error = validateImageFile(next);
+      const error = validateUploadFile(field, next);
       if (error) {
         setValues((prev) => ({ ...prev, [field.key]: null }));
         setFieldErrors((prev) => ({ ...prev, [field.key]: error }));
@@ -1146,9 +1498,11 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
 
       setSubmitting(true);
 
-      const valuesPayload: Record<string, string | boolean | number | string[]> = {};
-      const formData = new FormData();
-      let hasFiles = false;
+      const valuesPayload: Record<
+        string,
+        string | boolean | number | string[] | UploadedFormAssetValue | null
+      > = {};
+      const uploadFields: Array<{ field: FormField; file: File }> = [];
 
       visibleFields.forEach((f) => {
         const fieldType = normalizeFieldType(f.type);
@@ -1156,9 +1510,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
 
         if (isImageType(fieldType)) {
           if (v instanceof File) {
-            hasFiles = true;
-            formData.append(f.key, v);
-            valuesPayload[f.key] = v.name;
+            uploadFields.push({ field: f, file: v });
           }
           return;
         }
@@ -1168,19 +1520,38 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
         }
       });
 
-      if (hasFiles) {
-        for (const f of visibleFields) {
-          const fieldType = normalizeFieldType(f.type);
-          const v = values[f.key];
+      for (const { field, file } of uploadFields) {
+        const kind = inferUploadKindFromFile(file, field);
+        const uploaded = await apiClient.uploadAsset(file, {
+          kind,
+          module: 'public-forms',
+          ownerType: 'public-form',
+          ownerId: payload.form.id,
+          folder: `public-forms/${slug}/${kind}s`,
+        });
+        const uploadedAsset = toUploadedAssetValue(uploaded);
+        const uploadedUrl = uploadedAsset?.url || getUploadUrl(uploaded);
 
-          if (isImageType(fieldType) && v instanceof File) {
-            const uploaded = await apiClient.uploadPublicLeadershipImage(v);
-            valuesPayload[f.key] = uploaded.url;
-          }
+        if (!uploadedUrl) {
+          throw new Error(`${field.label || 'File'} uploaded but no public URL was returned by the API.`);
+        }
+
+        valuesPayload[field.key] = uploadedUrl;
+        valuesPayload[`${field.key}_asset`] = uploadedAsset;
+
+        if (kind === 'image' && shouldNormalizeLeadershipValues(slug)) {
+          valuesPayload.imageUrl = uploadedUrl;
+          valuesPayload.image_url = uploadedUrl;
+          valuesPayload.photo = uploadedUrl;
         }
       }
 
-      await apiClient.submitPublicForm(slug, { values: valuesPayload });
+      const finalValuesPayload = await prepareLeadershipPublicSubmissionValues(
+        slug,
+        valuesPayload
+      );
+
+      await apiClient.submitPublicForm(slug, { values: finalValuesPayload });
 
       setSuccessTokens(buildSuccessTokens(values));
       setSuccessDetails([]);
