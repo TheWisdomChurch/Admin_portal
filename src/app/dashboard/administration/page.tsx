@@ -674,6 +674,31 @@ export default function AdministrationPage() {
   const birthday = formatMonthDay(leader.birthdayMonth, leader.birthdayDay);
   const anniversary = formatMonthDay(leader.anniversaryMonth, leader.anniversaryDay);
 
+  const normalizeLeadershipAnniversaryForApi = (value?: string): string | undefined => {
+    const clean = String(value || '').trim();
+
+    if (!clean || clean === '—') return undefined;
+
+    // Backend requires DD/MM/YYYY
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(clean)) return clean;
+
+    // UI currently stores DD/MM, so attach the current year before sending
+    const monthDayMatch = clean.match(/^(\d{2})\/(\d{2})$/);
+    if (monthDayMatch) {
+      const [, dd, mm] = monthDayMatch;
+      return `${dd}/${mm}/${new Date().getFullYear()}`;
+    }
+
+    // Convert browser date input format YYYY-MM-DD to DD/MM/YYYY
+    const isoMatch = clean.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) {
+      const [, yyyy, mm, dd] = isoMatch;
+      return `${dd}/${mm}/${yyyy}`;
+    }
+
+    return clean;
+  };
+
   setEditingLeaderId(leader.id);
   setLeaderDraft({
     firstName: leader.firstName ?? '',
@@ -684,7 +709,7 @@ export default function AdministrationPage() {
     status: leader.status,
     bio: leader.bio ?? undefined,
     birthday: birthday === '—' ? undefined : birthday,
-    anniversary: anniversary === '—' ? undefined : anniversary,
+    anniversary: normalizeLeadershipAnniversaryForApi(anniversary),
     imageUrl: leader.imageUrl ?? undefined,
   });
 };
@@ -1195,7 +1220,7 @@ export default function AdministrationPage() {
                         </div>
 
                         <Input label="Birthday (DD/MM)" value={String(leaderDraft.birthday || '')} onChange={(e) => setLeaderDraft((prev) => ({ ...prev, birthday: e.target.value }))} />
-                        <Input label="Anniversary (DD/MM)" value={String(leaderDraft.anniversary || '')} onChange={(e) => setLeaderDraft((prev) => ({ ...prev, anniversary: e.target.value }))} />
+                        <Input label="Anniversary (DD/MM/YYYY)" value={String(leaderDraft.anniversary || '')} onChange={(e) => setLeaderDraft((prev) => ({ ...prev, anniversary: e.target.value }))} />
 
                         <div className="space-y-2 md:col-span-2">
                           <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Bio</label>
