@@ -8,12 +8,13 @@ import { useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Calendar, Check, MousePointer2, Send } from 'lucide-react';
 import { apiClient } from '@/lib/api';
-import type { PublicFormPayload, FormField, UploadedFormAssetValue } from '@/lib/types';
+import type { PublicFormPayload, FormField, UploadedFormAssetValue, SubmittedFormValue } from '@/lib/types';
 import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { SuccessModal } from '@/ui/SuccessModal';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
-
+//import { uploadAsset, assetUrl } from '@/lib/uploadAssets';
+import { uploadAsset, assetUrl } from '@/lib/uploads';
 
 /* ========================================================================
    Leadership public form hardening:
@@ -31,38 +32,28 @@ type PublicSubmissionValue =
   | UploadedFormAssetValue
   | File
   | null;
+
 type PublicSubmissionValues = Record<string, PublicSubmissionValue>;
 
-const DATA_URL_RE = /^data:([^;,]+);base64,/i;
-const DATA_IMAGE_URL_RE = /^data:image\/(?:png|jpe?g|webp);base64,/i;
+/**
+ * Final backend submission values.
+ * This must match SubmitFormRequest.values and must never contain File.
+ */
+type SubmittedPublicSubmissionValues = Record<string, SubmittedFormValue>;
 
-function isDataImageUrl(value: unknown): value is string {
-  return typeof value === 'string' && DATA_IMAGE_URL_RE.test(value.trim());
-}
+const DATA_URL_RE = /^data:([^;,]+);base64,/i;
 
 function isDataUrl(value: unknown): value is string {
   return typeof value === 'string' && DATA_URL_RE.test(value.trim());
 }
 
 function getUploadUrl(payload: unknown): string | undefined {
+  const direct = assetUrl(payload);
+  if (/^https?:\/\//i.test(direct)) return direct;
+
   if (!payload || typeof payload !== 'object') return undefined;
 
   const record = payload as Record<string, unknown>;
-  const candidates = [
-    record.url,
-    record.publicUrl,
-    record.public_url,
-    record.imageUrl,
-    record.image_url,
-    record.secureUrl,
-    record.secure_url,
-  ];
-
-  for (const candidate of candidates) {
-    if (typeof candidate === 'string' && /^https?:\/\//i.test(candidate)) {
-      return candidate;
-    }
-  }
 
   if (record.data && typeof record.data === 'object') {
     return getUploadUrl(record.data);
@@ -73,7 +64,13 @@ function getUploadUrl(payload: unknown): string | undefined {
 
 function toUploadedAssetValue(payload: unknown): UploadedFormAssetValue | null {
   if (!payload || typeof payload !== 'object') return null;
-  const record = payload as Record<string, unknown>;
+
+  const record =
+    'data' in (payload as Record<string, unknown>) &&
+    typeof (payload as Record<string, unknown>).data === 'object'
+      ? ((payload as Record<string, unknown>).data as Record<string, unknown>)
+      : (payload as Record<string, unknown>);
+
   const url = getUploadUrl(record);
   if (!url) return null;
 
@@ -82,6 +79,7 @@ function toUploadedAssetValue(payload: unknown): UploadedFormAssetValue | null {
     assetId: typeof record.assetId === 'string' ? record.assetId : undefined,
     url,
     publicUrl: typeof record.publicUrl === 'string' ? record.publicUrl : url,
+    public_url: typeof record.public_url === 'string' ? record.public_url : undefined,
     key: typeof record.key === 'string' ? record.key : undefined,
     objectKey: typeof record.objectKey === 'string' ? record.objectKey : undefined,
     kind:
@@ -96,26 +94,11 @@ function toUploadedAssetValue(payload: unknown): UploadedFormAssetValue | null {
     mimeType: typeof record.mimeType === 'string' ? record.mimeType : undefined,
     sizeBytes: typeof record.sizeBytes === 'number' ? record.sizeBytes : undefined,
     originalName: typeof record.originalName === 'string' ? record.originalName : undefined,
+    provider: typeof record.provider === 'string' ? record.provider : undefined,
+    bucket: typeof record.bucket === 'string' ? record.bucket : undefined,
+    checksum: typeof record.checksum === 'string' ? record.checksum : undefined,
+    status: typeof record.status === 'string' ? record.status : undefined,
   };
-}
-
-async function dataImageUrlToFile(dataUrl: string, filename: string): Promise<File> {
-  const response = await fetch(dataUrl);
-  const blob = await response.blob();
-
-  const contentType =
-    blob.type ||
-    dataUrl.match(/^data:(image\/(?:png|jpe?g|webp));base64,/i)?.[1] ||
-    'image/jpeg';
-
-  const extension =
-    contentType.includes('png')
-      ? 'png'
-      : contentType.includes('webp')
-      ? 'webp'
-      : 'jpg';
-
-  return new File([blob], `${filename}.${extension}`, { type: contentType });
 }
 
 async function dataUrlToFile(dataUrl: string, filename: string): Promise<File> {
@@ -213,20 +196,19 @@ function shouldNormalizeLeadershipValues(slug: string): boolean {
 
 async function prepareLeadershipPublicSubmissionValues(
   slug: string,
-  values: PublicSubmissionValues
-): Promise<PublicSubmissionValues> {
+  values: SubmittedPublicSubmissionValues
+): Promise<SubmittedPublicSubmissionValues> {
   if (!shouldNormalizeLeadershipValues(slug)) {
     return values;
   }
 
-  const next: PublicSubmissionValues = { ...values };
+  const next: SubmittedPublicSubmissionValues = { ...values };
 
   const birthday = findLeadershipBirthday(next);
   if (birthday) {
     next.birthday = birthday;
 
-    // Your current form is sending bio="28-01".
-    // That is not a real bio, so remove it from bio after using it as birthday.
+    // Prevent wrong biodata mapping like bio="28-01".
     if (normalizeDayMonth(next.bio)) {
       delete next.bio;
     }
@@ -243,46 +225,11 @@ async function prepareLeadershipPublicSubmissionValues(
     next.leadershipRole = role;
   }
 
-  const imageEntry =
-    Object.entries(next).find(([key, value]) => {
-      const lower = key.toLowerCase();
-      return (
-        isDataImageUrl(value) &&
-        (lower.includes('image') ||
-          lower.includes('photo') ||
-          lower.includes('passport') ||
-          lower.includes('picture') ||
-          lower.includes('headshot') ||
-          lower.startsWith('field_'))
-      );
-    }) || Object.entries(next).find(([, value]) => isDataImageUrl(value));
-
-  if (imageEntry) {
-    const [imageKey, imageValue] = imageEntry;
-    const file = await dataImageUrlToFile(
-      imageValue as string,
-      `leadership-${Date.now()}`
-    );
-
-    const uploaded = await apiClient.uploadPublicLeadershipImage(file);
-    const uploadedUrl = getUploadUrl(uploaded);
-
-    if (!uploadedUrl) {
-      throw new Error('Image uploaded but no public URL was returned by the API.');
-    }
-
-    next[imageKey] = uploadedUrl;
-    next.imageUrl = uploadedUrl;
-    next.image_url = uploadedUrl;
-    next.photo = uploadedUrl;
-  }
-
   return next;
 }
 
-
 type UploadKind = 'image' | 'video' | 'audio' | 'document' | 'file';
-type FieldValue = string | boolean | string[] | File | null;
+type FieldValue = string | boolean | number | string[] | File | null;
 type ValuesState = Record<string, FieldValue>;
 type SuccessDetail = { label: string; value: string };
 type ContentSectionView = {
@@ -418,9 +365,9 @@ const makeSyntheticUploadField = (key: string): FormField => ({
 async function uploadEmbeddedDataUrls(
   slug: string,
   formId: string,
-  values: PublicSubmissionValues
-): Promise<PublicSubmissionValues> {
-  const next: PublicSubmissionValues = { ...values };
+  values: SubmittedPublicSubmissionValues
+): Promise<SubmittedPublicSubmissionValues> {
+  const next: SubmittedPublicSubmissionValues = { ...values };
 
   for (const [key, value] of Object.entries(values)) {
     if (!isDataUrl(value)) continue;
@@ -428,13 +375,15 @@ async function uploadEmbeddedDataUrls(
     const file = await dataUrlToFile(value, `${key}-${Date.now()}`);
     const field = makeSyntheticUploadField(key);
     const kind = inferUploadKindFromFile(file, field);
-    const uploaded = await apiClient.uploadAsset(file, {
+
+    const uploaded = await uploadAsset(file, {
       kind,
       module: 'public-forms',
       ownerType: 'public-form',
       ownerId: formId,
       folder: `public-forms/${slug}/${kind}s`,
     });
+
     const uploadedAsset = toUploadedAssetValue(uploaded);
     const uploadedUrl = uploadedAsset?.url || getUploadUrl(uploaded);
 
@@ -443,9 +392,20 @@ async function uploadEmbeddedDataUrls(
     }
 
     next[key] = uploadedUrl;
-    next[`${key}_asset`] = uploadedAsset;
 
-    if (kind === 'image' && /image|photo|passport|picture|headshot|avatar/i.test(key)) {
+    const lowerKey = key.toLowerCase();
+    if (
+      kind === 'image' &&
+      (
+        lowerKey.includes('image') ||
+        lowerKey.includes('photo') ||
+        lowerKey.includes('passport') ||
+        lowerKey.includes('picture') ||
+        lowerKey.includes('headshot') ||
+        lowerKey.includes('avatar') ||
+        lowerKey.startsWith('field_')
+      )
+    ) {
       next.imageUrl = uploadedUrl;
       next.image_url = uploadedUrl;
       next.photo = uploadedUrl;
@@ -454,6 +414,7 @@ async function uploadEmbeddedDataUrls(
 
   return next;
 }
+
 const phoneTypeTokens = new Set([
   'tel',
   'phone',
@@ -1530,111 +1491,135 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     return { isValid: true, message: null };
   };
 
-  const submit = async () => {
-    if (!slug || !payload) return;
+ const submit = async () => {
+  if (!slug || !payload) return;
 
-    try {
-      if (isClosed) {
-        toast.error('This registration is closed.');
+  try {
+    if (isClosed) {
+      toast.error('This registration is closed.');
+      return;
+    }
+
+    setFormError('');
+
+    const validation = validateClient();
+    if (!validation.isValid) {
+      toast.error(validation.message || 'Please review the form and try again.');
+      return;
+    }
+
+    setSubmitting(true);
+
+    const valuesPayload: SubmittedPublicSubmissionValues = {};
+
+    const uploadFields: Array<{ field: FormField; file: File }> = [];
+
+    visibleFields.forEach((field) => {
+      const fieldType = normalizeFieldType(field.type);
+      const value = values[field.key];
+
+      if (isUploadType(fieldType)) {
+        if (value instanceof File) {
+          uploadFields.push({ field, file: value });
+        }
         return;
       }
 
-      setFormError('');
-      const validation = validateClient();
-      if (!validation.isValid) {
-        toast.error(validation.message || 'Please review the form and try again.');
-        return;
+      if (
+        typeof value === 'string' ||
+        typeof value === 'boolean' ||
+        typeof value === 'number' ||
+        Array.isArray(value)
+      ) {
+        valuesPayload[field.key] = value;
       }
+    });
 
-      setSubmitting(true);
+    for (const { field, file } of uploadFields) {
+      const kind = inferUploadKindFromFile(file, field);
 
-      const valuesPayload: Record<
-        string,
-        string | boolean | number | string[] | UploadedFormAssetValue | null
-      > = {};
-      const uploadFields: Array<{ field: FormField; file: File }> = [];
-
-      visibleFields.forEach((f) => {
-        const fieldType = normalizeFieldType(f.type);
-        const v = values[f.key];
-
-        if (isImageType(fieldType)) {
-          if (v instanceof File) {
-            uploadFields.push({ field: f, file: v });
-          }
-          return;
-        }
-
-        if (typeof v === 'string' || typeof v === 'boolean' || typeof v === 'number' || Array.isArray(v)) {
-          valuesPayload[f.key] = v;
-        }
+      const uploaded = await uploadAsset(file, {
+        kind,
+        module: 'public-forms',
+        ownerType: 'public-form',
+        ownerId: payload.form.id,
+        folder: `public-forms/${slug}/${kind}s`,
       });
 
-      for (const { field, file } of uploadFields) {
-        const kind = inferUploadKindFromFile(file, field);
-        const uploaded = await apiClient.uploadAsset(file, {
-          kind,
-          module: 'public-forms',
-          ownerType: 'public-form',
-          ownerId: payload.form.id,
-          folder: `public-forms/${slug}/${kind}s`,
-        });
-        const uploadedAsset = toUploadedAssetValue(uploaded);
-        const uploadedUrl = uploadedAsset?.url || getUploadUrl(uploaded);
+      const uploadedAsset = toUploadedAssetValue(uploaded);
+      const uploadedUrl = uploadedAsset?.url || getUploadUrl(uploaded);
 
-        if (!uploadedUrl) {
-          throw new Error(`${field.label || 'File'} uploaded but no public URL was returned by the API.`);
-        }
+      if (!uploadedUrl) {
+        throw new Error(`${field.label || 'File'} uploaded but no public URL was returned by the API.`);
+      }
 
-        valuesPayload[field.key] = uploadedUrl;
-        valuesPayload[`${field.key}_asset`] = uploadedAsset;
+      // Store the URL only. This is what the backend should save in form_submissions.values.
+      valuesPayload[field.key] = uploadedUrl;
 
-        if (kind === 'image' && shouldNormalizeLeadershipValues(slug)) {
+      if (kind === 'image' && shouldNormalizeLeadershipValues(slug)) {
+        const lowerKey = field.key.toLowerCase();
+
+        if (
+          lowerKey.includes('image') ||
+          lowerKey.includes('photo') ||
+          lowerKey.includes('passport') ||
+          lowerKey.includes('picture') ||
+          lowerKey.includes('headshot') ||
+          lowerKey.includes('avatar') ||
+          lowerKey.startsWith('field_')
+        ) {
           valuesPayload.imageUrl = uploadedUrl;
           valuesPayload.image_url = uploadedUrl;
           valuesPayload.photo = uploadedUrl;
         }
       }
-
-      const normalizedValuesPayload = await prepareLeadershipPublicSubmissionValues(
-        slug,
-        valuesPayload
-      );
-      const finalValuesPayload = await uploadEmbeddedDataUrls(
-        slug,
-        payload.form.id,
-        normalizedValuesPayload
-      );
-
-      await apiClient.submitPublicForm(slug, { values: finalValuesPayload });
-
-      setSuccessTokens(buildSuccessTokens(values));
-      setSuccessDetails([]);
-      resetFormState();
-      setSuccessOpen(true);
-      setShouldAutoReturn(hasAutoReturnTarget);
-    } catch (err) {
-      console.error(err);
-      const serverFieldErrors = extractServerFieldErrors(err);
-      if (Object.keys(serverFieldErrors).length > 0) {
-        setFieldErrors(serverFieldErrors);
-        setTouchedFields((prev) => {
-          const next = { ...prev };
-          Object.keys(serverFieldErrors).forEach((key) => {
-            next[key] = true;
-          });
-          return next;
-        });
-        toast.error(getFirstServerFieldError(serverFieldErrors) || 'Please review the highlighted fields.');
-        return;
-      }
-      const message = getServerErrorMessage(err, 'Failed to submit registration');
-      toast.error(message);
-    } finally {
-      setSubmitting(false);
     }
-  };
 
+    const normalizedValuesPayload = await prepareLeadershipPublicSubmissionValues(
+      slug,
+      valuesPayload
+    );
+
+    const finalValuesPayload = await uploadEmbeddedDataUrls(
+      slug,
+      payload.form.id,
+      normalizedValuesPayload
+    );
+
+    await apiClient.submitPublicForm(slug, {
+      values: finalValuesPayload,
+    });
+
+    setSuccessTokens(buildSuccessTokens(values));
+    setSuccessDetails([]);
+    resetFormState();
+    setSuccessOpen(true);
+    setShouldAutoReturn(hasAutoReturnTarget);
+  } catch (err) {
+    console.error(err);
+
+    const serverFieldErrors = extractServerFieldErrors(err);
+    if (Object.keys(serverFieldErrors).length > 0) {
+      setFieldErrors(serverFieldErrors);
+      setTouchedFields((prev) => {
+        const next = { ...prev };
+        Object.keys(serverFieldErrors).forEach((key) => {
+          next[key] = true;
+        });
+        return next;
+      });
+
+      toast.error(getFirstServerFieldError(serverFieldErrors) || 'Please review the highlighted fields.');
+      return;
+    }
+
+    const message = getServerErrorMessage(err, 'Failed to submit registration');
+    toast.error(message);
+    setFormError(message);
+  } finally {
+    setSubmitting(false);
+  }
+};
   if (!slug) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center space-y-3">
