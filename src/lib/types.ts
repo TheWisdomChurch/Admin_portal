@@ -656,6 +656,7 @@ export type UploadedFormAssetValue = {
   assetId?: string;
   url: string;
   publicUrl?: string;
+  public_url?: string;
   key?: string;
   objectKey?: string;
   kind?: 'image' | 'video' | 'audio' | 'document' | 'file';
@@ -663,10 +664,21 @@ export type UploadedFormAssetValue = {
   mimeType?: string;
   sizeBytes?: number;
   originalName?: string;
+  provider?: string;
+  bucket?: string;
+  checksum?: string;
+  status?: string;
 };
 
+export type SubmittedFormValue =
+  | string
+  | boolean
+  | number
+  | string[]
+  | UploadedFormAssetValue
+  | null;
 export interface SubmitFormRequest {
-  values: Record<string, string | boolean | number | string[] | File | UploadedFormAssetValue | null>;
+  values: Record<string, SubmittedFormValue>;
 }
 
 export interface FormSubmission {
@@ -677,7 +689,7 @@ export interface FormSubmission {
   contactNumber?: string;
   contactAddress?: string;
   registrationCode?: string;
-  values: Record<string, string | boolean | number | string[] | UploadedFormAssetValue | null>;
+  values: Record<string, SubmittedFormValue>;
   createdAt: string;
   updatedAt: string;
 }
@@ -702,7 +714,7 @@ export interface FormSubmissionWithForm {
   contactNumber?: string;
   contactAddress?: string;
   registrationCode?: string;
-  values: Record<string, string | boolean | number | string[] | UploadedFormAssetValue | null>;
+  values: Record<string, SubmittedFormValue>;
   createdAt: string;
 }
 
