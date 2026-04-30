@@ -1168,14 +1168,19 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
         }
       });
 
-      const payloadToSend = hasFiles
-        ? (() => {
-            formData.append('values', JSON.stringify(valuesPayload));
-            return formData;
-          })()
-        : { values: valuesPayload };
+      if (hasFiles) {
+        for (const f of visibleFields) {
+          const fieldType = normalizeFieldType(f.type);
+          const v = values[f.key];
 
-      await apiClient.submitPublicForm(slug, payloadToSend);
+          if (isImageType(fieldType) && v instanceof File) {
+            const uploaded = await apiClient.uploadPublicLeadershipImage(v);
+            valuesPayload[f.key] = uploaded.url;
+          }
+        }
+      }
+
+      await apiClient.submitPublicForm(slug, { values: valuesPayload });
 
       setSuccessTokens(buildSuccessTokens(values));
       setSuccessDetails([]);

@@ -755,7 +755,8 @@ async function uploadFetch<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${UPLOAD_V1_BASE_URL}${endpoint}`;
+  const proxyUrl = `${UPLOAD_V1_BASE_URL}${endpoint}`;
+  const directUrl = UPLOAD_ORIGIN ? `${UPLOAD_ORIGIN}/api/v1${endpoint}` : '';
   const method = String(options.method || 'GET').toUpperCase();
   const isFormData =
     typeof FormData !== 'undefined' && options.body instanceof FormData;
@@ -768,6 +769,7 @@ async function uploadFetch<T>(
   const csrfRequired = shouldAttachCsrf(endpoint, method);
 
   const execute = async (
+    url: string,
     requestHeaders: Record<string, string>
   ): Promise<{ response: Response; payload: unknown }> => {
     const response = await fetch(url, {
@@ -792,7 +794,13 @@ async function uploadFetch<T>(
       headers[csrf.header] = csrf.token;
     }
 
-    let { response, payload } = await execute(headers);
+    let usedUrl = proxyUrl;
+    let { response, payload } = await execute(proxyUrl, headers);
+
+    if (response.status === 404 && USE_API_PROXY && directUrl) {
+      usedUrl = directUrl;
+      ({ response, payload } = await execute(directUrl, headers));
+    }
 
     if (response.status === 403 && csrfRequired) {
       resetCsrfCache();
@@ -800,7 +808,7 @@ async function uploadFetch<T>(
       const csrf = await ensureCsrfToken(true);
       headers = { ...baseHeaders, [csrf.header]: csrf.token };
 
-      ({ response, payload } = await execute(headers));
+      ({ response, payload } = await execute(usedUrl, headers));
     }
 
     if (!response.ok) {
@@ -819,6 +827,60 @@ async function uploadFetch<T>(
     if (isApiError(err)) throw err;
     throw createApiError(getErrorMessage(err), 0, err);
   }
+}
+
+function appendOptionalFormValue(
+  form: FormData,
+  key: string,
+  value?: string | null
+): void {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  if (normalized) form.append(key, normalized);
+}
+
+function normalizeUploadImageResponse(
+  raw: UploadImageResponse
+): UploadImageResponse {
+  const record = raw as UploadImageResponse & {
+    public_url?: string;
+    object_key?: string;
+    size_bytes?: number;
+    original_name?: string;
+    content_type?: string;
+    mime_type?: string;
+  };
+
+  const publicUrl = record.publicUrl || record.public_url || record.url;
+  const objectKey = record.objectKey || record.object_key || record.key;
+
+  if (!publicUrl) {
+    throw createApiError(
+      'Upload succeeded but no public URL was returned',
+      400,
+      raw
+    );
+  }
+
+  return {
+    ...raw,
+    url: publicUrl,
+    publicUrl,
+    key: objectKey || record.key || publicUrl,
+    objectKey: objectKey || record.objectKey,
+    contentType: record.contentType || record.content_type,
+    mimeType: record.mimeType || record.mime_type,
+    sizeBytes: record.sizeBytes ?? record.size_bytes,
+    originalName: record.originalName || record.original_name,
+  };
+}
+
+function unwrapUploadImageResponse(
+  res: unknown,
+  errorMessage: string
+): UploadImageResponse {
+  return normalizeUploadImageResponse(
+    unwrapData<UploadImageResponse>(res, errorMessage)
+  );
 }
 
 async function rootFetch<T>(
@@ -1567,6 +1629,51 @@ export const apiClient = {
     );
   },
 
+  async uploadAsset(
+    file: File,
+    options?: {
+      kind?: 'image' | 'video' | 'audio' | 'document' | 'file';
+      module?: string;
+      folder?: string;
+      ownerType?: string;
+      ownerId?: string;
+    }
+  ): Promise<UploadImageResponse> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('kind', options?.kind || 'file');
+    form.append('module', options?.module || 'uploads');
+    appendOptionalFormValue(form, 'folder', options?.folder);
+    appendOptionalFormValue(form, 'ownerType', options?.ownerType);
+    appendOptionalFormValue(form, 'ownerId', options?.ownerId);
+
+    const res = await uploadFetch<{ data: UploadImageResponse }>(
+      '/uploads',
+      { method: 'POST', body: form }
+    );
+
+    return unwrapUploadImageResponse(res, 'Invalid upload asset payload');
+  },
+
+  async uploadPublicLeadershipImage(file: File): Promise<UploadImageResponse> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('kind', 'image');
+    form.append('module', 'public-forms');
+    form.append('ownerType', 'public-form');
+    form.append('folder', 'public-forms/images');
+
+    const res = await uploadFetch<{ data: UploadImageResponse }>(
+      '/uploads',
+      {
+        method: 'POST',
+        body: form,
+      }
+    );
+
+    return unwrapUploadImageResponse(res, 'Invalid public upload payload');
+  },
+
   async uploadImage(file: File, folder = 'uploads'): Promise<UploadImageResponse> {
     const form = new FormData();
     form.append('file', file);
@@ -1578,7 +1685,7 @@ export const apiClient = {
         body: form,
       }
     );
-    return unwrapData<UploadImageResponse>(res, 'Invalid image upload payload');
+    return unwrapUploadImageResponse(res, 'Invalid image upload payload');
   },
 
   async createAdminEmailTemplate(
