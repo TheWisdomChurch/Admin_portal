@@ -500,7 +500,12 @@ export type FormFieldType =
   | 'radio'
   | 'number'
   | 'date'
-  | 'image';
+  | 'image'
+  | 'file'
+  | 'upload'
+  | 'video'
+  | 'audio'
+  | 'document';
 
 export interface FormFieldOption {
   label: string;

@@ -753,7 +753,8 @@ export async function apiFetch<T>(
 
 async function uploadFetch<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  _publicUpload = true
 ): Promise<T> {
   const proxyUrl = `${UPLOAD_V1_BASE_URL}${endpoint}`;
   const directUrl = UPLOAD_ORIGIN ? `${UPLOAD_ORIGIN}/api/v1${endpoint}` : '';
@@ -1664,14 +1665,14 @@ export const apiClient = {
     form.append('folder', 'public-forms/images');
 
     const res = await uploadFetch<{ data: UploadImageResponse }>(
-      '/uploads',
+      '/uploads/images',
       {
         method: 'POST',
         body: form,
       }
     );
 
-    return unwrapUploadImageResponse(res, 'Invalid public upload payload');
+    return unwrapData<UploadImageResponse>(res, 'Invalid public image upload payload');
   },
 
   async uploadImage(file: File, folder = 'uploads'): Promise<UploadImageResponse> {
