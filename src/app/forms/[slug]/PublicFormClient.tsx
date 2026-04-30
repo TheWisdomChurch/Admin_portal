@@ -17,13 +17,11 @@ import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessa
 
 /* ========================================================================
    Leadership public form hardening:
-   - Uploads data:image/base64 images before submit.
-   - Stores S3/Supabase public URL in values instead of raw base64.
+   - Uploads file and data:base64 values before submit.
+   - Stores bucket public URLs in values instead of raw base64.
    - Normalizes birthday from DD-MM/DD/MM to DD/MM.
    - Prevents bad field-key mappings like birthday="single" from breaking sync.
 ======================================================================== */
-
-const LEADERSHIP_PUBLIC_SUBMISSION_HELPERS = true;
 
 type PublicSubmissionValue =
   | string
@@ -40,6 +38,10 @@ const DATA_IMAGE_URL_RE = /^data:image\/(?:png|jpe?g|webp);base64,/i;
 
 function isDataImageUrl(value: unknown): value is string {
   return typeof value === 'string' && DATA_IMAGE_URL_RE.test(value.trim());
+}
+
+function isDataUrl(value: unknown): value is string {
+  return typeof value === 'string' && DATA_URL_RE.test(value.trim());
 }
 
 function getUploadUrl(payload: unknown): string | undefined {
@@ -404,6 +406,54 @@ const getUploadFormatLabel = (kind: UploadKind) => {
   const extensions = ACCEPTED_UPLOAD_EXTENSIONS[kind];
   return extensions.length > 0 ? extensions.join(', ') : 'common file types';
 };
+const makeSyntheticUploadField = (key: string): FormField => ({
+  id: key,
+  key,
+  label: key,
+  type: 'file',
+  required: false,
+  order: 0,
+});
+
+async function uploadEmbeddedDataUrls(
+  slug: string,
+  formId: string,
+  values: PublicSubmissionValues
+): Promise<PublicSubmissionValues> {
+  const next: PublicSubmissionValues = { ...values };
+
+  for (const [key, value] of Object.entries(values)) {
+    if (!isDataUrl(value)) continue;
+
+    const file = await dataUrlToFile(value, `${key}-${Date.now()}`);
+    const field = makeSyntheticUploadField(key);
+    const kind = inferUploadKindFromFile(file, field);
+    const uploaded = await apiClient.uploadAsset(file, {
+      kind,
+      module: 'public-forms',
+      ownerType: 'public-form',
+      ownerId: formId,
+      folder: `public-forms/${slug}/${kind}s`,
+    });
+    const uploadedAsset = toUploadedAssetValue(uploaded);
+    const uploadedUrl = uploadedAsset?.url || getUploadUrl(uploaded);
+
+    if (!uploadedUrl) {
+      throw new Error(`${key} uploaded but no public URL was returned by the API.`);
+    }
+
+    next[key] = uploadedUrl;
+    next[`${key}_asset`] = uploadedAsset;
+
+    if (kind === 'image' && /image|photo|passport|picture|headshot|avatar/i.test(key)) {
+      next.imageUrl = uploadedUrl;
+      next.image_url = uploadedUrl;
+      next.photo = uploadedUrl;
+    }
+  }
+
+  return next;
+}
 const phoneTypeTokens = new Set([
   'tel',
   'phone',
@@ -1546,9 +1596,14 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
         }
       }
 
-      const finalValuesPayload = await prepareLeadershipPublicSubmissionValues(
+      const normalizedValuesPayload = await prepareLeadershipPublicSubmissionValues(
         slug,
         valuesPayload
+      );
+      const finalValuesPayload = await uploadEmbeddedDataUrls(
+        slug,
+        payload.form.id,
+        normalizedValuesPayload
       );
 
       await apiClient.submitPublicForm(slug, { values: finalValuesPayload });

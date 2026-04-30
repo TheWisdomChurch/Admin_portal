@@ -753,8 +753,7 @@ export async function apiFetch<T>(
 
 async function uploadFetch<T>(
   endpoint: string,
-  options: RequestInit = {},
-  _publicUpload = true
+  options: RequestInit = {}
 ): Promise<T> {
   const proxyUrl = `${UPLOAD_V1_BASE_URL}${endpoint}`;
   const directUrl = UPLOAD_ORIGIN ? `${UPLOAD_ORIGIN}/api/v1${endpoint}` : '';
