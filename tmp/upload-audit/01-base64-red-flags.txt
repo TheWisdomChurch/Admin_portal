@@ -1,0 +1,6 @@
+src/types/qrcode.d.ts:11:    toDataURL(text: string, options?: QRCodeToDataURLOptions): Promise<string>;
+src/app/forms/[slug]/PublicFormClient.tsx:44:const DATA_URL_RE = /^data:([^;,]+);base64,/i;
+src/app/dashboard/settings/page.tsx:135:        const dataUrl = await QRCode.toDataURL(totpSetup.otpauthUrl, {
+src/app/mfa/setup/page.tsx:54:      return typeof rawQrCode === 'string' && rawQrCode.startsWith('data:image')
+src/app/mfa/setup/page.tsx:143:        const dataUrl = await QRCode.toDataURL(otpauthUrl, {
+src/lib/prepareUploadPayload.ts:44:const DATA_URL_RE = /^data:([^;,]+);base64,/i;

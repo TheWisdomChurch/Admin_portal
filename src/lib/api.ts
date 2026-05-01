@@ -1677,9 +1677,11 @@ export const apiClient = {
   async uploadImage(file: File, folder = 'uploads'): Promise<UploadImageResponse> {
     const form = new FormData();
     form.append('file', file);
+    form.append('kind', 'image');
+    form.append('module', 'admin');
     form.append('folder', folder);
     const res = await uploadFetch<{ data: UploadImageResponse }>(
-      '/admin/uploads/images',
+      '/uploads',
       {
         method: 'POST',
         body: form,

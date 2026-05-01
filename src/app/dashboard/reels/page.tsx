@@ -10,6 +10,7 @@ import { DataTable } from '@/components/DateTable';
 import { VerifyActionModal } from '@/ui/VerifyActionModal';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
+import { uploadAsset } from '@/lib/uploads';
 import { ReelData } from '@/lib/types';
 import { withAuth } from '@/providers/withAuth';
 import { PageHeader } from '@/layouts';
@@ -172,19 +173,6 @@ function ReelsPage() {
     ? `DELETE ${deleteTarget.title || deleteTarget.id}`
     : 'DELETE';
 
-  const uploadToPresignedUrl = async (url: string, file: File) => {
-    const res = await fetch(url, {
-      method: 'PUT',
-      body: file,
-      headers: {
-        'Content-Type': file.type,
-      },
-    });
-    if (!res.ok) {
-      throw new Error('Upload failed');
-    }
-  };
-
   const handleUpload = async () => {
     if (!videoFile || !thumbnailFile) {
       toast.error('Please select a video and a thumbnail.');
@@ -194,44 +182,26 @@ function ReelsPage() {
     try {
       setUploading(true);
 
-      const [videoPresign, thumbPresign, duration] = await Promise.all([
-        apiClient.createUploadPresign({
-          filename: videoFile.name,
-          contentType: videoFile.type,
-          sizeBytes: videoFile.size,
+      const [uploadedVideo, uploadedThumbnail, duration] = await Promise.all([
+        uploadAsset(videoFile, {
           kind: 'video',
+          module: 'reels',
           folder: 'reels/videos',
+          ownerType: 'reel',
         }),
-        apiClient.createUploadPresign({
-          filename: thumbnailFile.name,
-          contentType: thumbnailFile.type,
-          sizeBytes: thumbnailFile.size,
-          kind: 'thumbnail',
+        uploadAsset(thumbnailFile, {
+          kind: 'image',
+          module: 'reels',
           folder: 'reels/thumbnails',
+          ownerType: 'reel',
         }),
         getVideoDuration(videoFile),
       ]);
 
-      await Promise.all([
-        uploadToPresignedUrl(videoPresign.uploadUrl, videoFile),
-        uploadToPresignedUrl(thumbPresign.uploadUrl, thumbnailFile),
-      ]);
-
-      const completionJobs: Promise<unknown>[] = [];
-      if (videoPresign.assetId) {
-        completionJobs.push(apiClient.completeUploadAsset(videoPresign.assetId));
-      }
-      if (thumbPresign.assetId) {
-        completionJobs.push(apiClient.completeUploadAsset(thumbPresign.assetId));
-      }
-      if (completionJobs.length > 0) {
-        await Promise.all(completionJobs);
-      }
-
       const payload = {
         title: uploadTitle.trim() || 'New Reel',
-        videoUrl: videoPresign.publicUrl,
-        thumbnail: thumbPresign.publicUrl,
+        videoUrl: uploadedVideo.publicUrl || uploadedVideo.url,
+        thumbnail: uploadedThumbnail.publicUrl || uploadedThumbnail.url,
         duration,
       };
 

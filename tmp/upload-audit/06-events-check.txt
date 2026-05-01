@@ -1,0 +1,717 @@
+src/types/react-hook-form.d.ts:18:    onChange: (...event: unknown[]) => void;
+src/types/react-hook-form.d.ts:19:    onBlur: (...event: unknown[]) => void;
+src/types/react-hook-form.d.ts:25:    event?: React.BaseSyntheticEvent
+src/types/react-hook-form.d.ts:57:    ) => (event?: React.BaseSyntheticEvent) => Promise<void>;
+src/components/DateTable.tsx:41:  // Normalize inputs (prevents crashes + weird NaNs)
+src/components/ImageUpload.tsx:5:import Image from 'next/image';
+src/components/ImageUpload.tsx:19:  accept = { 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'] }
+src/components/Navbar.tsx:39:    e.preventDefault();
+src/components/Navbar.tsx:128:                placeholder="Search events, members, reels..."
+src/components/Sidebar.tsx:6:import Image from 'next/image';
+src/components/Sidebar.tsx:41:  { href: '/dashboard/event', label: 'Event', icon: Calendar, description: 'Single event page' },
+src/components/Sidebar.tsx:75:  // Prevent body scroll when mobile sidebar is open
+src/components/Sidebar.tsx:314:                      <span className="pointer-events-none absolute left-full top-1/2 ml-3 -translate-y-1/2 whitespace-nowrap rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1 text-xs text-[var(--color-text-secondary)] opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
+src/components/MediaUploadField.tsx:24:  image: 5,
+src/components/MediaUploadField.tsx:32:  image: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+src/components/MediaUploadField.tsx:48:  image: ['.jpg', '.jpeg', '.png', '.webp', '.gif'],
+src/components/MediaUploadField.tsx:131:        onChange={(event) => {
+src/components/MediaUploadField.tsx:132:          const file = event.target.files?.[0] || null;
+src/components/MediaUploadField.tsx:141:            event.currentTarget.value = '';
+src/components/SessionTimeout.tsx:125:    activityEvents.forEach((event) => window.addEventListener(event, handleActivity, { passive: true }));
+src/components/SessionTimeout.tsx:132:      activityEvents.forEach((event) => window.removeEventListener(event, handleActivity));
+src/components/LandingCarousel.tsx:9:    copy: 'Create events, publish updates, and keep the community informed.',
+src/components/LandingCarousel.tsx:17:    copy: 'Track event registrations and engagement as they come in.',
+src/components/NotificationInbox.tsx:91:      if (entityType === 'event' || type.includes('event')) {
+src/components/NotificationInbox.tsx:92:        return { href: '/dashboard/events', label: 'Open events' };
+src/providers/AuthProviders.tsx:523:    const onStorage = (event: StorageEvent) => {
+src/providers/AuthProviders.tsx:524:      if (event.key === ACTIVE_SESSION_KEY) {
+src/providers/AuthProviders.tsx:525:        const next = event.newValue || '';
+src/providers/AuthProviders.tsx:536:      if (event.key === ACTIVE_TAB_KEY) {
+src/providers/AuthProviders.tsx:539:        const owner = readTabOwner(event.newValue);
+src/app/page.tsx:5:import Image from 'next/image';
+src/app/page.tsx:21:        const decoded = Buffer.from(payload, 'base64url').toString('utf8');
+src/app/page.tsx:36:      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+src/app/page.tsx:74:            Manage events, testimonials, and member activity with clarity, security, and a modern workflow.
+src/app/page.tsx:116:                Create events, publish updates, and track participation.
+src/app/globals.css:146:  background-image:
+src/app/globals.css:215:  background-image: var(--auth-hero-image, none);
+src/app/layout.tsx:34:      noimageindex: true,
+src/app/layout.tsx:36:      'max-image-preview': 'none',
+src/app/layout.tsx:58:    images: [
+src/app/layout.tsx:72:    images: ['/logo.webp'],
+src/app/(auth)/login/page.tsx:26:import Image from 'next/image';
+src/app/(auth)/login/page.tsx:467:              : 'Manage events, testimonies, and ministry updates with clarity and control.'}
+src/app/(auth)/login/page.tsx:605:                  e.preventDefault();
+src/app/(auth)/Layout.tsx:9:      <div className="pointer-events-none absolute inset-0">
+src/app/(auth)/register/page.tsx:8:import Image from 'next/image';
+src/app/(auth)/passwordreset/page.tsx:8:import Image from 'next/image';
+src/app/forms/[slug]/PublicFormClient.tsx:6:import Image from 'next/image';
+src/app/forms/[slug]/PublicFormClient.tsx:16://import { uploadAsset, assetUrl } from '@/lib/uploadAssets';
+src/app/forms/[slug]/PublicFormClient.tsx:17:import { uploadAsset, assetUrl } from '@/lib/uploads';
+src/app/forms/[slug]/PublicFormClient.tsx:21:   - Uploads file and data:base64 values before submit.
+src/app/forms/[slug]/PublicFormClient.tsx:22:   - Stores bucket public URLs in values instead of raw base64.
+src/app/forms/[slug]/PublicFormClient.tsx:24:   - Prevents bad field-key mappings like birthday="single" from breaking sync.
+src/app/forms/[slug]/PublicFormClient.tsx:44:const DATA_URL_RE = /^data:([^;,]+);base64,/i;
+src/app/forms/[slug]/PublicFormClient.tsx:86:      record.kind === 'image' ||
+src/app/forms/[slug]/PublicFormClient.tsx:211:    // Prevent wrong biodata mapping like bio="28-01".
+src/app/forms/[slug]/PublicFormClient.tsx:231:type UploadKind = 'image' | 'video' | 'audio' | 'document' | 'file';
+src/app/forms/[slug]/PublicFormClient.tsx:248:  image: 5,
+src/app/forms/[slug]/PublicFormClient.tsx:255:  image: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+src/app/forms/[slug]/PublicFormClient.tsx:270:  image: ['.jpg', '.jpeg', '.png', '.webp', '.gif'],
+src/app/forms/[slug]/PublicFormClient.tsx:310:  value === 'image' ||
+src/app/forms/[slug]/PublicFormClient.tsx:320:  if (/\b(image|photo|picture|passport|headshot|avatar|banner|thumbnail)\b/.test(hay)) return 'image';
+src/app/forms/[slug]/PublicFormClient.tsx:327:  if (file.type.startsWith('image/')) return 'image';
+src/app/forms/[slug]/PublicFormClient.tsx:379:    const uploaded = await uploadAsset(file, {
+src/app/forms/[slug]/PublicFormClient.tsx:398:      kind === 'image' &&
+src/app/forms/[slug]/PublicFormClient.tsx:400:        lowerKey.includes('image') ||
+src/app/forms/[slug]/PublicFormClient.tsx:409:      next.imageUrl = uploadedUrl;
+src/app/forms/[slug]/PublicFormClient.tsx:410:      next.image_url = uploadedUrl;
+src/app/forms/[slug]/PublicFormClient.tsx:1150:    const eventTitle = payload?.event?.title ?? formTitle;
+src/app/forms/[slug]/PublicFormClient.tsx:1151:    const eventDate = formatEventDate(payload?.event?.date);
+src/app/forms/[slug]/PublicFormClient.tsx:1152:    const eventTime = payload?.event?.time ?? '';
+src/app/forms/[slug]/PublicFormClient.tsx:1153:    const eventLocation = payload?.event?.location ?? '';
+src/app/forms/[slug]/PublicFormClient.tsx:1160:    return { formTitle, eventTitle, eventDate, eventTime, eventLocation, name, email, phone };
+src/app/forms/[slug]/PublicFormClient.tsx:1260:    event: 'EVENT',
+src/app/forms/[slug]/PublicFormClient.tsx:1270:  const eventTitle = payload?.event?.title ?? formTitle;
+src/app/forms/[slug]/PublicFormClient.tsx:1271:  const bannerUrl = settings?.design?.coverImageUrl || payload?.event?.bannerImage || payload?.event?.image || undefined;
+src/app/forms/[slug]/PublicFormClient.tsx:1272:  const eventSessions = useMemo(
+src/app/forms/[slug]/PublicFormClient.tsx:1274:      Array.isArray(payload?.event?.sessions)
+src/app/forms/[slug]/PublicFormClient.tsx:1275:        ? payload.event.sessions.filter((session) => session.title?.trim() || session.time?.trim())
+src/app/forms/[slug]/PublicFormClient.tsx:1277:    [payload?.event?.sessions]
+src/app/forms/[slug]/PublicFormClient.tsx:1286:    if (eventSessions.length > 0) {
+src/app/forms/[slug]/PublicFormClient.tsx:1287:      return eventSessions
+src/app/forms/[slug]/PublicFormClient.tsx:1292:    const tags = payload?.event?.tags?.map((item) => item.trim()).filter(Boolean) ?? [];
+src/app/forms/[slug]/PublicFormClient.tsx:1296:  }, [eventSessions, payload, settings]);
+src/app/forms/[slug]/PublicFormClient.tsx:1304:    if (eventSessions.length > 0) {
+src/app/forms/[slug]/PublicFormClient.tsx:1305:      return eventSessions.map((session) => session.time?.trim() || '');
+src/app/forms/[slug]/PublicFormClient.tsx:1309:  }, [eventSessions, settings]);
+src/app/forms/[slug]/PublicFormClient.tsx:1340:        (eventSessions.length > 0 ? 'Session Schedule' : introBullets.length > 0 ? 'Form Details' : ''),
+src/app/forms/[slug]/PublicFormClient.tsx:1344:        payload?.event?.shortDescription?.trim() ||
+src/app/forms/[slug]/PublicFormClient.tsx:1354:    eventSessions.length,
+src/app/forms/[slug]/PublicFormClient.tsx:1357:    payload?.event?.shortDescription,
+src/app/forms/[slug]/PublicFormClient.tsx:1541:      const uploaded = await uploadAsset(file, {
+src/app/forms/[slug]/PublicFormClient.tsx:1559:      if (kind === 'image' && shouldNormalizeLeadershipValues(slug)) {
+src/app/forms/[slug]/PublicFormClient.tsx:1563:          lowerKey.includes('image') ||
+src/app/forms/[slug]/PublicFormClient.tsx:1571:          valuesPayload.imageUrl = uploadedUrl;
+src/app/forms/[slug]/PublicFormClient.tsx:1572:          valuesPayload.image_url = uploadedUrl;
+src/app/forms/[slug]/PublicFormClient.tsx:1704:                  alt={eventTitle}
+src/app/forms/[slug]/PublicFormClient.tsx:1847:                <li>{payload.event?.title ? `Linked event: ${payload.event.title}` : `Form: ${formTitle}`}</li>
+src/app/dashboard/page.tsx:122:  const [events, setEvents] = useState<EventData[]>([]);
+src/app/dashboard/page.tsx:131:      const [analyticsResult, eventsResult, formStatsResult, marketingResult] = await Promise.allSettled([
+src/app/dashboard/page.tsx:140:        eventsResult.status === 'fulfilled' && Array.isArray(eventsResult.value.data)
+src/app/dashboard/page.tsx:141:          ? eventsResult.value.data
+src/app/dashboard/page.tsx:147:      const failed = [analyticsResult, eventsResult, formStatsResult, marketingResult].some(
+src/app/dashboard/page.tsx:167:  const safeEvents = useMemo(() => (Array.isArray(events) ? events : []), [events]);
+src/app/dashboard/page.tsx:171:  const eventsByCategory = useMemo(() => analytics?.eventsByCategory ?? {}, [analytics]);
+src/app/dashboard/page.tsx:177:      .filter((event) => {
+src/app/dashboard/page.tsx:178:        const rawDate = event.startDate || event.date || event.createdAt;
+src/app/dashboard/page.tsx:210:          data: monthlyStats.map((row) => row.events),
+src/app/dashboard/page.tsx:231:      labels: Object.keys(eventsByCategory),
+src/app/dashboard/page.tsx:234:          data: Object.values(eventsByCategory),
+src/app/dashboard/page.tsx:240:    [eventsByCategory]
+src/app/dashboard/page.tsx:269:      hint: 'Across recorded events',
+src/app/dashboard/page.tsx:321:              Monitor live platform data from events, forms, submissions, and email campaigns. No placeholder or mock
+src/app/dashboard/page.tsx:401:              <p className="text-xs text-[var(--color-text-tertiary)]">Distribution by event category.</p>
+src/app/dashboard/page.tsx:406:            {Object.keys(eventsByCategory).length > 0 ? (
+src/app/dashboard/page.tsx:418:              <EmptyState message="No event category data available." />
+src/app/dashboard/page.tsx:465:              <p className="text-xs text-[var(--color-text-tertiary)]">Latest event records from the backend.</p>
+src/app/dashboard/page.tsx:472:              upcomingEvents.map((event) => (
+src/app/dashboard/page.tsx:474:                  key={event.id}
+src/app/dashboard/page.tsx:477:                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">{event.title}</p>
+src/app/dashboard/page.tsx:479:                    {formatDate(event.startDate || event.date || event.createdAt)}
+src/app/dashboard/page.tsx:484:              <EmptyState message="No upcoming events found." />
+src/app/dashboard/page.tsx:568:              href="/dashboard/events"
+src/app/dashboard/administration/page.tsx:87:      { key: 'photo', label: 'Profile Photo', type: 'image', required: false, order: 8 },
+src/app/dashboard/administration/page.tsx:320:  const imageUrl = readSubmissionText(submission, ['imageUrl', 'image_url', 'profile_image', 'photo']);
+src/app/dashboard/administration/page.tsx:332:    imageUrl: imageUrl.startsWith('http://') || imageUrl.startsWith('https://') ? imageUrl : undefined,
+src/app/dashboard/administration/page.tsx:713:    imageUrl: leader.imageUrl ?? undefined,
+src/app/dashboard/administration/page.tsx:916:                  onChange={(event) => {
+src/app/dashboard/administration/page.tsx:917:                    setSelectedFormIds((prev) => ({ ...prev, [section]: event.target.value }));
+src/app/dashboard/forms/page.tsx:5:import Image from 'next/image';
+src/app/dashboard/forms/page.tsx:70:  { value: 'event', label: 'Event' },
+src/app/dashboard/forms/page.tsx:81:const ACCEPTED_BANNER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+src/app/dashboard/forms/page.tsx:212:      type: 'image',
+src/app/dashboard/forms/page.tsx:288:    const [events, setEvents] = useState<EventData[]>([]);
+src/app/dashboard/forms/page.tsx:321:    const [eventsLoading, setEventsLoading] = useState(false);
+src/app/dashboard/forms/page.tsx:322:    const [eventId, setEventId] = useState('');
+src/app/dashboard/forms/page.tsx:439:    const eventMap = useMemo(() => {
+src/app/dashboard/forms/page.tsx:440:      return events.reduce((acc, event) => {
+src/app/dashboard/forms/page.tsx:441:        acc[event.id] = event.title;
+src/app/dashboard/forms/page.tsx:444:    }, [events]);
+src/app/dashboard/forms/page.tsx:446:    const eventCounts = useMemo(() => {
+src/app/dashboard/forms/page.tsx:447:      const bucket = new Map<string, { eventId: string; name: string; count: number }>();
+src/app/dashboard/forms/page.tsx:451:        const linkedEventId = form?.eventId || 'no_event';
+src/app/dashboard/forms/page.tsx:452:        const name = linkedEventId === 'no_event' ? 'No event attached' : eventMap[linkedEventId] || linkedEventId;
+src/app/dashboard/forms/page.tsx:453:        const current = bucket.get(linkedEventId) || { eventId: linkedEventId, name, count: 0 };
+src/app/dashboard/forms/page.tsx:460:    }, [perFormStats, forms, eventMap]);
+src/app/dashboard/forms/page.tsx:463:      const counts = eventCounts.map((item) => item.count);
+src/app/dashboard/forms/page.tsx:465:    }, [eventCounts]);
+src/app/dashboard/forms/page.tsx:1007:          toast.error('Template image URL is invalid. Use a full URL like https://...png');
+src/app/dashboard/forms/page.tsx:1029:        eventId: eventId || undefined,
+src/app/dashboard/forms/page.tsx:1295:          subtitle="Create and publish event registration forms, then attach the link to an event."
+src/app/dashboard/forms/page.tsx:1403:                  {eventCounts.length === 0 ? (
+src/app/dashboard/forms/page.tsx:1404:                    <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">No event registrations yet.</p>
+src/app/dashboard/forms/page.tsx:1407:                      {eventCounts.slice(0, 6).map((item) => (
+src/app/dashboard/forms/page.tsx:1408:                        <div key={item.eventId} className="space-y-1">
+src/app/dashboard/forms/page.tsx:1457:                    onChange={(event) => {
+src/app/dashboard/forms/page.tsx:1458:                      setSelectedFormId(event.target.value);
+src/app/dashboard/forms/page.tsx:1471:                <Input label="Search" value={filterText} onChange={(event) => setFilterText(event.target.value)} placeholder="Name, email, phone..." />
+src/app/dashboard/forms/page.tsx:1472:                <Input label="From" type="date" value={filterStart} onChange={(event) => setFilterStart(event.target.value)} />
+src/app/dashboard/forms/page.tsx:1473:                <Input label="To" type="date" value={filterEnd} onChange={(event) => setFilterEnd(event.target.value)} />
+src/app/dashboard/forms/page.tsx:1476:                  <input type="checkbox" checked={liveUpdates} onChange={(event) => setLiveUpdates(event.target.checked)} />
+src/app/dashboard/forms/page.tsx:1569:                  onChange={(event) => {
+src/app/dashboard/forms/page.tsx:1571:                    setTitle(event.target.value);
+src/app/dashboard/forms/page.tsx:1581:                    onChange={(event) => {
+src/app/dashboard/forms/page.tsx:1583:                      setSlug(event.target.value);
+src/app/dashboard/forms/page.tsx:1603:                    onChange={(event) => setDescription(event.target.value)}
+src/app/dashboard/forms/page.tsx:1610:                    label="Header image URL (optional)"
+src/app/dashboard/forms/page.tsx:1612:                    onChange={(event) => setCoverImageUrl(event.target.value)}
+src/app/dashboard/forms/page.tsx:1617:                    label="Or upload header image"
+src/app/dashboard/forms/page.tsx:1619:                    accept="image/*"
+src/app/dashboard/forms/page.tsx:1620:                    onChange={(event) => handleBannerFile(event.target.files?.[0])}
+src/app/dashboard/forms/page.tsx:1626:                    onChange={(event) => setSuccessTitle(event.target.value)}
+src/app/dashboard/forms/page.tsx:1633:                    onChange={(event) => setSuccessSubtitle(event.target.value)}
+src/app/dashboard/forms/page.tsx:1635:                    helperText="Use {{eventDate}} or {{eventLocation}} if relevant."
+src/app/dashboard/forms/page.tsx:1643:                      onChange={(event) => setSuccessMessage(event.target.value)}
+src/app/dashboard/forms/page.tsx:1673:                        onChange={(event) => {
+src/app/dashboard/forms/page.tsx:1675:                          setFormType(event.target.value as FormSettings['formType'] | '');
+src/app/dashboard/forms/page.tsx:1692:                        value={eventId}
+src/app/dashboard/forms/page.tsx:1693:                        onChange={(event) => setEventId(event.target.value)}
+src/app/dashboard/forms/page.tsx:1694:                        disabled={eventsLoading}
+src/app/dashboard/forms/page.tsx:1696:                        <option value="">No event (standalone form)</option>
+src/app/dashboard/forms/page.tsx:1697:                        {events.map((event) => (
+src/app/dashboard/forms/page.tsx:1698:                          <option key={event.id} value={event.id}>
+src/app/dashboard/forms/page.tsx:1699:                            {event.title}
+src/app/dashboard/forms/page.tsx:1705:                    <Input label="Capacity (optional)" type="number" min={0} value={capacity} onChange={(event) => setCapacity(event.target.value)} placeholder="e.g., 250" />
+src/app/dashboard/forms/page.tsx:1706:                    <Input label="Closes At (optional)" type="datetime-local" value={closesAt} onChange={(event) => setClosesAt(event.target.value)} />
+src/app/dashboard/forms/page.tsx:1707:                    <Input label="Expires At (optional)" type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />
+src/app/dashboard/forms/page.tsx:1725:                        onChange={(event) => {
+src/app/dashboard/forms/page.tsx:1727:                          setSubmissionTarget(event.target.value as FormSettings['submissionTarget'] | '');
+src/app/dashboard/forms/page.tsx:1744:                      onChange={(event) => {
+src/app/dashboard/forms/page.tsx:1746:                        setSubmissionDepartment(event.target.value);
+src/app/dashboard/forms/page.tsx:1762:                    <input type="checkbox" checked={responseEmailEnabled} onChange={(event) => setResponseEmailEnabled(event.target.checked)} />
+src/app/dashboard/forms/page.tsx:1770:                      onChange={(event) => {
+src/app/dashboard/forms/page.tsx:1772:                        setResponseEmailSubject(event.target.value);
+src/app/dashboard/forms/page.tsx:1781:                      onChange={(event) => {
+src/app/dashboard/forms/page.tsx:1783:                        setResponseEmailTemplateKey(event.target.value);
+src/app/dashboard/forms/page.tsx:1792:                      onChange={(event) => {
+src/app/dashboard/forms/page.tsx:1794:                        setResponseEmailTemplateId(event.target.value);
+src/app/dashboard/forms/page.tsx:1801:                      label="Template image URL (optional)"
+src/app/dashboard/forms/page.tsx:1803:                      onChange={(event) => {
+src/app/dashboard/forms/page.tsx:1805:                        setResponseEmailTemplateUrl(event.target.value);
+src/app/dashboard/forms/page.tsx:1814:                    Use template key/ID from Email Templates registry, or provide a direct template image URL.
+src/app/dashboard/forms/page.tsx:1844:                        <Input label="Label" value={field.label} onChange={(event) => updateField(index, { label: event.target.value })} />
+src/app/dashboard/forms/page.tsx:1849:                            onChange={(event) => updateField(index, { type: event.target.value as FormFieldType })}
+src/app/dashboard/forms/page.tsx:1861:                            <option value="image">Image Upload</option>
+src/app/dashboard/forms/page.tsx:1865:                            <input type="checkbox" checked={field.required} onChange={(event) => updateField(index, { required: event.target.checked })} />
+src/app/dashboard/forms/page.tsx:1891:                                  onChange={(event) => updateOption(index, optionIndex, event.target.value)}
+src/app/dashboard/forms/page.tsx:1929:                    <Input label="Left column title" value={introTitle} onChange={(event) => setIntroTitle(event.target.value)} />
+src/app/dashboard/forms/page.tsx:1930:                    <Input label="Left column subtitle" value={introSubtitle} onChange={(event) => setIntroSubtitle(event.target.value)} />
+src/app/dashboard/forms/page.tsx:1938:                        onChange={(event) => setIntroBullets(event.target.value)}
+src/app/dashboard/forms/page.tsx:1948:                        onChange={(event) => setIntroBulletSubs(event.target.value)}
+src/app/dashboard/forms/page.tsx:1958:                        onChange={(event) => setFormHeaderNote(event.target.value)}
+src/app/dashboard/forms/page.tsx:1967:                          onChange={(event) => setLayoutMode(event.target.value === 'split' ? 'split' : 'stack')}
+src/app/dashboard/forms/page.tsx:1979:                          onChange={(event) => {
+src/app/dashboard/forms/page.tsx:1980:                            const next = event.target.value as DateFormat;
+src/app/dashboard/forms/new/page.tsx:6:import Image from 'next/image';
+src/app/dashboard/forms/new/page.tsx:51:  { value: 'event', label: 'Event' },
+src/app/dashboard/forms/new/page.tsx:108:      { key: 'photo', label: 'Photo Upload (optional)', type: 'image', required: false, order: 6 },
+src/app/dashboard/forms/new/page.tsx:147:      { key: 'photo', label: 'Profile Photo', type: 'image', required: false, order: 8 },
+src/app/dashboard/forms/new/page.tsx:169:const ACCEPTED_BANNER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+src/app/dashboard/forms/new/page.tsx:200:      return { error: 'Template image URL must start with http:// or https://.' };
+src/app/dashboard/forms/new/page.tsx:203:      return { error: 'Template image URL must include a valid domain.' };
+src/app/dashboard/forms/new/page.tsx:207:    return { error: 'Template image URL is invalid. Use a full URL, e.g. https://...png' };
+src/app/dashboard/forms/new/page.tsx:223:  meta: { heading?: string; message?: string; imageUrl?: string }
+src/app/dashboard/forms/new/page.tsx:233:  imageUrl?: string;
+src/app/dashboard/forms/new/page.tsx:240:  const safeImageUrl = opts.imageUrl ? escapeHtml(opts.imageUrl) : '';
+src/app/dashboard/forms/new/page.tsx:277:                  <a href="{{.CalendarOptInURL}}" style="color:#111827;text-decoration:underline;font-weight:700;">Add event to calendar</a>
+src/app/dashboard/forms/new/page.tsx:324:  const [events, setEvents] = useState<EventData[]>([]);
+src/app/dashboard/forms/new/page.tsx:325:  const [eventsLoading, setEventsLoading] = useState(false);
+src/app/dashboard/forms/new/page.tsx:326:  const [eventId, setEventId] = useState('');
+src/app/dashboard/forms/new/page.tsx:336:  const [introBulletSubs, setIntroBulletSubs] = useState('Helps us process your response quickly\nPrevents errors in your record\nOnly authorized staff can access submissions');
+src/app/dashboard/forms/new/page.tsx:378:    return normalizedType === 'event' || normalizedType === 'registration' || normalizedType === 'workforce';
+src/app/dashboard/forms/new/page.tsx:617:        const uploadMessage = getServerErrorMessage(uploadErr, 'Failed to upload response email template image.');
+src/app/dashboard/forms/new/page.tsx:637:      eventId: eventId || undefined,
+src/app/dashboard/forms/new/page.tsx:735:            imageUrl: responseTemplateImageUrl || undefined,
+src/app/dashboard/forms/new/page.tsx:742:            imageUrl: responseTemplateImageUrl || undefined,
+src/app/dashboard/forms/new/page.tsx:917:              label="Header image URL (optional)"
+src/app/dashboard/forms/new/page.tsx:924:              label="Or upload header image"
+src/app/dashboard/forms/new/page.tsx:926:              accept="image/*"
+src/app/dashboard/forms/new/page.tsx:942:              helperText="Use {{eventDate}} or {{eventLocation}} if relevant."
+src/app/dashboard/forms/new/page.tsx:1056:                label="Template image URL (optional)"
+src/app/dashboard/forms/new/page.tsx:1063:                label="Or upload template image"
+src/app/dashboard/forms/new/page.tsx:1065:                accept="image/*"
+src/app/dashboard/forms/new/page.tsx:1085:                <p className="text-xs font-medium text-[var(--color-text-secondary)]">Email image preview</p>
+src/app/dashboard/forms/new/page.tsx:1199:              value={eventId}
+src/app/dashboard/forms/new/page.tsx:1201:              disabled={eventsLoading}
+src/app/dashboard/forms/new/page.tsx:1203:              <option value="">No event (standalone form)</option>
+src/app/dashboard/forms/new/page.tsx:1204:              {events.map((ev) => (
+src/app/dashboard/forms/new/page.tsx:1312:                    <option value="image">Image Upload</option>
+src/app/dashboard/forms/new/page.tsx:1471:                ) : field.type === 'image' ? (
+src/app/dashboard/forms/new/page.tsx:1476:                      accept="image/jpeg,image/png,image/webp"
+src/app/dashboard/forms/[id]/campaigns/page.tsx:78:  '<p>Thank you for registering. We are sharing this update so you have the latest details, announcements, and event resources before the day.</p>',
+src/app/dashboard/forms/[id]/campaigns/page.tsx:82:const DEFAULT_PREHEADER = 'Important event update for registered guests. Open this email and save the date in your calendar.';
+src/app/dashboard/forms/[id]/campaigns/page.tsx:83:const DEFAULT_CALENDAR_LABEL = 'Add event to calendar';
+src/app/dashboard/forms/[id]/campaigns/page.tsx:180:): { event?: FormEmailCalendarEvent; error?: string } {
+src/app/dashboard/forms/[id]/campaigns/page.tsx:191:    return { error: 'Calendar event title is required once you add calendar details.' };
+src/app/dashboard/forms/[id]/campaigns/page.tsx:214:    event: {
+src/app/dashboard/forms/[id]/campaigns/page.tsx:300:    output = `${output}\n\nCalendar reminder: open your calendar now and save the event.\n${opts.calendarLabel || 'Add event to calendar'}: ${opts.calendarUrl?.trim() || '{{.CalendarOptInURL}}'}`.trim();
+src/app/dashboard/forms/[id]/campaigns/page.tsx:335:  const [imageUrl, setImageUrl] = useState('');
+src/app/dashboard/forms/[id]/campaigns/page.tsx:360:  const [imageFile, setImageFile] = useState<File | null>(null);
+src/app/dashboard/forms/[id]/campaigns/page.tsx:362:  const [imagePreview, setImagePreview] = useState<string | null>(null);
+src/app/dashboard/forms/[id]/campaigns/page.tsx:386:    () => buildGoogleCalendarUrl(normalizedCalendar.event),
+src/app/dashboard/forms/[id]/campaigns/page.tsx:387:    [normalizedCalendar.event]
+src/app/dashboard/forms/[id]/campaigns/page.tsx:435:        imageUrl: imagePreview || imageUrl || undefined,
+src/app/dashboard/forms/[id]/campaigns/page.tsx:441:        includeCalendarOptIn: Boolean(effectiveCalendarUrl || normalizedCalendar.event),
+src/app/dashboard/forms/[id]/campaigns/page.tsx:443:        calendarEvent: normalizedCalendar.event,
+src/app/dashboard/forms/[id]/campaigns/page.tsx:455:      normalizedCalendar.event,
+src/app/dashboard/forms/[id]/campaigns/page.tsx:463:      imagePreview,
+src/app/dashboard/forms/[id]/campaigns/page.tsx:464:      imageUrl,
+src/app/dashboard/forms/[id]/campaigns/page.tsx:491:        calendarEvent: normalizedCalendar.event,
+src/app/dashboard/forms/[id]/campaigns/page.tsx:492:        includeCalendarOptIn: Boolean(effectiveCalendarUrl || normalizedCalendar.event),
+src/app/dashboard/forms/[id]/campaigns/page.tsx:501:      normalizedCalendar.event,
+src/app/dashboard/forms/[id]/campaigns/page.tsx:524:            includeCalendarOptIn: Boolean(effectiveCalendarUrl || normalizedCalendar.event),
+src/app/dashboard/forms/[id]/campaigns/page.tsx:529:    [calendarLabel, customHtmlBody, effectiveCalendarUrl, generatedText, normalizedCalendar.event, normalizedResources.resourceLinks]
+src/app/dashboard/forms/[id]/campaigns/page.tsx:578:      if (imagePreview) URL.revokeObjectURL(imagePreview);
+src/app/dashboard/forms/[id]/campaigns/page.tsx:580:  }, [logoPreview, imagePreview]);
+src/app/dashboard/forms/[id]/campaigns/page.tsx:610:          loadedForm.eventId ? apiClient.getAdminEvent(loadedForm.eventId).catch(() => null) : Promise.resolve(null),
+src/app/dashboard/forms/[id]/campaigns/page.tsx:628:            loadedEvent?.bannerImage?.trim() ||
+src/app/dashboard/forms/[id]/campaigns/page.tsx:629:            loadedEvent?.image?.trim() ||
+src/app/dashboard/forms/[id]/campaigns/page.tsx:662:          if (meta?.imageUrl) setImageUrl(meta.imageUrl);
+src/app/dashboard/forms/[id]/campaigns/page.tsx:742:      if (imagePreview) URL.revokeObjectURL(imagePreview);
+src/app/dashboard/forms/[id]/campaigns/page.tsx:752:    if (imagePreview) URL.revokeObjectURL(imagePreview);
+src/app/dashboard/forms/[id]/campaigns/page.tsx:845:      let nextImageUrl = normalizeAbsoluteHttpUrl(imageUrl);
+src/app/dashboard/forms/[id]/campaigns/page.tsx:852:      if (imageUrl.trim() && !nextImageUrl) {
+src/app/dashboard/forms/[id]/campaigns/page.tsx:853:        throw new Error('Template image URL is invalid. Use a full URL like https://...png');
+src/app/dashboard/forms/[id]/campaigns/page.tsx:861:      const nextEffectiveCalendarUrl = nextManualCalendarUrl || buildGoogleCalendarUrl(normalizedCalendar.event);
+src/app/dashboard/forms/[id]/campaigns/page.tsx:867:      if (imageFile) {
+src/app/dashboard/forms/[id]/campaigns/page.tsx:868:        const uploaded = await apiClient.uploadImage(imageFile, 'email_template');
+src/app/dashboard/forms/[id]/campaigns/page.tsx:882:        imageUrl: nextImageUrl || undefined,
+src/app/dashboard/forms/[id]/campaigns/page.tsx:888:        includeCalendarOptIn: Boolean(nextEffectiveCalendarUrl || normalizedCalendar.event),
+src/app/dashboard/forms/[id]/campaigns/page.tsx:890:        calendarEvent: normalizedCalendar.event,
+src/app/dashboard/forms/[id]/campaigns/page.tsx:911:        calendarEvent: normalizedCalendar.event,
+src/app/dashboard/forms/[id]/campaigns/page.tsx:912:        includeCalendarOptIn: Boolean(nextEffectiveCalendarUrl || normalizedCalendar.event),
+src/app/dashboard/forms/[id]/campaigns/page.tsx:921:            includeCalendarOptIn: Boolean(nextEffectiveCalendarUrl || normalizedCalendar.event),
+src/app/dashboard/forms/[id]/campaigns/page.tsx:933:        imageUrl: nextImageUrl || undefined,
+src/app/dashboard/forms/[id]/campaigns/page.tsx:939:        calendarEvent: normalizedCalendar.event,
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1003:        calendarEvent: normalizedCalendar.event,
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1076:      const includeCalendarLinks = Boolean(form.eventId);
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1383:                placeholder="Open this update and save the event in your calendar."
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1396:                placeholder="Here is everything you need before the event"
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1405:                label="Flyer / hero image URL (optional)"
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1406:                value={imageUrl}
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1441:                    placeholder="https://your-domain.com/event-details"
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1442:                    helperText={ctaEnabled ? 'Use a full URL like https://your-domain.com/event-details' : 'CTA is disabled, so no registration button will appear in the email.'}
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1450:                  Add the event details once here. The email preview will show a structured reminder card, and the editor can generate a real Google Calendar link from the schedule you choose.
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1457:                    placeholder="Add event to calendar"
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1464:                    helperText="Leave empty to auto-generate a Google Calendar link from the event details below."
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1514:                      placeholder="Short event summary for the generated calendar invite."
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1523:                      When event details are provided, the campaign email can include a direct Google Calendar link immediately. Backend-generated `.ics` delivery still depends on the linked form event pipeline.
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1547:                  accept="image/*"
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1557:                  Upload flyer / hero image (optional)
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1561:                  accept="image/*"
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1575:                      Add DigitalOcean or public download links for e-flyers, schedules, documents, or other event resources.
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1735:                  placeholder="You are receiving this email because you registered through this event form."
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1767:                  Use “Load Structured HTML” to pull the current campaign markup into this editor, then adjust the raw HTML directly. The preview panel updates from this override automatically, so you can inspect the rendered email and the raw HTML side by side. Leave this empty to use the structured editor, event resource cards, highlighted section, and campaign theme controls above.
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1795:                  SMTP must be configured in the deployment environment for send to succeed. The current template is saved automatically before delivery so uploaded images, resource links, reminder copy, generated calendar links, and `.ics` invites are preserved in the email recipients receive.
+src/app/dashboard/forms/[id]/response-email/page.tsx:48:  const [imageUrl, setImageUrl] = useState('');
+src/app/dashboard/forms/[id]/response-email/page.tsx:51:  const [imageFile, setImageFile] = useState<File | null>(null);
+src/app/dashboard/forms/[id]/response-email/page.tsx:53:  const [imagePreview, setImagePreview] = useState<string | null>(null);
+src/app/dashboard/forms/[id]/response-email/page.tsx:71:    return formType === 'event' || formType === 'registration' || formType === 'workforce';
+src/app/dashboard/forms/[id]/response-email/page.tsx:80:      imageUrl: imagePreview || imageUrl || undefined,
+src/app/dashboard/forms/[id]/response-email/page.tsx:90:    imagePreview,
+src/app/dashboard/forms/[id]/response-email/page.tsx:91:    imageUrl,
+src/app/dashboard/forms/[id]/response-email/page.tsx:111:      if (imagePreview) URL.revokeObjectURL(imagePreview);
+src/app/dashboard/forms/[id]/response-email/page.tsx:113:  }, [logoPreview, imagePreview]);
+src/app/dashboard/forms/[id]/response-email/page.tsx:129:          (formType === 'event' || formType === 'registration' || formType === 'workforce');
+src/app/dashboard/forms/[id]/response-email/page.tsx:157:          if (meta?.imageUrl) setImageUrl(meta.imageUrl);
+src/app/dashboard/forms/[id]/response-email/page.tsx:189:      if (imagePreview) URL.revokeObjectURL(imagePreview);
+src/app/dashboard/forms/[id]/response-email/page.tsx:199:    if (imagePreview) URL.revokeObjectURL(imagePreview);
+src/app/dashboard/forms/[id]/response-email/page.tsx:214:      let nextImageUrl = normalizeAbsoluteHttpUrl(imageUrl);
+src/app/dashboard/forms/[id]/response-email/page.tsx:220:      if (imageUrl.trim() && !nextImageUrl) {
+src/app/dashboard/forms/[id]/response-email/page.tsx:221:        toast.error('Template image URL is invalid. Use a full URL like https://...png');
+src/app/dashboard/forms/[id]/response-email/page.tsx:230:      if (imageFile) {
+src/app/dashboard/forms/[id]/response-email/page.tsx:231:        const uploaded = await apiClient.uploadImage(imageFile, 'email_template');
+src/app/dashboard/forms/[id]/response-email/page.tsx:241:        imageUrl: nextImageUrl || undefined,
+src/app/dashboard/forms/[id]/response-email/page.tsx:258:          imageUrl: nextImageUrl || undefined,
+src/app/dashboard/forms/[id]/response-email/page.tsx:395:              label="Template image URL (optional)"
+src/app/dashboard/forms/[id]/response-email/page.tsx:396:              value={imageUrl}
+src/app/dashboard/forms/[id]/response-email/page.tsx:404:                accept="image/*"
+src/app/dashboard/forms/[id]/response-email/page.tsx:411:              <label className="mb-2 block text-sm font-medium text-[var(--color-text-secondary)]">Upload template image (optional)</label>
+src/app/dashboard/forms/[id]/response-email/page.tsx:414:                accept="image/*"
+src/app/dashboard/forms/[id]/edit/page.tsx:4:import Image from 'next/image';
+src/app/dashboard/forms/[id]/edit/page.tsx:46:const ACCEPTED_BANNER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+src/app/dashboard/forms/[id]/edit/page.tsx:63:  { value: 'event', label: 'Event' },
+src/app/dashboard/forms/[id]/edit/page.tsx:350:  const [events, setEvents] = useState<EventData[]>([]);
+src/app/dashboard/forms/[id]/edit/page.tsx:351:  const [eventsLoading, setEventsLoading] = useState(false);
+src/app/dashboard/forms/[id]/edit/page.tsx:772:      eventId: form.eventId,
+src/app/dashboard/forms/[id]/edit/page.tsx:949:            onChange={(event) => {
+src/app/dashboard/forms/[id]/edit/page.tsx:951:              setForm({ ...form, title: event.target.value });
+src/app/dashboard/forms/[id]/edit/page.tsx:962:              onChange={(event) => setForm({ ...form, description: event.target.value })}
+src/app/dashboard/forms/[id]/edit/page.tsx:968:            label="Header image URL"
+src/app/dashboard/forms/[id]/edit/page.tsx:970:            onChange={(event) => {
+src/app/dashboard/forms/[id]/edit/page.tsx:971:              const nextValue = event.target.value;
+src/app/dashboard/forms/[id]/edit/page.tsx:989:              label="Upload header image"
+src/app/dashboard/forms/[id]/edit/page.tsx:991:              accept="image/*"
+src/app/dashboard/forms/[id]/edit/page.tsx:992:              onChange={(event) => handleBannerFile(event.target.files?.[0])}
+src/app/dashboard/forms/[id]/edit/page.tsx:1022:            onChange={(event) => updateSettings({ successTitle: event.target.value || undefined })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1029:            onChange={(event) => updateSettings({ successSubtitle: event.target.value || undefined })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1041:              onChange={(event) => updateSettings({ successMessage: event.target.value || undefined })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1055:              onChange={(event) =>
+src/app/dashboard/forms/[id]/edit/page.tsx:1057:                  formType: event.target.value ? (event.target.value as FormSettings['formType']) : undefined,
+src/app/dashboard/forms/[id]/edit/page.tsx:1076:              value={form.eventId || ''}
+src/app/dashboard/forms/[id]/edit/page.tsx:1077:              onChange={(event) => setForm({ ...form, eventId: event.target.value || undefined })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1078:              disabled={eventsLoading}
+src/app/dashboard/forms/[id]/edit/page.tsx:1080:              <option value="">No event attached</option>
+src/app/dashboard/forms/[id]/edit/page.tsx:1081:              {events.map((event) => (
+src/app/dashboard/forms/[id]/edit/page.tsx:1082:                <option key={event.id} value={event.id}>
+src/app/dashboard/forms/[id]/edit/page.tsx:1083:                  {event.title}
+src/app/dashboard/forms/[id]/edit/page.tsx:1094:            onChange={(event) => updateSettings({ capacity: event.target.value ? Number(event.target.value) : undefined })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1101:            onChange={(event) => updateSettings({ closesAt: fromLocalInput(event.target.value) })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1108:            onChange={(event) => updateSettings({ expiresAt: fromLocalInput(event.target.value) })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1123:              onChange={(event) =>
+src/app/dashboard/forms/[id]/edit/page.tsx:1125:                  submissionTarget: event.target.value
+src/app/dashboard/forms/[id]/edit/page.tsx:1126:                    ? (event.target.value as FormSettings['submissionTarget'])
+src/app/dashboard/forms/[id]/edit/page.tsx:1148:            onChange={(event) => updateSettings({ submissionDepartment: event.target.value })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1162:              onChange={(event) => updateSettings({ responseEmailEnabled: event.target.checked })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1171:              onChange={(event) => updateSettings({ responseEmailSubject: event.target.value })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1179:              onChange={(event) => updateSettings({ responseEmailTemplateKey: event.target.value })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1187:              onChange={(event) => updateSettings({ responseEmailTemplateId: event.target.value })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1193:              label="Template image URL"
+src/app/dashboard/forms/[id]/edit/page.tsx:1195:              onChange={(event) => updateSettings({ responseEmailTemplateUrl: event.target.value })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1212:            onChange={(event) => updateSettings({ introTitle: event.target.value || undefined })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1218:            onChange={(event) => updateSettings({ introSubtitle: event.target.value || undefined })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1227:              onChange={(event) => updateSettings({ introBullets: splitLines(event.target.value) })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1238:              onChange={(event) => updateSettings({ introBulletSubtexts: splitLines(event.target.value) })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1296:                    onChange={(event) => updateContentSection(index, { title: event.target.value })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1302:                    onChange={(event) => updateContentSection(index, { subtitle: event.target.value })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1313:                      onChange={(event) => updateContentSection(index, { items: splitLines(event.target.value) ?? [] })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1325:                      onChange={(event) =>
+src/app/dashboard/forms/[id]/edit/page.tsx:1327:                          itemSubtexts: event.target.value.split('\n').map((item) => item.trim()),
+src/app/dashboard/forms/[id]/edit/page.tsx:1345:              onChange={(event) => updateSettings({ formHeaderNote: event.target.value || undefined })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1355:                onChange={(event) => updateSettings({ layoutMode: event.target.value === 'stack' ? 'stack' : 'split' })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1367:                onChange={(event) =>
+src/app/dashboard/forms/[id]/edit/page.tsx:1369:                    dateFormat: event.target.value as NonNullable<FormSettings['dateFormat']>,
+src/app/dashboard/forms/[id]/edit/page.tsx:1399:                    onChange={(event) => updateField(index, { label: event.target.value })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1405:                      onChange={(event) => updateField(index, { type: event.target.value as FormFieldType })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1417:                      <option value="image">Image Upload</option>
+src/app/dashboard/forms/[id]/edit/page.tsx:1424:                        onChange={(event) => updateField(index, { required: event.target.checked })}
+src/app/dashboard/forms/[id]/edit/page.tsx:1467:                            onChange={(event) => updateFieldOptionLabel(index, optionIndex, event.target.value)}
+src/app/dashboard/forms/[id]/edit/page.tsx:1491:                      onChange={(event) => setFieldVisibilityEnabled(index, event.target.checked)}
+src/app/dashboard/forms/[id]/edit/page.tsx:1507:                            onChange={(event) =>
+src/app/dashboard/forms/[id]/edit/page.tsx:1509:                                match: event.target.value === 'any' ? 'any' : 'all',
+src/app/dashboard/forms/[id]/edit/page.tsx:1553:                                  onChange={(event) =>
+src/app/dashboard/forms/[id]/edit/page.tsx:1555:                                      fieldKey: event.target.value,
+src/app/dashboard/forms/[id]/edit/page.tsx:1576:                                  onChange={(event) => {
+src/app/dashboard/forms/[id]/edit/page.tsx:1577:                                    const nextOperator = event.target.value as VisibilityRuleDraft['operator'];
+src/app/dashboard/forms/[id]/edit/page.tsx:1603:                                    onChange={(event) =>
+src/app/dashboard/forms/[id]/edit/page.tsx:1605:                                        value: event.target.value,
+src/app/dashboard/forms/[id]/edit/page.tsx:1620:                                    onChange={(event) =>
+src/app/dashboard/forms/[id]/edit/page.tsx:1626:                                              values: event.target.value
+src/app/dashboard/forms/[id]/edit/page.tsx:1632:                                              value: event.target.value,
+src/app/dashboard/analytics/page.tsx:46:  eventsByCategory: Record<string, number>;
+src/app/dashboard/analytics/page.tsx:49:    events: number;
+src/app/dashboard/analytics/page.tsx:100:    const byCategory = analytics?.eventsByCategory ?? {};
+src/app/dashboard/analytics/page.tsx:120:          data: stats.map((stat) => stat.events),
+src/app/dashboard/analytics/page.tsx:234:              <p className="text-xs text-secondary-500 mt-1">per event</p>
+src/app/dashboard/analytics/page.tsx:293:                <p className="font-medium text-secondary-900">New event created: &quot;Annual Youth Summit&quot;</p>
+src/app/dashboard/members/page.tsx:65:              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
+src/app/dashboard/members/page.tsx:68:                onChange={(event) => setQuery(event.target.value)}
+src/app/dashboard/email-marketing/page.tsx:483:                onChange={(event) => setSubject(event.target.value)}
+src/app/dashboard/email-marketing/page.tsx:494:                onChange={(event) => setManualRecipientsRaw(event.target.value)}
+src/app/dashboard/email-marketing/page.tsx:506:                onChange={(event) => setHtmlBody(event.target.value)}
+src/app/dashboard/email-marketing/page.tsx:521:                onChange={(event) => setTextBody(event.target.value)}
+src/app/dashboard/email-marketing/email-marketing.module.scss:57:    pointer-events: none;
+src/app/dashboard/store/page.tsx:21:  image: '',
+src/app/dashboard/store/page.tsx:105:      image: item.image,
+src/app/dashboard/store/page.tsx:119:    if (!productForm.name.trim() || !productForm.price.trim() || !productForm.image.trim()) {
+src/app/dashboard/store/page.tsx:120:      toast.error('Name, price, and image are required.');
+src/app/dashboard/store/page.tsx:252:            value={productForm.image}
+src/app/dashboard/store/page.tsx:253:            onChange={(e) => setProductForm((p) => ({ ...p, image: e.target.value }))}
+src/app/dashboard/super/page.tsx:79:  const [events, setEvents] = useState<EventData[]>([]);
+src/app/dashboard/super/page.tsx:90:      const [analyticsResult, eventsResult] = await Promise.allSettled([
+src/app/dashboard/super/page.tsx:98:      setEvents(eventsResult.status === 'fulfilled' ? eventsResult.value.data : []);
+src/app/dashboard/super/page.tsx:110:  const safeEvents = useMemo(() => (Array.isArray(events) ? events : []), [events]);
+src/app/dashboard/super/page.tsx:117:          data: [stats.testimonials, stats.events, stats.adminUsers],
+src/app/dashboard/super/page.tsx:165:          data: analytics?.monthlyStats?.map((row) => row.events) ?? [],
+src/app/dashboard/super/page.tsx:197:      safeEvents.find((event) => event.location && event.location.trim())?.location?.trim() ||
+src/app/dashboard/super/page.tsx:286:            {stats.events}
+src/app/dashboard/super/page.tsx:301:            Upcoming events under oversight
+src/app/dashboard/super/page.tsx:400:                No location context available from current event data.
+src/app/dashboard/super/page.tsx:407:              : 'Add event locations to enable geographic monitoring.'}
+src/app/dashboard/super/approvals/page.tsx:18:  const [typeFilter, setTypeFilter] = useState<'all' | 'testimonial' | 'event' | 'admin_user'>('all');
+src/app/dashboard/super/approvals/page.tsx:59:        subtitle="Backend-driven approval stream for testimonials, events, and admin access."
+src/app/dashboard/super/approvals/page.tsx:94:              variant={typeFilter === 'event' ? 'primary' : 'ghost'}
+src/app/dashboard/super/approvals/page.tsx:96:              onClick={() => setTypeFilter('event')}
+src/app/dashboard/super/approvals/page.tsx:197:                            : item.type === 'event'
+src/app/dashboard/super/analytics/page.tsx:36:          Church-wide metrics for events, attendees, and categories.
+src/app/dashboard/super/analytics/page.tsx:44:              <p className="text-[10px] md:text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Total events</p>
+src/app/dashboard/super/analytics/page.tsx:84:        {!loading && data?.eventsByCategory ? (
+src/app/dashboard/super/analytics/page.tsx:86:            {Object.entries(data.eventsByCategory).map(([category, count]) => (
+src/app/dashboard/super/analytics/page.tsx:114:                    <span>Events: {row.events}</span>
+src/app/dashboard/super/reports/page.tsx:31:        <p className="text-sm text-[var(--color-text-tertiary)]">Download monthly summaries for events, workforce, and giving.</p>
+src/app/dashboard/super/reports/page.tsx:42:              <p className="text-xs text-[var(--color-text-tertiary)]">Includes events, registrations, workforce, testimonials.</p>
+src/app/dashboard/super/reports/page.tsx:68:              <p className="text-sm text-[var(--color-text-secondary)]">Total events</p>
+src/app/dashboard/super/requests/page.tsx:25:  event: 'Event',
+src/app/dashboard/super/requests/page.tsx:42:  if (type === 'event') return '/dashboard/event';
+src/app/dashboard/super/requests/page.tsx:136:        subtitle="Live super-admin request stream from approval tickets and workflow events."
+src/app/dashboard/super/requests/page.tsx:198:            <Button size="sm" className="text-xs px-3" variant={typeFilter === 'event' ? 'primary' : 'ghost'} onClick={() => setTypeFilter('event')}>
+src/app/dashboard/content/page.tsx:36:  image: '/HEADER.png',
+src/app/dashboard/content/page.tsx:361:            value={homepageAd.image}
+src/app/dashboard/content/page.tsx:362:            onChange={(v) => setHomepageAd((s) => ({ ...s, image: v }))}
+src/app/dashboard/content/page.tsx:459:                    {item.eventType} • {item.eventDate} • {item.email}
+src/app/dashboard/content/page.tsx:560:        onChange={(event) => onChange(event.target.value)}
+src/app/dashboard/content/page.tsx:581:        onChange={(event) => onChange(event.target.value)}
+src/app/dashboard/testimonials/page.tsx:183:    imageUrl: '',
+src/app/dashboard/testimonials/page.tsx:312:      imageUrl: item.imageUrl || '',
+src/app/dashboard/testimonials/page.tsx:325:        imageUrl: editDraft.imageUrl.trim() || undefined,
+src/app/dashboard/testimonials/page.tsx:592:                value={editDraft.imageUrl}
+src/app/dashboard/testimonials/page.tsx:593:                onChange={(e) => setEditDraft({ ...editDraft, imageUrl: e.target.value })}
+src/app/dashboard/newsletter/page.tsx:33:  const [events, setEvents] = useState<EventData[]>([]);
+src/app/dashboard/newsletter/page.tsx:35:  const [type, setType] = useState<'update' | 'event'>('update');
+src/app/dashboard/newsletter/page.tsx:39:  const [eventId, setEventId] = useState('');
+src/app/dashboard/newsletter/page.tsx:50:      const [summaryData, listData, eventsData] = await Promise.all([
+src/app/dashboard/newsletter/page.tsx:64:      setEvents(Array.isArray(eventsData.data) ? eventsData.data : []);
+src/app/dashboard/newsletter/page.tsx:81:    if (type === 'event' && !eventId) {
+src/app/dashboard/newsletter/page.tsx:82:      toast.error('Select an event before sending an event newsletter.');
+src/app/dashboard/newsletter/page.tsx:94:        eventId: type === 'event' ? eventId : undefined,
+src/app/dashboard/newsletter/page.tsx:148:              onChange={(e) => setType(e.target.value as 'update' | 'event')}
+src/app/dashboard/newsletter/page.tsx:151:              <option value="event">Event update</option>
+src/app/dashboard/newsletter/page.tsx:155:            <label className="mb-1 block text-xs text-[var(--color-text-tertiary)]">Event (for event updates)</label>
+src/app/dashboard/newsletter/page.tsx:158:              value={eventId}
+src/app/dashboard/newsletter/page.tsx:160:              disabled={type !== 'event'}
+src/app/dashboard/newsletter/page.tsx:162:              <option value="">Select event</option>
+src/app/dashboard/newsletter/page.tsx:163:              {events.map((item) => (
+src/app/dashboard/reels/page.tsx:6:import Image from 'next/image';
+src/app/dashboard/reels/page.tsx:24:const ACCEPTED_THUMB_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+src/app/dashboard/reels/page.tsx:354:                  label="Thumbnail image"
+src/app/dashboard/settings/page.tsx:4:import Image from 'next/image';
+src/app/dashboard/settings/page.tsx:235:    e.preventDefault();
+src/app/dashboard/settings/page.tsx:279:    e.preventDefault();
+src/app/dashboard/settings/page.tsx:774:                              onChange={(event) => setTotpEnableCode(event.target.value.replace(/\D+/g, '').slice(0, 6))}
+src/app/dashboard/settings/page.tsx:806:                        onChange={(event) => setTotpDisableCode(event.target.value.replace(/\D+/g, '').slice(0, 6))}
+src/app/dashboard/event/page.tsx:4:import Image from 'next/image';
+src/app/dashboard/event/page.tsx:13:import type { EventCategory, EventData, EventPayload, EventStatus } from '@/lib/types';
+src/app/dashboard/event/page.tsx:17:const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+src/app/dashboard/event/page.tsx:19:type AssetKind = 'image' | 'banner';
+src/app/dashboard/event/page.tsx:30:  imageUrl: string;
+src/app/dashboard/event/page.tsx:31:  bannerImageUrl: string;
+src/app/dashboard/event/page.tsx:60:  imageUrl: '',
+src/app/dashboard/event/page.tsx:61:  bannerImageUrl: '',
+src/app/dashboard/event/page.tsx:72:  const eventDay = new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
+src/app/dashboard/event/page.tsx:74:  if (eventDay.getTime() === today.getTime()) return 'ongoing';
+src/app/dashboard/event/page.tsx:75:  if (eventDay.getTime() > today.getTime()) return 'upcoming';
+src/app/dashboard/event/page.tsx:103:function toEventPayload(event: EventData, overrides?: Partial<EventPayload>): EventPayload {
+src/app/dashboard/event/page.tsx:105:    title: event.title,
+src/app/dashboard/event/page.tsx:106:    shortDescription: event.shortDescription,
+src/app/dashboard/event/page.tsx:107:    description: event.description,
+src/app/dashboard/event/page.tsx:108:    date: event.date,
+src/app/dashboard/event/page.tsx:109:    time: event.time,
+src/app/dashboard/event/page.tsx:110:    location: event.location,
+src/app/dashboard/event/page.tsx:111:    category: event.category,
+src/app/dashboard/event/page.tsx:112:    status: toBackendStatus(event.status, event.date),
+src/app/dashboard/event/page.tsx:113:    isFeatured: event.isFeatured,
+src/app/dashboard/event/page.tsx:114:    tags: Array.isArray(event.tags) ? event.tags : [],
+src/app/dashboard/event/page.tsx:115:    registerLink: event.registerLink,
+src/app/dashboard/event/page.tsx:116:    speaker: event.speaker,
+src/app/dashboard/event/page.tsx:117:    contactPhone: event.contactPhone,
+src/app/dashboard/event/page.tsx:118:    image: event.image,
+src/app/dashboard/event/page.tsx:119:    bannerImage: event.bannerImage,
+src/app/dashboard/event/page.tsx:120:    attendees: event.attendees,
+src/app/dashboard/event/page.tsx:128:  const [events, setEvents] = useState<EventData[]>([]);
+src/app/dashboard/event/page.tsx:132:  const [imageFile, setImageFile] = useState<File | null>(null);
+src/app/dashboard/event/page.tsx:133:  const [imagePreview, setImagePreview] = useState<string | null>(null);
+src/app/dashboard/event/page.tsx:138:    return events.reduce(
+src/app/dashboard/event/page.tsx:146:  }, [events]);
+src/app/dashboard/event/page.tsx:151:    draft.bannerImageUrl.trim() ||
+src/app/dashboard/event/page.tsx:152:    imagePreview ||
+src/app/dashboard/event/page.tsx:153:    draft.imageUrl.trim() ||
+src/app/dashboard/event/page.tsx:162:      console.error('Failed to load events:', error);
+src/app/dashboard/event/page.tsx:163:      toast.error('Failed to load events');
+src/app/dashboard/event/page.tsx:176:      if (imagePreview) URL.revokeObjectURL(imagePreview);
+src/app/dashboard/event/page.tsx:179:  }, [imagePreview, bannerPreview]);
+src/app/dashboard/event/page.tsx:184:    if (imagePreview) URL.revokeObjectURL(imagePreview);
+src/app/dashboard/event/page.tsx:206:    if (kind === 'image') {
+src/app/dashboard/event/page.tsx:208:      if (imagePreview) URL.revokeObjectURL(imagePreview);
+src/app/dashboard/event/page.tsx:220:    eventID: string,
+src/app/dashboard/event/page.tsx:226:      ownerType: 'event',
+src/app/dashboard/event/page.tsx:227:      ownerId: eventID,
+src/app/dashboard/event/page.tsx:229:      folder: `events/${kind}`,
+src/app/dashboard/event/page.tsx:273:    const imageUrl = draft.imageUrl.trim();
+src/app/dashboard/event/page.tsx:274:    if (imageUrl && !isValidHttpURL(imageUrl)) {
+src/app/dashboard/event/page.tsx:279:    const bannerUrl = draft.bannerImageUrl.trim();
+src/app/dashboard/event/page.tsx:285:    const createPayload: EventPayload = {
+src/app/dashboard/event/page.tsx:297:      image: imageUrl || undefined,
+src/app/dashboard/event/page.tsx:298:      bannerImage: bannerUrl || undefined,
+src/app/dashboard/event/page.tsx:305:      let uploadedImageURL = createPayload.image;
+src/app/dashboard/event/page.tsx:306:      let uploadedBannerURL = createPayload.bannerImage;
+src/app/dashboard/event/page.tsx:308:      if (imageFile) {
+src/app/dashboard/event/page.tsx:309:        uploadedImageURL = await uploadViaPresign(imageFile, created.id, 'image');
+src/app/dashboard/event/page.tsx:317:        uploadedImageURL !== created.image || uploadedBannerURL !== created.bannerImage;
+src/app/dashboard/event/page.tsx:322:          toEventPayload(created, {
+src/app/dashboard/event/page.tsx:323:            image: uploadedImageURL,
+src/app/dashboard/event/page.tsx:324:            bannerImage: uploadedBannerURL,
+src/app/dashboard/event/page.tsx:334:      console.error('Failed to create event:', error);
+src/app/dashboard/event/page.tsx:335:      toast.error('Failed to create event.');
+src/app/dashboard/event/page.tsx:345:        subtitle="Create events with enterprise media flow and sync them to frontend."
+src/app/dashboard/event/page.tsx:348:            Create event
+src/app/dashboard/event/page.tsx:365:                  No {statusLabel[bucket].toLowerCase()} events.
+src/app/dashboard/event/page.tsx:399:            <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Create event</h3>
+src/app/dashboard/event/page.tsx:466:              value={draft.imageUrl}
+src/app/dashboard/event/page.tsx:467:              onChange={(e) => setDraft((d) => ({ ...d, imageUrl: e.target.value }))}
+src/app/dashboard/event/page.tsx:473:              value={draft.bannerImageUrl}
+src/app/dashboard/event/page.tsx:474:              onChange={(e) => setDraft((d) => ({ ...d, bannerImageUrl: e.target.value }))}
+src/app/dashboard/event/page.tsx:479:              label="Upload image"
+src/app/dashboard/event/page.tsx:482:              onChange={(e) => handleMediaFile('image', e.target.files?.[0])}
+src/app/dashboard/event/page.tsx:501:                placeholder="What is this event about?"
+src/app/dashboard/event/page.tsx:522:                  Upload image/banner to preview the event card
+src/app/dashboard/event/page.tsx:548:              Save event
+src/app/dashboard/dashboard.module.scss:56:    pointer-events: none;
+src/app/dashboard/dashboard.module.scss:66:    pointer-events: none;
+src/app/dashboard/dashboard.module.scss:148:.eventCard,
+src/app/dashboard/dashboard.module.scss:185:.eventGrid {
+src/app/dashboard/dashboard.module.scss:274:.eventMeta,
+src/app/dashboard/dashboard.module.scss:327:.eventCard {
+src/app/dashboard/dashboard.module.scss:334:.eventHeader,
+src/app/dashboard/dashboard.module.scss:377:.eventMeta {
+src/app/dashboard/dashboard.module.scss:436:.eventIcon {
+src/app/dashboard/dashboard.module.scss:447:.eventGrid {
+src/app/dashboard/dashboard.module.scss:451:.eventCard {
+src/app/dashboard/dashboard.module.scss:479:  .eventGrid {
+src/app/dashboard/dashboard.module.scss:487:  .eventGrid,
+src/app/dashboard/events/page.tsx:4:  redirect('/dashboard/event');
+src/app/mfa/setup/page.tsx:54:      return typeof rawQrCode === 'string' && rawQrCode.startsWith('data:image')
+src/app/mfa/setup/page.tsx:187:  const handleEnable = async (event: FormEvent) => {
+src/app/mfa/setup/page.tsx:188:    event.preventDefault();
+src/lib/uploads.ts:1:export type UploadKind = 'image' | 'video' | 'audio' | 'document' | 'file';
+src/lib/uploads.ts:72:    file.type.startsWith('image/') ||
+src/lib/uploads.ts:73:    /\b(image|photo|picture|avatar|passport|headshot|thumbnail|banner)\b/.test(haystack)
+src/lib/uploads.ts:75:    return 'image';
+src/lib/uploads.ts:135:      record.imageUrl ||
+src/lib/uploads.ts:136:      record.image_url ||
+src/lib/uploads.ts:160:      raw.kind === 'image' ||
+src/lib/uploads.ts:205:export async function uploadAsset(
+src/lib/uploads.ts:244:export async function uploadAndReturnUrl(
+src/lib/uploads.ts:248:  const uploaded = await uploadAsset(file, options);
+src/lib/validation/forms.ts:15:  'image',
+src/lib/validation/forms.ts:68:    eventId: z.string().trim().optional(),
+src/lib/formCampaigns.ts:42:  eventTitle?: string;
+src/lib/formCampaignCalendar.ts:26:  event?: EventCalendarSource | null,
+src/lib/formCampaignCalendar.ts:29:  if (!event?.title?.trim()) return undefined;
+src/lib/formCampaignCalendar.ts:31:  const startAt = parseEventDateValue(event.startDate) || parseEventDateTime(event.date, event.time);
+src/lib/formCampaignCalendar.ts:34:  const endAt = parseEventDateValue(event.endDate);
+src/lib/formCampaignCalendar.ts:35:  const summary = event.shortDescription?.trim() || event.description?.trim() || '';
+src/lib/formCampaignCalendar.ts:36:  const registerLink = event.registerLink?.trim() || '';
+src/lib/formCampaignCalendar.ts:39:    title: event.title.trim(),
+src/lib/formCampaignCalendar.ts:42:    location: event.location?.trim() || undefined,
+src/lib/formCampaignCalendar.ts:48:export function buildCampaignDefaultCopy(formTitle: string, event?: Pick<EventData, 'title' | 'date' | 'time'> | null) {
+src/lib/formCampaignCalendar.ts:49:  const baseTitle = event?.title?.trim() || formTitle.trim() || 'your event';
+src/lib/formCampaignCalendar.ts:50:  const hasEventDateTime = Boolean(event?.date?.trim() && event?.time?.trim());
+src/lib/formCampaignCalendar.ts:56:      ? `Review the latest update for ${baseTitle} and save ${event!.date.trim()} at ${event!.time.trim()} in your calendar.`
+src/lib/api.ts:13:  EventPayload,
+src/lib/api.ts:967:): 'testimonial' | 'event' | 'admin_user' {
+src/lib/api.ts:968:  if (value === 'testimonial' || value === 'event' || value === 'admin_user') {
+src/lib/api.ts:1502:    const res = await apiFetch(`/admin/events${qs}`, { method: 'GET' });
+src/lib/api.ts:1503:    return unwrapSimplePaginated<EventData>(res, 'Invalid events payload');
+src/lib/api.ts:1508:      `/events/${encodeURIComponent(id)}`,
+src/lib/api.ts:1511:    return unwrapData<EventData>(res, 'Invalid event payload');
+src/lib/api.ts:1516:      `/admin/events/${encodeURIComponent(id)}`,
+src/lib/api.ts:1519:    return unwrapData<EventData>(res, 'Invalid admin event payload');
+src/lib/api.ts:1522:  async createEvent(data: EventPayload): Promise<EventData> {
+src/lib/api.ts:1523:    const res = await apiFetch<{ data: EventData }>('/admin/events', {
+src/lib/api.ts:1527:    return unwrapData<EventData>(res, 'Invalid event payload');
+src/lib/api.ts:1530:  async updateEvent(id: string, data: EventPayload): Promise<EventData> {
+src/lib/api.ts:1532:      `/admin/events/${encodeURIComponent(id)}`,
+src/lib/api.ts:1538:    return unwrapData<EventData>(res, 'Invalid event payload');
+src/lib/api.ts:1542:    return apiFetch(`/admin/events/${encodeURIComponent(id)}`, {
+src/lib/api.ts:1548:    return apiFetch(`/admin/events/${encodeURIComponent(id)}/approve`, {
+src/lib/api.ts:1553:  async uploadEventImage(id: string, file: File): Promise<EventData> {
+src/lib/api.ts:1557:      `/admin/events/${encodeURIComponent(id)}/image`,
+src/lib/api.ts:1563:    return unwrapData<EventData>(res, 'Invalid upload image payload');
+src/lib/api.ts:1566:  async uploadEventBanner(id: string, file: File): Promise<EventData> {
+src/lib/api.ts:1570:      `/admin/events/${encodeURIComponent(id)}/banner`,
+src/lib/api.ts:1632:  async uploadAsset(
+src/lib/api.ts:1635:      kind?: 'image' | 'video' | 'audio' | 'document' | 'file';
+src/lib/api.ts:1661:    form.append('kind', 'image');
+src/lib/api.ts:1664:    form.append('folder', 'public-forms/images');
+src/lib/api.ts:1667:      '/uploads/images',
+src/lib/api.ts:1674:    return unwrapData<UploadImageResponse>(res, 'Invalid public image upload payload');
+src/lib/api.ts:1682:      '/admin/uploads/images',
+src/lib/api.ts:1688:    return unwrapUploadImageResponse(res, 'Invalid image upload payload');
+src/lib/formEmailTemplates.ts:3:export const ACCEPTED_EMAIL_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+src/lib/formEmailTemplates.ts:49:  imageUrl?: string;
+src/lib/formEmailTemplates.ts:130:export function buildGoogleCalendarUrl(event?: FormEmailCalendarEvent): string {
+src/lib/formEmailTemplates.ts:131:  if (!event) return '';
+src/lib/formEmailTemplates.ts:133:  const title = event.title?.trim() || '';
+src/lib/formEmailTemplates.ts:134:  const startRaw = event.startAt?.trim() || '';
+src/lib/formEmailTemplates.ts:141:  if (event.endAt?.trim()) {
+src/lib/formEmailTemplates.ts:142:    const parsedEnd = new Date(event.endAt);
+src/lib/formEmailTemplates.ts:159:  if (event.location?.trim()) {
+src/lib/formEmailTemplates.ts:160:    query.set('location', event.location.trim());
+src/lib/formEmailTemplates.ts:162:  if (event.description?.trim()) {
+src/lib/formEmailTemplates.ts:163:    query.set('details', event.description.trim());
+src/lib/formEmailTemplates.ts:165:  if (event.timeZone?.trim()) {
+src/lib/formEmailTemplates.ts:166:    query.set('ctz', event.timeZone.trim());
+src/lib/formEmailTemplates.ts:205:function buildCalendarSummaryRows(event?: FormEmailCalendarEvent) {
+src/lib/formEmailTemplates.ts:206:  if (!event) return [] as Array<{ label: string; value: string }>;
+src/lib/formEmailTemplates.ts:209:  const title = event.title?.trim();
+src/lib/formEmailTemplates.ts:210:  const location = event.location?.trim();
+src/lib/formEmailTemplates.ts:211:  const timeZone = event.timeZone?.trim() || undefined;
+src/lib/formEmailTemplates.ts:212:  const start = parseCalendarDate(event.startAt);
+src/lib/formEmailTemplates.ts:213:  const end = parseCalendarDate(event.endAt);
+src/lib/formEmailTemplates.ts:519:  imageUrl?: string;
+src/lib/formEmailTemplates.ts:542:  const safeImageUrl = opts.imageUrl ? escapeTemplateHtml(opts.imageUrl) : '';
+src/lib/formEmailTemplates.ts:545:  const safeCalendarLabel = escapeTemplateHtml(opts.calendarLabel || 'Add event to calendar');
+src/lib/formEmailTemplates.ts:658:                    Open your calendar now and lock this event into your schedule before the email gets buried.
+src/lib/formEmailTemplates.ts:775:      'Calendar reminder: open your calendar now and save the event.',
+src/lib/formEmailTemplates.ts:776:      `${opts.calendarLabel?.trim() || 'Add event to calendar'}: ${opts.calendarUrl?.trim() || '{{.CalendarOptInURL}}'}`
+src/lib/prepareUploadPayload.ts:4:  uploadAsset,
+src/lib/prepareUploadPayload.ts:44:const DATA_URL_RE = /^data:([^;,]+);base64,/i;
+src/lib/prepareUploadPayload.ts:73:    type === 'image' ||
+src/lib/prepareUploadPayload.ts:89:  if (/\b(image|photo|picture|passport|headshot|avatar|banner|thumbnail)\b/.test(hay)) {
+src/lib/prepareUploadPayload.ts:90:    return 'image';
+src/lib/prepareUploadPayload.ts:112:  if (file.type.startsWith('image/')) return 'image';
+src/lib/prepareUploadPayload.ts:174:    lowerKey.includes('image') ||
+src/lib/prepareUploadPayload.ts:192:  output.imageUrl = url;
+src/lib/prepareUploadPayload.ts:193:  output.image_url = url;
+src/lib/prepareUploadPayload.ts:221:      const uploaded = await uploadAsset(value, {
+src/lib/prepareUploadPayload.ts:236:      if (kind === 'image') {
+src/lib/prepareUploadPayload.ts:246:      const uploaded = await uploadAsset(file, {
+src/lib/prepareUploadPayload.ts:261:      if (kind === 'image') {
+src/lib/types.ts:151:  // Backward compatible: some events may only have `date`
+src/lib/types.ts:163:  image?: string;
+src/lib/types.ts:164:  bannerImage?: string;
+src/lib/types.ts:185:export interface EventPayload {
+src/lib/types.ts:204:  image?: string;
+src/lib/types.ts:205:  bannerImage?: string;
+src/lib/types.ts:218:  eventId?: string;
+src/lib/types.ts:229:  eventId?: string;
+src/lib/types.ts:345:  imageUrl?: string;
+src/lib/types.ts:360:  imageUrl?: string;
+src/lib/types.ts:368:  imageUrl?: string;
+src/lib/types.ts:382:  eventsByCategory: Record<string, number>;
+src/lib/types.ts:383:  monthlyStats: Array<{ month: string; events: number; attendees: number }>;
+src/lib/types.ts:434:export type NotificationType = 'update' | 'event';
+src/lib/types.ts:442:  eventId?: string;
+src/lib/types.ts:451:  eventId?: string;
+src/lib/types.ts:503:  | 'image'
+src/lib/types.ts:578:  formType?: 'registration' | 'event' | 'membership' | 'workforce' | 'leadership' | 'application' | 'contact' | 'general';
+src/lib/types.ts:618:  eventId?: string;
+src/lib/types.ts:640:  event?: EventData;
+src/lib/types.ts:647:  eventId?: string;
+src/lib/types.ts:662:  kind?: 'image' | 'video' | 'audio' | 'document' | 'file';
+src/lib/types.ts:864:  image: string;
+src/lib/types.ts:885:  eventDate: string;
+src/lib/types.ts:886:  eventType: string;
+src/lib/types.ts:1033:  imageUrl?: string | null;
+src/lib/types.ts:1050:  imageUrl?: string;
+src/lib/types.ts:1063:  imageUrl?: string;
+src/lib/types.ts:1095:export type ApprovalRequestType = 'testimonial' | 'event' | 'admin_user';
+src/lib/types.ts:1145:  image: string;
+src/lib/types.ts:1161:  image: string;
+src/hooks/useDashboardSearch.ts:9:    const handleSearch = (event: Event) => {
+src/hooks/useDashboardSearch.ts:10:      const detail = (event as SearchEvent).detail;
+src/hooks/useSuperQueues.ts:80:        } else if (item.type === 'event') {
+src/hooks/useSuperQueues.ts:130:      events: items.filter((item) => item.type === 'event' && item.status === 'pending').length,
+src/ui/Button.tsx:15:    const baseStyles = 'inline-flex items-center justify-center rounded-[var(--radius-button)] font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+src/ui/ActionStatusModal.tsx:93:          <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.14),transparent_58%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.12),transparent_46%)]" />
