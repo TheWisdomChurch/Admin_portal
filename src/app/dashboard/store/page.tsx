@@ -1,9 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
+import MediaUploadField from '@/components/MediaUploadField';
+import { uploadAsset } from '@/lib/uploads';
 import type {
   StoreOrderAdmin,
   StoreOrderStatus,
@@ -56,6 +59,8 @@ export default function StoreDashboardPage() {
 
   const [editingProductId, setEditingProductId] = useState<number | null>(null);
   const [productForm, setProductForm] = useState<UpsertStoreProductRequest>(emptyProductForm);
+  const [productImageFile, setProductImageFile] = useState<File | null>(null);
+  const [productImagePreview, setProductImagePreview] = useState<string | null>(null);
   const [sizesCsv, setSizesCsv] = useState('');
   const [colorsCsv, setColorsCsv] = useState('');
   const [tagsCsv, setTagsCsv] = useState('');
@@ -87,16 +92,28 @@ export default function StoreDashboardPage() {
     void loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    return () => {
+      if (productImagePreview) URL.revokeObjectURL(productImagePreview);
+    };
+  }, [productImagePreview]);
+
   const resetForm = () => {
     setEditingProductId(null);
     setProductForm(emptyProductForm);
+    setProductImageFile(null);
+    if (productImagePreview) URL.revokeObjectURL(productImagePreview);
+    setProductImagePreview(null);
     setSizesCsv('');
     setColorsCsv('');
     setTagsCsv('');
   };
 
   const onEditProduct = (item: StoreProductAdmin) => {
+    if (productImagePreview) URL.revokeObjectURL(productImagePreview);
     setEditingProductId(item.id);
+    setProductImageFile(null);
+    setProductImagePreview(null);
     setProductForm({
       name: item.name,
       category: item.category,
@@ -115,23 +132,43 @@ export default function StoreDashboardPage() {
     setTagsCsv(item.tags.join(', '));
   };
 
+  const handleProductImageFile = (file: File | null) => {
+    setProductImageFile(file);
+    if (productImagePreview) URL.revokeObjectURL(productImagePreview);
+    setProductImagePreview(file ? URL.createObjectURL(file) : null);
+  };
+
   const saveProduct = async () => {
-    if (!productForm.name.trim() || !productForm.price.trim() || !productForm.image.trim()) {
+    if (!productForm.name.trim() || !productForm.price.trim() || (!productForm.image.trim() && !productImageFile)) {
       toast.error('Name, price, and image are required.');
       return;
     }
 
-    const payload: UpsertStoreProductRequest = {
-      ...productForm,
-      originalPrice: productForm.originalPrice?.trim() || undefined,
-      sizes: splitCsv(sizesCsv),
-      colors: splitCsv(colorsCsv),
-      tags: splitCsv(tagsCsv),
-      stock: Number(productForm.stock || 0),
-    };
-
     try {
       setSavingProduct(true);
+      let image = productForm.image.trim();
+
+      if (productImageFile) {
+        const ownerId = editingProductId ? String(editingProductId) : productForm.name.trim();
+        const uploaded = await uploadAsset(productImageFile, {
+          kind: 'image',
+          module: 'store',
+          ownerType: 'store-product',
+          ownerId,
+          folder: `store/products/${ownerId}/images`,
+        });
+        image = uploaded.publicUrl || uploaded.url;
+      }
+
+      const payload: UpsertStoreProductRequest = {
+        ...productForm,
+        image,
+        originalPrice: productForm.originalPrice?.trim() || undefined,
+        sizes: splitCsv(sizesCsv),
+        colors: splitCsv(colorsCsv),
+        tags: splitCsv(tagsCsv),
+        stock: Number(productForm.stock || 0),
+      };
 
       if (editingProductId) {
         await apiClient.updateStoreProduct(editingProductId, payload);
@@ -252,6 +289,23 @@ export default function StoreDashboardPage() {
             value={productForm.image}
             onChange={(e) => setProductForm((p) => ({ ...p, image: e.target.value }))}
           />
+
+          <MediaUploadField
+            field={{ key: 'image', label: 'Product image', type: 'image', validation: { max: 5 } }}
+            value={productImageFile}
+            onChange={handleProductImageFile}
+          />
+
+          {(productImagePreview || productForm.image.trim()) && (
+            <Image
+              src={productImagePreview || productForm.image.trim()}
+              alt="Product image preview"
+              width={720}
+              height={480}
+              className="h-48 w-full rounded-[var(--radius-card)] border border-[var(--color-border-primary)] object-cover"
+              unoptimized
+            />
+          )}
 
           <Input
             label="Description"

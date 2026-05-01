@@ -10,13 +10,9 @@ import { withAuth } from '@/providers/withAuth';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/input';
 import { apiClient } from '@/lib/api';
+import MediaUploadField from '@/components/MediaUploadField';
+import { uploadAsset } from '@/lib/uploads';
 import type { EventCategory, EventData, EventPayload, EventStatus } from '@/lib/types';
-
-const MAX_IMAGE_MB = 10;
-const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
-const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-
-type AssetKind = 'image' | 'banner';
 
 type DraftEvent = {
   title: string;
@@ -28,7 +24,6 @@ type DraftEvent = {
   registrationLink: string;
   category: EventCategory;
   imageUrl: string;
-  bannerImageUrl: string;
 };
 
 const categoryOptions: EventCategory[] = [
@@ -58,7 +53,6 @@ const emptyDraft: DraftEvent = {
   registrationLink: '',
   category: 'Conference',
   imageUrl: '',
-  bannerImageUrl: '',
 };
 
 function deriveStatus(dateStr: string, now = new Date()): EventStatus {
@@ -116,7 +110,6 @@ function toEventPayload(event: EventData, overrides?: Partial<EventPayload>): Ev
     speaker: event.speaker,
     contactPhone: event.contactPhone,
     image: event.image,
-    bannerImage: event.bannerImage,
     attendees: event.attendees,
     ...overrides,
   };
@@ -131,8 +124,6 @@ function EventPage() {
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [bannerFile, setBannerFile] = useState<File | null>(null);
-  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
 
   const grouped = useMemo(() => {
     return events.reduce(
@@ -146,12 +137,7 @@ function EventPage() {
   }, [events]);
 
   const previewStatus = useMemo(() => deriveStatus(draft.date), [draft.date]);
-  const previewMedia =
-    bannerPreview ||
-    draft.bannerImageUrl.trim() ||
-    imagePreview ||
-    draft.imageUrl.trim() ||
-    '';
+  const previewMedia = imagePreview || draft.imageUrl.trim() || '';
 
   const loadEvents = useCallback(async () => {
     try {
@@ -174,78 +160,26 @@ function EventPage() {
   useEffect(() => {
     return () => {
       if (imagePreview) URL.revokeObjectURL(imagePreview);
-      if (bannerPreview) URL.revokeObjectURL(bannerPreview);
     };
-  }, [imagePreview, bannerPreview]);
+  }, [imagePreview]);
 
   const resetDraft = () => {
     setDraft(emptyDraft);
     setImageFile(null);
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImagePreview(null);
-    setBannerFile(null);
-    if (bannerPreview) URL.revokeObjectURL(bannerPreview);
-    setBannerPreview(null);
   };
 
-  const handleMediaFile = (kind: AssetKind, file?: File) => {
-    if (!file) return;
+  const handleImageFile = (file: File | null) => {
+    setImageFile(file);
 
-    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-      toast.error('Image must be JPEG, PNG, or WebP.');
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    if (!file) {
+      setImagePreview(null);
       return;
     }
 
-    if (file.size > MAX_IMAGE_BYTES) {
-      toast.error(`Image must be ${MAX_IMAGE_MB}MB or smaller.`);
-      return;
-    }
-
-    const preview = URL.createObjectURL(file);
-
-    if (kind === 'image') {
-      setImageFile(file);
-      if (imagePreview) URL.revokeObjectURL(imagePreview);
-      setImagePreview(preview);
-      return;
-    }
-
-    setBannerFile(file);
-    if (bannerPreview) URL.revokeObjectURL(bannerPreview);
-    setBannerPreview(preview);
-  };
-
-  const uploadViaPresign = async (
-    file: File,
-    eventID: string,
-    kind: AssetKind
-  ): Promise<string> => {
-    const presign = await apiClient.createUploadPresign({
-      contentType: file.type,
-      sizeBytes: file.size,
-      ownerType: 'event',
-      ownerId: eventID,
-      kind,
-      folder: `events/${kind}`,
-    });
-
-    const putRes = await fetch(presign.uploadUrl, {
-      method: 'PUT',
-      body: file,
-      headers: {
-        'Content-Type': file.type,
-      },
-    });
-
-    if (!putRes.ok) {
-      throw new Error(`Failed to upload ${kind} to storage`);
-    }
-
-    if (presign.assetId) {
-      await apiClient.completeUploadAsset(presign.assetId);
-    }
-
-    return presign.publicUrl;
+    setImagePreview(URL.createObjectURL(file));
   };
 
   const handleCreate = async () => {
@@ -276,12 +210,6 @@ function EventPage() {
       return;
     }
 
-    const bannerUrl = draft.bannerImageUrl.trim();
-    if (bannerUrl && !isValidHttpURL(bannerUrl)) {
-      toast.error('Banner URL must be a valid http(s) URL.');
-      return;
-    }
-
     const createPayload: EventPayload = {
       title: draft.title.trim(),
       shortDescription: draft.shortDescription.trim(),
@@ -295,7 +223,6 @@ function EventPage() {
       tags: [],
       registerLink: registerLink || undefined,
       image: imageUrl || undefined,
-      bannerImage: bannerUrl || undefined,
     };
 
     try {
@@ -303,25 +230,26 @@ function EventPage() {
 
       let created = await apiClient.createEvent(createPayload);
       let uploadedImageURL = createPayload.image;
-      let uploadedBannerURL = createPayload.bannerImage;
 
       if (imageFile) {
-        uploadedImageURL = await uploadViaPresign(imageFile, created.id, 'image');
+        const uploaded = await uploadAsset(imageFile, {
+          kind: 'image',
+          module: 'events',
+          ownerType: 'event',
+          ownerId: created.id,
+          folder: `events/${created.id}/images`,
+        });
+        uploadedImageURL = uploaded.publicUrl || uploaded.url;
       }
 
-      if (bannerFile) {
-        uploadedBannerURL = await uploadViaPresign(bannerFile, created.id, 'banner');
-      }
-
-      const hasAssetUpdates =
-        uploadedImageURL !== created.image || uploadedBannerURL !== created.bannerImage;
+      const hasAssetUpdates = uploadedImageURL !== created.image;
 
       if (hasAssetUpdates) {
         created = await apiClient.updateEvent(
           created.id,
           toEventPayload(created, {
             image: uploadedImageURL,
-            bannerImage: uploadedBannerURL,
+            bannerImage: undefined,
           })
         );
       }
@@ -468,27 +396,10 @@ function EventPage() {
               placeholder="https://..."
             />
 
-            <Input
-              label="Banner URL (optional)"
-              value={draft.bannerImageUrl}
-              onChange={(e) => setDraft((d) => ({ ...d, bannerImageUrl: e.target.value }))}
-              placeholder="https://..."
-            />
-
-            <Input
-              label="Upload image"
-              type="file"
-              accept={ACCEPTED_IMAGE_TYPES.join(',')}
-              onChange={(e) => handleMediaFile('image', e.target.files?.[0])}
-              helperText={`JPEG/PNG/WebP up to ${MAX_IMAGE_MB}MB.`}
-            />
-
-            <Input
-              label="Upload banner"
-              type="file"
-              accept={ACCEPTED_IMAGE_TYPES.join(',')}
-              onChange={(e) => handleMediaFile('banner', e.target.files?.[0])}
-              helperText={`JPEG/PNG/WebP up to ${MAX_IMAGE_MB}MB.`}
+            <MediaUploadField
+              field={{ key: 'image', label: 'Event image', type: 'image', validation: { max: 10 } }}
+              value={imageFile}
+              onChange={handleImageFile}
             />
 
             <label className="md:col-span-2 flex flex-col gap-1 text-sm text-[var(--color-text-secondary)]">
@@ -519,7 +430,7 @@ function EventPage() {
                 />
               ) : (
                 <div className="flex h-48 items-center justify-center text-sm text-[var(--color-text-tertiary)]">
-                  Upload image/banner to preview the event card
+                  Upload image to preview the event card
                 </div>
               )}
 

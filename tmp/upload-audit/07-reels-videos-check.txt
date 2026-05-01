@@ -1,0 +1,75 @@
+src/components/Navbar.tsx:128:                placeholder="Search events, members, reels..."
+src/components/Sidebar.tsx:34:  { href: '/dashboard/reels', label: 'Reels', icon: Video, description: 'Video content management' },
+src/app/page.tsx:21:        const decoded = Buffer.from(payload, 'base64url').toString('utf8');
+src/app/forms/[slug]/PublicFormClient.tsx:16://import { uploadAsset, assetUrl } from '@/lib/uploadAssets';
+src/app/forms/[slug]/PublicFormClient.tsx:17:import { uploadAsset, assetUrl } from '@/lib/uploads';
+src/app/forms/[slug]/PublicFormClient.tsx:21:   - Uploads file and data:base64 values before submit.
+src/app/forms/[slug]/PublicFormClient.tsx:22:   - Stores bucket public URLs in values instead of raw base64.
+src/app/forms/[slug]/PublicFormClient.tsx:44:const DATA_URL_RE = /^data:([^;,]+);base64,/i;
+src/app/forms/[slug]/PublicFormClient.tsx:320:  if (/\b(image|photo|picture|passport|headshot|avatar|banner|thumbnail)\b/.test(hay)) return 'image';
+src/app/forms/[slug]/PublicFormClient.tsx:321:  if (/\b(video|reel|mp4|mov|webm)\b/.test(hay)) return 'video';
+src/app/forms/[slug]/PublicFormClient.tsx:379:    const uploaded = await uploadAsset(file, {
+src/app/forms/[slug]/PublicFormClient.tsx:1541:      const uploaded = await uploadAsset(file, {
+src/app/dashboard/reels/page.tsx:1:// src/app/(dashboard)/reels/page.tsx
+src/app/dashboard/reels/page.tsx:34:  const [reels, setReels] = useState<ReelData[]>([]);
+src/app/dashboard/reels/page.tsx:46:  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+src/app/dashboard/reels/page.tsx:47:  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+src/app/dashboard/reels/page.tsx:56:      toast.error('Failed to load reels');
+src/app/dashboard/reels/page.tsx:70:      if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview);
+src/app/dashboard/reels/page.tsx:72:  }, [videoPreview, thumbnailPreview]);
+src/app/dashboard/reels/page.tsx:80:    if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview);
+src/app/dashboard/reels/page.tsx:124:      if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview);
+src/app/dashboard/reels/page.tsx:134:    if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview);
+src/app/dashboard/reels/page.tsx:151:  const requestDelete = (reel: ReelData) => {
+src/app/dashboard/reels/page.tsx:152:    setDeleteTarget(reel);
+src/app/dashboard/reels/page.tsx:164:      toast.error('Failed to delete reel');
+src/app/dashboard/reels/page.tsx:189:    if (!videoFile || !thumbnailFile) {
+src/app/dashboard/reels/page.tsx:190:      toast.error('Please select a video and a thumbnail.');
+src/app/dashboard/reels/page.tsx:203:          folder: 'reels/videos',
+src/app/dashboard/reels/page.tsx:206:          filename: thumbnailFile.name,
+src/app/dashboard/reels/page.tsx:207:          contentType: thumbnailFile.type,
+src/app/dashboard/reels/page.tsx:208:          sizeBytes: thumbnailFile.size,
+src/app/dashboard/reels/page.tsx:209:          kind: 'thumbnail',
+src/app/dashboard/reels/page.tsx:210:          folder: 'reels/thumbnails',
+src/app/dashboard/reels/page.tsx:217:        uploadToPresignedUrl(thumbPresign.uploadUrl, thumbnailFile),
+src/app/dashboard/reels/page.tsx:233:        videoUrl: videoPresign.publicUrl,
+src/app/dashboard/reels/page.tsx:234:        thumbnail: thumbPresign.publicUrl,
+src/app/dashboard/reels/page.tsx:244:      toast.error('Failed to upload reel');
+src/app/dashboard/reels/page.tsx:253:      key: 'thumbnail' as keyof ReelData,
+src/app/dashboard/reels/page.tsx:255:      cell: (reel: ReelData) => (
+src/app/dashboard/reels/page.tsx:258:            src={reel.thumbnail}
+src/app/dashboard/reels/page.tsx:259:            alt={reel.title}
+src/app/dashboard/reels/page.tsx:274:      cell: (reel: ReelData) => (
+src/app/dashboard/reels/page.tsx:276:          <div className="font-medium text-secondary-900">{reel.title}</div>
+src/app/dashboard/reels/page.tsx:278:            {new Date(reel.createdAt).toLocaleDateString()}
+src/app/dashboard/reels/page.tsx:290:      cell: (reel: ReelData) => (
+src/app/dashboard/reels/page.tsx:292:          {new Date(reel.createdAt).toLocaleDateString()}
+src/app/dashboard/reels/page.tsx:302:        subtitle="Manage video highlights and reels."
+src/app/dashboard/reels/page.tsx:312:        data={reels}
+src/app/dashboard/reels/page.tsx:360:                {thumbnailPreview && (
+src/app/dashboard/reels/page.tsx:362:                    src={thumbnailPreview}
+src/app/dashboard/reels/page.tsx:401:        description="This action permanently removes the reel and its media references."
+src/lib/uploads.ts:73:    /\b(image|photo|picture|avatar|passport|headshot|thumbnail|banner)\b/.test(haystack)
+src/lib/uploads.ts:80:    /\b(video|mp4|mov|webm|reel|clip)\b/.test(haystack)
+src/lib/uploads.ts:205:export async function uploadAsset(
+src/lib/uploads.ts:244:export async function uploadAndReturnUrl(
+src/lib/uploads.ts:248:  const uploaded = await uploadAsset(file, options);
+src/lib/api.ts:17:  CreateReelData,
+src/lib/api.ts:1583:    const res = await apiFetch(`/admin/reels${qs}`, { method: 'GET' });
+src/lib/api.ts:1584:    return unwrapSimplePaginated<ReelData>(res, 'Invalid reels payload');
+src/lib/api.ts:1587:  async createReel(payload: CreateReelData): Promise<ReelData> {
+src/lib/api.ts:1588:    const res = await apiFetch<{ data: ReelData }>('/admin/reels', {
+src/lib/api.ts:1592:    return unwrapData<ReelData>(res, 'Invalid reel payload');
+src/lib/api.ts:1596:    return apiFetch(`/admin/reels/${encodeURIComponent(id)}`, {
+src/lib/api.ts:1632:  async uploadAsset(
+src/lib/prepareUploadPayload.ts:4:  uploadAsset,
+src/lib/prepareUploadPayload.ts:44:const DATA_URL_RE = /^data:([^;,]+);base64,/i;
+src/lib/prepareUploadPayload.ts:89:  if (/\b(image|photo|picture|passport|headshot|avatar|banner|thumbnail)\b/.test(hay)) {
+src/lib/prepareUploadPayload.ts:93:  if (/\b(video|reel|mp4|mov|webm|clip)\b/.test(hay)) {
+src/lib/prepareUploadPayload.ts:221:      const uploaded = await uploadAsset(value, {
+src/lib/prepareUploadPayload.ts:246:      const uploaded = await uploadAsset(file, {
+src/lib/types.ts:216:  thumbnail: string;
+src/lib/types.ts:217:  videoUrl: string;
+src/lib/types.ts:224:export interface CreateReelData {
+src/lib/types.ts:226:  thumbnail: string;
+src/lib/types.ts:227:  videoUrl: string;

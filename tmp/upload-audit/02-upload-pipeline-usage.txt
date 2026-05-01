@@ -1,0 +1,24 @@
+src/components/MediaUploadField.tsx:8:} from '@/lib/prepareUploadPayload';
+src/components/MediaUploadField.tsx:9:import type { UploadKind } from '@/lib/uploads';
+src/components/MediaUploadField.tsx:11:type MediaUploadFieldProps = {
+src/components/MediaUploadField.tsx:104:export default function MediaUploadField({
+src/components/MediaUploadField.tsx:112:}: MediaUploadFieldProps) {
+src/app/forms/[slug]/PublicFormClient.tsx:16://import { uploadAsset, assetUrl } from '@/lib/uploadAssets';
+src/app/forms/[slug]/PublicFormClient.tsx:17:import { uploadAsset, assetUrl } from '@/lib/uploads';
+src/app/forms/[slug]/PublicFormClient.tsx:379:    const uploaded = await uploadAsset(file, {
+src/app/forms/[slug]/PublicFormClient.tsx:1541:      const uploaded = await uploadAsset(file, {
+src/lib/uploads.ts:205:export async function uploadAsset(
+src/lib/uploads.ts:220:  const response = await fetch(apiUrl('/api/v1/uploads'), {
+src/lib/uploads.ts:244:export async function uploadAndReturnUrl(
+src/lib/uploads.ts:248:  const uploaded = await uploadAsset(file, options);
+src/lib/api.ts:1609:      '/admin/uploads/presign',
+src/lib/api.ts:1623:      `/admin/uploads/${encodeURIComponent(assetId)}/complete`,
+src/lib/api.ts:1632:  async uploadAsset(
+src/lib/api.ts:1651:      '/uploads',
+src/lib/api.ts:1667:      '/uploads/images',
+src/lib/api.ts:1682:      '/admin/uploads/images',
+src/lib/prepareUploadPayload.ts:4:  uploadAsset,
+src/lib/prepareUploadPayload.ts:7:} from '@/lib/uploads';
+src/lib/prepareUploadPayload.ts:197:export async function prepareUploadPayload({
+src/lib/prepareUploadPayload.ts:221:      const uploaded = await uploadAsset(value, {
+src/lib/prepareUploadPayload.ts:246:      const uploaded = await uploadAsset(file, {
