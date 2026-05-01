@@ -3,7 +3,6 @@ import {
   inferUploadKind,
   uploadAsset,
   type UploadKind,
-  type UploadedAsset,
 } from '@/lib/uploads';
 import type { UploadedFormAssetValue, SubmittedFormValue } from '@/lib/types';
 
@@ -144,27 +143,6 @@ function folderForUpload(
   const kindFolder = `${kind}s`;
 
   return `${prefix}/${slug}/${kindFolder}`;
-}
-
-function toUploadedFormAssetValue(uploaded: UploadedAsset): UploadedFormAssetValue {
-  return {
-    id: uploaded.id,
-    assetId: uploaded.assetId,
-    url: uploaded.url,
-    publicUrl: uploaded.publicUrl,
-    public_url: uploaded.public_url,
-    key: uploaded.key,
-    objectKey: uploaded.objectKey,
-    kind: uploaded.kind,
-    contentType: uploaded.contentType,
-    mimeType: uploaded.mimeType,
-    sizeBytes: uploaded.sizeBytes,
-    originalName: uploaded.originalName,
-    provider: uploaded.provider,
-    bucket: uploaded.bucket,
-    checksum: uploaded.checksum,
-    status: uploaded.status,
-  };
 }
 
 function shouldAddImageAliases(key: string): boolean {
