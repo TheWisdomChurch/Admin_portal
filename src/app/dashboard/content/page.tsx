@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import {
   RefreshCw,
   Save,
@@ -15,6 +16,8 @@ import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/layouts';
 import apiClient from '@/lib/api';
+import MediaUploadField from '@/components/MediaUploadField';
+import { uploadAsset } from '@/lib/uploads';
 import type {
   ConfessionPopupContent,
   EmailTemplate,
@@ -159,6 +162,8 @@ export default function ContentPage() {
   const [loading, setLoading] = useState(false);
   const [savingAd, setSavingAd] = useState(false);
   const [savingConfession, setSavingConfession] = useState(false);
+  const [homepageAdImageFile, setHomepageAdImageFile] = useState<File | null>(null);
+  const [homepageAdImagePreview, setHomepageAdImagePreview] = useState<string | null>(null);
   const [templateStatus, setTemplateStatus] = useState<Record<string, TemplateStatus>>({});
   const [syncingTemplates, setSyncingTemplates] = useState(false);
   const [templateBusyKey, setTemplateBusyKey] = useState<string | null>(null);
@@ -191,12 +196,43 @@ export default function ContentPage() {
     void loadContent();
   }, [loadContent]);
 
+  useEffect(() => {
+    return () => {
+      if (homepageAdImagePreview) URL.revokeObjectURL(homepageAdImagePreview);
+    };
+  }, [homepageAdImagePreview]);
+
+  const handleHomepageAdImageFile = (file: File | null) => {
+    setHomepageAdImageFile(file);
+    if (homepageAdImagePreview) URL.revokeObjectURL(homepageAdImagePreview);
+    setHomepageAdImagePreview(file ? URL.createObjectURL(file) : null);
+  };
+
   const saveHomepageAd = async () => {
     setSavingAd(true);
 
     try {
-      const saved = await apiClient.updateHomepageAdContent(homepageAd);
+      let image = homepageAd.image.trim();
+
+      if (homepageAdImageFile) {
+        const uploaded = await uploadAsset(homepageAdImageFile, {
+          kind: 'image',
+          module: 'content',
+          ownerType: 'homepage-ad',
+          ownerId: homepageAd.id,
+          folder: `content/homepage-ads/${homepageAd.id}/images`,
+        });
+        image = uploaded.publicUrl || uploaded.url;
+      }
+
+      const saved = await apiClient.updateHomepageAdContent({
+        ...homepageAd,
+        image,
+      });
       setHomepageAd(saved);
+      setHomepageAdImageFile(null);
+      if (homepageAdImagePreview) URL.revokeObjectURL(homepageAdImagePreview);
+      setHomepageAdImagePreview(null);
       toast.success('Homepage ad updated');
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Failed to save homepage ad'));
@@ -361,6 +397,23 @@ export default function ContentPage() {
             value={homepageAd.image}
             onChange={(v) => setHomepageAd((s) => ({ ...s, image: v }))}
           />
+          <div className="space-y-3">
+            <MediaUploadField
+              field={{ key: 'image', label: 'Homepage ad image', type: 'image', validation: { max: 10 } }}
+              value={homepageAdImageFile}
+              onChange={handleHomepageAdImageFile}
+            />
+            {(homepageAdImagePreview || homepageAd.image.trim()) && (
+              <Image
+                src={homepageAdImagePreview || homepageAd.image.trim()}
+                alt="Homepage ad image preview"
+                width={960}
+                height={540}
+                className="h-40 w-full rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] object-cover"
+                unoptimized
+              />
+            )}
+          </div>
           <Field
             label="Register URL"
             value={homepageAd.registerUrl}

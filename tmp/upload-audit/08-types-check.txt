@@ -1,0 +1,39 @@
+src/app/page.tsx:21:        const decoded = Buffer.from(payload, 'base64url').toString('utf8');
+src/app/forms/[slug]/PublicFormClient.tsx:11:import type { PublicFormPayload, FormField, UploadedFormAssetValue, SubmittedFormValue } from '@/lib/types';
+src/app/forms/[slug]/PublicFormClient.tsx:21:   - Uploads file and data:base64 values before submit.
+src/app/forms/[slug]/PublicFormClient.tsx:22:   - Stores bucket public URLs in values instead of raw base64.
+src/app/forms/[slug]/PublicFormClient.tsx:32:  | UploadedFormAssetValue
+src/app/forms/[slug]/PublicFormClient.tsx:42:type SubmittedPublicSubmissionValues = Record<string, SubmittedFormValue>;
+src/app/forms/[slug]/PublicFormClient.tsx:44:const DATA_URL_RE = /^data:([^;,]+);base64,/i;
+src/app/forms/[slug]/PublicFormClient.tsx:65:function toUploadedAssetValue(payload: unknown): UploadedFormAssetValue | null {
+src/lib/api.ts:57:  UploadImageResponse,
+src/lib/api.ts:841:function normalizeUploadImageResponse(
+src/lib/api.ts:842:  raw: UploadImageResponse
+src/lib/api.ts:843:): UploadImageResponse {
+src/lib/api.ts:844:  const record = raw as UploadImageResponse & {
+src/lib/api.ts:877:function unwrapUploadImageResponse(
+src/lib/api.ts:880:): UploadImageResponse {
+src/lib/api.ts:881:  return normalizeUploadImageResponse(
+src/lib/api.ts:882:    unwrapData<UploadImageResponse>(res, errorMessage)
+src/lib/api.ts:1641:  ): Promise<UploadImageResponse> {
+src/lib/api.ts:1650:    const res = await uploadFetch<{ data: UploadImageResponse }>(
+src/lib/api.ts:1655:    return unwrapUploadImageResponse(res, 'Invalid upload asset payload');
+src/lib/api.ts:1658:  async uploadPublicLeadershipImage(file: File): Promise<UploadImageResponse> {
+src/lib/api.ts:1666:    const res = await uploadFetch<{ data: UploadImageResponse }>(
+src/lib/api.ts:1674:    return unwrapData<UploadImageResponse>(res, 'Invalid public image upload payload');
+src/lib/api.ts:1677:  async uploadImage(file: File, folder = 'uploads'): Promise<UploadImageResponse> {
+src/lib/api.ts:1681:    const res = await uploadFetch<{ data: UploadImageResponse }>(
+src/lib/api.ts:1688:    return unwrapUploadImageResponse(res, 'Invalid image upload payload');
+src/lib/prepareUploadPayload.ts:8:import type { UploadedFormAssetValue, SubmittedFormValue } from '@/lib/types';
+src/lib/prepareUploadPayload.ts:25:  | UploadedFormAssetValue
+src/lib/prepareUploadPayload.ts:31:export type SubmittedValues = Record<string, SubmittedFormValue>;
+src/lib/prepareUploadPayload.ts:44:const DATA_URL_RE = /^data:([^;,]+);base64,/i;
+src/lib/prepareUploadPayload.ts:149:function toUploadedFormAssetValue(uploaded: UploadedAsset): UploadedFormAssetValue {
+src/lib/prepareUploadPayload.ts:274:        output[key] = value as UploadedFormAssetValue;
+src/lib/types.ts:270:export interface UploadImageResponse {
+src/lib/types.ts:654:export type UploadedFormAssetValue = {
+src/lib/types.ts:673:export type SubmittedFormValue =
+src/lib/types.ts:678:  | UploadedFormAssetValue
+src/lib/types.ts:681:  values: Record<string, SubmittedFormValue>;
+src/lib/types.ts:692:  values: Record<string, SubmittedFormValue>;
+src/lib/types.ts:717:  values: Record<string, SubmittedFormValue>;

@@ -1,0 +1,121 @@
+src/components/ImageUpload.tsx:69:          type="file"
+src/components/ImageUpload.tsx:71:          accept={Object.values(accept).flat().join(',')}
+src/components/MediaUploadField.tsx:123:        type="file"
+src/components/MediaUploadField.tsx:124:        accept={getUploadAccept(kind)}
+src/app/(auth)/login/page.tsx:44:type LoginFormData = LoginFormSchema;
+src/app/(auth)/login/page.tsx:97:  const [pendingLogin, setPendingLogin] = useState<LoginFormData | null>(null);
+src/app/(auth)/login/page.tsx:136:  } = useForm<LoginFormData>({
+src/app/(auth)/login/page.tsx:163:  const onSubmit: SubmitHandler<LoginFormData> = async (data: LoginFormData) => {
+src/app/(auth)/login/page.tsx:211:        (Object.entries(fieldErrors) as Array<[keyof LoginFormData, string]>).forEach(
+src/app/(auth)/login/page.tsx:588:                render={({ field }: { field: ControllerRenderProps<LoginFormData, 'rememberMe'> }) => (
+src/app/(auth)/register/page.tsx:22:type RegisterFormData = RegisterFormSchema;
+src/app/(auth)/register/page.tsx:38:  } = useForm<RegisterFormData>({
+src/app/(auth)/register/page.tsx:54:  const onSubmit: SubmitHandler<RegisterFormData> = async (formData: RegisterFormData) => {
+src/app/(auth)/register/page.tsx:86:      const fieldMap: Record<string, keyof RegisterFormData> = {
+src/app/(auth)/register/page.tsx:91:      const allowedFields: Array<keyof RegisterFormData> = [
+src/app/(auth)/register/page.tsx:102:        const target = fieldMap[field] ?? (field as keyof RegisterFormData);
+src/app/(auth)/register/page.tsx:332:              render={({ field }: { field: ControllerRenderProps<RegisterFormData, 'rememberMe'> }) => (
+src/app/(auth)/passwordreset/page.tsx:21:type ResetFormData = {
+src/app/(auth)/passwordreset/page.tsx:55:  } = useForm<ResetFormData>({
+src/app/(auth)/passwordreset/page.tsx:139:  const onSubmit: SubmitHandler<ResetFormData> = async (data: ResetFormData) => {
+src/app/(auth)/passwordreset/page.tsx:165:      const mapped: Record<string, keyof ResetFormData> = {
+src/app/forms/[slug]/PublicFormClient.tsx:865:          type="file"
+src/app/forms/[slug]/PublicFormClient.tsx:866:          accept={getUploadAccept(kind)}
+src/app/forms/[slug]/PublicFormClient.tsx:1589:    await apiClient.submitPublicForm(slug, {
+src/app/dashboard/forms/page.tsx:1618:                    type="file"
+src/app/dashboard/forms/page.tsx:1619:                    accept="image/*"
+src/app/dashboard/forms/new/page.tsx:614:        const uploaded = await apiClient.uploadImage(responseTemplateFile, 'email_template');
+src/app/dashboard/forms/new/page.tsx:925:              type="file"
+src/app/dashboard/forms/new/page.tsx:926:              accept="image/*"
+src/app/dashboard/forms/new/page.tsx:1064:                type="file"
+src/app/dashboard/forms/new/page.tsx:1065:                accept="image/*"
+src/app/dashboard/forms/new/page.tsx:1475:                      type="file"
+src/app/dashboard/forms/new/page.tsx:1476:                      accept="image/jpeg,image/png,image/webp"
+src/app/dashboard/forms/[id]/campaigns/page.tsx:864:        const uploaded = await apiClient.uploadImage(logoFile, 'email_template');
+src/app/dashboard/forms/[id]/campaigns/page.tsx:868:        const uploaded = await apiClient.uploadImage(imageFile, 'email_template');
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1546:                  type="file"
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1547:                  accept="image/*"
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1560:                  type="file"
+src/app/dashboard/forms/[id]/campaigns/page.tsx:1561:                  accept="image/*"
+src/app/dashboard/forms/[id]/response-email/page.tsx:227:        const uploaded = await apiClient.uploadImage(logoFile, 'email_template');
+src/app/dashboard/forms/[id]/response-email/page.tsx:231:        const uploaded = await apiClient.uploadImage(imageFile, 'email_template');
+src/app/dashboard/forms/[id]/response-email/page.tsx:403:                type="file"
+src/app/dashboard/forms/[id]/response-email/page.tsx:404:                accept="image/*"
+src/app/dashboard/forms/[id]/response-email/page.tsx:413:                type="file"
+src/app/dashboard/forms/[id]/response-email/page.tsx:414:                accept="image/*"
+src/app/dashboard/forms/[id]/edit/page.tsx:990:              type="file"
+src/app/dashboard/forms/[id]/edit/page.tsx:991:              accept="image/*"
+src/app/dashboard/testimonials/page.tsx:321:      await apiClient.updateTestimonial(editTarget.id, {
+src/app/dashboard/reels/page.tsx:238:      await apiClient.createReel(payload);
+src/app/dashboard/reels/page.tsx:340:                  type="file"
+src/app/dashboard/reels/page.tsx:341:                  accept={ACCEPTED_VIDEO_TYPES.join(',')}
+src/app/dashboard/reels/page.tsx:355:                  type="file"
+src/app/dashboard/reels/page.tsx:356:                  accept={ACCEPTED_THUMB_TYPES.join(',')}
+src/app/dashboard/settings/page.tsx:27:interface ProfileFormData {
+src/app/dashboard/settings/page.tsx:32:interface PasswordFormData {
+src/app/dashboard/settings/page.tsx:71:  const [profileFormData, setProfileFormData] = useState<ProfileFormData>({
+src/app/dashboard/settings/page.tsx:77:  const [passwordFormData, setPasswordFormData] = useState<PasswordFormData>({
+src/app/dashboard/settings/page.tsx:95:      setProfileFormData({
+src/app/dashboard/settings/page.tsx:241:    setOtpEmail(profileFormData.email || auth.user?.email || '');
+src/app/dashboard/settings/page.tsx:248:        first_name: profileFormData.username,
+src/app/dashboard/settings/page.tsx:249:        email: profileFormData.email,
+src/app/dashboard/settings/page.tsx:256:      setProfileFormData({
+src/app/dashboard/settings/page.tsx:285:    setOtpEmail(auth.user?.email || profileFormData.email || '');
+src/app/dashboard/settings/page.tsx:292:        passwordFormData.currentPassword,
+src/app/dashboard/settings/page.tsx:293:        passwordFormData.newPassword,
+src/app/dashboard/settings/page.tsx:295:          currentPassword: passwordFormData.currentPassword,
+src/app/dashboard/settings/page.tsx:296:          newPassword: passwordFormData.newPassword,
+src/app/dashboard/settings/page.tsx:297:          confirmPassword: passwordFormData.confirmPassword,
+src/app/dashboard/settings/page.tsx:302:      setPasswordFormData({
+src/app/dashboard/settings/page.tsx:381:    setProfileFormData({
+src/app/dashboard/settings/page.tsx:382:      ...profileFormData,
+src/app/dashboard/settings/page.tsx:395:    setPasswordFormData({
+src/app/dashboard/settings/page.tsx:396:      ...passwordFormData,
+src/app/dashboard/settings/page.tsx:498:                    value={profileFormData.username}
+src/app/dashboard/settings/page.tsx:509:                    value={profileFormData.email}
+src/app/dashboard/settings/page.tsx:563:                    value={passwordFormData.currentPassword}
+src/app/dashboard/settings/page.tsx:573:                    value={passwordFormData.newPassword}
+src/app/dashboard/settings/page.tsx:578:                  <PasswordStrengthMeter password={passwordFormData.newPassword} />
+src/app/dashboard/settings/page.tsx:584:                    value={passwordFormData.confirmPassword}
+src/app/dashboard/event/page.tsx:304:      let created = await apiClient.createEvent(createPayload);
+src/app/dashboard/event/page.tsx:320:        created = await apiClient.updateEvent(
+src/app/dashboard/event/page.tsx:480:              type="file"
+src/app/dashboard/event/page.tsx:481:              accept={ACCEPTED_IMAGE_TYPES.join(',')}
+src/app/dashboard/event/page.tsx:488:              type="file"
+src/app/dashboard/event/page.tsx:489:              accept={ACCEPTED_IMAGE_TYPES.join(',')}
+src/lib/uploads.ts:211:  const form = new FormData();
+src/lib/uploads.ts:212:  form.append('file', file);
+src/lib/api.ts:689:  const isFormData =
+src/lib/api.ts:690:    typeof FormData !== 'undefined' && options.body instanceof FormData;
+src/lib/api.ts:693:    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+src/lib/api.ts:761:  const isFormData =
+src/lib/api.ts:762:    typeof FormData !== 'undefined' && options.body instanceof FormData;
+src/lib/api.ts:765:    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+src/lib/api.ts:833:  form: FormData,
+src/lib/api.ts:1427:  async createTestimonial(data: CreateTestimonialData): Promise<Testimonial> {
+src/lib/api.ts:1435:  async updateTestimonial(
+src/lib/api.ts:1522:  async createEvent(data: EventPayload): Promise<EventData> {
+src/lib/api.ts:1530:  async updateEvent(id: string, data: EventPayload): Promise<EventData> {
+src/lib/api.ts:1553:  async uploadEventImage(id: string, file: File): Promise<EventData> {
+src/lib/api.ts:1554:    const form = new FormData();
+src/lib/api.ts:1555:    form.append('file', file);
+src/lib/api.ts:1566:  async uploadEventBanner(id: string, file: File): Promise<EventData> {
+src/lib/api.ts:1567:    const form = new FormData();
+src/lib/api.ts:1568:    form.append('file', file);
+src/lib/api.ts:1587:  async createReel(payload: CreateReelData): Promise<ReelData> {
+src/lib/api.ts:1642:    const form = new FormData();
+src/lib/api.ts:1643:    form.append('file', file);
+src/lib/api.ts:1659:    const form = new FormData();
+src/lib/api.ts:1660:    form.append('file', file);
+src/lib/api.ts:1677:  async uploadImage(file: File, folder = 'uploads'): Promise<UploadImageResponse> {
+src/lib/api.ts:1678:    const form = new FormData();
+src/lib/api.ts:1679:    form.append('file', file);
+src/lib/api.ts:1809:    const form = new FormData();
+src/lib/api.ts:1810:    form.append('file', file);
+src/lib/api.ts:1989:    async submitPublicForm(
+src/hooks/useApi.ts:40:  const createTestimonial = useCallback(
+src/hooks/useApi.ts:41:    (data: CreateTestimonialData) => request(() => apiClient.createTestimonial(data)),
+src/hooks/useApi.ts:46:  const updateTestimonial = useCallback(
+src/hooks/useApi.ts:47:    (id: string, data: UpdateTestimonialData) => request(() => apiClient.updateTestimonial(id, data)),
+src/hooks/useApi.ts:67:    createTestimonial,
+src/hooks/useApi.ts:68:    updateTestimonial,

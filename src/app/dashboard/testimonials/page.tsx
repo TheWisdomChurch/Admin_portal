@@ -2,6 +2,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { MessageSquareText, UserPlus, CheckCircle2, Clock, Pencil, Trash2, Copy, Link2 } from 'lucide-react';
@@ -12,6 +13,8 @@ import { Input } from '@/ui/input';
 import { VerifyActionModal } from '@/ui/VerifyActionModal';
 import { GridLayout, PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
+import MediaUploadField from '@/components/MediaUploadField';
+import { uploadAsset } from '@/lib/uploads';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { useAuthContext } from '@/providers/AuthProviders';
 import type { AdminForm, Testimonial } from '@/lib/types';
@@ -183,6 +186,8 @@ export default function TestimonialsPage() {
     imageUrl: '',
     isAnonymous: false,
   });
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Testimonial | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -231,6 +236,12 @@ export default function TestimonialsPage() {
   useEffect(() => {
     loadTestimonialForms();
   }, [loadTestimonialForms]);
+
+  useEffect(() => {
+    return () => {
+      if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+    };
+  }, [editImagePreview]);
 
   const monthlySummary = useMemo(() => {
     const bucket = new Map<string, { month: string; total: number; approved: number; pending: number }>();
@@ -304,7 +315,10 @@ export default function TestimonialsPage() {
   };
 
   const openEdit = (item: Testimonial) => {
+    if (editImagePreview) URL.revokeObjectURL(editImagePreview);
     setEditTarget(item);
+    setEditImageFile(null);
+    setEditImagePreview(null);
     setEditDraft({
       firstName: item.firstName || '',
       lastName: item.lastName || '',
@@ -314,19 +328,61 @@ export default function TestimonialsPage() {
     });
   };
 
+  const closeEdit = () => {
+    setEditTarget(null);
+    setEditImageFile(null);
+    if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+    setEditImagePreview(null);
+  };
+
+  const handleEditImageFile = (file: File | null) => {
+    setEditImageFile(file);
+    if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+    setEditImagePreview(file ? URL.createObjectURL(file) : null);
+  };
+
+  const isValidHttpURL = (value: string): boolean => {
+    try {
+      const url = new URL(value);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
   const saveEdit = async () => {
     if (!editTarget) return;
+
+    const manualImageUrl = editDraft.imageUrl.trim();
+    if (manualImageUrl && !isValidHttpURL(manualImageUrl)) {
+      toast.error('Image URL must be a valid http(s) URL.');
+      return;
+    }
+
     try {
       setEditSaving(true);
+      let imageUrl = manualImageUrl || undefined;
+
+      if (editImageFile) {
+        const uploaded = await uploadAsset(editImageFile, {
+          kind: 'image',
+          module: 'testimonials',
+          ownerType: 'testimonial',
+          ownerId: editTarget.id,
+          folder: `testimonials/${editTarget.id}/images`,
+        });
+        imageUrl = uploaded.publicUrl || uploaded.url;
+      }
+
       await apiClient.updateTestimonial(editTarget.id, {
         firstName: editDraft.firstName.trim() || undefined,
         lastName: editDraft.lastName.trim() || undefined,
         testimony: editDraft.testimony.trim() || undefined,
-        imageUrl: editDraft.imageUrl.trim() || undefined,
+        imageUrl,
         isAnonymous: editDraft.isAnonymous,
       });
       toast.success('Testimonial updated');
-      setEditTarget(null);
+      closeEdit();
       await loadTestimonials();
     } catch (error) {
       console.error('Failed to update testimonial:', error);
@@ -567,7 +623,7 @@ export default function TestimonialsPage() {
                 <p className="text-sm text-[var(--color-text-tertiary)]">Update and republish instantly.</p>
               </div>
               <button
-                onClick={() => setEditTarget(null)}
+                onClick={closeEdit}
                 aria-label="Close"
                 className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
               >
@@ -592,6 +648,21 @@ export default function TestimonialsPage() {
                 value={editDraft.imageUrl}
                 onChange={(e) => setEditDraft({ ...editDraft, imageUrl: e.target.value })}
               />
+              <MediaUploadField
+                field={{ key: 'imageUrl', label: 'Testimonial image', type: 'image', validation: { max: 5 } }}
+                value={editImageFile}
+                onChange={handleEditImageFile}
+              />
+              {(editImagePreview || editDraft.imageUrl.trim()) && (
+                <Image
+                  src={editImagePreview || editDraft.imageUrl.trim()}
+                  alt="Testimonial image preview"
+                  width={720}
+                  height={360}
+                  className="h-40 w-full rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] object-cover"
+                  unoptimized
+                />
+              )}
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Testimony</label>
                 <textarea
@@ -611,7 +682,7 @@ export default function TestimonialsPage() {
               </label>
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setEditTarget(null)}>
+              <Button variant="ghost" onClick={closeEdit}>
                 Cancel
               </Button>
               <Button onClick={saveEdit} loading={editSaving}>

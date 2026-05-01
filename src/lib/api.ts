@@ -1677,9 +1677,11 @@ export const apiClient = {
   async uploadImage(file: File, folder = 'uploads'): Promise<UploadImageResponse> {
     const form = new FormData();
     form.append('file', file);
+    form.append('kind', 'image');
+    form.append('module', 'admin');
     form.append('folder', folder);
     const res = await uploadFetch<{ data: UploadImageResponse }>(
-      '/admin/uploads/images',
+      '/uploads',
       {
         method: 'POST',
         body: form,
@@ -1986,15 +1988,27 @@ export const apiClient = {
     return unwrapData<PublicFormPayload>(res, 'Invalid public form payload');
   },
 
-  async submitPublicForm(
+    async submitPublicForm(
     slug: string,
-    payload: SubmitFormRequest | FormData
+    body: SubmitFormRequest
   ): Promise<MessageResponse> {
-    const body = payload instanceof FormData ? payload : JSON.stringify(payload);
-    return apiFetch(`/forms/${encodeURIComponent(slug)}/submissions`, {
-      method: 'POST',
-      body,
-    });
+    const res = await apiFetch<ApiResponse<unknown>>(
+      `/forms/${encodeURIComponent(slug)}/submissions`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          values: body.values,
+        }),
+      }
+    );
+
+    return {
+      status: res.status,
+      message: res.message || 'Registration submitted',
+      data: res.data,
+      statusCode: res.statusCode,
+      success: true,
+    };
   },
 
   async subscribe(payload: SubscribeRequest): Promise<Subscriber> {
