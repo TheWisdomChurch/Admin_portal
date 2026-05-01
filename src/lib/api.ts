@@ -883,6 +883,46 @@ function unwrapUploadImageResponse(
   );
 }
 
+const DATA_URL_VALUE_RE = /^data:([^;,]+);base64,/i;
+
+function findDataUrlValuePath(value: unknown, path = 'values'): string | null {
+  if (typeof value === 'string') {
+    return DATA_URL_VALUE_RE.test(value.trim()) ? path : null;
+  }
+
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      const match = findDataUrlValuePath(value[index], `${path}[${index}]`);
+      if (match) return match;
+    }
+
+    return null;
+  }
+
+  for (const [key, nestedValue] of Object.entries(value)) {
+    const match = findDataUrlValuePath(nestedValue, `${path}.${key}`);
+    if (match) return match;
+  }
+
+  return null;
+}
+
+function assertNoDataUrlValues(value: unknown): void {
+  const path = findDataUrlValuePath(value);
+
+  if (path) {
+    throw createApiError(
+      `Upload did not finish for ${path}. Please reselect the file and submit again.`,
+      400,
+      { field: path, code: 'data_url_upload_not_completed' }
+    );
+  }
+}
+
 async function rootFetch<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -1988,10 +2028,12 @@ export const apiClient = {
     return unwrapData<PublicFormPayload>(res, 'Invalid public form payload');
   },
 
-    async submitPublicForm(
+  async submitPublicForm(
     slug: string,
     body: SubmitFormRequest
   ): Promise<MessageResponse> {
+    assertNoDataUrlValues(body.values);
+
     const res = await apiFetch<ApiResponse<unknown>>(
       `/forms/${encodeURIComponent(slug)}/submissions`,
       {
