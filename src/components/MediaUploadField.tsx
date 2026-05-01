@@ -52,6 +52,9 @@ const ACCEPTED_UPLOAD_EXTENSIONS: Record<UploadKind, string[]> = {
   file: [],
 };
 
+const defaultInputClass =
+  'w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)]';
+
 function getUploadAccept(kind: UploadKind): string | undefined {
   const values = [
     ...ACCEPTED_UPLOAD_TYPES[kind],
@@ -104,14 +107,16 @@ export function validateMediaFile(
 export default function MediaUploadField({
   field,
   value,
-  required,
-  disabled,
+  required = false,
+  disabled = false,
   error,
   className,
   onChange,
-}: MediaUploadFieldProps) {
+}: MediaUploadFieldProps): React.ReactElement {
   const [localError, setLocalError] = useState('');
+
   const selected = value instanceof File ? value : null;
+
   const kind = selected
     ? inferUploadKindFromFile(selected, field)
     : inferUploadKindFromField(field);
@@ -119,55 +124,79 @@ export default function MediaUploadField({
   const maxMb = getUploadLimitMb(field, kind);
   const visibleError = error || localError;
 
-  return (
-    <div className="space-y-2">
-      {field.label ? (
-        <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
-          {field.label}
-        </label>
-      ) : null}
-      <input
-        type="file"
-        accept={getUploadAccept(kind)}
-        disabled={disabled}
-        required={required}
-        className={
-          className ||
-          'w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)]'
-        }
-        onChange={(event) => {
-          const file = event.target.files?.[0] || null;
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0] ?? null;
 
-          if (!file) {
-            setLocalError('');
-            onChange(null);
-            return;
-          }
+    if (!file) {
+      setLocalError('');
+      onChange(null);
+      return;
+    }
 
-          const validationError = validateMediaFile(field, file);
-          if (validationError) {
-            event.currentTarget.value = '';
-            setLocalError(validationError);
-            onChange(null);
-            return;
-          }
+    const validationError = validateMediaFile(field, file);
 
-          setLocalError('');
-          onChange(file);
-        }}
-      />
+    if (validationError) {
+      event.currentTarget.value = '';
+      setLocalError(validationError);
+      onChange(null);
+      return;
+    }
 
-      <div className="text-xs text-[var(--color-text-tertiary)]">
-        Accepted formats: {getUploadFormatLabel(kind)}. Max {maxMb}MB.
-      </div>
+    setLocalError('');
+    onChange(file);
+  };
 
-      {selected ? (
-        <div className="text-xs text-[var(--color-text-secondary)]">
-          Selected: {selected.name} ({Math.round(selected.size / 1024)} KB)
-        </div>
-      ) : null}
+  return React.createElement(
+    'div',
+    { className: 'space-y-2' },
 
-      {visibleError ? <p className="text-xs text-red-600">{visibleError}</p> : null}
-    </div>
+    field.label
+      ? React.createElement(
+          'label',
+          {
+            className:
+              'block text-sm font-medium text-[var(--color-text-secondary)]',
+          },
+          field.label,
+          required
+            ? React.createElement(
+                'span',
+                { className: 'ml-1 text-red-600' },
+                '*'
+              )
+            : null
+        )
+      : null,
+
+    React.createElement('input', {
+      type: 'file',
+      accept: getUploadAccept(kind),
+      disabled,
+      required,
+      className: className || defaultInputClass,
+      onChange: handleChange,
+    }),
+
+    React.createElement(
+      'div',
+      { className: 'text-xs text-[var(--color-text-tertiary)]' },
+      `Accepted formats: ${getUploadFormatLabel(kind)}. Max ${maxMb}MB.`
+    ),
+
+    selected
+      ? React.createElement(
+          'div',
+          { className: 'text-xs text-[var(--color-text-secondary)]' },
+          `Selected: ${selected.name} (${Math.round(selected.size / 1024)} KB)`
+        )
+      : null,
+
+    visibleError
+      ? React.createElement(
+          'p',
+          { className: 'text-xs text-red-600' },
+          visibleError
+        )
+      : null
   );
 }
