@@ -50,8 +50,16 @@ function normalizeApiOrigin(raw?: string | null): string {
 }
 
 function apiUrl(path: string): string {
+  const useProxy = process.env.NEXT_PUBLIC_API_PROXY !== 'false';
+
+  if (useProxy) {
+    return path.startsWith('/') ? path : `/${path}`;
+  }
+
   const origin = normalizeApiOrigin(
-    process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL
+    process.env.NEXT_PUBLIC_UPLOAD_BASE_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      process.env.NEXT_PUBLIC_BACKEND_URL
   );
 
   return `${origin}${path.startsWith('/') ? path : `/${path}`}`;
@@ -107,14 +115,34 @@ function unwrapUploadPayload(payload: unknown): Record<string, unknown> {
   return record;
 }
 
+export function assetUrl(value: unknown): string {
+  if (!value) return '';
+
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  if (typeof value !== 'object') {
+    return '';
+  }
+
+  const record = value as Record<string, unknown>;
+
+  return String(
+    record.publicUrl ||
+      record.public_url ||
+      record.url ||
+      record.imageUrl ||
+      record.image_url ||
+      ''
+  ).trim();
+}
+
 export function normalizeUploadedAsset(rawPayload: unknown): UploadedAsset {
   const raw = unwrapUploadPayload(rawPayload);
 
-  const publicUrl =
-    String(raw.publicUrl || raw.public_url || raw.url || '').trim();
-
-  const objectKey =
-    String(raw.objectKey || raw.key || '').trim();
+  const publicUrl = assetUrl(raw);
+  const objectKey = String(raw.objectKey || raw.object_key || raw.key || '').trim();
 
   if (!publicUrl) {
     throw new Error('Upload succeeded but no public URL was returned.');
@@ -126,7 +154,7 @@ export function normalizeUploadedAsset(rawPayload: unknown): UploadedAsset {
     url: publicUrl,
     publicUrl,
     public_url: typeof raw.public_url === 'string' ? raw.public_url : undefined,
-    key: String(raw.key || objectKey || ''),
+    key: String(raw.key || objectKey || publicUrl),
     objectKey,
     kind:
       raw.kind === 'image' ||
@@ -143,17 +171,30 @@ export function normalizeUploadedAsset(rawPayload: unknown): UploadedAsset {
     contentType:
       typeof raw.contentType === 'string'
         ? raw.contentType
-        : typeof raw.mimeType === 'string'
-          ? raw.mimeType
-          : 'application/octet-stream',
+        : typeof raw.content_type === 'string'
+          ? raw.content_type
+          : typeof raw.mimeType === 'string'
+            ? raw.mimeType
+            : typeof raw.mime_type === 'string'
+              ? raw.mime_type
+              : 'application/octet-stream',
     mimeType:
       typeof raw.mimeType === 'string'
         ? raw.mimeType
-        : typeof raw.contentType === 'string'
-          ? raw.contentType
+        : typeof raw.mime_type === 'string'
+          ? raw.mime_type
+          : typeof raw.contentType === 'string'
+            ? raw.contentType
+            : typeof raw.content_type === 'string'
+              ? raw.content_type
+              : undefined,
+    sizeBytes: Number(raw.sizeBytes || raw.size_bytes || 0),
+    originalName:
+      typeof raw.originalName === 'string'
+        ? raw.originalName
+        : typeof raw.original_name === 'string'
+          ? raw.original_name
           : undefined,
-    sizeBytes: Number(raw.sizeBytes || 0),
-    originalName: typeof raw.originalName === 'string' ? raw.originalName : undefined,
     provider: typeof raw.provider === 'string' ? raw.provider : undefined,
     bucket: typeof raw.bucket === 'string' ? raw.bucket : undefined,
     checksum: typeof raw.checksum === 'string' ? raw.checksum : undefined,
@@ -166,15 +207,15 @@ export async function uploadAsset(
   options: UploadAssetOptions = {}
 ): Promise<UploadedAsset> {
   const kind = options.kind || inferUploadKind(file);
-  const form = new FormData();
 
+  const form = new FormData();
   form.append('file', file);
   form.append('kind', kind);
-  form.append('module', options.module || 'public-forms');
+  form.append('module', options.module || 'uploads');
 
-  if (options.ownerType) form.append('ownerType', options.ownerType);
-  if (options.ownerId) form.append('ownerId', options.ownerId);
-  if (options.folder) form.append('folder', options.folder);
+  if (options.folder?.trim()) form.append('folder', options.folder.trim());
+  if (options.ownerType?.trim()) form.append('ownerType', options.ownerType.trim());
+  if (options.ownerId?.trim()) form.append('ownerId', options.ownerId.trim());
 
   const response = await fetch(apiUrl('/api/v1/uploads'), {
     method: 'POST',
@@ -200,25 +241,10 @@ export async function uploadAsset(
   return normalizeUploadedAsset(payload);
 }
 
-export function assetUrl(value: unknown): string {
-  if (!value) return '';
-
-  if (typeof value === 'string') {
-    return value.trim();
-  }
-
-  if (typeof value !== 'object') {
-    return '';
-  }
-
-  const record = value as Record<string, unknown>;
-
-  return String(
-    record.publicUrl ||
-      record.public_url ||
-      record.url ||
-      record.imageUrl ||
-      record.image_url ||
-      ''
-  ).trim();
+export async function uploadAndReturnUrl(
+  file: File,
+  options: UploadAssetOptions = {}
+): Promise<string> {
+  const uploaded = await uploadAsset(file, options);
+  return uploaded.publicUrl || uploaded.url;
 }

@@ -1,0 +1,20 @@
+11:import type { PublicFormPayload, FormField, UploadedFormAssetValue, SubmittedFormValue } from '@/lib/types';
+16://import { uploadAsset, assetUrl } from '@/lib/uploadAssets';
+17:import { uploadAsset, assetUrl } from '@/lib/uploads';
+21:   - Uploads file and data:base64 values before submit.
+22:   - Stores bucket public URLs in values instead of raw base64.
+42:type SubmittedPublicSubmissionValues = Record<string, SubmittedFormValue>;
+44:const DATA_URL_RE = /^data:([^;,]+);base64,/i;
+165:function findLeadershipBirthday(values: PublicSubmissionValues): string | undefined {
+199:  values: SubmittedPublicSubmissionValues
+200:): Promise<SubmittedPublicSubmissionValues> {
+205:  const next: SubmittedPublicSubmissionValues = { ...values };
+368:  values: SubmittedPublicSubmissionValues
+369:): Promise<SubmittedPublicSubmissionValues> {
+370:  const next: SubmittedPublicSubmissionValues = { ...values };
+379:    const uploaded = await uploadAsset(file, {
+571:function isFieldVisible(field: FormField, values: ValuesState): boolean {
+1513:    const valuesPayload: SubmittedPublicSubmissionValues = {};
+1541:      const uploaded = await uploadAsset(file, {
+1589:    await apiClient.submitPublicForm(slug, {
+1590:      values: finalValuesPayload,
