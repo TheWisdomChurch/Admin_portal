@@ -1097,18 +1097,6 @@ function FieldInput({
     );
   }
 
-  if (normalizedType === 'date' && isAnniversaryField(field)) {
-    return (
-      <input
-        type="date"
-        className={inputClass}
-        value={toHtmlDateInputValue(typeof value === 'string' ? value : '')}
-        onChange={(e) => onChange(fromHtmlDateInputValue(e.target.value))}
-        required={field.required}
-      />
-    );
-  }
-
   if (normalizedType === 'date') {
     const parsed = parseDDMMPartial(typeof value === 'string' ? value : '');
     const selectedMonth = parsed?.month && parsed.month !== '00' ? parsed.month : '';
