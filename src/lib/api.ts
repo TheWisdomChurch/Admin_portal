@@ -1704,7 +1704,7 @@ export const apiClient = {
     form.append('folder', 'public-forms/images');
 
     const res = await uploadFetch<{ data: UploadImageResponse }>(
-      '/uploads/images',
+      '/uploads',
       {
         method: 'POST',
         body: form,
