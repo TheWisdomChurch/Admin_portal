@@ -97,16 +97,22 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<NextR
     const body =
       method === 'GET' || method === 'HEAD'
         ? undefined
-        : await request.arrayBuffer();
+        : request.body;
 
-    const upstream = await fetch(targetURL, {
+    const init: RequestInit & { duplex?: 'half' } = {
       method,
       headers: buildForwardHeaders(request),
       body,
       redirect: 'manual',
       cache: 'no-store',
       signal: controller.signal,
-    });
+    };
+
+    if (body) {
+      init.duplex = 'half';
+    }
+
+    const upstream = await fetch(targetURL, init);
 
     return new NextResponse(upstream.body, {
       status: upstream.status,
