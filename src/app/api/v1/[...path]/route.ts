@@ -94,12 +94,12 @@ function buildResponseHeaders(upstreamHeaders: Headers): Headers {
   return headers;
 }
 
-async function readRequestBody(request: NextRequest, method: string): Promise<ArrayBuffer | undefined> {
+function readRequestBody(request: NextRequest, method: string): ReadableStream<Uint8Array> | null | undefined {
   if (method === 'GET' || method === 'HEAD') {
     return undefined;
   }
 
-  return request.arrayBuffer();
+  return request.body;
 }
 
 async function proxy(request: NextRequest, context: RouteContext): Promise<NextResponse> {
@@ -112,16 +112,22 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<NextR
   const timeout = setTimeout(() => controller.abort(), 180_000);
 
   try {
-    const body = await readRequestBody(request, method);
+    const body = readRequestBody(request, method);
 
-    const upstream = await fetch(targetURL, {
+    const init: RequestInit & { duplex?: 'half' } = {
       method,
       headers: buildForwardHeaders(request),
       body,
       redirect: 'manual',
       cache: 'no-store',
       signal: controller.signal,
-    });
+    };
+
+    if (body) {
+      init.duplex = 'half';
+    }
+
+    const upstream = await fetch(targetURL, init);
 
     const responseHeaders = buildResponseHeaders(upstream.headers);
     const responseBody = await upstream.arrayBuffer();
