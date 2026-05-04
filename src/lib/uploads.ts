@@ -92,9 +92,8 @@ function normalizeKind(kind?: UploadKind): UploadKind {
   return 'file';
 }
 
-function getUploadEndpoint(kind: UploadKind): string {
-  if (kind === 'image') return '/api/v1/uploads/images';
-  return '/api/v1/uploads/files';
+function getUploadEndpoint(): string {
+  return '/api/v1/uploads';
 }
 
 function appendOptional(form: FormData, key: string, value: string | undefined): void {
@@ -168,10 +167,11 @@ export async function uploadAsset(file: File, options: UploadAssetOptions = {}):
   appendOptional(form, 'ownerId', options.ownerId);
   appendOptional(form, 'folder', options.folder);
 
-  const response = await fetch(getUploadEndpoint(kind), {
+  const response = await fetch(getUploadEndpoint(), {
     method: 'POST',
     body: form,
     credentials: 'include',
+    cache: 'no-store',
   });
 
   if (!response.ok) {
