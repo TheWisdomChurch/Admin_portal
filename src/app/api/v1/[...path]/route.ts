@@ -1,96 +1,50 @@
-import type { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
 
-type ApiV1RouteContext = {
-  params: Promise<{
-    path: string[];
-  }>;
+type RouteContext = {
+  params: Promise<{ path?: string[] }> | { path?: string[] };
 };
 
-const HOP_BY_HOP_REQUEST_HEADERS = new Set([
+const HOP_BY_HOP_HEADERS = new Set([
   'host',
   'connection',
   'content-length',
   'transfer-encoding',
-  'upgrade',
+  'keep-alive',
   'proxy-authenticate',
   'proxy-authorization',
   'te',
   'trailer',
-  'keep-alive',
-]);
-
-const HOP_BY_HOP_RESPONSE_HEADERS = new Set([
-  'connection',
-  'content-length',
-  'transfer-encoding',
   'upgrade',
-  'proxy-authenticate',
-  'proxy-authorization',
-  'te',
-  'trailer',
-  'keep-alive',
-
-  /*
-   * Node fetch may transparently decode compressed upstream responses.
-   * Removing this prevents browsers from trying to decode already-decoded data.
-   */
-  'content-encoding',
 ]);
 
-function trimTrailingSlashes(value: string): string {
-  return value.replace(/\/+$/, '');
-}
-
-function getBackendBaseUrl(): string {
+function getBackendBaseURL(): string {
   const raw =
     process.env.API_INTERNAL_URL ||
-    process.env.INTERNAL_API_URL ||
-    process.env.SERVER_API_BASE_URL ||
-    process.env.BACKEND_API_URL ||
+    process.env.BACKEND_INTERNAL_URL ||
     process.env.API_BASE_URL ||
     process.env.NEXT_PUBLIC_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    'http://localhost:8080';
+    'http://api:8080';
 
-  const value = trimTrailingSlashes(raw.trim());
-
-  if (!value) {
-    throw new Error('Backend API base URL is empty.');
-  }
-
-  if (value.startsWith('/')) {
-    throw new Error(
-      `Backend API base URL must be absolute on the server. Received "${value}". Use something like API_INTERNAL_URL=http://wisdom_api:8080`
-    );
-  }
-
-  return value;
+  return raw.trim().replace(/\/+$/, '').replace(/\/api\/v1$/i, '');
 }
 
-function buildTargetUrl(request: NextRequest, pathSegments: string[]): string {
-  const backendBaseUrl = getBackendBaseUrl();
-  const backendAlreadyIncludesApiV1 = /\/api\/v1$/i.test(backendBaseUrl);
-
-  const encodedPath = pathSegments.map((segment) => encodeURIComponent(segment)).join('/');
-  const apiPrefix = backendAlreadyIncludesApiV1 ? '' : '/api/v1';
-
-  const target = new URL(`${backendBaseUrl}${apiPrefix}/${encodedPath}`);
-  target.search = request.nextUrl.search;
-
-  return target.toString();
+function buildTargetURL(request: NextRequest, pathParts: string[]): string {
+  const safePath = pathParts.map((part) => encodeURIComponent(part)).join('/');
+  const url = new URL(`/api/v1/${safePath}`, getBackendBaseURL());
+  url.search = request.nextUrl.search;
+  return url.toString();
 }
 
 function buildForwardHeaders(request: NextRequest): Headers {
   const headers = new Headers();
 
   request.headers.forEach((value, key) => {
-    const lowerKey = key.toLowerCase();
+    const lower = key.toLowerCase();
 
-    if (HOP_BY_HOP_REQUEST_HEADERS.has(lowerKey)) {
+    if (HOP_BY_HOP_HEADERS.has(lower)) {
       return;
     }
 
@@ -98,17 +52,11 @@ function buildForwardHeaders(request: NextRequest): Headers {
   });
 
   const host = request.headers.get('host');
-  const forwardedFor = request.headers.get('x-forwarded-for');
-
   if (host) {
     headers.set('x-forwarded-host', host);
   }
 
-  headers.set('x-forwarded-proto', request.nextUrl.protocol.replace(':', ''));
-
-  if (forwardedFor) {
-    headers.set('x-forwarded-for', forwardedFor);
-  }
+  headers.set('x-forwarded-proto', request.nextUrl.protocol.replace(':', '') || 'https');
 
   return headers;
 }
@@ -117,9 +65,14 @@ function buildResponseHeaders(upstreamHeaders: Headers): Headers {
   const headers = new Headers();
 
   upstreamHeaders.forEach((value, key) => {
-    const lowerKey = key.toLowerCase();
+    const lower = key.toLowerCase();
 
-    if (HOP_BY_HOP_RESPONSE_HEADERS.has(lowerKey)) {
+    if (
+      lower === 'connection' ||
+      lower === 'content-length' ||
+      lower === 'transfer-encoding' ||
+      lower === 'content-encoding'
+    ) {
       return;
     }
 
@@ -131,115 +84,62 @@ function buildResponseHeaders(upstreamHeaders: Headers): Headers {
   return headers;
 }
 
-function jsonError(message: string, status = 500): Response {
-  return Response.json(
-    {
-      success: false,
-      error: message,
-    },
-    {
-      status,
-      headers: {
-        'cache-control': 'no-store',
-      },
-    }
-  );
-}
+async function proxy(request: NextRequest, context: RouteContext): Promise<NextResponse> {
+  const params = await context.params;
+  const pathParts = Array.isArray(params.path) ? params.path : [];
+  const method = request.method.toUpperCase();
+  const targetURL = buildTargetURL(request, pathParts);
 
-async function getRequestBody(request: NextRequest): Promise<ArrayBuffer | undefined> {
-  if (request.method === 'GET' || request.method === 'HEAD') {
-    return undefined;
-  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120_000);
 
-  const body = await request.arrayBuffer();
-  return body.byteLength > 0 ? body : undefined;
-}
-
-async function proxyApiV1Request(
-  request: NextRequest,
-  context: ApiV1RouteContext
-): Promise<Response> {
   try {
-    const { path } = await context.params;
-    const targetUrl = buildTargetUrl(request, path || []);
+    const body =
+      method === 'GET' || method === 'HEAD'
+        ? undefined
+        : await request.arrayBuffer();
 
-    const upstreamResponse = await fetch(targetUrl, {
-      method: request.method,
+    const upstream = await fetch(targetURL, {
+      method,
       headers: buildForwardHeaders(request),
-      body: await getRequestBody(request),
+      body,
       redirect: 'manual',
       cache: 'no-store',
+      signal: controller.signal,
     });
 
-    return new Response(upstreamResponse.body, {
-      status: upstreamResponse.status,
-      statusText: upstreamResponse.statusText,
-      headers: buildResponseHeaders(upstreamResponse.headers),
+    return new NextResponse(upstream.body, {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      headers: buildResponseHeaders(upstream.headers),
     });
   } catch (error) {
-    console.error('[api/v1 proxy] request failed:', error);
+    const message = error instanceof Error ? error.message : 'Unknown proxy error';
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Failed to proxy request to backend API.';
+    console.error('[admin-api-proxy] upstream request failed', {
+      method,
+      targetURL,
+      message,
+    });
 
-    return jsonError(message, 502);
+    return NextResponse.json(
+      {
+        error: 'Bad Gateway',
+        message: 'Admin could not reach the backend API.',
+        detail: process.env.NODE_ENV === 'production' ? undefined : message,
+      },
+      { status: 502 }
+    );
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
-export async function GET(
-  request: NextRequest,
-  context: ApiV1RouteContext
-): Promise<Response> {
-  return proxyApiV1Request(request, context);
-}
-
-export async function POST(
-  request: NextRequest,
-  context: ApiV1RouteContext
-): Promise<Response> {
-  return proxyApiV1Request(request, context);
-}
-
-export async function PUT(
-  request: NextRequest,
-  context: ApiV1RouteContext
-): Promise<Response> {
-  return proxyApiV1Request(request, context);
-}
-
-export async function PATCH(
-  request: NextRequest,
-  context: ApiV1RouteContext
-): Promise<Response> {
-  return proxyApiV1Request(request, context);
-}
-
-export async function DELETE(
-  request: NextRequest,
-  context: ApiV1RouteContext
-): Promise<Response> {
-  return proxyApiV1Request(request, context);
-}
-
-export async function HEAD(
-  request: NextRequest,
-  context: ApiV1RouteContext
-): Promise<Response> {
-  return proxyApiV1Request(request, context);
-}
-
-export async function OPTIONS(): Promise<Response> {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      allow: 'GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS',
-      'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS',
-      'access-control-allow-headers':
-        'Origin, Content-Type, Authorization, Accept, X-Requested-With, X-CSRF-Token',
-      'access-control-allow-credentials': 'true',
-      'cache-control': 'no-store',
-    },
-  });
-}
+export {
+  proxy as GET,
+  proxy as POST,
+  proxy as PUT,
+  proxy as PATCH,
+  proxy as DELETE,
+  proxy as OPTIONS,
+};
