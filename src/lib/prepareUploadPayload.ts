@@ -1,10 +1,11 @@
 import {
   assetUrl,
-  inferUploadKind,
   uploadAsset,
   type UploadKind,
+  type UploadedAssetResult,
 } from '@/lib/uploads';
-import type { UploadedFormAssetValue, SubmittedFormValue } from '@/lib/types';
+
+import type { SubmittedFormValue, UploadedFormAssetValue } from '@/lib/types';
 
 export type UploadFieldDescriptor = {
   key: string;
@@ -37,13 +38,17 @@ export type PrepareUploadPayloadOptions = {
   ownerId?: string;
   slug?: string;
   folderPrefix?: string;
-  addLeadershipAliases?: boolean;
+  addImageAliases?: boolean;
 };
 
 const DATA_URL_RE = /^data:([^;,]+);base64,/i;
 
 function isDataUrl(value: unknown): value is string {
   return typeof value === 'string' && DATA_URL_RE.test(value.trim());
+}
+
+function isBrowserFile(value: unknown): value is File {
+  return typeof File !== 'undefined' && value instanceof File;
 }
 
 async function dataUrlToFile(dataUrl: string, filename: string): Promise<File> {
@@ -93,13 +98,24 @@ export function inferUploadKindFromField(field: UploadFieldDescriptor): UploadKi
     return 'video';
   }
 
-  if (/\b(audio|voice|sermon|mp3|m4a|wav)\b/.test(hay)) {
+  if (/\b(audio|voice|sermon|mp3|m4a|wav|ogg)\b/.test(hay)) {
     return 'audio';
   }
 
   if (/\b(document|pdf|doc|docx|xls|xlsx|csv|resume|cv|attachment)\b/.test(hay)) {
     return 'document';
   }
+
+  return 'file';
+}
+
+function inferUploadKindFromFilename(file: File): UploadKind {
+  const name = file.name.toLowerCase();
+
+  if (/\.(jpe?g|png|webp|gif|avif|svg)$/.test(name)) return 'image';
+  if (/\.(mp4|mov|webm|avi|mkv)$/.test(name)) return 'video';
+  if (/\.(mp3|m4a|wav|ogg|webm)$/.test(name)) return 'audio';
+  if (/\.(pdf|txt|csv|doc|docx|xls|xlsx)$/.test(name)) return 'document';
 
   return 'file';
 }
@@ -122,27 +138,53 @@ export function inferUploadKindFromFile(
     return 'document';
   }
 
-  return field ? inferUploadKindFromField(field) : inferUploadKind(file);
+  if (field) {
+    const inferredFromField = inferUploadKindFromField(field);
+    if (inferredFromField !== 'file') return inferredFromField;
+  }
+
+  return inferUploadKindFromFilename(file);
 }
 
 function sanitizePathSegment(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-_]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-_]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'general'
+  );
 }
 
 function folderForUpload(
   options: PrepareUploadPayloadOptions,
-  field: UploadFieldDescriptor,
   kind: UploadKind
 ): string {
   const prefix = sanitizePathSegment(options.folderPrefix || options.module || 'uploads');
   const slug = sanitizePathSegment(options.slug || options.ownerId || 'general');
-  const kindFolder = `${kind}s`;
 
-  return `${prefix}/${slug}/${kindFolder}`;
+  return `${prefix}/${slug}/${kind}s`;
+}
+
+function toUploadedFormAssetValue(uploaded: UploadedAssetResult): UploadedFormAssetValue {
+  return {
+    id: uploaded.id,
+    assetId: uploaded.assetId,
+    url: uploaded.url,
+    publicUrl: uploaded.publicUrl || uploaded.url,
+    public_url: uploaded.public_url,
+    key: uploaded.key,
+    objectKey: uploaded.objectKey,
+    kind: uploaded.kind,
+    contentType: uploaded.contentType,
+    mimeType: uploaded.mimeType,
+    sizeBytes: uploaded.sizeBytes,
+    originalName: uploaded.originalName,
+    provider: uploaded.provider,
+    bucket: uploaded.bucket,
+    checksum: uploaded.checksum,
+    status: uploaded.status,
+  };
 }
 
 function shouldAddImageAliases(key: string): boolean {
@@ -172,6 +214,32 @@ function assignImageAliases(
   output.photo = url;
 }
 
+export function assertNoEmbeddedDataUrls(values: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(values)) {
+    if (typeof value === 'string' && isDataUrl(value)) {
+      throw new Error(`${key} still contains embedded base64 media. Upload failed before submission.`);
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => {
+        if (typeof item === 'string' && isDataUrl(item)) {
+          throw new Error(`${key}[${index}] still contains embedded base64 media. Upload failed before submission.`);
+        }
+
+        if (item && typeof item === 'object' && !Array.isArray(item)) {
+          assertNoEmbeddedDataUrls(item as Record<string, unknown>);
+        }
+      });
+
+      continue;
+    }
+
+    if (value && typeof value === 'object') {
+      assertNoEmbeddedDataUrls(value as Record<string, unknown>);
+    }
+  }
+}
+
 export async function prepareUploadPayload({
   fields,
   values,
@@ -180,39 +248,50 @@ export async function prepareUploadPayload({
   ownerId,
   slug,
   folderPrefix,
-  addLeadershipAliases,
+  addImageAliases,
 }: PrepareUploadPayloadOptions): Promise<SubmittedValues> {
   const output: SubmittedValues = {};
   const fieldByKey = new Map(fields.map((field) => [field.key, field]));
+
+  const options: PrepareUploadPayloadOptions = {
+    fields,
+    values,
+    module,
+    ownerType,
+    ownerId,
+    slug,
+    folderPrefix,
+    addImageAliases,
+  };
 
   for (const [key, value] of Object.entries(values)) {
     const field = fieldByKey.get(key);
     const isConfiguredUploadField = field ? isUploadFieldType(field.type) : false;
 
     if (value == null) {
-      output[key] = null;
+      if (!isConfiguredUploadField) {
+        output[key] = null;
+      }
+
       continue;
     }
 
-    if (value instanceof File) {
+    if (isBrowserFile(value)) {
       const kind = inferUploadKindFromFile(value, field);
+
       const uploaded = await uploadAsset(value, {
         kind,
         module,
         ownerType,
         ownerId,
-        folder: folderForUpload(
-          { fields, values, module, ownerType, ownerId, slug, folderPrefix },
-          field || { key, type: kind },
-          kind
-        ),
+        folder: folderForUpload(options, kind),
       });
 
       const url = uploaded.publicUrl || uploaded.url;
       output[key] = url;
 
       if (kind === 'image') {
-        assignImageAliases(output, key, url, addLeadershipAliases);
+        assignImageAliases(output, key, url, addImageAliases);
       }
 
       continue;
@@ -221,25 +300,29 @@ export async function prepareUploadPayload({
     if (isDataUrl(value)) {
       const file = await dataUrlToFile(value, `${key}-${Date.now()}`);
       const kind = inferUploadKindFromFile(file, field);
+
       const uploaded = await uploadAsset(file, {
         kind,
         module,
         ownerType,
         ownerId,
-        folder: folderForUpload(
-          { fields, values, module, ownerType, ownerId, slug, folderPrefix },
-          field || { key, type: kind },
-          kind
-        ),
+        folder: folderForUpload(options, kind),
       });
 
-      const url = uploaded.publicUrl || uploaded.url;
+      const uploadedAsset = toUploadedFormAssetValue(uploaded);
+      const url = uploadedAsset.publicUrl || uploadedAsset.url;
+
       output[key] = url;
 
       if (kind === 'image') {
-        assignImageAliases(output, key, url, addLeadershipAliases);
+        assignImageAliases(output, key, url, addImageAliases);
       }
 
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      output[key] = value;
       continue;
     }
 
@@ -249,26 +332,16 @@ export async function prepareUploadPayload({
       if (url) {
         output[key] = url;
       } else {
-        output[key] = value as UploadedFormAssetValue;
+        output[key] = value;
       }
 
       continue;
     }
 
-    if (
-      typeof value === 'string' ||
-      typeof value === 'boolean' ||
-      typeof value === 'number' ||
-      Array.isArray(value)
-    ) {
-      output[key] = value;
-      continue;
-    }
-
-    if (isConfiguredUploadField) {
-      output[key] = null;
-    }
+    output[key] = value;
   }
+
+  assertNoEmbeddedDataUrls(output as Record<string, unknown>);
 
   return output;
 }

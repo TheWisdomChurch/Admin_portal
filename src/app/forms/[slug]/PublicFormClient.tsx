@@ -13,8 +13,8 @@ import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { SuccessModal } from '@/ui/SuccessModal';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
-//import { uploadAsset, assetUrl } from '@/lib/uploadAssets';
-import { uploadAsset, assetUrl } from '@/lib/uploads';
+import { prepareUploadPayload} from '@/lib/prepareUploadPayload';
+
 
 /* ========================================================================
    Leadership public form hardening:
@@ -41,77 +41,7 @@ type PublicSubmissionValues = Record<string, PublicSubmissionValue>;
  */
 type SubmittedPublicSubmissionValues = Record<string, SubmittedFormValue>;
 
-const DATA_URL_RE = /^data:([^;,]+);base64,/i;
 
-function isDataUrl(value: unknown): value is string {
-  return typeof value === 'string' && DATA_URL_RE.test(value.trim());
-}
-
-function getUploadUrl(payload: unknown): string | undefined {
-  const direct = assetUrl(payload);
-  if (/^https?:\/\//i.test(direct)) return direct;
-
-  if (!payload || typeof payload !== 'object') return undefined;
-
-  const record = payload as Record<string, unknown>;
-
-  if (record.data && typeof record.data === 'object') {
-    return getUploadUrl(record.data);
-  }
-
-  return undefined;
-}
-
-function toUploadedAssetValue(payload: unknown): UploadedFormAssetValue | null {
-  if (!payload || typeof payload !== 'object') return null;
-
-  const record =
-    'data' in (payload as Record<string, unknown>) &&
-    typeof (payload as Record<string, unknown>).data === 'object'
-      ? ((payload as Record<string, unknown>).data as Record<string, unknown>)
-      : (payload as Record<string, unknown>);
-
-  const url = getUploadUrl(record);
-  if (!url) return null;
-
-  return {
-    id: typeof record.id === 'string' ? record.id : undefined,
-    assetId: typeof record.assetId === 'string' ? record.assetId : undefined,
-    url,
-    publicUrl: typeof record.publicUrl === 'string' ? record.publicUrl : url,
-    public_url: typeof record.public_url === 'string' ? record.public_url : undefined,
-    key: typeof record.key === 'string' ? record.key : undefined,
-    objectKey: typeof record.objectKey === 'string' ? record.objectKey : undefined,
-    kind:
-      record.kind === 'image' ||
-      record.kind === 'video' ||
-      record.kind === 'audio' ||
-      record.kind === 'document' ||
-      record.kind === 'file'
-        ? record.kind
-        : undefined,
-    contentType: typeof record.contentType === 'string' ? record.contentType : undefined,
-    mimeType: typeof record.mimeType === 'string' ? record.mimeType : undefined,
-    sizeBytes: typeof record.sizeBytes === 'number' ? record.sizeBytes : undefined,
-    originalName: typeof record.originalName === 'string' ? record.originalName : undefined,
-    provider: typeof record.provider === 'string' ? record.provider : undefined,
-    bucket: typeof record.bucket === 'string' ? record.bucket : undefined,
-    checksum: typeof record.checksum === 'string' ? record.checksum : undefined,
-    status: typeof record.status === 'string' ? record.status : undefined,
-  };
-}
-
-async function dataUrlToFile(dataUrl: string, filename: string): Promise<File> {
-  const response = await fetch(dataUrl);
-  const blob = await response.blob();
-  const contentType =
-    blob.type ||
-    dataUrl.match(DATA_URL_RE)?.[1] ||
-    'application/octet-stream';
-  const extension = contentType.split('/')[1]?.replace(/[^a-z0-9.+-]/gi, '') || 'bin';
-
-  return new File([blob], `${filename}.${extension}`, { type: contentType });
-}
 
 function normalizeDayMonth(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
@@ -380,152 +310,6 @@ const getUploadFormatLabel = (kind: UploadKind) => {
   const extensions = ACCEPTED_UPLOAD_EXTENSIONS[kind];
   return extensions.length > 0 ? extensions.join(', ') : 'common file types';
 };
-const makeSyntheticUploadField = (key: string): FormField => ({
-  id: key,
-  key,
-  label: key,
-  type: 'file',
-  required: false,
-  order: 0,
-});
-
-async function uploadOnePublicFormAsset({
-  slug,
-  formId,
-  key,
-  value,
-  field,
-}: {
-  slug: string;
-  formId: string;
-  key: string;
-  value: File | string;
-  field: FormField;
-}): Promise<{ url: string; kind: UploadKind }> {
-  const file = isFileValue(value)
-    ? value
-    : await dataUrlToFile(value, `${key}-${Date.now()}`);
-
-  const kind = inferUploadKindFromFile(file, field);
-  const validationError = validateUploadFileForSubmit(field, file);
-
-  if (validationError) {
-    throw new Error(`${field.label || key}: ${validationError}`);
-  }
-
-  const uploaded = await uploadAsset(file, {
-    kind,
-    module: 'public-forms',
-    ownerType: 'public-form',
-    ownerId: formId,
-    folder: `public-forms/${slug}/${kind}s`,
-  });
-
-  const uploadedAsset = toUploadedAssetValue(uploaded);
-  const uploadedUrl = uploadedAsset?.url || getUploadUrl(uploaded);
-
-  if (!uploadedUrl) {
-    throw new Error(`${field.label || key} uploaded but no public URL was returned by the API.`);
-  }
-
-  return { url: uploadedUrl, kind };
-}
-
-function validateUploadFileForSubmit(field: FormField, file: File): string | null {
-  const kind = inferUploadKindFromFile(file, field);
-  const acceptedTypes = ACCEPTED_UPLOAD_TYPES[kind];
-  const acceptedExts = ACCEPTED_UPLOAD_EXTENSIONS[kind];
-  const maxMb = getUploadLimitMb(field, kind);
-
-  if (acceptedTypes.length > 0 && !acceptedTypes.includes(file.type)) {
-    const lowerName = file.name.toLowerCase();
-    const extOk = acceptedExts.some((ext) => lowerName.endsWith(ext));
-
-    if (!extOk) {
-      return `Unsupported file type. Accepted formats: ${getUploadFormatLabel(kind)}.`;
-    }
-  }
-
-  if (file.size > maxMb * MB) {
-    return `File must be ${maxMb}MB or smaller.`;
-  }
-
-  return null;
-}
-
-async function uploadPublicSubmissionMedia(
-  slug: string,
-  formId: string,
-  values: PublicSubmissionValues,
-  formFields: FormField[]
-): Promise<SubmittedPublicSubmissionValues> {
-  const next: SubmittedPublicSubmissionValues = {};
-  const fieldByKey = new Map(formFields.map((field) => [field.key, field]));
-
-  for (const [key, value] of Object.entries(values)) {
-    if (value === undefined || value === null) {
-      continue;
-    }
-
-    const field = fieldByKey.get(key) ?? makeSyntheticUploadField(key);
-
-    if (isFileValue(value) || isDataUrl(value)) {
-      const uploaded = await uploadOnePublicFormAsset({
-        slug,
-        formId,
-        key,
-        value,
-        field,
-      });
-
-      next[key] = uploaded.url;
-
-      if (
-        uploaded.kind === 'image' &&
-        shouldNormalizeLeadershipValues(slug) &&
-        shouldMirrorLeadershipImageKey(key)
-      ) {
-        next.imageUrl = uploaded.url;
-        next.image_url = uploaded.url;
-        next.photo = uploaded.url;
-      }
-
-      continue;
-    }
-
-    const existingUrl = getUploadUrl(value);
-    if (existingUrl) {
-      next[key] = existingUrl;
-
-      if (shouldNormalizeLeadershipValues(slug) && shouldMirrorLeadershipImageKey(key)) {
-        next.imageUrl = existingUrl;
-        next.image_url = existingUrl;
-        next.photo = existingUrl;
-      }
-
-      continue;
-    }
-
-    if (
-      typeof value === 'string' ||
-      typeof value === 'boolean' ||
-      typeof value === 'number' ||
-      Array.isArray(value)
-    ) {
-      next[key] = value;
-    }
-  }
-
-  return next;
-}
-
-function assertNoEmbeddedDataUrls(values: SubmittedPublicSubmissionValues): void {
-  for (const [key, value] of Object.entries(values)) {
-    if (isDataUrl(value)) {
-      throw new Error(`${key} still contains embedded base64 data. Upload failed before submission.`);
-    }
-  }
-}
 
 const phoneTypeTokens = new Set([
   'tel',
@@ -672,19 +456,7 @@ function isFileValue(value: unknown): value is File {
   return typeof File !== 'undefined' && value instanceof File;
 }
 
-function shouldMirrorLeadershipImageKey(key: string): boolean {
-  const lowerKey = key.toLowerCase();
 
-  return (
-    lowerKey.includes('image') ||
-    lowerKey.includes('photo') ||
-    lowerKey.includes('passport') ||
-    lowerKey.includes('picture') ||
-    lowerKey.includes('headshot') ||
-    lowerKey.includes('avatar') ||
-    lowerKey.startsWith('field_')
-  );
-}
 
 function buildInitialValues(formFields: FormField[]): ValuesState {
   const init: ValuesState = {};
@@ -1720,95 +1492,97 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     return { isValid: true, message: null };
   };
   const submit = async () => {
-    if (!slug || !payload) return;
+  if (!slug || !payload) return;
 
-    try {
-      if (isClosed) {
-        toast.error('This registration is closed.');
+  try {
+    if (isClosed) {
+      toast.error('This registration is closed.');
+      return;
+    }
+
+    setFormError('');
+
+    const validation = validateClient();
+    if (!validation.isValid) {
+      toast.error(validation.message || 'Please review the form and try again.');
+      return;
+    }
+
+    setSubmitting(true);
+
+    const rawValuesPayload: PublicSubmissionValues = {};
+
+    visibleFields.forEach((field) => {
+      const value = values[field.key];
+
+      if (value === undefined || value === null) {
         return;
       }
 
-      setFormError('');
-
-      const validation = validateClient();
-      if (!validation.isValid) {
-        toast.error(validation.message || 'Please review the form and try again.');
-        return;
+      if (
+        (typeof File !== 'undefined' && value instanceof File) ||
+        typeof value === 'string' ||
+        typeof value === 'boolean' ||
+        typeof value === 'number' ||
+        Array.isArray(value)
+      ) {
+        rawValuesPayload[field.key] = value;
       }
+    });
 
-      setSubmitting(true);
+    const uploadedValuesPayload = await prepareUploadPayload({
+      fields: visibleFields,
+      values: rawValuesPayload,
+      module: 'public-forms',
+      ownerType: 'public-form',
+      ownerId: payload.form.id,
+      slug,
+      folderPrefix: 'public-forms',
+      addImageAliases: shouldNormalizeLeadershipValues(slug),
+    });
 
-      const rawValuesPayload: PublicSubmissionValues = {};
+    const normalizedValuesPayload = await prepareLeadershipPublicSubmissionValues(
+      slug,
+      uploadedValuesPayload
+    );
 
-      visibleFields.forEach((field) => {
-        const value = values[field.key];
 
-        if (value === undefined || value === null) {
-          return;
-        }
+    await apiClient.submitPublicForm(slug, {
+      values: normalizedValuesPayload,
+    });
 
-        if (
-          isFileValue(value) ||
-          isDataUrl(value) ||
-          typeof value === 'string' ||
-          typeof value === 'boolean' ||
-          typeof value === 'number' ||
-          Array.isArray(value)
-        ) {
-          rawValuesPayload[field.key] = value;
-        }
-      });
+    setSuccessTokens(buildSuccessTokens(values));
+    setSuccessDetails([]);
+    resetFormState();
+    setSuccessOpen(true);
+    setShouldAutoReturn(hasAutoReturnTarget);
+  } catch (err) {
+    console.error(err);
 
-      const uploadedValuesPayload = await uploadPublicSubmissionMedia(
-        slug,
-        payload.form.id,
-        rawValuesPayload,
-        visibleFields
-      );
+    const serverFieldErrors = extractServerFieldErrors(err);
+    if (Object.keys(serverFieldErrors).length > 0) {
+      setFieldErrors(serverFieldErrors);
+      setTouchedFields((prev) => {
+        const next = { ...prev };
 
-      const normalizedValuesPayload = await prepareLeadershipPublicSubmissionValues(
-        slug,
-        uploadedValuesPayload
-      );
-
-      assertNoEmbeddedDataUrls(normalizedValuesPayload);
-
-      await apiClient.submitPublicForm(slug, {
-        values: normalizedValuesPayload,
-      });
-
-      setSuccessTokens(buildSuccessTokens(values));
-      setSuccessDetails([]);
-      resetFormState();
-      setSuccessOpen(true);
-      setShouldAutoReturn(hasAutoReturnTarget);
-    } catch (err) {
-      console.error(err);
-
-      const serverFieldErrors = extractServerFieldErrors(err);
-      if (Object.keys(serverFieldErrors).length > 0) {
-        setFieldErrors(serverFieldErrors);
-        setTouchedFields((prev) => {
-          const next = { ...prev };
-
-          Object.keys(serverFieldErrors).forEach((key) => {
-            next[key] = true;
-          });
-
-          return next;
+        Object.keys(serverFieldErrors).forEach((key) => {
+          next[key] = true;
         });
 
-        toast.error(getFirstServerFieldError(serverFieldErrors) || 'Please review the highlighted fields.');
-        return;
-      }
+        return next;
+      });
 
-      const message = getServerErrorMessage(err, 'Failed to submit registration');
-      toast.error(message);
-      setFormError(message);
-    } finally {
-      setSubmitting(false);
+      toast.error(getFirstServerFieldError(serverFieldErrors) || 'Please review the highlighted fields.');
+      return;
     }
-  };
+
+    const message = getServerErrorMessage(err, 'Failed to submit registration');
+    toast.error(message);
+    setFormError(message);
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   if (!slug) {
     return (
