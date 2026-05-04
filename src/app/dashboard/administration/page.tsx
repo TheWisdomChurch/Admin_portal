@@ -3,6 +3,15 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  BarElement,
+  CategoryScale,
+  Chart as ChartJS,
+  Legend,
+  LinearScale,
+  Tooltip,
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+import {
   Calendar,
   CheckCircle2,
   ClipboardList,
@@ -43,11 +52,14 @@ import type {
   WorkforceMember,
 } from '@/lib/types';
 
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+
 type SectionKey = 'workforce' | 'members' | 'leadership';
 type TabKey = 'overview' | SectionKey;
 
 const ALL_FORMS = '__all__';
 const LEADERSHIP_FORM_SLUG = 'leadership-biodata';
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const roleOptions: Array<{ value: LeadershipRole; label: string }> = [
   { value: 'senior_pastor', label: 'Senior Pastor' },
@@ -778,6 +790,23 @@ export default function AdministrationPage() {
 
     const activeMembers = members.filter((member) => member.isActive).length;
     const leadershipFormUrl = primaryLeadershipForm ? buildPublicFormUrl(primaryLeadershipForm.slug, primaryLeadershipForm.publicUrl) : null;
+    const currentYear = new Date().getFullYear();
+    const memberMonthlyCounts = new Array(12).fill(0) as number[];
+    const workforceByDepartment = workforce.reduce<Record<string, number>>((acc, item) => {
+      const department = item.department || 'Unassigned';
+      acc[department] = (acc[department] || 0) + 1;
+      return acc;
+    }, {});
+    const departmentLabels = Object.keys(workforceByDepartment)
+      .sort((left, right) => workforceByDepartment[right] - workforceByDepartment[left])
+      .slice(0, 8);
+
+    members.forEach((member) => {
+      const created = new Date(member.createdAt);
+      if (!Number.isNaN(created.getTime()) && created.getFullYear() === currentYear) {
+        memberMonthlyCounts[created.getMonth()] += 1;
+      }
+    });
 
     return (
       <div className="space-y-5">
@@ -861,6 +890,60 @@ export default function AdministrationPage() {
           <StatCard label="Members" value={members.length} meta={`${activeMembers} active`} icon={<Users className="h-5 w-5" />} />
           <StatCard label="Leadership" value={leaders.length} meta={`${leadershipStats.approved || 0} published`} icon={<Sparkles className="h-5 w-5" />} />
           <StatCard label="Responses" value={responseTotal} meta={`${totalForms} total forms`} icon={<FileText className="h-5 w-5" />} />
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          <Card title="Workforce by department">
+            {departmentLabels.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">No workforce department data yet.</p>
+            ) : (
+              <div className="h-[300px]">
+                <Bar
+                  data={{
+                    labels: departmentLabels,
+                    datasets: [
+                      {
+                        label: 'Workers',
+                        data: departmentLabels.map((department) => workforceByDepartment[department]),
+                        backgroundColor: '#2563eb',
+                        borderRadius: 6,
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+                  }}
+                />
+              </div>
+            )}
+          </Card>
+
+          <Card title={`New members in ${currentYear}`}>
+            <div className="h-[300px]">
+              <Bar
+                data={{
+                  labels: MONTH_LABELS,
+                  datasets: [
+                    {
+                      label: 'New members',
+                      data: memberMonthlyCounts,
+                      backgroundColor: '#16a34a',
+                      borderRadius: 6,
+                    },
+                  ],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { legend: { display: false } },
+                  scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+                }}
+              />
+            </div>
+          </Card>
         </div>
       </div>
     );
