@@ -51,6 +51,15 @@ function buildForwardHeaders(request: NextRequest): Headers {
     headers.set(key, value);
   });
 
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  const realIp = request.headers.get('x-real-ip');
+
+  if (forwardedFor) {
+    headers.set('x-forwarded-for', forwardedFor);
+  } else if (realIp) {
+    headers.set('x-forwarded-for', realIp);
+  }
+
   const host = request.headers.get('host');
   if (host) {
     headers.set('x-forwarded-host', host);
@@ -80,8 +89,17 @@ function buildResponseHeaders(upstreamHeaders: Headers): Headers {
   });
 
   headers.set('cache-control', 'no-store');
+  headers.set('x-admin-api-proxy', 'true');
 
   return headers;
+}
+
+async function readRequestBody(request: NextRequest, method: string): Promise<ArrayBuffer | undefined> {
+  if (method === 'GET' || method === 'HEAD') {
+    return undefined;
+  }
+
+  return request.arrayBuffer();
 }
 
 async function proxy(request: NextRequest, context: RouteContext): Promise<NextResponse> {
@@ -91,13 +109,10 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<NextR
   const targetURL = buildTargetURL(request, pathParts);
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120_000);
+  const timeout = setTimeout(() => controller.abort(), 180_000);
 
   try {
-    const body =
-      method === 'GET' || method === 'HEAD'
-        ? undefined
-        : await request.arrayBuffer();
+    const body = await readRequestBody(request, method);
 
     const upstream = await fetch(targetURL, {
       method,
@@ -108,10 +123,25 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<NextR
       signal: controller.signal,
     });
 
-    return new NextResponse(upstream.body, {
+    const responseHeaders = buildResponseHeaders(upstream.headers);
+    const responseBody = await upstream.arrayBuffer();
+
+    if (upstream.status >= 500) {
+      const preview = new TextDecoder().decode(responseBody.slice(0, 2000));
+
+      console.error('[admin-api-proxy] upstream returned error', {
+        method,
+        targetURL,
+        status: upstream.status,
+        statusText: upstream.statusText,
+        bodyPreview: preview,
+      });
+    }
+
+    return new NextResponse(responseBody, {
       status: upstream.status,
       statusText: upstream.statusText,
-      headers: buildResponseHeaders(upstream.headers),
+      headers: responseHeaders,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown proxy error';
@@ -119,6 +149,7 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<NextR
     console.error('[admin-api-proxy] upstream request failed', {
       method,
       targetURL,
+      backendBaseURL: getBackendBaseURL(),
       message,
     });
 
@@ -128,7 +159,14 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<NextR
         message: 'Admin could not reach the backend API.',
         detail: process.env.NODE_ENV === 'production' ? undefined : message,
       },
-      { status: 502 }
+      {
+        status: 502,
+        headers: {
+          'cache-control': 'no-store',
+          'x-admin-api-proxy': 'true',
+          'x-admin-api-proxy-error': 'network',
+        },
+      }
     );
   } finally {
     clearTimeout(timeout);

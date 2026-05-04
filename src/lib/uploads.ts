@@ -92,8 +92,22 @@ function normalizeKind(kind?: UploadKind): UploadKind {
   return 'file';
 }
 
+function normalizeApiOrigin(raw?: string): string {
+  const clean = raw?.trim().replace(/\/+$/, '') || '';
+  return clean.replace(/\/api\/v1$/i, '');
+}
+
+function getUploadBaseUrl(): string {
+  return normalizeApiOrigin(
+    process.env.NEXT_PUBLIC_UPLOAD_BASE_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      process.env.NEXT_PUBLIC_BACKEND_URL
+  );
+}
+
 function getUploadEndpoint(): string {
-  return '/api/v1/uploads';
+  const uploadBaseUrl = getUploadBaseUrl();
+  return uploadBaseUrl ? `${uploadBaseUrl}/api/v1/uploads` : '/api/v1/uploads';
 }
 
 function appendOptional(form: FormData, key: string, value: string | undefined): void {
