@@ -794,10 +794,10 @@ async function uploadFetch<T>(
       headers[csrf.header] = csrf.token;
     }
 
-    let usedUrl = proxyUrl;
-    let { response, payload } = await execute(proxyUrl, headers);
+    let usedUrl = isFormData && directUrl ? directUrl : proxyUrl;
+    let { response, payload } = await execute(usedUrl, headers);
 
-    if (response.status === 404 && USE_API_PROXY && directUrl) {
+    if (response.status === 404 && USE_API_PROXY && directUrl && usedUrl !== directUrl) {
       usedUrl = directUrl;
       ({ response, payload } = await execute(directUrl, headers));
     }
