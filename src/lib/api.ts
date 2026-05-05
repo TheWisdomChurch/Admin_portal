@@ -2305,6 +2305,12 @@ export const apiClient = {
     return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
   },
 
+  async deleteWorkforce(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/workforce/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  },
+
   async approveWorkforce(
     id: string,
     payload?: Record<string, unknown>
@@ -2317,6 +2323,12 @@ export const apiClient = {
       }
     );
     return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
+  },
+
+  async approveWorkforceDelete(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/workforce/${encodeURIComponent(id)}/delete/approve`, {
+      method: 'POST',
+    });
   },
 
   async applyToWorkforce(
