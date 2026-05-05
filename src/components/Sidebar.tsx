@@ -5,14 +5,14 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  Calendar, 
-  Video, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  Calendar,
+  Video,
+  BarChart3,
   ClipboardList,
   Users,
-  Settings, 
+  Settings,
   LogOut,
   Menu,
   X,
@@ -21,7 +21,8 @@ import {
   BellRing,
   FileText,
   LineChart,
-  Mail
+  Mail,
+  UserPlus,
 } from 'lucide-react';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Badge } from '@/ui/Badge';
@@ -31,6 +32,8 @@ import { textStyles } from '@/styles/text';
 const adminNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview and metrics' },
   { href: '/dashboard/administration', label: 'Administration', icon: Shield, description: 'Workforce, leadership, members' },
+  { href: '/dashboard/new-members', label: 'New Members', icon: UserPlus, description: 'Membership intake and growth' },
+  { href: '/dashboard/members', label: 'Members', icon: Users, description: 'All church members' },
   { href: '/dashboard/reels', label: 'Reels', icon: Video, description: 'Video content management' },
   { href: '/dashboard/testimonials', label: 'Testimonials', icon: MessageSquare, description: 'Member testimonials' },
   { href: '/dashboard/forms', label: 'Forms', icon: ClipboardList, description: 'Create registration links' },
