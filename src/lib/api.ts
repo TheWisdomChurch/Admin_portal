@@ -39,6 +39,9 @@ import type {
   UpdateWorkforceRequest,
   WorkforceStatsResponse,
   Member,
+  MemberStatsResponse,
+  NewMemberDashboardResponse,
+  NewMemberSubmission,
   CreateMemberRequest,
   UpdateMemberRequest,
   LeadershipMember,
@@ -735,6 +738,10 @@ export async function apiFetch<T>(
     }
 
     if (!response.ok) {
+      if (response.status === 401 && endpoint.startsWith('/admin/') && typeof window !== 'undefined') {
+        clearAuthStorage();
+        window.location.href = '/login?reason=session_expired';
+      }
       const validationErrors = extractValidationErrors(payload);
       throw createApiError(
         getMessageFromPayload(payload) || 'Request failed',
@@ -2357,6 +2364,38 @@ export const apiClient = {
     }
   },
 
+  async getMemberStats(): Promise<MemberStatsResponse> {
+    const res = await apiFetch<ApiResponse<MemberStatsResponse>>(
+      '/admin/members/stats',
+      { method: 'GET' }
+    );
+    return unwrapData<MemberStatsResponse>(res, 'Invalid member stats payload');
+  },
+
+  async getNewMemberDashboard(): Promise<NewMemberDashboardResponse> {
+    const res = await apiFetch<ApiResponse<NewMemberDashboardResponse>>(
+      '/admin/new-members/dashboard',
+      { method: 'GET' }
+    );
+    return unwrapData<NewMemberDashboardResponse>(
+      res,
+      'Invalid new member dashboard payload'
+    );
+  },
+
+  async listNewMemberSubmissions(
+    params?: Record<string, unknown>
+  ): Promise<SimplePaginatedResponse<NewMemberSubmission>> {
+    const qs = toQueryString(params);
+    const res = await apiFetch(`/admin/new-members/submissions${qs}`, {
+      method: 'GET',
+    });
+    return unwrapSimplePaginated<NewMemberSubmission>(
+      res,
+      'Invalid new member submissions payload'
+    );
+  },
+
   async createMember(payload: CreateMemberRequest): Promise<Member> {
     const res = await apiFetch<ApiResponse<Member>>('/admin/members', {
       method: 'POST',
@@ -2439,6 +2478,12 @@ export const apiClient = {
   async deleteLeadership(id: string): Promise<MessageResponse> {
     return apiFetch(`/admin/leadership/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+    });
+  },
+
+  async approveLeadershipDelete(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/leadership/${encodeURIComponent(id)}/delete/approve`, {
+      method: 'POST',
     });
   },
 

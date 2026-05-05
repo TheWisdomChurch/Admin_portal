@@ -993,6 +993,55 @@ export interface UpdateMemberRequest {
   birthday?: string;
 }
 
+export interface GrowthBucket {
+  period: string;
+  count: number;
+}
+
+export interface MemberStatsResponse {
+  total: number;
+  active: number;
+  inactive: number;
+  monthlyGrowth: GrowthBucket[];
+  yearlyGrowth: GrowthBucket[];
+}
+
+export interface NewMemberFormSummary {
+  formId: string;
+  formTitle: string;
+  slug?: string;
+  isPublished: boolean;
+  submissionCount: number;
+  lastSubmissionAt?: string;
+}
+
+export interface NewMemberSubmission {
+  id: string;
+  formId: string;
+  formTitle: string;
+  name?: string;
+  email?: string;
+  contactNumber?: string;
+  contactAddress?: string;
+  registrationCode?: string;
+  values: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface NewMemberDashboardResponse {
+  totalSubmissions: number;
+  thisWeek: number;
+  thisMonth: number;
+  thisQuarter: number;
+  thisYear: number;
+  forms: NewMemberFormSummary[];
+  recent: NewMemberSubmission[];
+  weeklyGrowth: GrowthBucket[];
+  monthlyGrowth: GrowthBucket[];
+  quarterlyGrowth: GrowthBucket[];
+  yearlyGrowth: GrowthBucket[];
+}
+
 export interface WorkforceBucket {
   department: string;
   status: WorkforceStatus;
@@ -1092,7 +1141,7 @@ export interface AdminNotificationInbox {
    APPROVAL REQUESTS
 ========================= */
 
-export type ApprovalRequestType = 'testimonial' | 'event' | 'admin_user';
+export type ApprovalRequestType = 'testimonial' | 'event' | 'admin_user' | 'leadership_delete';
 export type ApprovalRequestStatus = 'pending' | 'approved' | 'deleted';
 
 export interface ApprovalRequest {

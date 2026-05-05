@@ -24,6 +24,7 @@ const typeLabel: Record<ApprovalRequestType, string> = {
   testimonial: 'Testimonial',
   event: 'Event',
   admin_user: 'Admin Access',
+  leadership_delete: 'Leadership Delete',
 };
 
 const statusVariant: Record<ApprovalRequestStatus, 'warning' | 'success' | 'danger'> = {
@@ -40,6 +41,7 @@ function fallbackMessage(error: unknown, fallback: string): string {
 function openPathByType(type: ApprovalRequestType): string {
   if (type === 'testimonial') return '/dashboard/testimonials';
   if (type === 'event') return '/dashboard/event';
+  if (type === 'leadership_delete') return '/dashboard/administration';
   return '/dashboard';
 }
 
@@ -74,6 +76,26 @@ function RequestsPage() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  const approveLeadershipDelete = useCallback(
+    async (req: ApprovalRequest) => {
+      if (!req.entityId) {
+        toast.error('This request has no leadership profile attached.');
+        return;
+      }
+      if (!window.confirm(`Approve deletion for ${req.entityLabel || 'this leadership profile'}?`)) {
+        return;
+      }
+      try {
+        await apiClient.approveLeadershipDelete(req.entityId);
+        toast.success('Leadership profile deleted');
+        await loadData();
+      } catch (error) {
+        toast.error(fallbackMessage(error, 'Unable to approve leadership delete.'));
+      }
+    },
+    [loadData]
+  );
 
   const filteredRequests = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -204,6 +226,9 @@ function RequestsPage() {
             <Button size="sm" className="text-xs px-3" variant={typeFilter === 'admin_user' ? 'primary' : 'ghost'} onClick={() => setTypeFilter('admin_user')}>
               Admin Access
             </Button>
+            <Button size="sm" className="text-xs px-3" variant={typeFilter === 'leadership_delete' ? 'primary' : 'ghost'} onClick={() => setTypeFilter('leadership_delete')}>
+              Leadership Delete
+            </Button>
 
             <Button size="sm" className="text-xs px-3" variant={statusFilter === 'pending' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('pending')}>
               Pending
@@ -281,6 +306,16 @@ function RequestsPage() {
                         onClick={() => setSearchTerm(req.entityId || '')}
                       >
                         Track ID
+                      </Button>
+                    )}
+                    {req.type === 'leadership_delete' && req.status === 'pending' && (
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        className="text-xs px-3"
+                        onClick={() => void approveLeadershipDelete(req)}
+                      >
+                        Approve Delete
                       </Button>
                     )}
                   </div>
