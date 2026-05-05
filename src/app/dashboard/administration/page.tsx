@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import {
   Activity,
   BriefcaseBusiness,
@@ -701,7 +702,7 @@ function Avatar({ person, size = 'md' }: { person: PersonRecord | TrackerItem; s
   if (person.imageUrl) {
     return (
       <div className={`${dimension} shrink-0 overflow-hidden rounded-2xl bg-slate-100 ring-1 ring-slate-200`}>
-        <img src={person.imageUrl} alt={person.name} className="h-full w-full object-cover" />
+        <Image src={person.imageUrl} alt={person.name} className="h-full w-full object-cover" />
       </div>
     );
   }
@@ -979,19 +980,19 @@ export default function OverviewPage() {
   const trackerItems = trackerMode === 'birthdays' ? data?.upcomingBirthdays ?? [] : data?.upcomingAnniversaries ?? [];
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-950 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
-          <div className="bg-slate-950 px-5 py-6 text-white sm:px-7">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+    <main className="min-h-screen bg-slate-50 px-4 py-5 text-slate-950 sm:px-5 lg:px-6">
+      <div className="mx-auto w-full max-w-none space-y-5">
+        <header className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="bg-slate-950 px-5 py-5 text-white sm:px-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white/70">
                   <ShieldCheck className="h-4 w-4" />
                   Backend-driven overview
                 </div>
-                <h1 className="mt-4 text-2xl font-black tracking-tight sm:text-4xl">Church Management Overview</h1>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-white/65 sm:text-base">
-                  Live leadership, membership, workforce, birthdays, and wedding anniversary intelligence from your backend records. No mock data is rendered on this page.
+                <h1 className="mt-3 text-2xl font-black tracking-tight sm:text-3xl">Church Management Overview</h1>
+                <p className="mt-2 max-w-4xl text-sm leading-6 text-white/65">
+                  Live leadership, membership, workforce, birthdays, and wedding anniversary intelligence from backend records. Use the dedicated Leadership, Members, New Members, and Workforce screens for daily operations.
                 </p>
               </div>
 

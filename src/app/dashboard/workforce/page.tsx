@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
+  ArcElement,
   BarElement,
   CategoryScale,
   Chart as ChartJS,
@@ -9,33 +10,36 @@ import {
   LinearScale,
   Tooltip,
 } from 'chart.js';
-import { Bar } from 'react-chartjs-2';
-import { CheckCircle2, ClipboardList, ExternalLink, Plus, RefreshCw, Shield, Users } from 'lucide-react';
+import { Bar, Pie } from 'react-chartjs-2';
+import {
+  CheckCircle2,
+  Clipboard,
+  ClipboardList,
+  ExternalLink,
+  IdCard,
+  Plus,
+  RefreshCw,
+  Search,
+  Shield,
+  Trash2,
+  Users,
+  X,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { PageHeader } from '@/layouts';
+import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
-import { Badge } from '@/ui/Badge';
+import { Input } from '@/ui/input';
 import { apiClient } from '@/lib/api';
 import { buildPublicFormUrl } from '@/lib/utils';
 import type { AdminForm, CreateFormRequest, WorkforceMember, WorkforceStatsResponse, WorkforceStatus } from '@/lib/types';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
 const WORKFORCE_FORM_SLUG = 'workforce-profile';
-const DEPARTMENTS = [
-  'Protocol',
-  'Choir',
-  'Ushering',
-  'Media',
-  'Technical',
-  'Sanitation',
-  'Children',
-  'Prayer',
-  'Hospitality',
-  'Security',
-];
+const DEPARTMENTS = ['Protocol', 'Choir', 'Ushering', 'Media', 'Technical', 'Sanitation', 'Children', 'Prayer', 'Hospitality', 'Security'];
 
 const statusLabels: Record<WorkforceStatus, string> = {
   pending: 'Pending review',
@@ -44,10 +48,12 @@ const statusLabels: Record<WorkforceStatus, string> = {
   not_serving: 'No longer serving',
 };
 
+type SectionKey = 'serving' | 'new' | 'not_serving' | 'all';
+
 function buildWorkforceFormPayload(): CreateFormRequest {
   return {
     title: 'Workforce Service Profile',
-    description: 'Collect workforce service status and department records.',
+    description: 'External profile form for current workers and new workforce applicants.',
     slug: WORKFORCE_FORM_SLUG,
     fields: [
       { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
@@ -61,8 +67,8 @@ function buildWorkforceFormPayload(): CreateFormRequest {
         order: 4,
         options: [
           { label: 'Currently serving', value: 'serving' },
-          { label: 'No longer serving', value: 'not_serving' },
           { label: 'New worker', value: 'new' },
+          { label: 'No longer serving', value: 'not_serving' },
         ],
       },
       {
@@ -117,12 +123,27 @@ function getCount(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
+function workerName(item: WorkforceMember): string {
+  return `${item.firstName || ''} ${item.lastName || ''}`.trim() || 'Unnamed worker';
+}
+
+function statusVariant(status: WorkforceStatus): 'success' | 'warning' | 'primary' | 'outline' {
+  if (status === 'serving') return 'success';
+  if (status === 'not_serving') return 'warning';
+  if (status === 'pending') return 'primary';
+  return 'outline';
+}
+
 export default function WorkforcePage() {
   const [workforce, setWorkforce] = useState<WorkforceMember[]>([]);
   const [stats, setStats] = useState<WorkforceStatsResponse | null>(null);
   const [forms, setForms] = useState<AdminForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [creatingForm, setCreatingForm] = useState(false);
+  const [section, setSection] = useState<SectionKey>('serving');
+  const [query, setQuery] = useState('');
+  const [selectedWorker, setSelectedWorker] = useState<WorkforceMember | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -152,31 +173,53 @@ export default function WorkforcePage() {
   }, []);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
 
   const workforceForms = useMemo(() => forms.filter(isWorkforceForm), [forms]);
   const primaryForm = workforceForms.find((form) => form.slug === WORKFORCE_FORM_SLUG) || workforceForms[0] || null;
   const publicFormUrl = primaryForm ? buildPublicFormUrl(primaryForm.slug, primaryForm.publicUrl) : '';
 
-  const localByStatus = useMemo(
-    () =>
-      workforce.reduce<Record<string, number>>((acc, item) => {
-        acc[item.status] = (acc[item.status] || 0) + 1;
-        return acc;
-      }, {}),
-    [workforce]
-  );
+  const byStatus = useMemo(() => {
+    if (stats?.byStatus) return stats.byStatus;
+    return workforce.reduce<Record<string, number>>((acc, item) => {
+      acc[item.status] = (acc[item.status] || 0) + 1;
+      return acc;
+    }, {});
+  }, [stats, workforce]);
 
-  const byStatus = stats?.byStatus || localByStatus;
-  const byDepartment = stats?.byDepartment || workforce.reduce<Record<string, number>>((acc, item) => {
-    const department = item.department || 'Unassigned';
-    acc[department] = (acc[department] || 0) + 1;
-    return acc;
-  }, {});
+  const byDepartment = useMemo(() => {
+    if (stats?.byDepartment) return stats.byDepartment;
+    return workforce.reduce<Record<string, number>>((acc, item) => {
+      const department = item.department || 'Unassigned';
+      acc[department] = (acc[department] || 0) + 1;
+      return acc;
+    }, {});
+  }, [stats, workforce]);
+
+  const groupedByDepartment = useMemo(() => {
+    return workforce.reduce<Record<string, WorkforceMember[]>>((acc, item) => {
+      const department = item.department || 'Unassigned';
+      acc[department] = acc[department] || [];
+      acc[department].push(item);
+      return acc;
+    }, {});
+  }, [workforce]);
+
+  const visibleWorkers = useMemo(() => {
+    const source = workforce.filter((item) => {
+      if (section === 'serving') return item.status === 'serving';
+      if (section === 'new') return item.status === 'new' || item.status === 'pending';
+      if (section === 'not_serving') return item.status === 'not_serving';
+      return true;
+    });
+    const needle = query.trim().toLowerCase();
+    if (!needle) return source;
+    return source.filter((item) => `${workerName(item)} ${item.department} ${item.email || ''} ${item.phone || ''}`.toLowerCase().includes(needle));
+  }, [query, section, workforce]);
 
   const deptLabels = Object.keys(byDepartment).sort((a, b) => getCount(byDepartment[b]) - getCount(byDepartment[a])).slice(0, 10);
-  const chartData = {
+  const departmentChart = {
     labels: deptLabels,
     datasets: [
       {
@@ -184,6 +227,16 @@ export default function WorkforcePage() {
         data: deptLabels.map((department) => byDepartment[department]),
         backgroundColor: '#2563eb',
         borderRadius: 6,
+      },
+    ],
+  };
+  const statusChart = {
+    labels: ['Serving', 'New/Pending', 'Not serving'],
+    datasets: [
+      {
+        data: [getCount(byStatus.serving), getCount(byStatus.new) + getCount(byStatus.pending), getCount(byStatus.not_serving)],
+        backgroundColor: ['#059669', '#2563eb', '#d97706'],
+        borderWidth: 0,
       },
     ],
   };
@@ -223,61 +276,62 @@ export default function WorkforcePage() {
     }
   };
 
+  const copyFormLink = async () => {
+    if (!publicFormUrl) return;
+    await navigator.clipboard.writeText(publicFormUrl);
+    toast.success('Workforce form link copied');
+  };
+
+  const requestDelete = async (item: WorkforceMember) => {
+    if (!window.confirm(`Send ${workerName(item)} for super-admin delete approval?`)) return;
+    setDeletingId(item.id);
+    try {
+      await apiClient.deleteWorkforce(item.id);
+      toast.success('Delete request sent to super admin');
+      await loadData();
+    } catch (error) {
+      console.error('Failed to request workforce delete:', error);
+      toast.error(error instanceof Error ? error.message : 'Unable to request delete approval');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
         title="Workforce"
-        subtitle="Backend-driven workforce records, service status, and department analytics."
+        subtitle="Serving workers, new workforce applications, department coverage, and governed profile removal."
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={loadData} loading={loading}>
+            <Button variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={() => void loadData()} loading={loading}>
               Refresh
             </Button>
             <Button icon={<Plus className="h-4 w-4" />} onClick={createWorkforceForm} loading={creatingForm}>
-              Prepare Workforce Form
+              Prepare Form
             </Button>
           </div>
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total workforce" value={stats?.total ?? workforce.length} icon={<Users className="h-5 w-5" />} />
         <StatCard label="Currently serving" value={getCount(byStatus.serving)} icon={<CheckCircle2 className="h-5 w-5" />} />
-        <StatCard label="No longer serving" value={getCount(byStatus.not_serving)} icon={<Shield className="h-5 w-5" />} />
         <StatCard label="New / pending" value={getCount(byStatus.new) + getCount(byStatus.pending)} icon={<ClipboardList className="h-5 w-5" />} />
+        <StatCard label="No longer serving" value={getCount(byStatus.not_serving)} icon={<Shield className="h-5 w-5" />} />
       </div>
 
-      <Card
-        title="Workforce intake form"
-        actions={
-          publicFormUrl ? (
-            <Button variant="outline" icon={<ExternalLink className="h-4 w-4" />} onClick={() => window.open(publicFormUrl, '_blank', 'noopener,noreferrer')}>
-              Open Form
-            </Button>
-          ) : null
-        }
-      >
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-          <div>
-            <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-              {primaryForm?.title || 'No workforce form connected yet'}
-            </p>
-            <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">
-              {publicFormUrl || 'Create and publish the workforce form to collect serving status and department data.'}
-            </p>
-          </div>
-          <Badge variant={primaryForm ? 'success' : 'warning'}>{primaryForm ? 'Backend form active' : 'Setup needed'}</Badge>
-        </div>
-      </Card>
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <Card title="Workers by department">
-          {deptLabels.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">{loading ? 'Loading chart...' : 'No department data yet.'}</p>
-          ) : (
-            <div className="h-[320px]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <Card
+          title="Workers by department"
+          actions={<Badge variant="outline">{deptLabels.length} departments</Badge>}
+        >
+          <div className="h-[300px]">
+            {deptLabels.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">{loading ? 'Loading chart...' : 'No department data yet.'}</p>
+            ) : (
               <Bar
-                data={chartData}
+                data={departmentChart}
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
@@ -285,45 +339,130 @@ export default function WorkforcePage() {
                   scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
                 }}
               />
-            </div>
-          )}
+            )}
+          </div>
         </Card>
 
-        <Card title="Status breakdown">
-          <div className="space-y-3">
-            {(Object.keys(statusLabels) as WorkforceStatus[]).map((status) => (
-              <div key={status} className="flex items-center justify-between rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2">
-                <span className="text-sm text-[var(--color-text-secondary)]">{statusLabels[status]}</span>
-                <span className="text-sm font-semibold text-[var(--color-text-primary)]">{getCount(byStatus[status])}</span>
-              </div>
-            ))}
+        <Card title="Service status">
+          <div className="mx-auto h-[220px] max-w-[260px]">
+            <Pie
+              data={statusChart}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 10 } } },
+              }}
+            />
           </div>
         </Card>
       </div>
 
-      <Card title="Workforce records">
+      <Card
+        title="External workforce form"
+        actions={
+          <div className="flex flex-wrap gap-2">
+            {publicFormUrl && (
+              <>
+                <Button size="sm" variant="outline" icon={<Clipboard className="h-4 w-4" />} onClick={() => void copyFormLink()}>
+                  Copy Link
+                </Button>
+                <Button size="sm" variant="outline" icon={<ExternalLink className="h-4 w-4" />} onClick={() => window.open(publicFormUrl, '_blank', 'noopener,noreferrer')}>
+                  Open Form
+                </Button>
+              </>
+            )}
+          </div>
+        }
+      >
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[var(--color-text-primary)]">{primaryForm?.title || 'No workforce form connected yet'}</p>
+            <p className="mt-1 break-all text-sm text-[var(--color-text-tertiary)]">
+              {publicFormUrl || 'Create and publish the form to share a workforce intake link.'}
+            </p>
+          </div>
+          <Badge variant={primaryForm ? 'success' : 'warning'}>{primaryForm ? 'Backend form active' : 'Setup needed'}</Badge>
+        </div>
+      </Card>
+
+      <Card title="Department sections">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {Object.entries(groupedByDepartment)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([department, items]) => {
+              const serving = items.filter((item) => item.status === 'serving').length;
+              const incoming = items.filter((item) => item.status === 'new' || item.status === 'pending').length;
+              return (
+                <details key={department} className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-[var(--color-text-primary)]">
+                    {department} <span className="text-[var(--color-text-tertiary)]">({items.length})</span>
+                  </summary>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                    <MiniCount label="Serving" value={serving} />
+                    <MiniCount label="New" value={incoming} />
+                    <MiniCount label="Inactive" value={items.length - serving - incoming} />
+                  </div>
+                </details>
+              );
+            })}
+        </div>
+      </Card>
+
+      <Card
+        title="Workforce profiles"
+        actions={
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
+            <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search workers..." className="pl-10" />
+          </div>
+        }
+      >
+        <div className="mb-4 flex flex-wrap gap-2">
+          <SectionButton active={section === 'serving'} onClick={() => setSection('serving')}>Currently Serving</SectionButton>
+          <SectionButton active={section === 'new'} onClick={() => setSection('new')}>New Members</SectionButton>
+          <SectionButton active={section === 'not_serving'} onClick={() => setSection('not_serving')}>No Longer Serving</SectionButton>
+          <SectionButton active={section === 'all'} onClick={() => setSection('all')}>All</SectionButton>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-[var(--color-border-secondary)] text-sm">
             <thead>
               <tr className="text-left text-[var(--color-text-tertiary)]">
-                <th className="px-3 py-2 font-semibold">Name</th>
+                <th className="px-3 py-2 font-semibold">Profile</th>
                 <th className="px-3 py-2 font-semibold">Department</th>
                 <th className="px-3 py-2 font-semibold">Status</th>
                 <th className="px-3 py-2 font-semibold">Contact</th>
+                <th className="px-3 py-2 font-semibold">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border-secondary)]">
               {loading ? (
-                <tr><td className="px-3 py-6 text-[var(--color-text-tertiary)]" colSpan={4}>Loading workforce records...</td></tr>
-              ) : workforce.length === 0 ? (
-                <tr><td className="px-3 py-6 text-[var(--color-text-tertiary)]" colSpan={4}>No workforce records yet.</td></tr>
+                <tr><td className="px-3 py-6 text-[var(--color-text-tertiary)]" colSpan={5}>Loading workforce records...</td></tr>
+              ) : visibleWorkers.length === 0 ? (
+                <tr><td className="px-3 py-6 text-[var(--color-text-tertiary)]" colSpan={5}>No workforce records in this section.</td></tr>
               ) : (
-                workforce.map((item) => (
-                  <tr key={item.id}>
-                    <td className="px-3 py-3 font-medium text-[var(--color-text-primary)]">{item.firstName} {item.lastName}</td>
+                visibleWorkers.map((item) => (
+                  <tr key={item.id} className="hover:bg-[var(--color-background-secondary)]">
+                    <td className="px-3 py-3">
+                      <button className="flex items-center gap-2 text-left font-medium text-[var(--color-text-primary)]" onClick={() => setSelectedWorker(item)}>
+                        <IdCard className="h-4 w-4 text-[var(--color-accent-primary)]" />
+                        {workerName(item)}
+                      </button>
+                    </td>
                     <td className="px-3 py-3 text-[var(--color-text-secondary)]">{item.department || 'Unassigned'}</td>
-                    <td className="px-3 py-3"><Badge variant={item.status === 'serving' ? 'success' : item.status === 'not_serving' ? 'warning' : 'primary'}>{statusLabels[item.status] || item.status}</Badge></td>
+                    <td className="px-3 py-3"><Badge variant={statusVariant(item.status)}>{statusLabels[item.status] || item.status}</Badge></td>
                     <td className="px-3 py-3 text-[var(--color-text-secondary)]">{item.email || item.phone || 'No contact'}</td>
+                    <td className="px-3 py-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        icon={<Trash2 className="h-4 w-4" />}
+                        loading={deletingId === item.id}
+                        onClick={() => void requestDelete(item)}
+                      >
+                        Request Delete
+                      </Button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -331,6 +470,25 @@ export default function WorkforcePage() {
           </table>
         </div>
       </Card>
+
+      {selectedWorker && <ProfileCard worker={selectedWorker} onClose={() => setSelectedWorker(null)} />}
+    </div>
+  );
+}
+
+function SectionButton({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
+  return (
+    <Button size="sm" variant={active ? 'primary' : 'outline'} onClick={onClick}>
+      {children}
+    </Button>
+  );
+}
+
+function MiniCount({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-2">
+      <p className="text-[var(--color-text-tertiary)]">{label}</p>
+      <p className="mt-1 font-semibold text-[var(--color-text-primary)]">{value}</p>
     </div>
   );
 }
@@ -348,5 +506,51 @@ function StatCard({ label, value, icon }: { label: string; value: number; icon: 
         </div>
       </div>
     </Card>
+  );
+}
+
+function ProfileCard({ worker, onClose }: { worker: WorkforceMember; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
+      <div className="w-full max-w-md rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-xl">
+        <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-5 py-4">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Workforce ID Card</p>
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{workerName(worker)}</h2>
+          </div>
+          <button className="rounded-[var(--radius-button)] p-2 hover:bg-[var(--color-background-hover)]" onClick={onClose} aria-label="Close profile card">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="space-y-4 px-5 py-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-[var(--radius-card)] bg-[var(--color-accent-primary)] text-xl font-bold text-[var(--color-text-onprimary)]">
+              {worker.firstName?.[0] || 'W'}{worker.lastName?.[0] || ''}
+            </div>
+            <div>
+              <Badge variant={statusVariant(worker.status)}>{statusLabels[worker.status]}</Badge>
+              <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">ID: {worker.id.slice(0, 8).toUpperCase()}</p>
+            </div>
+          </div>
+          <div className="grid gap-3 text-sm">
+            <ProfileRow label="Department" value={worker.department || 'Unassigned'} />
+            <ProfileRow label="Email" value={worker.email || 'Not provided'} />
+            <ProfileRow label="Phone" value={worker.phone || 'Not provided'} />
+            <ProfileRow label="Source" value={worker.sourceChannel || 'Backend record'} />
+            <ProfileRow label="Birthday" value={worker.birthdayMonth && worker.birthdayDay ? `${String(worker.birthdayDay).padStart(2, '0')}/${String(worker.birthdayMonth).padStart(2, '0')}` : 'Not provided'} />
+            <ProfileRow label="Notes" value={worker.notes || 'No notes'} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-3 border-b border-[var(--color-border-secondary)] pb-2 last:border-0">
+      <span className="text-[var(--color-text-tertiary)]">{label}</span>
+      <span className="break-words font-medium text-[var(--color-text-primary)]">{value}</span>
+    </div>
   );
 }
