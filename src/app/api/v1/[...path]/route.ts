@@ -7,6 +7,11 @@ type RouteContext = {
   params: Promise<{ path?: string[] }> | { path?: string[] };
 };
 
+type HeadersWithCookieHelpers = Headers & {
+  getSetCookie?: () => string[];
+  raw?: () => Record<string, string[]>;
+};
+
 const HOP_BY_HOP_HEADERS = new Set([
   'host',
   'connection',
@@ -65,13 +70,60 @@ function buildForwardHeaders(request: NextRequest): Headers {
     headers.set('x-forwarded-host', host);
   }
 
-  headers.set('x-forwarded-proto', request.nextUrl.protocol.replace(':', '') || 'https');
+  headers.set(
+    'x-forwarded-proto',
+    request.nextUrl.protocol.replace(':', '') || 'https'
+  );
 
   return headers;
 }
 
+function splitCombinedSetCookieHeader(value: string): string[] {
+  const cookies: string[] = [];
+  let start = 0;
+
+  for (let i = 0; i < value.length; i += 1) {
+    if (value[i] !== ',') continue;
+
+    const rest = value.slice(i + 1);
+
+    // Split only when the comma is followed by another cookie-name=.
+    // This avoids splitting inside Expires=Wed, 21 Oct 2015...
+    if (/^\s*[!#$%&'*+\-.^_`|~0-9A-Za-z]+=/.test(rest)) {
+      const part = value.slice(start, i).trim();
+      if (part) cookies.push(part);
+      start = i + 1;
+    }
+  }
+
+  const last = value.slice(start).trim();
+  if (last) cookies.push(last);
+
+  return cookies;
+}
+
+function getSetCookieHeaders(upstreamHeaders: Headers): string[] {
+  const headers = upstreamHeaders as HeadersWithCookieHelpers;
+
+  if (typeof headers.getSetCookie === 'function') {
+    const values = headers.getSetCookie().filter(Boolean);
+    if (values.length > 0) return values;
+  }
+
+  if (typeof headers.raw === 'function') {
+    const raw = headers.raw()['set-cookie'];
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw.filter(Boolean);
+    }
+  }
+
+  const merged = upstreamHeaders.get('set-cookie');
+  return merged ? splitCombinedSetCookieHeader(merged) : [];
+}
+
 function buildResponseHeaders(upstreamHeaders: Headers): Headers {
   const headers = new Headers();
+  const setCookieHeaders = getSetCookieHeaders(upstreamHeaders);
 
   upstreamHeaders.forEach((value, key) => {
     const lower = key.toLowerCase();
@@ -80,7 +132,8 @@ function buildResponseHeaders(upstreamHeaders: Headers): Headers {
       lower === 'connection' ||
       lower === 'content-length' ||
       lower === 'transfer-encoding' ||
-      lower === 'content-encoding'
+      lower === 'content-encoding' ||
+      lower === 'set-cookie'
     ) {
       return;
     }
@@ -88,13 +141,20 @@ function buildResponseHeaders(upstreamHeaders: Headers): Headers {
     headers.set(key, value);
   });
 
+  for (const cookie of setCookieHeaders) {
+    headers.append('set-cookie', cookie);
+  }
+
   headers.set('cache-control', 'no-store');
   headers.set('x-admin-api-proxy', 'true');
 
   return headers;
 }
 
-function readRequestBody(request: NextRequest, method: string): ReadableStream<Uint8Array> | null | undefined {
+function readRequestBody(
+  request: NextRequest,
+  method: string
+): ReadableStream<Uint8Array> | null | undefined {
   if (method === 'GET' || method === 'HEAD') {
     return undefined;
   }
@@ -102,7 +162,10 @@ function readRequestBody(request: NextRequest, method: string): ReadableStream<U
   return request.body;
 }
 
-async function proxy(request: NextRequest, context: RouteContext): Promise<NextResponse> {
+async function proxy(
+  request: NextRequest,
+  context: RouteContext
+): Promise<NextResponse> {
   const params = await context.params;
   const pathParts = Array.isArray(params.path) ? params.path : [];
   const method = request.method.toUpperCase();
@@ -132,7 +195,7 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<NextR
     const responseHeaders = buildResponseHeaders(upstream.headers);
     const responseBody = await upstream.arrayBuffer();
 
-    if (upstream.status >= 500) {
+    if (upstream.status >= 400) {
       const preview = new TextDecoder().decode(responseBody.slice(0, 2000));
 
       console.error('[admin-api-proxy] upstream returned error', {
