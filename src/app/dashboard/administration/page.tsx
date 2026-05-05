@@ -690,7 +690,7 @@ function SegmentCard({ segment, items, onOpen }: { segment: SegmentKey; items: P
             <Eye className="h-4 w-4 text-slate-400" />
           </button>
         ))}
-        {items.length === 0 ? <EmptyState label={`No ${meta.label.toLowerCase()} records found from backend.`} /> : null}
+        {items.length === 0 ? <EmptyState label={`No ${meta.label.toLowerCase()} records found.`} /> : null}
       </div>
     </section>
   );
@@ -724,7 +724,7 @@ function TrackerList({ title, items, icon: Icon, onOpen }: { title: string; item
       <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-black text-slate-950">{title}</h2>
-          <p className="mt-1 text-sm text-slate-500">Live tracker from backend profile data.</p>
+          <p className="mt-1 text-sm text-slate-500">Live tracker from saved profile data.</p>
         </div>
         <div className="rounded-2xl bg-slate-950 p-3 text-white">
           <Icon className="h-5 w-5" />
@@ -820,7 +820,7 @@ function TrackerModal({ mode, items, onClose, onSendToday }: { mode: TrackerMode
               <Icon className="h-5 w-5" />
             </div>
             <div>
-              <div className="font-black text-slate-950">Backend-driven celebration workflow</div>
+              <div className="font-black text-slate-950">Celebration workflow</div>
               <p className="mt-1 text-sm text-slate-500">
                 This list is generated from saved leadership, membership, and workforce records. No mock records are used.
               </p>
@@ -988,11 +988,11 @@ export default function OverviewPage() {
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white/70">
                   <ShieldCheck className="h-4 w-4" />
-                  Backend-driven overview
+                  Church records overview
                 </div>
                 <h1 className="mt-3 text-2xl font-black tracking-tight sm:text-3xl">Church Management Overview</h1>
                 <p className="mt-2 max-w-4xl text-sm leading-6 text-white/65">
-                  Live leadership, membership, workforce, birthdays, and wedding anniversary intelligence from backend records. Use the dedicated Leadership, Members, New Members, and Workforce screens for daily operations.
+                  Live leadership, membership, workforce, birthdays, and wedding anniversary intelligence from saved church records. Use the dedicated Leadership, Members, New Members, and Workforce screens for daily operations.
                 </p>
               </div>
 
@@ -1042,7 +1042,7 @@ export default function OverviewPage() {
           <div className="flex min-h-[45vh] items-center justify-center rounded-3xl border border-slate-200 bg-white">
             <div className="text-center">
               <Loader2 className="mx-auto h-10 w-10 animate-spin text-slate-950" />
-              <p className="mt-3 text-sm font-bold text-slate-500">Loading backend overview...</p>
+              <p className="mt-3 text-sm font-bold text-slate-500">Loading church records...</p>
             </div>
           </div>
         ) : null}
@@ -1116,7 +1116,7 @@ export default function OverviewPage() {
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-base font-black text-slate-950">Profile intelligence table</h2>
-                  <p className="mt-1 text-sm text-slate-500">A responsive operational table from backend profile records.</p>
+                  <p className="mt-1 text-sm text-slate-500">A responsive operational table from saved profile records.</p>
                 </div>
                 <button
                   type="button"
@@ -1159,7 +1159,7 @@ export default function OverviewPage() {
                       </div>
                     </button>
                   ))}
-                  {data.allPeople.length === 0 ? <div className="p-4"><EmptyState label="No backend records found." /></div> : null}
+                  {data.allPeople.length === 0 ? <div className="p-4"><EmptyState label="No records found." /></div> : null}
                 </div>
               </div>
             </section>

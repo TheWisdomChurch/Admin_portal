@@ -540,7 +540,7 @@ export default function EmailMarketingPage() {
                   <strong>{formatNumber(parsedManualRecipients.length)}</strong>
                 </article>
               </div>
-              <p className={styles.helper}>The backend deduplicates overlapping emails across selected forms and manual entries before delivery.</p>
+              <p className={styles.helper}>Overlapping emails across selected forms and manual entries are deduplicated before delivery.</p>
             </div>
 
             <div className={styles.livePreview}>

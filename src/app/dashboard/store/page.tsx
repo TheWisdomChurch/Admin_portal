@@ -237,7 +237,7 @@ export default function StoreDashboardPage() {
           Store Operations
         </h1>
         <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">
-          Manage products, stock availability, and customer orders from one backend-driven control room.
+          Manage products, stock availability, and customer orders from one control room.
         </p>
         <div className="mt-4 flex flex-wrap gap-3 text-xs">
           <span className="rounded-full border border-[var(--color-border-primary)] px-3 py-1 text-[var(--color-text-secondary)]">
