@@ -11,7 +11,7 @@ import {
   Tooltip,
 } from 'chart.js';
 import { Bar, Pie } from 'react-chartjs-2';
-import { CalendarHeart, Clipboard, ExternalLink, IdCard, RefreshCw, Search, Trash2, UserCheck, Users, X } from 'lucide-react';
+import { CalendarHeart, Clipboard, ExternalLink, IdCard, Plus, RefreshCw, Search, Trash2, UserCheck, Users, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { PageHeader } from '@/layouts';
@@ -143,9 +143,14 @@ export default function LeadershipPage() {
         title="Leadership"
         subtitle="Standalone leadership profiles, biodata intake, anniversary tracking, and approval-governed deletion."
         actions={
-          <Button variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={() => void loadData()} loading={loading}>
-            Refresh
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={() => void loadData()} loading={loading}>
+              Refresh
+            </Button>
+            <Button icon={<Plus className="h-4 w-4" />} onClick={() => window.location.assign('/dashboard/forms/new?preset=leadership')}>
+              Create Form
+            </Button>
+          </div>
         }
       />
 

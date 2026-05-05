@@ -40,7 +40,7 @@ type FieldDraft = {
 
 type FormPreset = 'testimonial' | 'member' | 'leadership';
 
-const dateFormats = ['dd-mm', 'dd/mm'] as const;
+const dateFormats = ['dd/mm/yyyy', 'yyyy-mm-dd', 'mm/dd/yyyy', 'dd/mm', 'dd-mm'] as const;
 type DateFormat = (typeof dateFormats)[number];
 
 const submitButtonIcons = ['check', 'send', 'calendar', 'cursor', 'none'] as const;
@@ -486,7 +486,7 @@ export default withAuth(function NewFormPage() {
       setIntroSubtitle('Your testimony encourages others and strengthens faith.');
       setIntroBullets('Tell your story clearly\nShare key details\nOur team will review before publishing');
       setIntroBulletSubs('Be specific and truthful\nInclude names only if needed\nOnly approved testimonies go public');
-      setDateFormat('dd-mm');
+      setDateFormat('dd/mm/yyyy');
       setResponseEmailSubject((current) => current || 'Testimony received: Share Your Testimony');
       setResponseEmailHeading((current) => current || 'Testimony Received');
       setResponseEmailMessage((current) =>
@@ -1150,8 +1150,11 @@ export default withAuth(function NewFormPage() {
                       }}
                       className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                     >
-                      <option value="dd-mm">DD-MM</option>
+                      <option value="dd/mm/yyyy">DD/MM/YYYY</option>
+                      <option value="yyyy-mm-dd">YYYY-MM-DD</option>
+                      <option value="mm/dd/yyyy">MM/DD/YYYY</option>
                       <option value="dd/mm">DD/MM</option>
+                      <option value="dd-mm">DD-MM</option>
                     </select>
                   </>
                 )}

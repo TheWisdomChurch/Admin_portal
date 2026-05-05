@@ -10,7 +10,7 @@ import {
   Tooltip,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import { ExternalLink, RefreshCw, Search } from 'lucide-react';
+import { CalendarDays, ExternalLink, RefreshCw, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { PageHeader } from '@/layouts';
@@ -94,13 +94,16 @@ export default function NewMembersPage() {
     );
   }, [query, submissions]);
 
+  const weekly = dashboard?.weeklyGrowth?.slice(-12) || [];
   const monthly = dashboard?.monthlyGrowth?.slice(-12) || [];
+  const quarterly = dashboard?.quarterlyGrowth?.slice(-8) || [];
+  const yearly = dashboard?.yearlyGrowth?.slice(-6) || [];
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="New Members"
-        subtitle="Membership intake from published forms. This is separate from the all-members registry."
+        subtitle="Add New Member intake, growth trends, and follow-up records. This is separate from the all-members registry."
         actions={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={load} loading={loading}>
@@ -128,22 +131,19 @@ export default function NewMembersPage() {
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-        <Card title="Monthly new-member growth">
-          <div className="h-72">
-            <Bar
-              data={{
-                labels: monthly.map((item) => item.period.slice(0, 7)),
-                datasets: [{ label: 'New members', data: monthly.map((item) => item.count), backgroundColor: '#16a34a' }],
-              }}
-              options={{ maintainAspectRatio: false, responsive: true }}
-            />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <Card title="New-member growth">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <GrowthChart title="Weekly" data={weekly} color="#2563eb" labelPrefix="Week" />
+            <GrowthChart title="Monthly" data={monthly} color="#16a34a" labelPrefix="Month" />
+            <GrowthChart title="Quarterly" data={quarterly} color="#d97706" labelPrefix="Quarter" />
+            <GrowthChart title="Yearly" data={yearly} color="#7c3aed" labelPrefix="Year" />
           </div>
         </Card>
-        <Card title="Connected intake forms">
+        <Card title="Add New Member form">
           <div className="space-y-3">
             {(dashboard?.forms || []).length === 0 ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">No membership intake form detected.</p>
+              <p className="text-sm text-[var(--color-text-tertiary)]">No Add New Member form detected.</p>
             ) : (
               dashboard?.forms.map((form) => (
                 <div key={form.formId} className="rounded-md border border-[var(--color-border-secondary)] p-3">
@@ -162,8 +162,17 @@ export default function NewMembersPage() {
         </Card>
       </div>
 
+      <Card title="Period summaries">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <GrowthAccordion title="Weekly" data={weekly} />
+          <GrowthAccordion title="Monthly" data={monthly} />
+          <GrowthAccordion title="Quarterly" data={quarterly} />
+          <GrowthAccordion title="Yearly" data={yearly} />
+        </div>
+      </Card>
+
       <Card
-        title="New-member submissions"
+        title="Add New Member submissions"
         actions={
           <div className="relative w-full sm:w-72">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
@@ -209,5 +218,60 @@ export default function NewMembersPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+function shortPeriod(period: string, prefix?: string): string {
+  if (!period) return '-';
+  if (prefix === 'Year') return period.slice(0, 4);
+  if (prefix === 'Quarter') {
+    const date = new Date(period);
+    if (!Number.isNaN(date.getTime())) {
+      return `${date.getFullYear()} Q${Math.floor(date.getMonth() / 3) + 1}`;
+    }
+  }
+  return period.slice(0, 10);
+}
+
+function GrowthChart({ title, data, color, labelPrefix }: { title: string; data: { period: string; count: number }[]; color: string; labelPrefix: string }) {
+  return (
+    <div className="rounded-md border border-[var(--color-border-secondary)] p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</p>
+        <CalendarDays className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+      </div>
+      <div className="h-52">
+        <Bar
+          data={{
+            labels: data.map((item) => shortPeriod(item.period, labelPrefix)),
+            datasets: [{ label: 'New members', data: data.map((item) => item.count), backgroundColor: color, borderRadius: 6 }],
+          }}
+          options={{ maintainAspectRatio: false, responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function GrowthAccordion({ title, data }: { title: string; data: { period: string; count: number }[] }) {
+  const total = data.reduce((sum, item) => sum + item.count, 0);
+  return (
+    <details className="rounded-md border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3" open={title === 'Monthly'}>
+      <summary className="cursor-pointer text-sm font-semibold text-[var(--color-text-primary)]">
+        {title} <span className="text-[var(--color-text-tertiary)]">({total})</span>
+      </summary>
+      <div className="mt-3 space-y-2">
+        {data.length === 0 ? (
+          <p className="text-xs text-[var(--color-text-tertiary)]">No records yet.</p>
+        ) : (
+          data.map((item) => (
+            <div key={`${title}-${item.period}`} className="flex items-center justify-between rounded-[var(--radius-button)] bg-[var(--color-background-primary)] px-3 py-2 text-xs">
+              <span className="text-[var(--color-text-secondary)]">{shortPeriod(item.period)}</span>
+              <span className="font-semibold text-[var(--color-text-primary)]">{item.count}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </details>
   );
 }
