@@ -17,7 +17,6 @@ import {
   Search,
   Send,
   ShieldCheck,
-  Sparkles,
   TrendingUp,
   UserRound,
   Users,
