@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import {
   Activity,
   BriefcaseBusiness,
@@ -701,7 +702,7 @@ function Avatar({ person, size = 'md' }: { person: PersonRecord | TrackerItem; s
   if (person.imageUrl) {
     return (
       <div className={`${dimension} shrink-0 overflow-hidden rounded-2xl bg-slate-100 ring-1 ring-slate-200`}>
-        <img src={person.imageUrl} alt={person.name} className="h-full w-full object-cover" />
+        <Image src={person.imageUrl} alt={person.name} className="h-full w-full object-cover" />
       </div>
     );
   }
