@@ -91,7 +91,7 @@ function buildWorkforceFormPayload(): CreateFormRequest {
       introTitle: 'Workforce Service Profile',
       introSubtitle: 'Help us keep an accurate, department-by-department workforce record.',
       introBullets: ['Current service status', 'Department tracking', 'Administration review'],
-      introBulletSubtexts: ['Serving, new, or no longer serving', 'Accurate departmental counts', 'Stored through the backend workflow'],
+      introBulletSubtexts: ['Serving, new, or no longer serving', 'Accurate departmental counts', 'Stored in church records'],
       layoutMode: 'split',
       submitButtonText: 'Submit Workforce Profile',
       submitButtonIcon: 'send',
@@ -381,7 +381,7 @@ export default function WorkforcePage() {
               {publicFormUrl || 'Create and publish the form to share a workforce intake link.'}
             </p>
           </div>
-          <Badge variant={primaryForm ? 'success' : 'warning'}>{primaryForm ? 'Backend form active' : 'Setup needed'}</Badge>
+          <Badge variant={primaryForm ? 'success' : 'warning'}>{primaryForm ? 'Form active' : 'Setup needed'}</Badge>
         </div>
       </Card>
 
@@ -536,7 +536,7 @@ function ProfileCard({ worker, onClose }: { worker: WorkforceMember; onClose: ()
             <ProfileRow label="Department" value={worker.department || 'Unassigned'} />
             <ProfileRow label="Email" value={worker.email || 'Not provided'} />
             <ProfileRow label="Phone" value={worker.phone || 'Not provided'} />
-            <ProfileRow label="Source" value={worker.sourceChannel || 'Backend record'} />
+            <ProfileRow label="Source" value={worker.sourceChannel || 'Church record'} />
             <ProfileRow label="Birthday" value={worker.birthdayMonth && worker.birthdayDay ? `${String(worker.birthdayDay).padStart(2, '0')}/${String(worker.birthdayMonth).padStart(2, '0')}` : 'Not provided'} />
             <ProfileRow label="Notes" value={worker.notes || 'No notes'} />
           </div>
