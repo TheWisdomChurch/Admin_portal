@@ -1,1356 +1,1174 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  BarElement,
-  CategoryScale,
-  Chart as ChartJS,
-  Legend,
-  LinearScale,
-  Tooltip,
-} from 'chart.js';
-import { Bar } from 'react-chartjs-2';
-import {
-  Calendar,
-  CheckCircle2,
-  ClipboardList,
-  ExternalLink,
-  FileText,
+  Activity,
+  BriefcaseBusiness,
+  CalendarDays,
+  Cake,
+  Crown,
+  Download,
+  Eye,
   Heart,
+  Loader2,
   Mail,
-  Pencil,
   Phone,
-  Plus,
   RefreshCw,
-  Shield,
+  Search,
+  Send,
+  ShieldCheck,
   Sparkles,
-  Trash2,
+  TrendingUp,
+  UserRound,
   Users,
   X,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 
-import { Card } from '@/ui/Card';
-import { Button } from '@/ui/Button';
-import { Badge } from '@/ui/Badge';
-import { Input } from '@/ui/input';
-import { PageHeader } from '@/layouts';
-import { apiClient } from '@/lib/api';
-import { fetchAllFormSubmissions } from '@/lib/formSubmissions';
-import { buildPublicFormUrl } from '@/lib/utils';
+type SegmentKey = 'leadership' | 'members' | 'workforce';
+type TrackerMode = 'birthdays' | 'anniversaries';
 
-import type {
-  CreateLeadershipRequest,
-  CreateFormRequest,
-  UpdateLeadershipRequest,
-  AdminForm,
-  FormSubmission,
-  LeadershipMember,
-  LeadershipRole,
-  Member,
-  WorkforceMember,
-} from '@/lib/types';
+type ApiEnvelope<T> = {
+  status?: string;
+  message?: string;
+  data?: T;
+  items?: unknown;
+  total?: number;
+  page?: number;
+  limit?: number;
+};
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+type RawRecord = Record<string, unknown>;
 
-type SectionKey = 'workforce' | 'members' | 'leadership';
-type TabKey = 'overview' | SectionKey;
+type PersonRecord = {
+  id: string;
+  segment: SegmentKey;
+  name: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+  department?: string;
+  status?: string;
+  imageUrl?: string;
+  birthdayMonth?: number;
+  birthdayDay?: number;
+  anniversaryMonth?: number;
+  anniversaryDay?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  source?: RawRecord;
+};
 
-const ALL_FORMS = '__all__';
-const LEADERSHIP_FORM_SLUG = 'leadership-biodata';
+type MonthCount = {
+  month: number;
+  label: string;
+  count: number;
+};
+
+type TrackerItem = {
+  id: string;
+  segment: SegmentKey;
+  type: TrackerMode;
+  name: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+  imageUrl?: string;
+  month: number;
+  day: number;
+  dateLabel: string;
+  daysUntil: number;
+};
+
+type OverviewData = {
+  leadership: PersonRecord[];
+  members: PersonRecord[];
+  workforce: PersonRecord[];
+  allPeople: PersonRecord[];
+  birthdayMonths: MonthCount[];
+  anniversaryMonths: MonthCount[];
+  upcomingBirthdays: TrackerItem[];
+  upcomingAnniversaries: TrackerItem[];
+  todayBirthdays: TrackerItem[];
+  todayAnniversaries: TrackerItem[];
+};
+
+type LoadState = {
+  loading: boolean;
+  error: string;
+  data: OverviewData | null;
+};
+
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/+$/, '');
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const TRACKING_WINDOW_DAYS = 45;
 
-const roleOptions: Array<{ value: LeadershipRole; label: string }> = [
-  { value: 'senior_pastor', label: 'Senior Pastor' },
-  { value: 'associate_pastor', label: 'Associate Pastor' },
-  { value: 'reverend', label: 'Reverend' },
-  { value: 'deacon', label: 'Deacon' },
-  { value: 'deaconess', label: 'Deaconess' },
-];
+const segmentMeta: Record<SegmentKey, { label: string; description: string; icon: React.ElementType; tone: string }> = {
+  leadership: {
+    label: 'Leadership',
+    description: 'Pastoral and leadership profile records',
+    icon: Crown,
+    tone: 'from-amber-500/20 to-yellow-500/5 text-amber-700 border-amber-200',
+  },
+  members: {
+    label: 'Membership',
+    description: 'Church membership records and birthday profile data',
+    icon: Users,
+    tone: 'from-blue-500/20 to-cyan-500/5 text-blue-700 border-blue-200',
+  },
+  workforce: {
+    label: 'Workforce',
+    description: 'Workers, departments, and serving profile records',
+    icon: BriefcaseBusiness,
+    tone: 'from-emerald-500/20 to-green-500/5 text-emerald-700 border-emerald-200',
+  },
+};
 
+function apiUrl(path: string): string {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${API_BASE}${normalizedPath}`;
+}
 
-function buildLeadershipFormPayload(): CreateFormRequest {
-  return {
-    title: 'Leadership Biodata',
-    description: 'Collect leadership profile details for review and publication.',
-    slug: LEADERSHIP_FORM_SLUG,
-    fields: [
-      { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
-      { key: 'email', label: 'Email Address', type: 'email', required: true, order: 2 },
-      { key: 'phone', label: 'Contact Number', type: 'tel', required: true, order: 3 },
-      {
-        key: 'leadership_role',
-        label: 'Leadership Role',
-        type: 'select',
-        required: true,
-        order: 4,
-        options: [
-          { label: 'Senior Pastor', value: 'senior_pastor' },
-          { label: 'Associate Pastor', value: 'associate_pastor' },
-          { label: 'Reverend', value: 'reverend' },
-          { label: 'Deacon', value: 'deacon' },
-          { label: 'Deaconess', value: 'deaconess' },
-        ],
-      },
-      { key: 'bio', label: 'Short Bio', type: 'textarea', required: false, order: 5, validation: { maxWords: 400 } },
-      { key: 'birthday', label: 'Birthday (DD/MM)', type: 'text', required: false, order: 6},
-      { key: 'wedding_anniversary', label: 'Wedding Anniversary (DD/MM)', type: 'text', required: false, order: 7},
-      { key: 'photo', label: 'Profile Photo', type: 'image', required: false, order: 8 },
-    ],
-    settings: {
-      formType: 'leadership',
-      submissionTarget: 'leadership',
-      responseEmailEnabled: false,
-      successTitle: 'Leadership biodata received',
-      successSubtitle: 'Thank you. Your profile details have been sent for review.',
-      successMessage: 'The administration team will review this submission before it appears on the public leadership page.',
-      introTitle: 'Leadership Biodata',
-      introSubtitle: 'Provide accurate profile details for review and publication.',
-      introBullets: ['Profile review', 'Public leadership page', 'Secure submission'],
-      introBulletSubtexts: ['Reviewed by administration', 'Published only after approval', 'Submitted through Wisdom Church'],
-      layoutMode: 'split',
-      dateFormat: 'dd/mm',
-      footerText: 'Powered by Wisdom Church',
-      footerBg: '#f5c400',
-      footerTextColor: '#111827',
-      submitButtonText: 'Submit Biodata',
-      submitButtonBg: '#f59e0b',
-      submitButtonTextColor: '#111827',
-      submitButtonIcon: 'send',
-      formHeaderNote: 'Leadership submissions are reviewed before publication.',
+async function readJson<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  if (!text) return {} as T;
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return { message: text } as T;
+  }
+}
+
+function unwrapData<T = unknown>(payload: unknown): T {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return (payload as ApiEnvelope<T>).data as T;
+  }
+
+  return payload as T;
+}
+
+async function apiGet<T = unknown>(path: string): Promise<T> {
+  const res = await fetch(apiUrl(path), {
+    method: 'GET',
+    credentials: 'include',
+    cache: 'no-store',
+    headers: {
+      Accept: 'application/json',
     },
-  };
-}
+  });
 
-function toArray<T>(value: unknown): T[] {
-  if (Array.isArray(value)) return value as T[];
+  const json = await readJson<ApiEnvelope<T>>(res);
 
-  if (value && typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    if (Array.isArray(record.data)) return record.data as T[];
-    if (Array.isArray(record.items)) return record.items as T[];
-
-    if (record.data && typeof record.data === 'object') {
-      const nested = record.data as Record<string, unknown>;
-      if (Array.isArray(nested.data)) return nested.data as T[];
-      if (Array.isArray(nested.items)) return nested.items as T[];
-      if (Array.isArray(nested.results)) return nested.results as T[];
-    }
+  if (!res.ok) {
+    throw new Error(json.message || `Request failed with status ${res.status}`);
   }
 
-  return [];
+  return unwrapData<T>(json);
 }
 
-function formatMonthDay(month?: number, day?: number) {
-  if (!month || !day) return '—';
-  return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`;
+async function getCSRFToken(): Promise<string> {
+  try {
+    const payload = await apiGet<RawRecord>('/api/v1/auth/csrf-token');
+    const token =
+      stringValue(payload.csrfToken) ||
+      stringValue(payload.csrf_token) ||
+      stringValue(payload.token) ||
+      stringValue((payload.data as RawRecord | undefined)?.csrfToken) ||
+      '';
+
+    return token;
+  } catch {
+    return '';
+  }
 }
 
-function roleLabel(role: LeadershipRole) {
-  return roleOptions.find((item) => item.value === role)?.label || role;
-}
+async function apiPost<T = unknown>(path: string, body?: unknown): Promise<T> {
+  const csrfToken = await getCSRFToken();
+  const headers = new Headers({
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  });
 
-function normalizeToken(value?: string | null) {
-  return (value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-}
-
-function getSubmissionCount(form: AdminForm) {
-  const record = form as AdminForm & {
-    submissionCount?: number;
-    submissionsCount?: number;
-    responseCount?: number;
-    responsesCount?: number;
-    totalSubmissions?: number;
-    total?: number;
-    count?: number;
-  };
-
-  const count =
-    record.submissionCount ??
-    record.submissionsCount ??
-    record.responseCount ??
-    record.responsesCount ??
-    record.totalSubmissions ??
-    record.total ??
-    record.count ??
-    0;
-
-  return typeof count === 'number' && Number.isFinite(count) ? count : 0;
-}
-
-function formMatchesSection(form: AdminForm, section: SectionKey) {
-  const target = form.settings?.submissionTarget;
-  const formType = form.settings?.formType;
-  const slug = form.slug || '';
-  const surface = normalizeToken(`${form.slug || ''} ${form.title || ''}`);
-
-  if (section === 'workforce') {
-    return (
-      target === 'workforce' ||
-      target === 'workforce_new' ||
-      target === 'workforce_serving' ||
-      formType === 'workforce' ||
-      surface.includes('workforce') ||
-      surface.includes('worker')
-    );
+  if (csrfToken) {
+    headers.set('X-CSRF-Token', csrfToken);
   }
 
-  if (section === 'members') {
-    return target === 'member' || formType === 'membership' || surface.includes('member') || surface.includes('membership');
+  const res = await fetch(apiUrl(path), {
+    method: 'POST',
+    credentials: 'include',
+    cache: 'no-store',
+    headers,
+    body: JSON.stringify(body ?? {}),
+  });
+
+  const json = await readJson<ApiEnvelope<T>>(res);
+
+  if (!res.ok) {
+    throw new Error(json.message || `Request failed with status ${res.status}`);
   }
 
-  return slug === LEADERSHIP_FORM_SLUG || target === 'leadership' || formType === 'leadership' || surface.includes('leadership');
+  return unwrapData<T>(json);
 }
 
-function resolveSubmissionName(submission: FormSubmission) {
-  const values = submission.values || {};
-  const direct = submission.name || values.fullName || values.full_name || values.name;
-
-  if (typeof direct === 'string' && direct.trim()) return direct.trim();
-
-  const first = typeof values.firstName === 'string' ? values.firstName : values.first_name;
-  const last = typeof values.lastName === 'string' ? values.lastName : values.last_name;
-  const combined = `${typeof first === 'string' ? first : ''} ${typeof last === 'string' ? last : ''}`.trim();
-
-  return combined || 'Anonymous';
-}
-
-function resolveSubmissionEmail(submission: FormSubmission) {
-  const values = submission.values || {};
-  const email = submission.email || values.email || values.contactEmail || values.email_address;
-
-  return typeof email === 'string' && email.trim() ? email.trim() : 'No email';
-}
-
-function resolveSubmissionPhone(submission: FormSubmission) {
-  const values = submission.values || {};
-  const phone =
-    submission.contactNumber ||
-    values.phone ||
-    values.contactPhone ||
-    values.phone_number ||
-    values.contact_number ||
-    values.contactNumber;
-
-  return typeof phone === 'string' && phone.trim() ? phone.trim() : '—';
-}
-
-function readSubmissionText(submission: FormSubmission, keys: string[]) {
-  const values = submission.values || {};
-
-  for (const key of keys) {
-    const raw = values[key];
-
-    if (typeof raw === 'string' && raw.trim()) return raw.trim();
-    if (typeof raw === 'number' && Number.isFinite(raw)) return String(raw);
-    if (Array.isArray(raw) && raw.length > 0) return raw.join(', ');
+async function apiGetOptional<T = unknown>(path: string): Promise<T | null> {
+  try {
+    return await apiGet<T>(path);
+  } catch {
+    return null;
   }
+}
 
+function stringValue(value: unknown): string {
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
   return '';
 }
 
-function splitFullName(fullName: string) {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return { firstName: '', lastName: '' };
-  if (parts.length === 1) return { firstName: parts[0], lastName: 'Unknown' };
-  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
-}
+function numberValue(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
 
-function normalizeLeadershipRole(value: string): LeadershipRole {
-  const normalized = value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-
-  if (normalized === 'senior_pastor' || normalized === 'pastor') return 'senior_pastor';
-  if (normalized === 'associate_pastor') return 'associate_pastor';
-  if (normalized === 'reverend' || normalized === 'rev') return 'reverend';
-  if (normalized === 'deacon') return 'deacon';
-  if (normalized === 'deaconess' || normalized === 'deaconness') return 'deaconess';
-
-  return 'associate_pastor';
-}
-
-function normalizeLeadershipDate(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-
-  // Browser date input sends YYYY-MM-DD.
-  const isoDateOnly = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (isoDateOnly) {
-    return `${isoDateOnly[3]}/${isoDateOnly[2]}`;
-  }
-
-  // Already correct DD/MM.
-  const ddmm = trimmed.match(/^(\d{1,2})\/(\d{1,2})$/);
-  if (ddmm) {
-    return `${ddmm[1].padStart(2, '0')}/${ddmm[2].padStart(2, '0')}`;
-  }
-
-  // Handles DD-MM, DD-MM-YYYY, DD/MM/YYYY.
-  const parts = trimmed
-    .replace(/-/g, '/')
-    .split('/')
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  if (parts.length >= 2) {
-    let day = parts[0];
-    let month = parts[1];
-
-    // Handles YYYY/MM/DD.
-    if (parts[0].length === 4 && parts[2]) {
-      day = parts[2];
-      month = parts[1];
-    }
-
-    const dayNum = Number(day);
-    const monthNum = Number(month);
-
-    if (
-      Number.isInteger(dayNum) &&
-      Number.isInteger(monthNum) &&
-      dayNum >= 1 &&
-      dayNum <= 31 &&
-      monthNum >= 1 &&
-      monthNum <= 12
-    ) {
-      return `${String(dayNum).padStart(2, '0')}/${String(monthNum).padStart(2, '0')}`;
-    }
+  if (typeof value === 'string') {
+    const n = Number(value.trim());
+    if (Number.isFinite(n)) return n;
   }
 
   return undefined;
 }
 
-function buildLeadershipPayloadFromSubmission(submission: FormSubmission): CreateLeadershipRequest {
-  const fullName = resolveSubmissionName(submission);
-  const split = splitFullName(fullName);
+function normalizeStatus(value: unknown): string {
+  const status = stringValue(value).toLowerCase().replace(/[_-]+/g, ' ');
+  if (!status) return 'unknown';
+  return status;
+}
 
-  const firstName = readSubmissionText(submission, ['first_name', 'firstName']) || split.firstName;
-  const lastName = readSubmissionText(submission, ['last_name', 'lastName']) || split.lastName;
-  const role = readSubmissionText(submission, ['leadership_role', 'role', 'position', 'title']);
-  const birthday = readSubmissionText(submission, ['birthday', 'date_of_birth', 'birth_date', 'dob']);
-  const anniversary = readSubmissionText(submission, ['anniversary', 'wedding_anniversary', 'marriage_anniversary']);
-  const imageUrl = readSubmissionText(submission, ['imageUrl', 'image_url', 'profile_image', 'photo']);
+function titleCase(value: string): string {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function firstNonEmpty(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    const text = stringValue(value);
+    if (text) return text;
+  }
+
+  return undefined;
+}
+
+function extractList(payload: unknown): { items: RawRecord[]; total: number } {
+  const data = unwrapData(payload);
+
+  if (Array.isArray(data)) {
+    return { items: data.filter(isRecord), total: data.length };
+  }
+
+  if (isRecord(data)) {
+    const possibleItems = data.items ?? data.results ?? data.records ?? data.data;
+
+    if (Array.isArray(possibleItems)) {
+      const items = possibleItems.filter(isRecord);
+      return { items, total: numberValue(data.total) ?? items.length };
+    }
+  }
+
+  return { items: [], total: 0 };
+}
+
+function isRecord(value: unknown): value is RawRecord {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function normalizePerson(record: RawRecord, segment: SegmentKey): PersonRecord {
+  const firstName = firstNonEmpty(record.firstName, record.first_name, record.firstname);
+  const lastName = firstNonEmpty(record.lastName, record.last_name, record.lastname);
+  const fullName = firstNonEmpty(record.name, record.fullName, record.full_name, [firstName, lastName].filter(Boolean).join(' '));
 
   return {
-    firstName,
-    lastName,
-    email: resolveSubmissionEmail(submission) !== 'No email' ? resolveSubmissionEmail(submission) : undefined,
-    phone: resolveSubmissionPhone(submission) !== '—' ? resolveSubmissionPhone(submission) : undefined,
-    role: normalizeLeadershipRole(role),
-    status: 'pending',
-    bio: readSubmissionText(submission, ['bio', 'short_bio', 'profile', 'about']) || undefined,
-    birthday: birthday ? normalizeLeadershipDate(birthday) : undefined,
-    anniversary: anniversary ? normalizeLeadershipDate(anniversary) : undefined,
-    imageUrl: imageUrl.startsWith('http://') || imageUrl.startsWith('https://') ? imageUrl : undefined,
+    id: firstNonEmpty(record.id, record.uuid, record.email, `${segment}-${fullName || 'record'}-${Math.random()}`) || `${segment}-record`,
+    segment,
+    name: fullName || 'Unnamed profile',
+    email: firstNonEmpty(record.email, record.emailAddress, record.email_address),
+    phone: firstNonEmpty(record.phone, record.phoneNumber, record.phone_number, record.contactNumber, record.contact_number),
+    role: firstNonEmpty(record.role, record.leadershipRole, record.leadership_role, record.position, record.title),
+    department: firstNonEmpty(record.department, record.ministry, record.unit, record.team),
+    status: normalizeStatus(record.status ?? record.approvalStatus ?? record.approval_status),
+    imageUrl: firstNonEmpty(record.imageUrl, record.image_url, record.photoUrl, record.photo_url, record.photo, record.profileImage, record.profile_image),
+    birthdayMonth: numberValue(record.birthdayMonth ?? record.birthday_month),
+    birthdayDay: numberValue(record.birthdayDay ?? record.birthday_day),
+    anniversaryMonth: numberValue(record.anniversaryMonth ?? record.anniversary_month),
+    anniversaryDay: numberValue(record.anniversaryDay ?? record.anniversary_day),
+    createdAt: firstNonEmpty(record.createdAt, record.created_at),
+    updatedAt: firstNonEmpty(record.updatedAt, record.updated_at),
+    source: record,
   };
 }
 
-function leadershipSubmissionAlreadyPublished(submission: FormSubmission, leaders: LeadershipMember[]) {
-  const email = resolveSubmissionEmail(submission).toLowerCase();
-  const name = resolveSubmissionName(submission).toLowerCase();
+function emptyMonthCounts(): MonthCount[] {
+  return MONTH_LABELS.map((label, index) => ({ month: index + 1, label, count: 0 }));
+}
 
-  return leaders.some((leader) => {
-    const leaderEmail = (leader.email || '').toLowerCase();
-    const leaderName = `${leader.firstName} ${leader.lastName}`.trim().toLowerCase();
-    return (email !== 'no email' && leaderEmail === email) || (name !== 'anonymous' && leaderName === name);
+function makeMonthCounts(items: PersonRecord[], mode: TrackerMode): MonthCount[] {
+  const months = emptyMonthCounts();
+
+  items.forEach((item) => {
+    const month = mode === 'birthdays' ? item.birthdayMonth : item.anniversaryMonth;
+    if (!month || month < 1 || month > 12) return;
+    months[month - 1].count += 1;
   });
+
+  return months;
 }
 
-function formatDateTime(value?: string) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
-}
+function mergeBackendMonthStats(fallback: MonthCount[], payload: unknown): MonthCount[] {
+  if (!payload) return fallback;
 
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error) return error.message;
+  const months = emptyMonthCounts();
+  let used = false;
+  const data = unwrapData(payload);
 
-  if (error && typeof error === 'object') {
-    const record = error as Record<string, unknown>;
-    const response = record.response as Record<string, unknown> | undefined;
-    const data = response?.data as Record<string, unknown> | undefined;
+  const apply = (month: unknown, count: unknown) => {
+    const monthNumber = numberValue(month);
+    const countNumber = numberValue(count);
+    if (!monthNumber || monthNumber < 1 || monthNumber > 12 || countNumber === undefined) return;
+    months[monthNumber - 1].count = countNumber;
+    used = true;
+  };
 
-    if (typeof data?.message === 'string') return data.message;
-    if (typeof data?.error === 'string') return data.error;
-    if (typeof record.message === 'string') return record.message;
+  if (Array.isArray(data)) {
+    data.forEach((row) => {
+      if (!isRecord(row)) return;
+      apply(row.month ?? row.monthNumber ?? row.month_number, row.count ?? row.total);
+    });
+  } else if (isRecord(data)) {
+    const rows = data.months ?? data.items ?? data.data;
+    if (Array.isArray(rows)) {
+      rows.forEach((row) => {
+        if (!isRecord(row)) return;
+        apply(row.month ?? row.monthNumber ?? row.month_number, row.count ?? row.total);
+      });
+    }
+
+    const byMonth = data.byMonth ?? data.by_month;
+    if (isRecord(byMonth)) {
+      Object.entries(byMonth).forEach(([month, count]) => apply(month, count));
+    }
   }
 
-  return 'Request failed';
+  return used ? months : fallback;
 }
 
-function StatCard({ label, value, meta, icon }: { label: string; value: number | string; meta: string; icon: ReactNode }) {
+function daysUntilMonthDay(month: number, day: number): number {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let target = new Date(today.getFullYear(), month - 1, day);
+
+  if (Number.isNaN(target.getTime())) return 9999;
+
+  if (target < today) {
+    target = new Date(today.getFullYear() + 1, month - 1, day);
+  }
+
+  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
+}
+
+function dateLabel(month: number, day: number): string {
+  const label = MONTH_LABELS[month - 1] || 'Month';
+  return `${label} ${String(day).padStart(2, '0')}`;
+}
+
+function buildTrackerItems(items: PersonRecord[], mode: TrackerMode, windowDays = TRACKING_WINDOW_DAYS): TrackerItem[] {
+  const results: TrackerItem[] = [];
+
+  for (const item of items) {
+    const month = mode === 'birthdays' ? item.birthdayMonth : item.anniversaryMonth;
+    const day = mode === 'birthdays' ? item.birthdayDay : item.anniversaryDay;
+
+    if (!month || !day || month < 1 || month > 12 || day < 1 || day > 31) continue;
+
+    const daysUntil = daysUntilMonthDay(month, day);
+    if (daysUntil > windowDays) continue;
+
+    results.push({
+      id: `${mode}-${item.segment}-${item.id}`,
+      segment: item.segment,
+      type: mode,
+      name: item.name,
+      email: item.email,
+      phone: item.phone,
+      role: item.role || item.department,
+      imageUrl: item.imageUrl,
+      month,
+      day,
+      daysUntil,
+      dateLabel: dateLabel(month, day),
+    });
+  }
+
+  return results.sort((a, b) => a.daysUntil - b.daysUntil || a.name.localeCompare(b.name));
+}
+
+function extractTodayItems(payload: unknown, mode: TrackerMode, segment: SegmentKey): TrackerItem[] {
+  if (!payload) return [];
+
+  const { items } = extractList(payload);
+  const results: TrackerItem[] = [];
+
+  for (const record of items) {
+    const person = normalizePerson(record, segment);
+    const month = mode === 'birthdays' ? person.birthdayMonth : person.anniversaryMonth;
+    const day = mode === 'birthdays' ? person.birthdayDay : person.anniversaryDay;
+    
+    if (!month || !day) continue;
+
+    results.push({
+      id: `today-${mode}-${segment}-${person.id}`,
+      segment,
+      type: mode,
+      name: person.name,
+      email: person.email,
+      phone: person.phone,
+      role: person.role || person.department,
+      imageUrl: person.imageUrl,
+      month,
+      day,
+      daysUntil: 0,
+      dateLabel: dateLabel(month, day),
+    });
+  }
+
+  return results;
+}
+
+function statusCounts(items: PersonRecord[]): Array<{ label: string; count: number }> {
+  const counts = new Map<string, number>();
+
+  items.forEach((item) => {
+    const status = item.status || 'unknown';
+    counts.set(status, (counts.get(status) || 0) + 1);
+  });
+
+  return Array.from(counts.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+function latestProfiles(items: PersonRecord[], limit = 8): PersonRecord[] {
+  return items
+    .slice()
+    .sort((a, b) => {
+      const left = new Date(a.createdAt || a.updatedAt || 0).getTime();
+      const right = new Date(b.createdAt || b.updatedAt || 0).getTime();
+      return right - left;
+    })
+    .slice(0, limit);
+}
+
+function initials(name: string): string {
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'WH';
+  return parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('');
+}
+
+async function loadOverviewData(): Promise<OverviewData> {
+  const [leadershipPayload, membersPayload, workforcePayload] = await Promise.all([
+    apiGet('/api/v1/admin/leadership?page=1&limit=500'),
+    apiGet('/api/v1/admin/members?page=1&limit=500'),
+    apiGet('/api/v1/admin/workforce?page=1&limit=500'),
+  ]);
+
+  const leadership = extractList(leadershipPayload).items.map((item) => normalizePerson(item, 'leadership'));
+  const members = extractList(membersPayload).items.map((item) => normalizePerson(item, 'members'));
+  const workforce = extractList(workforcePayload).items.map((item) => normalizePerson(item, 'workforce'));
+  const allPeople = [...leadership, ...members, ...workforce];
+
+  const [
+    leadershipBirthdayStats,
+    memberBirthdayStats,
+    workforceBirthdayStats,
+    leadershipAnniversaryStats,
+    leadershipBirthdaysToday,
+    memberBirthdaysToday,
+    workforceBirthdaysToday,
+    leadershipAnniversariesToday,
+  ] = await Promise.all([
+    apiGetOptional('/api/v1/admin/leadership/birthdays/stats'),
+    apiGetOptional('/api/v1/admin/members/birthdays/stats'),
+    apiGetOptional('/api/v1/admin/workforce/birthdays/stats'),
+    apiGetOptional('/api/v1/admin/leadership/anniversaries/stats'),
+    apiGetOptional('/api/v1/admin/leadership/birthdays/today'),
+    apiGetOptional('/api/v1/admin/members/birthdays/today'),
+    apiGetOptional('/api/v1/admin/workforce/birthdays/today'),
+    apiGetOptional('/api/v1/admin/leadership/anniversaries/today'),
+  ]);
+
+  let birthdayMonths = makeMonthCounts(allPeople, 'birthdays');
+  birthdayMonths = mergeBackendMonthStats(birthdayMonths, leadershipBirthdayStats);
+  birthdayMonths = combineMonthCounts([
+    birthdayMonths,
+    mergeBackendMonthStats(emptyMonthCounts(), memberBirthdayStats),
+    mergeBackendMonthStats(emptyMonthCounts(), workforceBirthdayStats),
+  ]);
+
+  const anniversaryMonths = mergeBackendMonthStats(
+    makeMonthCounts(leadership, 'anniversaries'),
+    leadershipAnniversaryStats,
+  );
+
+  const upcomingBirthdays = buildTrackerItems(allPeople, 'birthdays');
+  const upcomingAnniversaries = buildTrackerItems(leadership, 'anniversaries');
+
+  const todayBirthdays = [
+    ...extractTodayItems(leadershipBirthdaysToday, 'birthdays', 'leadership'),
+    ...extractTodayItems(memberBirthdaysToday, 'birthdays', 'members'),
+    ...extractTodayItems(workforceBirthdaysToday, 'birthdays', 'workforce'),
+  ];
+
+  const todayAnniversaries = extractTodayItems(leadershipAnniversariesToday, 'anniversaries', 'leadership');
+
+  return {
+    leadership,
+    members,
+    workforce,
+    allPeople,
+    birthdayMonths,
+    anniversaryMonths,
+    upcomingBirthdays,
+    upcomingAnniversaries,
+    todayBirthdays: todayBirthdays.length > 0 ? todayBirthdays : upcomingBirthdays.filter((item) => item.daysUntil === 0),
+    todayAnniversaries: todayAnniversaries.length > 0 ? todayAnniversaries : upcomingAnniversaries.filter((item) => item.daysUntil === 0),
+  };
+}
+
+function combineMonthCounts(groups: MonthCount[][]): MonthCount[] {
+  const months = emptyMonthCounts();
+
+  groups.forEach((group) => {
+    group.forEach((item) => {
+      if (item.month < 1 || item.month > 12) return;
+      months[item.month - 1].count += item.count;
+    });
+  });
+
+  return months;
+}
+
+function StatCard({
+  title,
+  value,
+  subtitle,
+  icon: Icon,
+  tone,
+}: {
+  title: string;
+  value: number | string;
+  subtitle: string;
+  icon: React.ElementType;
+  tone: string;
+}) {
   return (
-    <Card>
+    <div className={`overflow-hidden rounded-3xl border bg-gradient-to-br p-5 shadow-sm ${tone}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</p>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-[var(--color-text-primary)]">{value}</p>
-          <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{meta}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">{title}</p>
+          <div className="mt-3 text-3xl font-black tracking-tight text-slate-950">{value}</div>
+          <p className="mt-2 text-sm font-medium text-slate-600">{subtitle}</p>
         </div>
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-accent-primary)]">
-          {icon}
+        <div className="rounded-2xl bg-white/80 p-3 shadow-sm">
+          <Icon className="h-6 w-6" />
         </div>
       </div>
-    </Card>
-  );
-}
-
-function AccordionRow({ title, subtitle, badge, children }: { title: string; subtitle?: string; badge?: ReactNode; children: ReactNode }) {
-  return (
-    <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm transition hover:border-[var(--color-border-primary)]">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate font-semibold text-[var(--color-text-primary)]">{title}</p>
-          {subtitle && <p className="truncate text-xs text-[var(--color-text-tertiary)]">{subtitle}</p>}
-        </div>
-        {badge}
-      </div>
-      <div className="pt-3">{children}</div>
     </div>
   );
 }
 
-export default function AdministrationPage() {
-  const router = useRouter();
+function MonthBarChart({ title, subtitle, data, icon: Icon }: { title: string; subtitle: string; data: MonthCount[]; icon: React.ElementType }) {
+  const max = Math.max(1, ...data.map((item) => item.count));
 
-  const [activeTab, setActiveTab] = useState<TabKey>('overview');
-  const [workforce, setWorkforce] = useState<WorkforceMember[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [leaders, setLeaders] = useState<LeadershipMember[]>([]);
-  const [forms, setForms] = useState<AdminForm[]>([]);
-  const [loading, setLoading] = useState(false);
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-base font-black text-slate-950">{title}</h2>
+          <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+        </div>
+        <div className="rounded-2xl bg-slate-950 p-3 text-white">
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
 
-  const [selectedFormIds, setSelectedFormIds] = useState<Record<SectionKey, string>>({
-    workforce: ALL_FORMS,
-    members: ALL_FORMS,
-    leadership: ALL_FORMS,
+      <div className="mt-6 grid grid-cols-6 gap-3 sm:grid-cols-12">
+        {data.map((item) => {
+          const height = Math.max(12, Math.round((item.count / max) * 110));
+
+          return (
+            <div key={item.month} className="flex flex-col items-center gap-2">
+              <div className="flex h-32 w-full items-end justify-center rounded-2xl bg-slate-50 px-1 py-2">
+                <div
+                  className="w-full rounded-xl bg-slate-950 transition-all"
+                  style={{ height }}
+                  title={`${item.label}: ${item.count}`}
+                />
+              </div>
+              <div className="text-[11px] font-bold uppercase text-slate-500">{item.label}</div>
+              <div className="text-xs font-black text-slate-900">{item.count}</div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function SegmentCard({ segment, items, onOpen }: { segment: SegmentKey; items: PersonRecord[]; onOpen: (person: PersonRecord) => void }) {
+  const meta = segmentMeta[segment];
+  const Icon = meta.icon;
+  const counts = statusCounts(items);
+  const activeCount = items.filter((item) => ['active', 'approved', 'published'].includes(item.status || '')).length;
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className={`rounded-2xl border bg-gradient-to-br p-3 ${meta.tone}`}>
+            <Icon className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-base font-black text-slate-950">{meta.label}</h2>
+            <p className="mt-1 text-sm text-slate-500">{meta.description}</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-black text-slate-950">{items.length}</div>
+          <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Records</div>
+        </div>
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-3">
+        <div className="rounded-2xl bg-slate-50 p-4">
+          <div className="text-xs font-bold uppercase text-slate-500">Active/Approved</div>
+          <div className="mt-2 text-2xl font-black text-slate-950">{activeCount}</div>
+        </div>
+        <div className="rounded-2xl bg-slate-50 p-4">
+          <div className="text-xs font-bold uppercase text-slate-500">With Birthdays</div>
+          <div className="mt-2 text-2xl font-black text-slate-950">
+            {items.filter((item) => item.birthdayMonth && item.birthdayDay).length}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 space-y-2">
+        {counts.length === 0 ? (
+          <EmptyState label="No status data available." />
+        ) : (
+          counts.slice(0, 4).map((item) => (
+            <div key={item.label} className="flex items-center justify-between rounded-2xl border border-slate-100 px-3 py-2">
+              <span className="text-sm font-semibold text-slate-700">{titleCase(item.label)}</span>
+              <span className="rounded-full bg-slate-950 px-2.5 py-1 text-xs font-black text-white">{item.count}</span>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="mt-5 space-y-3">
+        <div className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Recent profiles</div>
+        {latestProfiles(items, 3).map((person) => (
+          <button
+            key={person.id}
+            type="button"
+            onClick={() => onOpen(person)}
+            className="flex w-full items-center gap-3 rounded-2xl border border-slate-100 p-3 text-left transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            <Avatar person={person} />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-black text-slate-950">{person.name}</div>
+              <div className="truncate text-xs text-slate-500">{person.role || person.department || titleCase(person.status || 'profile')}</div>
+            </div>
+            <Eye className="h-4 w-4 text-slate-400" />
+          </button>
+        ))}
+        {items.length === 0 ? <EmptyState label={`No ${meta.label.toLowerCase()} records found from backend.`} /> : null}
+      </div>
+    </section>
+  );
+}
+
+function Avatar({ person, size = 'md' }: { person: PersonRecord | TrackerItem; size?: 'sm' | 'md' | 'lg' }) {
+  const dimension = size === 'lg' ? 'h-16 w-16 text-lg' : size === 'sm' ? 'h-9 w-9 text-xs' : 'h-11 w-11 text-sm';
+
+  if (person.imageUrl) {
+    return (
+      <div className={`${dimension} shrink-0 overflow-hidden rounded-2xl bg-slate-100 ring-1 ring-slate-200`}>
+        <img src={person.imageUrl} alt={person.name} className="h-full w-full object-cover" />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`${dimension} flex shrink-0 items-center justify-center rounded-2xl bg-slate-950 font-black text-white`}>
+      {initials(person.name)}
+    </div>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">{label}</div>;
+}
+
+function TrackerList({ title, items, icon: Icon, onOpen }: { title: string; items: TrackerItem[]; icon: React.ElementType; onOpen: (item: TrackerItem) => void }) {
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-base font-black text-slate-950">{title}</h2>
+          <p className="mt-1 text-sm text-slate-500">Live tracker from backend profile data.</p>
+        </div>
+        <div className="rounded-2xl bg-slate-950 p-3 text-white">
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {items.slice(0, 8).map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onOpen(item)}
+            className="flex w-full items-center gap-3 rounded-2xl border border-slate-100 p-3 text-left transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            <Avatar person={item} size="sm" />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-black text-slate-950">{item.name}</div>
+              <div className="truncate text-xs text-slate-500">
+                {segmentMeta[item.segment].label} • {item.role || 'Profile'}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs font-black text-slate-950">{item.dateLabel}</div>
+              <div className="text-[11px] font-semibold text-slate-500">{item.daysUntil === 0 ? 'Today' : `${item.daysUntil} days`}</div>
+            </div>
+          </button>
+        ))}
+        {items.length === 0 ? <EmptyState label="No upcoming records found for this tracker." /> : null}
+      </div>
+    </section>
+  );
+}
+
+function ProfileModal({ person, onClose }: { person: PersonRecord | null; onClose: () => void }) {
+  if (!person) return null;
+
+  return (
+    <Modal title="Profile overview" onClose={onClose}>
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+        <Avatar person={person} size="lg" />
+        <div className="min-w-0 flex-1">
+          <h3 className="text-2xl font-black text-slate-950">{person.name}</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">{segmentMeta[person.segment].label}</p>
+          <div className="mt-3 inline-flex rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
+            {titleCase(person.status || 'Unknown')}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <InfoRow icon={Mail} label="Email" value={person.email || 'Not provided'} />
+        <InfoRow icon={Phone} label="Phone" value={person.phone || 'Not provided'} />
+        <InfoRow icon={UserRound} label="Role / Department" value={person.role || person.department || 'Not provided'} />
+        <InfoRow icon={Cake} label="Birthday" value={person.birthdayMonth && person.birthdayDay ? dateLabel(person.birthdayMonth, person.birthdayDay) : 'Not provided'} />
+        <InfoRow icon={Heart} label="Wedding Anniversary" value={person.anniversaryMonth && person.anniversaryDay ? dateLabel(person.anniversaryMonth, person.anniversaryDay) : 'Not provided'} />
+        <InfoRow icon={CalendarDays} label="Created" value={person.createdAt ? new Date(person.createdAt).toLocaleDateString() : 'Not provided'} />
+      </div>
+    </Modal>
+  );
+}
+
+function TrackerModal({ mode, items, onClose, onSendToday }: { mode: TrackerMode | null; items: TrackerItem[]; onClose: () => void; onSendToday: (mode: TrackerMode, segment?: SegmentKey) => Promise<void> }) {
+  const [sending, setSending] = useState<string>('');
+  const [query, setQuery] = useState('');
+
+  if (!mode) return null;
+
+  const filtered = items.filter((item) => {
+    const q = query.toLowerCase().trim();
+    if (!q) return true;
+    return `${item.name} ${item.email || ''} ${item.role || ''} ${item.segment}`.toLowerCase().includes(q);
   });
 
-  const [formSubmissions, setFormSubmissions] = useState<FormSubmission[]>([]);
-  const [formSubmissionsTotal, setFormSubmissionsTotal] = useState(0);
-  const [formSubmissionsPage, setFormSubmissionsPage] = useState(1);
-  const [formSubmissionsLoading, setFormSubmissionsLoading] = useState(false);
-  const [publishingSubmissionId, setPublishingSubmissionId] = useState<string | null>(null);
-  const [deletingSubmissionId, setDeletingSubmissionId] = useState<string | null>(null);
-  const [creatingLeadershipForm, setCreatingLeadershipForm] = useState(false);
+  const title = mode === 'birthdays' ? 'Birthday scheduler' : 'Wedding anniversary tracker';
+  const Icon = mode === 'birthdays' ? Cake : Heart;
 
-  const [editingLeaderId, setEditingLeaderId] = useState<string | null>(null);
-  const [deletingLeaderId, setDeletingLeaderId] = useState<string | null>(null);
-  const [leaderDraft, setLeaderDraft] = useState<Partial<UpdateLeadershipRequest>>({});
-
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-
+  const runSend = async (segment?: SegmentKey) => {
+    const key = `${mode}-${segment || 'all'}`;
+    setSending(key);
     try {
-      const [workforceRes, membersRes, leadershipRes, formsRes] = await Promise.allSettled([
-        apiClient.listWorkforce({ page: 1, limit: 200 }),
-        apiClient.listMembers({ page: 1, limit: 200 }),
-        apiClient.listLeadership({ page: 1, limit: 200 }),
-        apiClient.getAdminForms({ page: 1, limit: 300 }),
-      ]);
-
-      setWorkforce(workforceRes.status === 'fulfilled' ? toArray<WorkforceMember>(workforceRes.value) : []);
-      setMembers(membersRes.status === 'fulfilled' ? toArray<Member>(membersRes.value) : []);
-      setLeaders(leadershipRes.status === 'fulfilled' ? toArray<LeadershipMember>(leadershipRes.value) : []);
-      setForms(formsRes.status === 'fulfilled' && Array.isArray(formsRes.value.data) ? formsRes.value.data : []);
-
-      if ([workforceRes, membersRes, leadershipRes, formsRes].some((result) => result.status === 'rejected')) {
-        toast.error('Some administration records could not be loaded');
-      }
-    } catch (error) {
-      console.error('Failed to load administration data:', error);
-      toast.error('Unable to load administration records');
-      setWorkforce([]);
-      setMembers([]);
-      setLeaders([]);
-      setForms([]);
+      await onSendToday(mode, segment);
     } finally {
-      setLoading(false);
+      setSending('');
+    }
+  };
+
+  return (
+    <Modal title={title} onClose={onClose} wide>
+      <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl bg-slate-950 p-3 text-white">
+              <Icon className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="font-black text-slate-950">Backend-driven celebration workflow</div>
+              <p className="mt-1 text-sm text-slate-500">
+                This list is generated from saved leadership, membership, and workforce records. No mock records are used.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {mode === 'birthdays' ? (
+              <>
+                <ActionButton loading={sending === 'birthdays-leadership'} onClick={() => runSend('leadership')}>Leadership</ActionButton>
+                <ActionButton loading={sending === 'birthdays-members'} onClick={() => runSend('members')}>Members</ActionButton>
+                <ActionButton loading={sending === 'birthdays-workforce'} onClick={() => runSend('workforce')}>Workforce</ActionButton>
+              </>
+            ) : (
+              <ActionButton loading={sending === 'anniversaries-leadership'} onClick={() => runSend('leadership')}>Send anniversaries</ActionButton>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+        <Search className="h-4 w-4 text-slate-400" />
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search by name, email, segment, role..."
+          className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+        />
+      </div>
+
+      <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
+        <div className="hidden grid-cols-[1.4fr_1fr_1fr_120px] gap-4 bg-slate-950 px-4 py-3 text-xs font-black uppercase tracking-wide text-white md:grid">
+          <div>Profile</div>
+          <div>Segment</div>
+          <div>Contact</div>
+          <div className="text-right">Date</div>
+        </div>
+
+        <div className="divide-y divide-slate-100 bg-white">
+          {filtered.map((item) => (
+            <div key={item.id} className="grid gap-3 px-4 py-4 md:grid-cols-[1.4fr_1fr_1fr_120px] md:items-center">
+              <div className="flex min-w-0 items-center gap-3">
+                <Avatar person={item} size="sm" />
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-black text-slate-950">{item.name}</div>
+                  <div className="truncate text-xs text-slate-500">{item.role || 'Profile'}</div>
+                </div>
+              </div>
+              <div className="text-sm font-semibold text-slate-600">{segmentMeta[item.segment].label}</div>
+              <div className="min-w-0 text-sm text-slate-500">
+                <div className="truncate">{item.email || 'No email'}</div>
+                <div className="truncate text-xs">{item.phone || 'No phone'}</div>
+              </div>
+              <div className="text-left md:text-right">
+                <div className="text-sm font-black text-slate-950">{item.dateLabel}</div>
+                <div className="text-xs text-slate-500">{item.daysUntil === 0 ? 'Today' : `${item.daysUntil} days`}</div>
+              </div>
+            </div>
+          ))}
+
+          {filtered.length === 0 ? <div className="p-4"><EmptyState label="No records match your search." /></div> : null}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ActionButton({ children, loading, onClick }: { children: React.ReactNode; loading?: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={loading}
+      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-2 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+      {children}
+    </button>
+  );
+}
+
+function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-400">
+        <Icon className="h-4 w-4" />
+        {label}
+      </div>
+      <div className="mt-2 break-words text-sm font-bold text-slate-800">{value}</div>
+    </div>
+  );
+}
+
+function Modal({ title, children, onClose, wide }: { title: string; children: React.ReactNode; onClose: () => void; wide?: boolean }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-3 backdrop-blur-sm sm:items-center">
+      <div className={`max-h-[92vh] w-full overflow-y-auto rounded-3xl bg-white shadow-2xl ${wide ? 'max-w-5xl' : 'max-w-2xl'}`}>
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/95 px-5 py-4 backdrop-blur">
+          <h2 className="text-lg font-black text-slate-950">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-950"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+export default function OverviewPage() {
+  const [state, setState] = useState<LoadState>({ loading: true, error: '', data: null });
+  const [selectedPerson, setSelectedPerson] = useState<PersonRecord | null>(null);
+  const [trackerMode, setTrackerMode] = useState<TrackerMode | null>(null);
+  const [toast, setToast] = useState('');
+
+  const refresh = useCallback(async () => {
+    setState((prev) => ({ ...prev, loading: true, error: '' }));
+    try {
+      const data = await loadOverviewData();
+      setState({ loading: false, error: '', data });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load dashboard overview.';
+      setState({ loading: false, error: message, data: null });
     }
   }, []);
 
   useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+    void refresh();
+  }, [refresh]);
 
-  const workforceStats = useMemo(
-    () =>
-      workforce.reduce((acc, row) => {
-        acc[row.status] = (acc[row.status] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>),
-    [workforce]
-  );
+  const sendToday = useCallback(async (mode: TrackerMode, segment?: SegmentKey) => {
+    const requests: string[] = [];
 
-  const leadershipStats = useMemo(
-    () =>
-      leaders.reduce((acc, row) => {
-        acc[row.status] = (acc[row.status] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>),
-    [leaders]
-  );
-
-  const sectionForms = useMemo(() => {
-    const sortByResponses = (items: AdminForm[]) =>
-      items.slice().sort((left, right) => getSubmissionCount(right) - getSubmissionCount(left));
-
-    return {
-      workforce: sortByResponses(forms.filter((form) => formMatchesSection(form, 'workforce'))),
-      members: sortByResponses(forms.filter((form) => formMatchesSection(form, 'members'))),
-      leadership: sortByResponses(forms.filter((form) => formMatchesSection(form, 'leadership'))),
-    };
-  }, [forms]);
-
-  const primaryLeadershipForm =
-    forms.find((form) => form.slug === LEADERSHIP_FORM_SLUG) || sectionForms.leadership[0] || null;
-
-  const activeSection = activeTab === 'overview' ? null : activeTab;
-  const activeSectionForms = useMemo(() => (activeSection ? sectionForms[activeSection] : []), [activeSection, sectionForms]);
-  const selectedFormId = activeSection ? selectedFormIds[activeSection] : ALL_FORMS;
-  const selectedForm = selectedFormId === ALL_FORMS ? null : activeSectionForms.find((form) => form.id === selectedFormId) || null;
-  const selectedSectionFormId = selectedFormId === ALL_FORMS ? ALL_FORMS : selectedForm?.id || '';
-
-  useEffect(() => {
-    setSelectedFormIds((prev) => {
-      const next = { ...prev };
-
-      (Object.keys(sectionForms) as SectionKey[]).forEach((key) => {
-        const current = next[key];
-        if (current === ALL_FORMS) return;
-        if (current && sectionForms[key].some((form) => form.id === current)) return;
-        next[key] = ALL_FORMS;
-      });
-
-      return next;
-    });
-  }, [sectionForms]);
-
-  const loadSectionSubmissions = useCallback(async () => {
-    if (!activeSection || activeSectionForms.length === 0) {
-      setFormSubmissions([]);
-      setFormSubmissionsTotal(0);
-      return;
+    if (mode === 'birthdays') {
+      if (!segment || segment === 'leadership') requests.push('/api/v1/admin/leadership/birthdays/send-today');
+      if (!segment || segment === 'members') requests.push('/api/v1/admin/members/birthdays/send-today');
+      if (!segment || segment === 'workforce') requests.push('/api/v1/admin/workforce/birthdays/send-today');
     }
 
-    setFormSubmissionsLoading(true);
-
-    try {
-      if (selectedSectionFormId === ALL_FORMS) {
-        const results = await Promise.all(activeSectionForms.map((form) => fetchAllFormSubmissions(form.id)));
-        const merged = results.flat().sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
-        const start = (formSubmissionsPage - 1) * 8;
-
-        setFormSubmissions(merged.slice(start, start + 8));
-        setFormSubmissionsTotal(merged.length);
-        return;
-      }
-
-      const res = await apiClient.getFormSubmissions(selectedSectionFormId, { page: formSubmissionsPage, limit: 8 });
-      setFormSubmissions(Array.isArray(res.data) ? res.data : []);
-      setFormSubmissionsTotal(typeof res.total === 'number' ? res.total : 0);
-    } catch (error) {
-      console.error('Failed to load form submissions:', error);
-      toast.error('Unable to load form responses');
-      setFormSubmissions([]);
-      setFormSubmissionsTotal(0);
-    } finally {
-      setFormSubmissionsLoading(false);
-    }
-  }, [activeSection, activeSectionForms, selectedSectionFormId, formSubmissionsPage]);
-
-  useEffect(() => {
-    loadSectionSubmissions();
-  }, [loadSectionSubmissions]);
-
-  const publishLeadershipSubmission = useCallback(
-    async (submission: FormSubmission) => {
-      const payload = buildLeadershipPayloadFromSubmission(submission);
-
-      if (!payload.firstName?.trim() || !payload.lastName?.trim()) {
-        toast.error('This response needs a name before it can be published.');
-        return;
-      }
-
-      setPublishingSubmissionId(submission.id);
-
-      try {
-        await apiClient.createLeadership(payload);
-        toast.success('Leadership profile saved as pending review');
-        await loadAll();
-        await loadSectionSubmissions();
-      } catch (error) {
-        console.error('Failed to send leadership submission for review:', error);
-        toast.error(getErrorMessage(error) || 'Unable to save leadership profile for review');
-      } finally {
-        setPublishingSubmissionId(null);
-      }
-    },
-    [loadAll, loadSectionSubmissions]
-  );
-
-  const deleteFormSubmission = useCallback(
-    async (submissionId: string) => {
-      const ok = window.confirm('Delete this form response? This cannot be undone.');
-      if (!ok) return;
-
-      setDeletingSubmissionId(submissionId);
-
-      try {
-        await apiClient.deleteFormSubmission(submissionId);
-        toast.success('Form response deleted');
-        await loadSectionSubmissions();
-      } catch (error) {
-        console.error('Failed to delete form response:', error);
-        toast.error(getErrorMessage(error) || 'Unable to delete form response');
-      } finally {
-        setDeletingSubmissionId(null);
-      }
-    },
-    [loadSectionSubmissions]
-  );
-
-  const createLeadershipForm = useCallback(async () => {
-    setCreatingLeadershipForm(true);
-
-    try {
-      const freshFormsRes = await apiClient.getAdminForms({ page: 1, limit: 300 });
-      const freshForms = Array.isArray(freshFormsRes.data) ? freshFormsRes.data : [];
-
-      const existingLeadershipForm =
-        freshForms.find((form) => form.slug === LEADERSHIP_FORM_SLUG) ||
-        freshForms.find((form) => formMatchesSection(form, 'leadership'));
-
-      if (existingLeadershipForm) {
-        let nextForm = existingLeadershipForm;
-
-        if (!nextForm.isPublished && nextForm.status !== 'published') {
-          try {
-            const published = await apiClient.publishAdminForm(nextForm.id);
-            nextForm = {
-              ...nextForm,
-              isPublished: true,
-              status: published.status || 'published',
-              publishedAt: published.publishedAt || nextForm.publishedAt,
-              slug: published.slug || nextForm.slug,
-              publicUrl: published.publicUrl || nextForm.publicUrl,
-            };
-          } catch (publishError) {
-            console.warn('Leadership form exists but could not be published automatically:', publishError);
-          }
-        }
-
-        setForms((current) => [nextForm, ...current.filter((form) => form.id !== nextForm.id)]);
-        setSelectedFormIds((current) => ({ ...current, leadership: nextForm.id }));
-        setActiveTab('leadership');
-        setFormSubmissionsPage(1);
-        toast.success('Existing leadership form loaded');
-        return;
-      }
-
-      const created = await apiClient.createAdminForm(buildLeadershipFormPayload());
-      let nextForm = created;
-
-      try {
-        const published = await apiClient.publishAdminForm(created.id);
-        nextForm = {
-          ...created,
-          isPublished: true,
-          status: published.status || 'published',
-          publishedAt: published.publishedAt || created.publishedAt,
-          slug: published.slug || created.slug,
-          publicUrl: published.publicUrl || created.publicUrl,
-        };
-      } catch (publishError) {
-        console.warn('Leadership form created but publish failed:', publishError);
-      }
-
-      setForms((current) => [nextForm, ...current.filter((form) => form.id !== nextForm.id)]);
-      setSelectedFormIds((current) => ({ ...current, leadership: nextForm.id }));
-      setActiveTab('leadership');
-      setFormSubmissionsPage(1);
-
-      const publicUrl = buildPublicFormUrl(nextForm.slug, nextForm.publicUrl);
-      toast.success(publicUrl ? `Leadership form ready: ${publicUrl}` : 'Leadership form ready');
-    } catch (error) {
-      console.error('Failed to create/load leadership form:', error);
-      toast.error(getErrorMessage(error) || 'Unable to prepare leadership form');
-      await loadAll();
-    } finally {
-      setCreatingLeadershipForm(false);
-    }
-  }, [loadAll]);
-
- const beginEditLeader = (leader: LeadershipMember) => {
-  const birthday = formatMonthDay(leader.birthdayMonth, leader.birthdayDay);
-  const anniversary = formatMonthDay(leader.anniversaryMonth, leader.anniversaryDay);
-
-  const normalizeLeadershipAnniversaryForApi = (value?: string): string | undefined => {
-    const clean = String(value || '').trim();
-
-    if (!clean || clean === '—') return undefined;
-
-    // Backend requires DD/MM/YYYY
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(clean)) return clean;
-
-    // UI currently stores DD/MM, so attach the current year before sending
-    const monthDayMatch = clean.match(/^(\d{2})\/(\d{2})$/);
-    if (monthDayMatch) {
-      const [, dd, mm] = monthDayMatch;
-      return `${dd}/${mm}/${new Date().getFullYear()}`;
+    if (mode === 'anniversaries') {
+      requests.push('/api/v1/admin/leadership/anniversaries/send-today');
     }
 
-    // Convert browser date input format YYYY-MM-DD to DD/MM/YYYY
-    const isoMatch = clean.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (isoMatch) {
-      const [, yyyy, mm, dd] = isoMatch;
-      return `${dd}/${mm}/${yyyy}`;
-    }
+    await Promise.all(requests.map((path) => apiPost(path)));
+    setToast(mode === 'birthdays' ? 'Birthday greetings triggered successfully.' : 'Anniversary greetings triggered successfully.');
+    window.setTimeout(() => setToast(''), 3500);
+    await refresh();
+  }, [refresh]);
 
-    return clean;
-  };
+  const data = state.data;
 
-  setEditingLeaderId(leader.id);
-  setLeaderDraft({
-    firstName: leader.firstName ?? '',
-    lastName: leader.lastName ?? '',
-    email: leader.email ?? undefined,
-    phone: leader.phone ?? undefined,
-    role: leader.role,
-    status: leader.status,
-    bio: leader.bio ?? undefined,
-    birthday: birthday === '—' ? undefined : birthday,
-    anniversary: normalizeLeadershipAnniversaryForApi(anniversary),
-    imageUrl: leader.imageUrl ?? undefined,
-  });
-};
-
-  const cancelEditLeader = () => {
-    setEditingLeaderId(null);
-    setLeaderDraft({});
-  };
-
-  const saveLeaderEdit = async (leaderId: string) => {
-    try {
-      await apiClient.updateLeadership(leaderId, leaderDraft as UpdateLeadershipRequest);
-      toast.success('Leadership profile updated');
-      cancelEditLeader();
-      await loadAll();
-    } catch (error) {
-      console.error('Failed to update leadership profile:', error);
-      toast.error(getErrorMessage(error) || 'Unable to update leadership profile');
-    }
-  };
-
-  const deleteLeader = async (leaderId: string) => {
-    const ok = window.confirm('Delete this leadership profile? This cannot be undone.');
-    if (!ok) return;
-
-    setDeletingLeaderId(leaderId);
-
-    try {
-      await apiClient.deleteLeadership(leaderId);
-      toast.success('Leadership profile deleted');
-      await loadAll();
-    } catch (error) {
-      console.error('Failed to delete leadership profile:', error);
-      toast.error(getErrorMessage(error) || 'Unable to delete leadership profile');
-    } finally {
-      setDeletingLeaderId(null);
-    }
-  };
-
-  const tabButton = (key: TabKey, label: string, icon: ReactNode) => (
-    <button
-      key={key}
-      type="button"
-      onClick={() => {
-        setActiveTab(key);
-        setFormSubmissionsPage(1);
-      }}
-      className={`inline-flex items-center gap-2 rounded-[var(--radius-button)] border px-4 py-2.5 text-sm font-semibold transition ${
-        activeTab === key
-          ? 'border-[var(--color-accent-primary)] bg-[var(--color-accent-primary)] text-white shadow-sm'
-          : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-primary)] hover:bg-[var(--color-background-tertiary)]'
-      }`}
-    >
-      {icon}
-      {label}
-    </button>
-  );
-
-  const renderOverview = () => {
-    const totalForms = forms.length;
-    const mappedForms = sectionForms.workforce.length + sectionForms.members.length + sectionForms.leadership.length;
-    const responseTotal =
-      sectionForms.workforce.reduce((sum, form) => sum + getSubmissionCount(form), 0) +
-      sectionForms.members.reduce((sum, form) => sum + getSubmissionCount(form), 0) +
-      sectionForms.leadership.reduce((sum, form) => sum + getSubmissionCount(form), 0);
-
-    const activeMembers = members.filter((member) => member.isActive).length;
-    const leadershipFormUrl = primaryLeadershipForm ? buildPublicFormUrl(primaryLeadershipForm.slug, primaryLeadershipForm.publicUrl) : null;
-    const currentYear = new Date().getFullYear();
-    const memberMonthlyCounts = new Array(12).fill(0) as number[];
-    const workforceByDepartment = workforce.reduce<Record<string, number>>((acc, item) => {
-      const department = item.department || 'Unassigned';
-      acc[department] = (acc[department] || 0) + 1;
-      return acc;
-    }, {});
-    const departmentLabels = Object.keys(workforceByDepartment)
-      .sort((left, right) => workforceByDepartment[right] - workforceByDepartment[left])
-      .slice(0, 8);
-
-    members.forEach((member) => {
-      const created = new Date(member.createdAt);
-      if (!Number.isNaN(created.getTime()) && created.getFullYear() === currentYear) {
-        memberMonthlyCounts[created.getMonth()] += 1;
-      }
-    });
-
-    return (
-      <div className="space-y-5">
-        <div className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] shadow-sm">
-          <div className="relative p-6 lg:p-7">
-            <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.6fr)] lg:items-center">
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="primary" size="sm">Administration</Badge>
-                  <Badge variant={primaryLeadershipForm ? 'success' : 'warning'} size="sm">
-                    {primaryLeadershipForm ? 'Leadership form active' : 'Leadership form needed'}
-                  </Badge>
-                </div>
-
-                <div>
-                  <h2 className="text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
-                    Manage church records from one professional review desk.
-                  </h2>
-                  <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-text-tertiary)]">
-                    Review workforce, membership, and leadership submissions before publishing approved records to the public frontend.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="primary" icon={<RefreshCw className="h-4 w-4" />} onClick={loadAll} loading={loading}>
-                    Refresh records
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant={primaryLeadershipForm ? 'outline' : 'secondary'}
-                    icon={primaryLeadershipForm ? <ExternalLink className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                    onClick={() => {
-                      if (primaryLeadershipForm && leadershipFormUrl) {
-                        window.open(leadershipFormUrl, '_blank', 'noopener,noreferrer');
-                        return;
-                      }
-                      createLeadershipForm();
-                    }}
-                    loading={creatingLeadershipForm}
-                  >
-                    {primaryLeadershipForm ? 'Open leadership form' : 'Prepare leadership form'}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)]">
-                    <ClipboardList className="h-6 w-6" />
-                  </div>
-
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                      {primaryLeadershipForm ? primaryLeadershipForm.title : 'Leadership Biodata'}
-                    </p>
-                    <p className="truncate text-xs text-[var(--color-text-tertiary)]">
-                      {leadershipFormUrl || 'No connected leadership form yet'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                  <div className="rounded-[var(--radius-button)] bg-[var(--color-background-secondary)] p-3">
-                    <p className="text-xs text-[var(--color-text-tertiary)]">Mapped forms</p>
-                    <p className="font-bold text-[var(--color-text-primary)]">{mappedForms}</p>
-                  </div>
-
-                  <div className="rounded-[var(--radius-button)] bg-[var(--color-background-secondary)] p-3">
-                    <p className="text-xs text-[var(--color-text-tertiary)]">Responses</p>
-                    <p className="font-bold text-[var(--color-text-primary)]">{responseTotal}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Workforce" value={workforce.length} meta={`${workforceStats.serving || 0} serving`} icon={<Shield className="h-5 w-5" />} />
-          <StatCard label="Members" value={members.length} meta={`${activeMembers} active`} icon={<Users className="h-5 w-5" />} />
-          <StatCard label="Leadership" value={leaders.length} meta={`${leadershipStats.approved || 0} published`} icon={<Sparkles className="h-5 w-5" />} />
-          <StatCard label="Responses" value={responseTotal} meta={`${totalForms} total forms`} icon={<FileText className="h-5 w-5" />} />
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-2">
-          <Card title="Workforce by department">
-            {departmentLabels.length === 0 ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">No workforce department data yet.</p>
-            ) : (
-              <div className="h-[300px]">
-                <Bar
-                  data={{
-                    labels: departmentLabels,
-                    datasets: [
-                      {
-                        label: 'Workers',
-                        data: departmentLabels.map((department) => workforceByDepartment[department]),
-                        backgroundColor: '#2563eb',
-                        borderRadius: 6,
-                      },
-                    ],
-                  }}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-                  }}
-                />
-              </div>
-            )}
-          </Card>
-
-          <Card title={`New members in ${currentYear}`}>
-            <div className="h-[300px]">
-              <Bar
-                data={{
-                  labels: MONTH_LABELS,
-                  datasets: [
-                    {
-                      label: 'New members',
-                      data: memberMonthlyCounts,
-                      backgroundColor: '#16a34a',
-                      borderRadius: 6,
-                    },
-                  ],
-                }}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: { legend: { display: false } },
-                  scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-                }}
-              />
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  };
-
-  const renderFormResponses = (section: SectionKey, label: string) => {
-    const relatedForms = sectionForms[section];
-    const currentFormId = selectedFormIds[section];
-    const currentForm = currentFormId === ALL_FORMS ? null : relatedForms.find((form) => form.id === currentFormId) || null;
-    const totalPages = Math.max(1, Math.ceil(formSubmissionsTotal / 8));
-    const isLeadershipSection = section === 'leadership';
-    const columnCount = isLeadershipSection ? 6 : 4;
-
-    return (
-      <Card
-        title={`${label} Form Responses`}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={loadSectionSubmissions} loading={formSubmissionsLoading} disabled={relatedForms.length === 0}>
-              Refresh
-            </Button>
-
-            <Button
-              size="sm"
-              variant="ghost"
-              icon={<ExternalLink className="h-4 w-4" />}
-              onClick={() => {
-                const target = currentForm || relatedForms[0];
-                if (target) router.push(`/dashboard/forms/${target.id}/submissions`);
-              }}
-              disabled={relatedForms.length === 0}
-            >
-              Full View
-            </Button>
-          </div>
-        }
-      >
-        {relatedForms.length === 0 ? (
-          <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 text-sm text-[var(--color-text-tertiary)]">
-            No {label.toLowerCase()} forms found. Create or connect the {label.toLowerCase()} form first.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-              <label className="space-y-1">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
-                  {label} form
-                </span>
-
-                <select
-                  className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-accent-primary)]"
-                  value={currentFormId}
-                  onChange={(event) => {
-                    setSelectedFormIds((prev) => ({ ...prev, [section]: event.target.value }));
-                    setFormSubmissionsPage(1);
-                  }}
-                >
-                  <option value={ALL_FORMS}>All {label.toLowerCase()} forms</option>
-                  {relatedForms.map((form) => (
-                    <option key={form.id} value={form.id}>
-                      {form.title} ({getSubmissionCount(form)})
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-2 text-sm">
-                <p className="text-xs text-[var(--color-text-tertiary)]">Responses</p>
-                <p className="font-semibold text-[var(--color-text-primary)]">{formSubmissionsTotal}</p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto rounded-[var(--radius-card)] border border-[var(--color-border-secondary)]">
-              <table className="min-w-full divide-y divide-[var(--color-border-secondary)] text-sm">
-                <thead className="bg-[var(--color-background-tertiary)]">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Name</th>
-                    <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Email</th>
-                    <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Phone</th>
-                    {isLeadershipSection && <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Role</th>}
-                    <th className="px-4 py-3 text-left font-semibold text-[var(--color-text-secondary)]">Submitted</th>
-                    {isLeadershipSection && <th className="px-4 py-3 text-right font-semibold text-[var(--color-text-secondary)]">Review</th>}
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-[var(--color-border-secondary)] bg-[var(--color-background-primary)]">
-                  {formSubmissionsLoading ? (
-                    <tr>
-                      <td colSpan={columnCount} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">Loading responses...</td>
-                    </tr>
-                  ) : formSubmissions.length === 0 ? (
-                    <tr>
-                      <td colSpan={columnCount} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">No responses for this form yet.</td>
-                    </tr>
-                  ) : (
-                    formSubmissions.map((submission) => {
-                      const leadershipPayload = isLeadershipSection ? buildLeadershipPayloadFromSubmission(submission) : null;
-                      const alreadyPublished = isLeadershipSection && leadershipSubmissionAlreadyPublished(submission, leaders);
-
-                      return (
-                        <tr key={submission.id} className="transition hover:bg-[var(--color-background-secondary)]">
-                          <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">{resolveSubmissionName(submission)}</td>
-                          <td className="px-4 py-3 text-[var(--color-text-secondary)]">{resolveSubmissionEmail(submission)}</td>
-                          <td className="px-4 py-3 text-[var(--color-text-secondary)]">{resolveSubmissionPhone(submission)}</td>
-                          {isLeadershipSection && <td className="px-4 py-3 text-[var(--color-text-secondary)]">{leadershipPayload ? roleLabel(leadershipPayload.role) : '—'}</td>}
-                          <td className="px-4 py-3 text-[var(--color-text-tertiary)]">{formatDateTime(submission.createdAt)}</td>
-
-                          {isLeadershipSection && (
-                            <td className="px-4 py-3 text-right">
-                              <div className="flex justify-end gap-2">
-                                {alreadyPublished ? (
-                                  <Badge variant="success" size="sm">Sent</Badge>
-                                ) : (
-                                  <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    icon={<CheckCircle2 className="h-4 w-4" />}
-                                    onClick={() => publishLeadershipSubmission(submission)}
-                                    loading={publishingSubmissionId === submission.id}
-                                    disabled={Boolean(publishingSubmissionId || deletingSubmissionId)}
-                                  >
-                                    Send to Super Admin
-                                  </Button>
-                                )}
-
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  icon={<Trash2 className="h-4 w-4" />}
-                                  onClick={() => deleteFormSubmission(submission.id)}
-                                  loading={deletingSubmissionId === submission.id}
-                                  disabled={Boolean(publishingSubmissionId || deletingSubmissionId)}
-                                >
-                                  Delete
-                                </Button>
-                              </div>
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs text-[var(--color-text-tertiary)]">Page {formSubmissionsPage} of {totalPages}</p>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => setFormSubmissionsPage((page) => Math.max(1, page - 1))} disabled={formSubmissionsPage <= 1 || formSubmissionsLoading}>
-                  Previous
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setFormSubmissionsPage((page) => Math.min(totalPages, page + 1))} disabled={formSubmissionsPage >= totalPages || formSubmissionsLoading}>
-                  Next
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </Card>
-    );
-  };
+  const searchedProfiles = useMemo(() => data?.allPeople ?? [], [data]);
+  const trackerItems = trackerMode === 'birthdays' ? data?.upcomingBirthdays ?? [] : data?.upcomingAnniversaries ?? [];
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Administration" subtitle="Review form responses and publish approved records to the public frontend." />
+    <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-950 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+          <div className="bg-slate-950 px-5 py-6 text-white sm:px-7">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white/70">
+                  <ShieldCheck className="h-4 w-4" />
+                  Backend-driven overview
+                </div>
+                <h1 className="mt-4 text-2xl font-black tracking-tight sm:text-4xl">Church Management Overview</h1>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-white/65 sm:text-base">
+                  Live leadership, membership, workforce, birthdays, and wedding anniversary intelligence from your backend records. No mock data is rendered on this page.
+                </p>
+              </div>
 
-      <Card>
-        <div className="flex flex-wrap gap-3">
-          {tabButton('overview', 'Overview', <FileText className="h-4 w-4" />)}
-          {tabButton('workforce', 'Workforce', <Shield className="h-4 w-4" />)}
-          {tabButton('members', 'Members', <Users className="h-4 w-4" />)}
-          {tabButton('leadership', 'Leadership', <Sparkles className="h-4 w-4" />)}
-        </div>
-      </Card>
-
-      {activeTab === 'overview' && renderOverview()}
-
-      {activeTab === 'workforce' && (
-        <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            <StatCard label="Total workforce" value={workforce.length} meta="All workforce records" icon={<Shield className="h-5 w-5" />} />
-            <StatCard label="Serving" value={workforceStats.serving || 0} meta="Currently active" icon={<CheckCircle2 className="h-5 w-5" />} />
-            <StatCard label="Pending" value={workforceStats.pending || 0} meta="Awaiting review" icon={<ClipboardList className="h-5 w-5" />} />
-          </div>
-
-          <div className="space-y-3">
-            {workforce.length === 0 ? (
-              <Card>
-                <p className="text-sm text-[var(--color-text-tertiary)]">{loading ? 'Loading workforce...' : 'No workforce entries yet.'}</p>
-              </Card>
-            ) : (
-              workforce.map((row) => (
-                <AccordionRow key={row.id} title={`${row.firstName} ${row.lastName}`} subtitle={row.email} badge={<Badge variant={row.status === 'serving' ? 'success' : 'warning'} size="sm">{row.status}</Badge>}>
-                  <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                    <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-[var(--color-text-tertiary)]" />{row.phone || '—'}</div>
-                    <div className="text-xs text-[var(--color-text-tertiary)]">Department: {row.department}</div>
-                  </div>
-                </AccordionRow>
-              ))
-            )}
-          </div>
-
-          {renderFormResponses('workforce', 'Workforce')}
-        </div>
-      )}
-
-      {activeTab === 'members' && (
-        <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            <StatCard label="Total members" value={members.length} meta="All member records" icon={<Users className="h-5 w-5" />} />
-            <StatCard label="Active" value={members.filter((member) => member.isActive).length} meta="Currently active" icon={<CheckCircle2 className="h-5 w-5" />} />
-            <StatCard label="Inactive" value={members.filter((member) => !member.isActive).length} meta="Needs attention" icon={<ClipboardList className="h-5 w-5" />} />
-          </div>
-
-          {members.length === 0 ? (
-            <Card>
-              <p className="text-sm text-[var(--color-text-tertiary)]">{loading ? 'Loading members...' : 'No members available yet.'}</p>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {members.map((row) => (
-                <AccordionRow key={row.id} title={`${row.firstName} ${row.lastName}`} subtitle={row.email} badge={<Badge variant={row.isActive ? 'success' : 'warning'} size="sm">{row.isActive ? 'Active' : 'Inactive'}</Badge>}>
-                  <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                    <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-[var(--color-text-tertiary)]" />{row.phone || '—'}</div>
-                  </div>
-                </AccordionRow>
-              ))}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTrackerMode('birthdays')}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-black text-slate-950 transition hover:bg-slate-100"
+                >
+                  <Cake className="h-4 w-4" />
+                  Birthday scheduler
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTrackerMode('anniversaries')}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-amber-400 px-4 py-2 text-sm font-black text-slate-950 transition hover:bg-amber-300"
+                >
+                  <Heart className="h-4 w-4" />
+                  Anniversary tracker
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void refresh()}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-white/15 px-4 py-2 text-sm font-black text-white transition hover:bg-white/10"
+                >
+                  <RefreshCw className={`h-4 w-4 ${state.loading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+              </div>
             </div>
-          )}
-
-          {renderFormResponses('members', 'Member')}
-        </div>
-      )}
-
-      {activeTab === 'leadership' && (
-        <div className="space-y-4">
-          <Card
-            title="Leadership Form"
-            actions={
-              <Button variant={primaryLeadershipForm ? 'outline' : 'primary'} icon={primaryLeadershipForm ? <RefreshCw className="h-4 w-4" /> : <Plus className="h-4 w-4" />} onClick={createLeadershipForm} loading={creatingLeadershipForm}>
-                {primaryLeadershipForm ? 'Reload leadership form' : 'Create leadership form'}
-              </Button>
-            }
-          >
-            {primaryLeadershipForm ? (
-              <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-gradient-to-br from-[var(--color-background-primary)] to-[var(--color-background-secondary)] p-5">
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-                  <div className="min-w-0 space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="success" size="sm">Active</Badge>
-                      <Badge variant="primary" size="sm">Leadership</Badge>
-                      <Badge variant="default" size="sm">{getSubmissionCount(primaryLeadershipForm)} responses</Badge>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{primaryLeadershipForm.title}</h3>
-                      <p className="mt-1 max-w-2xl text-sm text-[var(--color-text-tertiary)]">
-                        This form collects leadership biodata, profile details, photos, birthdays, anniversaries, and ministry role information for review before publication.
-                      </p>
-                    </div>
-
-                    <p className="truncate rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs text-[var(--color-text-tertiary)]">
-                      {buildPublicFormUrl(primaryLeadershipForm.slug, primaryLeadershipForm.publicUrl) || 'Published leadership form'}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 lg:justify-end">
-                    <Button variant="outline" icon={<ExternalLink className="h-4 w-4" />} onClick={() => {
-                      const url = buildPublicFormUrl(primaryLeadershipForm.slug, primaryLeadershipForm.publicUrl);
-                      if (url) window.open(url, '_blank', 'noopener,noreferrer');
-                    }}>
-                      Open public form
-                    </Button>
-                    <Button variant="secondary" icon={<ClipboardList className="h-4 w-4" />} onClick={() => router.push(`/dashboard/forms/${primaryLeadershipForm.id}/submissions`)}>
-                      View responses
-                    </Button>
-                    <Button variant="primary" icon={<Sparkles className="h-4 w-4" />} onClick={() => router.push(`/dashboard/forms/${primaryLeadershipForm.id}/edit`)}>
-                      Manage form
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-6">
-                <div className="max-w-2xl space-y-3">
-                  <Badge variant="warning" size="sm">Setup required</Badge>
-                  <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Leadership biodata form is not connected yet</h3>
-                  <p className="text-sm text-[var(--color-text-tertiary)]">
-                    Create or reload the leadership form so submitted biodata can appear here for review and publication.
-                  </p>
-                  <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={createLeadershipForm} loading={creatingLeadershipForm}>
-                    Create leadership form
-                  </Button>
-                </div>
-              </div>
-            )}
-          </Card>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            <StatCard
-              label="Total leaders"
-              value={leaders.filter((leader) => leader.status !== 'declined').length}
-              meta="Active leadership records"
-              icon={<Sparkles className="h-5 w-5" />}
-            />
-            <StatCard
-              label="Pending"
-              value={formSubmissions.filter((submission) => !leadershipSubmissionAlreadyPublished(submission, leaders)).length + (leadershipStats.pending || 0)}
-              meta="Admin needs to review"
-              icon={<ClipboardList className="h-5 w-5" />}
-            />
-            <StatCard
-              label="Awaiting Super Admin"
-              value={leaders.filter((leader) => leader.status === 'awaiting_super_admin_approval').length}
-              meta="Submitted for final approval"
-              icon={<CheckCircle2 className="h-5 w-5" />}
-            />
           </div>
+        </header>
 
-          {leaders.length === 0 ? (
-            <Card>
-              <p className="text-sm text-[var(--color-text-tertiary)]">
-                {loading ? 'Loading leadership...' : 'No leadership records yet. Form responses below are pending admin review. Send reviewed responses to Super Admin for final approval.'}
-              </p>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {leaders.filter((leader) => leader.status !== 'declined').map((row) => {
-                const isEditing = editingLeaderId === row.id;
+        {toast ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+            {toast}
+          </div>
+        ) : null}
 
-                return (
-                  <AccordionRow
-                    key={row.id}
-                    title={`${row.firstName} ${row.lastName}`}
-                    subtitle={row.email}
-                    badge={<Badge variant={row.status === 'approved' ? 'success' : row.status === 'declined' ? 'danger' : 'warning'} size="sm">{row.status}</Badge>}
-                  >
-                    {isEditing ? (
-                      <div className="grid gap-3 md:grid-cols-2">
-                        <Input label="First name" value={String(leaderDraft.firstName || '')} onChange={(e) => setLeaderDraft((prev) => ({ ...prev, firstName: e.target.value }))} />
-                        <Input label="Last name" value={String(leaderDraft.lastName || '')} onChange={(e) => setLeaderDraft((prev) => ({ ...prev, lastName: e.target.value }))} />
-                        <Input label="Email" value={String(leaderDraft.email || '')} onChange={(e) => setLeaderDraft((prev) => ({ ...prev, email: e.target.value }))} />
-                        <Input label="Phone" value={String(leaderDraft.phone || '')} onChange={(e) => setLeaderDraft((prev) => ({ ...prev, phone: e.target.value }))} />
+        {state.error ? (
+          <div className="rounded-3xl border border-red-200 bg-red-50 p-5 text-sm font-semibold text-red-700">
+            {state.error}
+          </div>
+        ) : null}
 
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Role</label>
-                          <select
-                            className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                            value={String(leaderDraft.role || row.role)}
-                            onChange={(e) => setLeaderDraft((prev) => ({ ...prev, role: e.target.value as LeadershipRole }))}
-                          >
-                            {roleOptions.map((option) => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </div>
+        {state.loading && !data ? (
+          <div className="flex min-h-[45vh] items-center justify-center rounded-3xl border border-slate-200 bg-white">
+            <div className="text-center">
+              <Loader2 className="mx-auto h-10 w-10 animate-spin text-slate-950" />
+              <p className="mt-3 text-sm font-bold text-slate-500">Loading backend overview...</p>
+            </div>
+          </div>
+        ) : null}
 
-                        <Input label="Birthday (DD/MM)" value={String(leaderDraft.birthday || '')} onChange={(e) => setLeaderDraft((prev) => ({ ...prev, birthday: e.target.value }))} />
-                        <Input label="Anniversary (DD/MM/YYYY)" value={String(leaderDraft.anniversary || '')} onChange={(e) => setLeaderDraft((prev) => ({ ...prev, anniversary: e.target.value }))} />
+        {data ? (
+          <>
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <StatCard
+                title="Total profiles"
+                value={data.allPeople.length}
+                subtitle="Leadership, membership, and workforce records"
+                icon={Activity}
+                tone="from-slate-200 to-white text-slate-800 border-slate-200"
+              />
+              <StatCard
+                title="Today birthdays"
+                value={data.todayBirthdays.length}
+                subtitle="Due for birthday greetings today"
+                icon={Cake}
+                tone="from-pink-500/20 to-rose-500/5 text-pink-700 border-pink-200"
+              />
+              <StatCard
+                title="Today anniversaries"
+                value={data.todayAnniversaries.length}
+                subtitle="Leadership wedding anniversaries due today"
+                icon={Heart}
+                tone="from-red-500/20 to-orange-500/5 text-red-700 border-red-200"
+              />
+              <StatCard
+                title="Upcoming events"
+                value={data.upcomingBirthdays.length + data.upcomingAnniversaries.length}
+                subtitle={`Next ${TRACKING_WINDOW_DAYS} days across tracked records`}
+                icon={TrendingUp}
+                tone="from-violet-500/20 to-purple-500/5 text-violet-700 border-violet-200"
+              />
+            </section>
 
-                        <div className="space-y-2 md:col-span-2">
-                          <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Bio</label>
-                          <textarea
-                            className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                            rows={3}
-                            value={String(leaderDraft.bio || '')}
-                            onChange={(e) => setLeaderDraft((prev) => ({ ...prev, bio: e.target.value }))}
-                          />
-                        </div>
+            <section className="grid gap-5 xl:grid-cols-3">
+              <SegmentCard segment="leadership" items={data.leadership} onOpen={setSelectedPerson} />
+              <SegmentCard segment="members" items={data.members} onOpen={setSelectedPerson} />
+              <SegmentCard segment="workforce" items={data.workforce} onOpen={setSelectedPerson} />
+            </section>
 
-                        <div className="flex flex-wrap gap-2 md:col-span-2">
-                          <Button size="sm" variant="primary" onClick={() => saveLeaderEdit(row.id)} icon={<CheckCircle2 className="h-4 w-4" />}>
-                            Save changes
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={cancelEditLeader} icon={<X className="h-4 w-4" />}>
-                            Cancel
-                          </Button>
+            <section className="grid gap-5 xl:grid-cols-2">
+              <MonthBarChart
+                title="Birthday distribution"
+                subtitle="Monthly birthday counts from leadership, membership, and workforce records."
+                data={data.birthdayMonths}
+                icon={Cake}
+              />
+              <MonthBarChart
+                title="Wedding anniversary distribution"
+                subtitle="Monthly anniversary counts from leadership records."
+                data={data.anniversaryMonths}
+                icon={Heart}
+              />
+            </section>
+
+            <section className="grid gap-5 xl:grid-cols-2">
+              <TrackerList title="Upcoming birthdays" items={data.upcomingBirthdays} icon={Cake} onOpen={(item) => {
+                const person = searchedProfiles.find((profile) => profile.id === item.id.replace(`birthdays-${item.segment}-`, ''));
+                if (person) setSelectedPerson(person);
+              }} />
+              <TrackerList title="Upcoming wedding anniversaries" items={data.upcomingAnniversaries} icon={Heart} onOpen={(item) => {
+                const person = searchedProfiles.find((profile) => profile.id === item.id.replace(`anniversaries-${item.segment}-`, ''));
+                if (person) setSelectedPerson(person);
+              }} />
+            </section>
+
+            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-base font-black text-slate-950">Profile intelligence table</h2>
+                  <p className="mt-1 text-sm text-slate-500">A responsive operational table from backend profile records.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                >
+                  <Download className="h-4 w-4" />
+                  Print / Export
+                </button>
+              </div>
+
+              <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
+                <div className="hidden grid-cols-[1.4fr_1fr_1fr_1fr_120px] gap-4 bg-slate-950 px-4 py-3 text-xs font-black uppercase tracking-wide text-white lg:grid">
+                  <div>Profile</div>
+                  <div>Segment</div>
+                  <div>Birthday</div>
+                  <div>Anniversary</div>
+                  <div className="text-right">Status</div>
+                </div>
+                <div className="divide-y divide-slate-100 bg-white">
+                  {data.allPeople.slice(0, 20).map((person) => (
+                    <button
+                      key={`${person.segment}-${person.id}`}
+                      type="button"
+                      onClick={() => setSelectedPerson(person)}
+                      className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-slate-50 lg:grid-cols-[1.4fr_1fr_1fr_1fr_120px] lg:items-center"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Avatar person={person} size="sm" />
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-black text-slate-950">{person.name}</div>
+                          <div className="truncate text-xs text-slate-500">{person.email || person.phone || 'No contact recorded'}</div>
                         </div>
                       </div>
-                    ) : (
-                      <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
-                        <div className="text-xs text-[var(--color-text-tertiary)]">Role: {roleLabel(row.role)}</div>
-                        <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-[var(--color-text-tertiary)]" />Birthday: {formatMonthDay(row.birthdayMonth, row.birthdayDay)}</div>
-                        <div className="flex items-center gap-2"><Heart className="h-4 w-4 text-[var(--color-text-tertiary)]" />Anniversary: {formatMonthDay(row.anniversaryMonth, row.anniversaryDay)}</div>
-                        <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-[var(--color-text-tertiary)]" />{row.email || 'No email'}</div>
-                        {row.bio && <p className="mt-1 text-xs leading-5 text-[var(--color-text-tertiary)]">{row.bio}</p>}
-
-                        <div className="flex flex-wrap gap-2 pt-2">
-                          <Button size="sm" variant="outline" icon={<Pencil className="h-4 w-4" />} onClick={() => beginEditLeader(row)}>
-                            Edit
-                          </Button>
-                          <Button size="sm" variant="outline" icon={<Trash2 className="h-4 w-4" />} onClick={() => deleteLeader(row.id)} loading={deletingLeaderId === row.id}>
-                            Delete
-                          </Button>
-                        </div>
+                      <div className="text-sm font-bold text-slate-600">{segmentMeta[person.segment].label}</div>
+                      <div className="text-sm text-slate-500">{person.birthdayMonth && person.birthdayDay ? dateLabel(person.birthdayMonth, person.birthdayDay) : '—'}</div>
+                      <div className="text-sm text-slate-500">{person.anniversaryMonth && person.anniversaryDay ? dateLabel(person.anniversaryMonth, person.anniversaryDay) : '—'}</div>
+                      <div className="text-left lg:text-right">
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">{titleCase(person.status || 'Unknown')}</span>
                       </div>
-                    )}
-                  </AccordionRow>
-                );
-              })}
-            </div>
-          )}
+                    </button>
+                  ))}
+                  {data.allPeople.length === 0 ? <div className="p-4"><EmptyState label="No backend records found." /></div> : null}
+                </div>
+              </div>
+            </section>
+          </>
+        ) : null}
+      </div>
 
-          {renderFormResponses('leadership', 'Leadership')}
-        </div>
-      )}
-    </div>
+      <ProfileModal person={selectedPerson} onClose={() => setSelectedPerson(null)} />
+      <TrackerModal mode={trackerMode} items={trackerItems} onClose={() => setTrackerMode(null)} onSendToday={sendToday} />
+    </main>
   );
 }
