@@ -364,7 +364,7 @@ function DashboardPage() {
               <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
                 Monthly Performance
               </h2>
-              <p className="text-xs text-[var(--color-text-tertiary)]">Events and attendees from backend analytics.</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">Events and attendees from live analytics.</p>
             </div>
           </div>
 
@@ -462,7 +462,7 @@ function DashboardPage() {
               <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
                 Upcoming Events
               </h2>
-              <p className="text-xs text-[var(--color-text-tertiary)]">Latest event records from the backend.</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">Latest event records.</p>
             </div>
             <CalendarDays className="h-5 w-5 text-[var(--color-accent-primary)]" />
           </div>

@@ -194,14 +194,14 @@ function buildLeadershipBiodataFields(): FieldDraft[] {
     },
     {
       key: 'birthday',
-      label: 'Birthday (DD/MM)',
+      label: 'Birthday (DD/MM/YYYY)',
       type: 'text',
       required: false,
       order: 6,
     },
     {
       key: 'wedding_anniversary',
-      label: 'Wedding Anniversary (DD/MM)',
+      label: 'Wedding Anniversary (DD/MM/YYYY)',
       type: 'text',
       required: false,
       order: 7,
@@ -970,7 +970,7 @@ export default withAuth(
       setDescription('Collect leadership profile details for review and publication.');
       setFormType('leadership');
       setSubmissionTarget('leadership');
-      setDateFormat('dd/mm');
+      setDateFormat('dd/mm/yyyy');
       setIntroTitle('Leadership Biodata');
       setIntroSubtitle('Provide accurate profile details for review and publication.');
       setIntroBullets('Profile review\nPublic leadership page\nSecure submission');
@@ -1823,7 +1823,7 @@ export default withAuth(
                   <div>
                     <p className="text-sm font-semibold text-[var(--color-text-primary)]">Leadership Biodata Preset</p>
                     <p className="text-xs text-[var(--color-text-tertiary)]">
-                      Adds leadership role radio options, consent checkbox, photo upload, and DD/MM birthday fields.
+                      Adds leadership role radio options, consent checkbox, photo upload, and DD/MM/YYYY date fields.
                     </p>
                   </div>
 

@@ -56,7 +56,7 @@ function ApprovalsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Approvals"
-        subtitle="Backend-driven approval stream for testimonials, events, and admin access."
+        subtitle="Approval stream for testimonials, events, and admin access."
         actions={
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" className="text-xs px-3" onClick={() => setSearchTerm('')}>

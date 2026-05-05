@@ -225,7 +225,7 @@ async function proxy(
     return NextResponse.json(
       {
         error: 'Bad Gateway',
-        message: 'Admin could not reach the backend API.',
+        message: 'Admin could not reach the application service.',
         detail: process.env.NODE_ENV === 'production' ? undefined : message,
       },
       {

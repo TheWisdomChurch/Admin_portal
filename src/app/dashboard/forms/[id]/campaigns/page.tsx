@@ -1064,7 +1064,7 @@ function RegistrantCampaignPage() {
     showActionDialog({
       mode: 'progress',
       title: 'Sending campaign',
-      description: 'We are saving the latest template state, personalizing each email, and handing delivery to the backend mail service.',
+      description: 'We are saving the latest template state, personalizing each email, and preparing delivery.',
       badge: 'Delivery in progress',
       details: [
         { label: 'Recipients', value: `${selectedRecipientIds.length}` },
@@ -1112,7 +1112,7 @@ function RegistrantCampaignPage() {
           title: 'Campaign delivery completed with failures',
           description:
             failureHint ||
-            'Some recipients could not be reached. Review the delivery details below and correct the backend mail setup if needed.',
+            'Some recipients could not be reached. Review the delivery details below and correct the mail setup if needed.',
           badge: 'Delivery review',
           details: [
             { label: 'Targeted', value: `${result.totalRecipients}` },
@@ -1125,7 +1125,7 @@ function RegistrantCampaignPage() {
         showActionDialog({
           mode: 'success',
           title: 'Campaign sent successfully',
-          description: 'The backend accepted the delivery request and started sending personalized emails to your selected registrants.',
+          description: 'The delivery request was accepted and personalized emails are being sent to your selected registrants.',
           badge: 'Delivery complete',
           details: [
             { label: 'Targeted', value: `${result.totalRecipients}` },
@@ -1143,7 +1143,7 @@ function RegistrantCampaignPage() {
         mode: 'error',
         title: 'Campaign delivery failed',
         description: message,
-        badge: 'Backend response',
+        badge: 'Delivery response',
         details: [
           { label: 'Recipients', value: `${selectedRecipientIds.length}` },
           { label: 'Subject', value: subject.trim() || 'Untitled campaign' },
@@ -1520,7 +1520,7 @@ function RegistrantCampaignPage() {
                 ) : (
                   <div className="space-y-2">
                     <p className="text-xs text-[var(--color-text-tertiary)]">
-                      When event details are provided, the campaign email can include a direct Google Calendar link immediately. Backend-generated `.ics` delivery still depends on the linked form event pipeline.
+                      When event details are provided, the campaign email can include a direct Google Calendar link immediately. Calendar file delivery still depends on the linked form event pipeline.
                     </p>
                     {effectiveCalendarUrl ? (
                       <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-3">
@@ -1653,7 +1653,7 @@ function RegistrantCampaignPage() {
                   <p className="text-xs font-medium text-red-600">{normalizedResources.error}</p>
                 ) : (
                   <p className="text-xs text-[var(--color-text-tertiary)]">
-                    These links render as a professional resource block inside the email and are also sent to the backend for fallback campaign rendering.
+                    These links render as a professional resource block inside the email and are also kept for fallback campaign rendering.
                   </p>
                 )}
               </div>
@@ -1797,7 +1797,7 @@ function RegistrantCampaignPage() {
               </div>
               {lastDeliveryError ? (
                 <div className="rounded-[var(--radius-card)] border border-red-300 bg-red-50 p-4">
-                  <div className="text-sm font-semibold text-red-700">Last backend delivery error</div>
+                  <div className="text-sm font-semibold text-red-700">Last delivery error</div>
                   <p className="mt-2 text-sm text-red-700">{lastDeliveryError}</p>
                 </div>
               ) : null}
@@ -1819,7 +1819,7 @@ function RegistrantCampaignPage() {
                     {lastSendResult.skipped > 0 ? `, with ${lastSendResult.skipped} skipped` : ''}.
                   </p>
                   {lastSendResult.failureReason ? (
-                    <p className="mt-2 text-sm text-red-700">Backend reported: {lastSendResult.failureReason}</p>
+                    <p className="mt-2 text-sm text-red-700">Delivery reported: {lastSendResult.failureReason}</p>
                   ) : null}
                   {failedRecipientDetails.length > 0 ? (
                     <div className="mt-3 space-y-2">
