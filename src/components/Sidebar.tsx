@@ -23,6 +23,7 @@ import {
   LineChart,
   Mail,
   UserPlus,
+  IdCard,
 } from 'lucide-react';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Badge } from '@/ui/Badge';
@@ -32,6 +33,8 @@ import { textStyles } from '@/styles/text';
 const adminNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview and metrics' },
   { href: '/dashboard/administration', label: 'Administration', icon: Shield, description: 'Workforce, leadership, members' },
+  { href: '/dashboard/leadership', label: 'Leadership', icon: IdCard, description: 'Leadership profiles' },
+  { href: '/dashboard/workforce', label: 'Workforce', icon: ClipboardList, description: 'Serving workers' },
   { href: '/dashboard/new-members', label: 'New Members', icon: UserPlus, description: 'Membership intake and growth' },
   { href: '/dashboard/members', label: 'Members', icon: Users, description: 'All church members' },
   { href: '/dashboard/reels', label: 'Reels', icon: Video, description: 'Video content management' },
