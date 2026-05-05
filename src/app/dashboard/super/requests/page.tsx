@@ -25,6 +25,7 @@ const typeLabel: Record<ApprovalRequestType, string> = {
   event: 'Event',
   admin_user: 'Admin Access',
   leadership_delete: 'Leadership Delete',
+  workforce_delete: 'Workforce Delete',
 };
 
 const statusVariant: Record<ApprovalRequestStatus, 'warning' | 'success' | 'danger'> = {
@@ -41,7 +42,8 @@ function fallbackMessage(error: unknown, fallback: string): string {
 function openPathByType(type: ApprovalRequestType): string {
   if (type === 'testimonial') return '/dashboard/testimonials';
   if (type === 'event') return '/dashboard/event';
-  if (type === 'leadership_delete') return '/dashboard/administration';
+  if (type === 'leadership_delete') return '/dashboard/leadership';
+  if (type === 'workforce_delete') return '/dashboard/workforce';
   return '/dashboard';
 }
 
@@ -92,6 +94,26 @@ function RequestsPage() {
         await loadData();
       } catch (error) {
         toast.error(fallbackMessage(error, 'Unable to approve leadership delete.'));
+      }
+    },
+    [loadData]
+  );
+
+  const approveWorkforceDelete = useCallback(
+    async (req: ApprovalRequest) => {
+      if (!req.entityId) {
+        toast.error('This request has no workforce profile attached.');
+        return;
+      }
+      if (!window.confirm(`Approve deletion for ${req.entityLabel || 'this workforce profile'}?`)) {
+        return;
+      }
+      try {
+        await apiClient.approveWorkforceDelete(req.entityId);
+        toast.success('Workforce profile deleted');
+        await loadData();
+      } catch (error) {
+        toast.error(fallbackMessage(error, 'Unable to approve workforce delete.'));
       }
     },
     [loadData]
@@ -229,6 +251,9 @@ function RequestsPage() {
             <Button size="sm" className="text-xs px-3" variant={typeFilter === 'leadership_delete' ? 'primary' : 'ghost'} onClick={() => setTypeFilter('leadership_delete')}>
               Leadership Delete
             </Button>
+            <Button size="sm" className="text-xs px-3" variant={typeFilter === 'workforce_delete' ? 'primary' : 'ghost'} onClick={() => setTypeFilter('workforce_delete')}>
+              Workforce Delete
+            </Button>
 
             <Button size="sm" className="text-xs px-3" variant={statusFilter === 'pending' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('pending')}>
               Pending
@@ -314,6 +339,16 @@ function RequestsPage() {
                         variant="danger"
                         className="text-xs px-3"
                         onClick={() => void approveLeadershipDelete(req)}
+                      >
+                        Approve Delete
+                      </Button>
+                    )}
+                    {req.type === 'workforce_delete' && req.status === 'pending' && (
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        className="text-xs px-3"
+                        onClick={() => void approveWorkforceDelete(req)}
                       >
                         Approve Delete
                       </Button>
