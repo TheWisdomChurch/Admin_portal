@@ -1,20 +1,25 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import Image from 'next/image';
 import {
-  RefreshCw,
-  Save,
-  Sparkles,
-  MessageSquareText,
+  Activity,
   HeartHandshake,
   HandCoins,
+  ImageIcon,
+  Loader2,
+  MailCheck,
+  MessageSquareText,
+  RefreshCw,
+  Save,
   ShieldCheck,
+  Sparkles,
+  Wand2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Card } from '@/ui/Card';
-import { Button } from '@/ui/Button';
+
 import { PageHeader } from '@/layouts';
+import { Button } from '@/ui/Button';
 import apiClient from '@/lib/api';
 import MediaUploadField from '@/components/MediaUploadField';
 import { uploadAsset } from '@/lib/uploads';
@@ -82,76 +87,139 @@ const AUTOMATION_TEMPLATE_DEFS = [
   },
 ] as const;
 
-type TemplateStatus = {
-  id?: string;
-  active: boolean;
-  version?: number;
-};
+type TemplateStatus = { id?: string; active: boolean; version?: number };
+type TabKey = 'homepage' | 'confession' | 'requests' | 'automation';
 
 function asArray<T>(value: unknown): T[] {
   if (Array.isArray(value)) return value as T[];
-
   if (value && typeof value === 'object') {
     const maybe = value as { data?: unknown; items?: unknown };
-
     if (Array.isArray(maybe.data)) return maybe.data as T[];
     if (Array.isArray(maybe.items)) return maybe.items as T[];
-
     if (maybe.data && typeof maybe.data === 'object') {
       const nested = maybe.data as { data?: unknown; items?: unknown };
-
       if (Array.isArray(nested.data)) return nested.data as T[];
       if (Array.isArray(nested.items)) return nested.items as T[];
     }
   }
-
   return [];
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-
+  if (error instanceof Error && error.message.trim()) return error.message;
   if (error && typeof error === 'object' && 'message' in error) {
     const message = (error as { message?: unknown }).message;
-    if (typeof message === 'string' && message.trim()) {
-      return message;
-    }
+    if (typeof message === 'string' && message.trim()) return message;
   }
-
   return fallback;
+}
+
+function formatDate(value?: string): string {
+  if (!value) return 'Not set';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 async function fetchTemplateStatusMap(): Promise<Record<string, TemplateStatus>> {
   const rows = await Promise.all(
     AUTOMATION_TEMPLATE_DEFS.map(async (def) => {
-      const response = await apiClient.listAdminEmailTemplates({
-        templateKey: def.key,
-        limit: 20,
-      });
+      const response = await apiClient.listAdminEmailTemplates({ templateKey: def.key, limit: 20 });
       const templates = asArray<EmailTemplate>(response);
       const active = templates.find((item) => item.isActive) || null;
       const latest = templates[0] || null;
-
       return {
         key: def.key,
         id: active?.id ?? latest?.id,
         active: Boolean(active),
         version: active?.version ?? latest?.version,
       };
-    })
+    }),
   );
 
-  const next: Record<string, TemplateStatus> = {};
-  rows.forEach((row) => {
-    next[row.key] = {
-      id: row.id,
-      active: row.active,
-      version: row.version,
-    };
-  });
-  return next;
+  return rows.reduce<Record<string, TemplateStatus>>((acc, row) => {
+    acc[row.key] = { id: row.id, active: row.active, version: row.version };
+    return acc;
+  }, {});
+}
+
+function Panel({ title, subtitle, icon: Icon, actions, children }: { title: string; subtitle?: string; icon?: ComponentType<{ className?: string }>; actions?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:shadow-md">
+      <div className="flex flex-col gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          {Icon ? <div className="rounded-2xl bg-slate-950 p-3 text-white shadow-sm"><Icon className="h-5 w-5" /></div> : null}
+          <div>
+            <h2 className="text-lg font-black tracking-tight text-slate-950">{title}</h2>
+            {subtitle ? <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">{subtitle}</p> : null}
+          </div>
+        </div>
+        {actions ? <div className="shrink-0">{actions}</div> : null}
+      </div>
+      <div className="mt-5">{children}</div>
+    </section>
+  );
+}
+
+function StatCard({ label, value, hint, icon: Icon }: { label: string; value: number | string; hint: string; icon: ComponentType<{ className?: string }> }) {
+  return (
+    <article className="overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{label}</p>
+          <strong className="mt-3 block text-3xl font-black tracking-tight text-slate-950">{value}</strong>
+        </div>
+        <div className="rounded-2xl bg-slate-950 p-3 text-white"><Icon className="h-5 w-5" /></div>
+      </div>
+      <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">{hint}</p>
+    </article>
+  );
+}
+
+function Field({ label, value, onChange, placeholder, type = 'text' }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string }) {
+  return (
+    <label className="grid gap-1.5">
+      <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">{label}</span>
+      <input
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+      />
+    </label>
+  );
+}
+
+function TextArea({ label, value, onChange, rows = 4, placeholder }: { label: string; value: string; onChange: (value: string) => void; rows?: number; placeholder?: string }) {
+  return (
+    <label className="grid gap-1.5">
+      <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">{label}</span>
+      <textarea
+        value={value}
+        rows={rows}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold leading-7 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+      />
+    </label>
+  );
+}
+
+function TabButton({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className={`rounded-2xl px-4 py-2 text-sm font-black transition ${active ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'}`}>
+      {children}
+    </button>
+  );
+}
+
+function StatusPill({ active }: { active: boolean }) {
+  return (
+    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ring-1 ${active ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-amber-200'}`}>
+      {active ? 'Active' : 'Missing / inactive'}
+    </span>
+  );
 }
 
 export default function ContentPage() {
@@ -167,12 +235,12 @@ export default function ContentPage() {
   const [templateStatus, setTemplateStatus] = useState<Record<string, TemplateStatus>>({});
   const [syncingTemplates, setSyncingTemplates] = useState(false);
   const [templateBusyKey, setTemplateBusyKey] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>('homepage');
 
   const loadContent = useCallback(async () => {
     setLoading(true);
-
     try {
-      const [adRes, confessionRes, pastoralRes, givingRes] = await Promise.all([
+      const [adRes, confessionRes, pastoralRes, givingRes, templateStatusMap] = await Promise.all([
         apiClient.getHomepageAdContent(),
         apiClient.getConfessionPopupContent(),
         apiClient.listPastoralCareRequests({ page: 1, limit: 10 }),
@@ -180,11 +248,11 @@ export default function ContentPage() {
         fetchTemplateStatusMap(),
       ]);
 
-      setHomepageAd({ ...defaultHomepageAd, ...adRes });
-      setConfession({ ...defaultConfession, ...confessionRes });
+      setHomepageAd({ ...defaultHomepageAd, ...(adRes || {}) });
+      setConfession({ ...defaultConfession, ...(confessionRes || {}) });
       setPastoralRequests(asArray<PastoralCareRequestAdmin>(pastoralRes));
       setGivingIntents(asArray<GivingIntentAdmin>(givingRes));
-      setTemplateStatus(await fetchTemplateStatusMap());
+      setTemplateStatus(templateStatusMap);
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Failed to load content dashboard'));
     } finally {
@@ -192,15 +260,20 @@ export default function ContentPage() {
     }
   }, []);
 
-  useEffect(() => {
-    void loadContent();
-  }, [loadContent]);
+  useEffect(() => { void loadContent(); }, [loadContent]);
 
-  useEffect(() => {
-    return () => {
-      if (homepageAdImagePreview) URL.revokeObjectURL(homepageAdImagePreview);
-    };
-  }, [homepageAdImagePreview]);
+  useEffect(() => () => { if (homepageAdImagePreview) URL.revokeObjectURL(homepageAdImagePreview); }, [homepageAdImagePreview]);
+
+  const stats = useMemo(() => {
+    const activeTemplates = AUTOMATION_TEMPLATE_DEFS.filter((def) => templateStatus[def.key]?.active).length;
+    const now = Date.now();
+    const start = new Date(homepageAd.startAt || 0).getTime();
+    const end = new Date(homepageAd.endAt || 0).getTime();
+    const adIsActive = Number.isFinite(start) && Number.isFinite(end) && start <= now && now <= end;
+    return { pastoral: pastoralRequests.length, giving: givingIntents.length, templates: `${activeTemplates}/${AUTOMATION_TEMPLATE_DEFS.length}`, adState: adIsActive ? 'Live' : 'Scheduled' };
+  }, [givingIntents.length, homepageAd.endAt, homepageAd.startAt, pastoralRequests.length, templateStatus]);
+
+  const homepagePreviewImage = homepageAdImagePreview || homepageAd.image?.trim() || '';
 
   const handleHomepageAdImageFile = (file: File | null) => {
     setHomepageAdImageFile(file);
@@ -210,25 +283,13 @@ export default function ContentPage() {
 
   const saveHomepageAd = async () => {
     setSavingAd(true);
-
     try {
       let image = homepageAd.image.trim();
-
       if (homepageAdImageFile) {
-        const uploaded = await uploadAsset(homepageAdImageFile, {
-          kind: 'image',
-          module: 'content',
-          ownerType: 'homepage-ad',
-          ownerId: homepageAd.id,
-          folder: `content/homepage-ads/${homepageAd.id}/images`,
-        });
+        const uploaded = await uploadAsset(homepageAdImageFile, { kind: 'image', module: 'content', ownerType: 'homepage-ad', ownerId: homepageAd.id, folder: `content/homepage-ads/${homepageAd.id}/images` });
         image = uploaded.publicUrl || uploaded.url;
       }
-
-      const saved = await apiClient.updateHomepageAdContent({
-        ...homepageAd,
-        image,
-      });
+      const saved = await apiClient.updateHomepageAdContent({ ...homepageAd, image });
       setHomepageAd(saved);
       setHomepageAdImageFile(null);
       if (homepageAdImagePreview) URL.revokeObjectURL(homepageAdImagePreview);
@@ -243,7 +304,6 @@ export default function ContentPage() {
 
   const saveConfession = async () => {
     setSavingConfession(true);
-
     try {
       const saved = await apiClient.updateConfessionPopupContent(confession);
       setConfession(saved);
@@ -255,45 +315,24 @@ export default function ContentPage() {
     }
   };
 
-  const stats = useMemo(
-    () => ({
-      pastoral: pastoralRequests.length,
-      giving: givingIntents.length,
-    }),
-    [pastoralRequests.length, givingIntents.length]
-  );
-
   const ensureTemplate = async (key: string) => {
     const def = AUTOMATION_TEMPLATE_DEFS.find((item) => item.key === key);
     if (!def) return;
-
     setTemplateBusyKey(key);
-
     try {
-      const listResponse = await apiClient.listAdminEmailTemplates({
-        templateKey: key,
-        limit: 20,
-      });
+      const listResponse = await apiClient.listAdminEmailTemplates({ templateKey: key, limit: 20 });
       const templates = asArray<EmailTemplate>(listResponse);
       const active = templates.find((item) => item.isActive);
-
       if (active) {
+        setTemplateStatus(await fetchTemplateStatusMap());
         toast.success(`${def.title} already active.`);
         return;
       }
-
       if (templates.length === 0) {
-        await apiClient.createAdminEmailTemplate({
-          templateKey: def.key,
-          subject: def.subject,
-          htmlBody: def.htmlBody,
-          status: 'active',
-          activate: true,
-        });
+        await apiClient.createAdminEmailTemplate({ templateKey: def.key, subject: def.subject, htmlBody: def.htmlBody, status: 'active', activate: true });
       } else {
         await apiClient.activateAdminEmailTemplate(templates[0].id);
       }
-
       setTemplateStatus(await fetchTemplateStatusMap());
       toast.success(`${def.title} activated.`);
     } catch (error: unknown) {
@@ -305,336 +344,193 @@ export default function ContentPage() {
 
   const ensureAllTemplates = async () => {
     setSyncingTemplates(true);
-
     try {
-      await Promise.all(
-        AUTOMATION_TEMPLATE_DEFS.map(async (def) => {
-          await ensureTemplate(def.key);
-        })
-      );
-
+      for (const def of AUTOMATION_TEMPLATE_DEFS) await ensureTemplate(def.key);
       setTemplateStatus(await fetchTemplateStatusMap());
       toast.success('Automation templates synchronized.');
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Failed to synchronize automation templates'));
     } finally {
       setSyncingTemplates(false);
+      setTemplateBusyKey(null);
     }
   };
 
   return (
-    <div className="space-y-6">
+    <main className="space-y-6">
       <PageHeader
         title="Content Control"
-        subtitle="Manage homepage ad + confession popup and monitor incoming requests."
-        actions={
-          <Button
-            variant="outline"
-            icon={<RefreshCw className="h-4 w-4" />}
-            onClick={() => void loadContent()}
-            loading={loading}
-          >
-            Refresh
-          </Button>
-        }
+        subtitle="Manage homepage campaign content, confession popup messaging, request intake, and automation email readiness."
+        actions={<Button variant="outline" icon={<RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />} onClick={() => void loadContent()} loading={loading}>Refresh</Button>}
       />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Card>
-          <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">
-            Pastoral Requests
-          </p>
-          <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">
-            {stats.pastoral}
-          </p>
-        </Card>
-
-        <Card>
-          <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">
-            Giving Intents
-          </p>
-          <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">
-            {stats.giving}
-          </p>
-        </Card>
-      </div>
-
-      <Card
-        title="Homepage Ad"
-        actions={
-          <Button
-            icon={<Save className="h-4 w-4" />}
-            onClick={() => void saveHomepageAd()}
-            loading={savingAd}
-          >
-            Save Ad
-          </Button>
-        }
-      >
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Field
-            label="ID"
-            value={homepageAd.id}
-            onChange={(v) => setHomepageAd((s) => ({ ...s, id: v }))}
-          />
-          <Field
-            label="CTA Label"
-            value={homepageAd.ctaLabel}
-            onChange={(v) => setHomepageAd((s) => ({ ...s, ctaLabel: v }))}
-          />
-          <Field
-            label="Title"
-            value={homepageAd.title}
-            onChange={(v) => setHomepageAd((s) => ({ ...s, title: v }))}
-          />
-          <Field
-            label="Headline"
-            value={homepageAd.headline}
-            onChange={(v) => setHomepageAd((s) => ({ ...s, headline: v }))}
-          />
-          <Field
-            label="Image URL"
-            value={homepageAd.image}
-            onChange={(v) => setHomepageAd((s) => ({ ...s, image: v }))}
-          />
-          <div className="space-y-3">
-            <MediaUploadField
-              field={{ key: 'image', label: 'Homepage ad image', type: 'image', validation: { max: 10 } }}
-              value={homepageAdImageFile}
-              onChange={handleHomepageAdImageFile}
-            />
-            {(homepageAdImagePreview || homepageAd.image.trim()) && (
-              <Image
-                src={homepageAdImagePreview || homepageAd.image.trim()}
-                alt="Homepage ad image preview"
-                width={960}
-                height={540}
-                className="h-40 w-full rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] object-cover"
-                unoptimized
-              />
-            )}
+      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 shadow-xl">
+        <div className="relative grid gap-6 p-6 text-white lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)] lg:items-end">
+          <div className="absolute right-0 top-0 h-56 w-56 rounded-full bg-amber-400/10 blur-3xl" />
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white/65"><ShieldCheck className="h-4 w-4" /> Website content operations</div>
+            <h1 className="mt-4 max-w-3xl text-3xl font-black tracking-tight sm:text-4xl xl:text-5xl">Publish consistent content across homepage, popups, and automated follow-up.</h1>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-white/65">This workspace keeps public-facing messaging and backend automation templates aligned.</p>
           </div>
-          <Field
-            label="Register URL"
-            value={homepageAd.registerUrl}
-            onChange={(v) => setHomepageAd((s) => ({ ...s, registerUrl: v }))}
-          />
-          <Field
-            label="Start (ISO)"
-            value={homepageAd.startAt}
-            onChange={(v) => setHomepageAd((s) => ({ ...s, startAt: v }))}
-          />
-          <Field
-            label="End (ISO)"
-            value={homepageAd.endAt}
-            onChange={(v) => setHomepageAd((s) => ({ ...s, endAt: v }))}
-          />
-          <Field
-            label="Time"
-            value={homepageAd.time}
-            onChange={(v) => setHomepageAd((s) => ({ ...s, time: v }))}
-          />
-          <Field
-            label="Location"
-            value={homepageAd.location}
-            onChange={(v) => setHomepageAd((s) => ({ ...s, location: v }))}
-          />
+          <div className="relative grid gap-3 sm:grid-cols-2">
+            <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-white/50">Homepage ad</p>
+              <p className="mt-2 text-2xl font-black">{stats.adState}</p>
+              <p className="mt-1 text-xs font-semibold text-white/55">{formatDate(homepageAd.startAt)} — {formatDate(homepageAd.endAt)}</p>
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-white/50">Templates</p>
+              <p className="mt-2 text-2xl font-black">{stats.templates}</p>
+              <p className="mt-1 text-xs font-semibold text-white/55">required automations active</p>
+            </div>
+          </div>
         </div>
+      </section>
 
-        <TextArea
-          label="Description"
-          value={homepageAd.description}
-          onChange={(v) => setHomepageAd((s) => ({ ...s, description: v }))}
-        />
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard icon={HeartHandshake} label="Pastoral requests" value={stats.pastoral} hint="Latest pastoral care requests pulled from the backend." />
+        <StatCard icon={HandCoins} label="Giving intents" value={stats.giving} hint="Recent giving expressions and follow-up opportunities." />
+        <StatCard icon={MailCheck} label="Automation templates" value={stats.templates} hint="Confirmation templates needed by service workflows." />
+        <StatCard icon={Activity} label="Content status" value={stats.adState} hint="Homepage campaign status based on active date range." />
+      </section>
 
-        <TextArea
-          label="Note"
-          value={homepageAd.note}
-          onChange={(v) => setHomepageAd((s) => ({ ...s, note: v }))}
-        />
-      </Card>
+      <section className="sticky top-2 z-20 rounded-3xl border border-slate-200 bg-white/85 p-2 shadow-sm backdrop-blur">
+        <div className="flex gap-2 overflow-x-auto">
+          <TabButton active={activeTab === 'homepage'} onClick={() => setActiveTab('homepage')}>Homepage ad</TabButton>
+          <TabButton active={activeTab === 'confession'} onClick={() => setActiveTab('confession')}>Confession popup</TabButton>
+          <TabButton active={activeTab === 'requests'} onClick={() => setActiveTab('requests')}>Requests</TabButton>
+          <TabButton active={activeTab === 'automation'} onClick={() => setActiveTab('automation')}>Automation</TabButton>
+        </div>
+      </section>
 
-      <Card
-        title="Confession Popup"
-        actions={
-          <Button
-            icon={<Sparkles className="h-4 w-4" />}
-            onClick={() => void saveConfession()}
-            loading={savingConfession}
-          >
-            Save Confession
-          </Button>
-        }
-      >
-        <Field
-          label="Welcome Title"
-          value={confession.welcomeTitle}
-          onChange={(v) => setConfession((s) => ({ ...s, welcomeTitle: v }))}
-        />
+      {loading ? <section className="rounded-[2rem] border border-slate-200 bg-white p-10 shadow-sm"><div className="flex items-center justify-center gap-3 text-sm font-bold text-slate-500"><Loader2 className="h-5 w-5 animate-spin" /> Loading content dashboard...</div></section> : null}
 
-        <TextArea
-          label="Welcome Message"
-          value={confession.welcomeMessage}
-          onChange={(v) => setConfession((s) => ({ ...s, welcomeMessage: v }))}
-        />
+      {activeTab === 'homepage' ? (
+        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_420px]">
+          <Panel title="Homepage campaign ad" subtitle="Edit the popup/hero promotion used to drive registration or announcements." icon={Sparkles} actions={<Button icon={<Save className="h-4 w-4" />} onClick={() => void saveHomepageAd()} loading={savingAd}>Save Ad</Button>}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="ID" value={homepageAd.id || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, id: value }))} />
+              <Field label="CTA Label" value={homepageAd.ctaLabel || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, ctaLabel: value }))} />
+              <Field label="Title" value={homepageAd.title || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, title: value }))} />
+              <Field label="Headline" value={homepageAd.headline || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, headline: value }))} />
+              <Field label="Register URL" value={homepageAd.registerUrl || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, registerUrl: value }))} />
+              <Field label="Image URL" value={homepageAd.image || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, image: value }))} />
+              <Field label="Start ISO" value={homepageAd.startAt || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, startAt: value }))} />
+              <Field label="End ISO" value={homepageAd.endAt || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, endAt: value }))} />
+              <Field label="Time" value={homepageAd.time || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, time: value }))} />
+              <Field label="Location" value={homepageAd.location || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, location: value }))} />
+              <div className="md:col-span-2"><MediaUploadField field={{ key: 'image', label: 'Homepage ad image', type: 'image', validation: { max: 10 } }} value={homepageAdImageFile} onChange={handleHomepageAdImageFile} /></div>
+              <div className="md:col-span-2"><TextArea label="Description" value={homepageAd.description || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, description: value }))} /></div>
+              <div className="md:col-span-2"><TextArea label="Note" value={homepageAd.note || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, note: value }))} rows={3} /></div>
+            </div>
+          </Panel>
 
-        <TextArea
-          label="Motto"
-          value={confession.motto}
-          onChange={(v) => setConfession((s) => ({ ...s, motto: v }))}
-        />
-
-        <TextArea
-          label="Confession Text"
-          value={confession.confessionText}
-          onChange={(v) => setConfession((s) => ({ ...s, confessionText: v }))}
-        />
-      </Card>
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <Card
-          title="Recent Pastoral Requests"
-          actions={<HeartHandshake className="h-4 w-4 text-[var(--color-text-tertiary)]" />}
-        >
-          <div className="space-y-3">
-            {pastoralRequests.length === 0 ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">No requests yet.</p>
-            ) : (
-              pastoralRequests.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] p-3"
-                >
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                    {item.firstName} {item.lastName}
-                  </p>
-                  <p className="text-xs text-[var(--color-text-tertiary)]">
-                    {item.eventType} • {item.eventDate} • {item.email}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
-
-        <Card
-          title="Recent Giving Intents"
-          actions={<HandCoins className="h-4 w-4 text-[var(--color-text-tertiary)]" />}
-        >
-          <div className="space-y-3">
-            {givingIntents.length === 0 ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">No giving intents yet.</p>
-            ) : (
-              givingIntents.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] p-3"
-                >
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                    {item.title}
-                  </p>
-                  <p className="flex items-center gap-1 text-xs text-[var(--color-text-tertiary)]">
-                    <MessageSquareText className="h-3 w-3" />
-                    {item.description || 'No description'}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
-      </div>
-
-      <Card
-        title="Automation Email Templates"
-        actions={
-          <Button
-            icon={<ShieldCheck className="h-4 w-4" />}
-            onClick={() => void ensureAllTemplates()}
-            loading={syncingTemplates}
-          >
-            Activate Required Templates
-          </Button>
-        }
-      >
-        <div className="space-y-3">
-          {AUTOMATION_TEMPLATE_DEFS.map((def) => {
-            const state = templateStatus[def.key];
-            const isActive = Boolean(state?.active);
-
-            return (
-              <div
-                key={def.key}
-                className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] p-3"
-              >
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                      {def.title}
-                    </p>
-                    <p className="text-xs text-[var(--color-text-tertiary)]">{def.key}</p>
-                    <p className="text-xs text-[var(--color-text-tertiary)]">
-                      Status: {isActive ? 'Active' : 'Missing/Inactive'}{' '}
-                      {state?.version ? `• v${state.version}` : ''}
-                    </p>
-                  </div>
-
-                  <Button
-                    size="sm"
-                    variant={isActive ? 'secondary' : 'primary'}
-                    onClick={() => void ensureTemplate(def.key)}
-                    loading={templateBusyKey === def.key}
-                  >
-                    {isActive ? 'Re-check' : 'Activate'}
-                  </Button>
-                </div>
+          <Panel title="Live website preview" subtitle="Review the visitor-facing campaign before saving." icon={ImageIcon}>
+            <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-slate-50">
+              <div className="relative h-60 bg-slate-100">
+                {homepagePreviewImage ? <Image src={homepagePreviewImage} alt="Homepage ad image preview" fill className="object-cover" unoptimized /> : <div className="flex h-full items-center justify-center text-slate-400"><ImageIcon className="h-8 w-8" /></div>}
               </div>
-            );
-          })}
-        </div>
-      </Card>
+              <div className="space-y-3 bg-white p-5">
+                <span className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700 ring-1 ring-amber-200">{homepageAd.title || 'Campaign title'}</span>
+                <h3 className="text-2xl font-black tracking-tight text-slate-950">{homepageAd.headline || 'Campaign headline'}</h3>
+                <p className="text-sm leading-7 text-slate-600">{homepageAd.description || 'Campaign description appears here.'}</p>
+                <div className="rounded-2xl bg-slate-50 p-3 text-xs font-bold text-slate-500">{homepageAd.time || 'Time'} · {homepageAd.location || 'Location'}</div>
+                <div className="inline-flex rounded-2xl bg-slate-950 px-4 py-2 text-sm font-black text-white">{homepageAd.ctaLabel || 'Register now'}</div>
+              </div>
+            </div>
+          </Panel>
+        </section>
+      ) : null}
+
+      {activeTab === 'confession' ? (
+        <Panel title="Confession popup" subtitle="Edit the welcome modal and confession text." icon={Wand2} actions={<Button icon={<Sparkles className="h-4 w-4" />} onClick={() => void saveConfession()} loading={savingConfession}>Save Confession</Button>}>
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
+            <div className="space-y-4">
+              <Field label="Welcome title" value={confession.welcomeTitle || ''} onChange={(value) => setConfession((state) => ({ ...state, welcomeTitle: value }))} />
+              <TextArea label="Welcome message" value={confession.welcomeMessage || ''} onChange={(value) => setConfession((state) => ({ ...state, welcomeMessage: value }))} rows={5} />
+              <TextArea label="Motto" value={confession.motto || ''} onChange={(value) => setConfession((state) => ({ ...state, motto: value }))} rows={3} />
+              <TextArea label="Confession text" value={confession.confessionText || ''} onChange={(value) => setConfession((state) => ({ ...state, confessionText: value }))} rows={5} />
+            </div>
+            <div className="rounded-[1.7rem] border border-slate-200 bg-slate-950 p-5 text-white shadow-sm">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-300">Popup preview</p>
+              <h3 className="mt-4 text-3xl font-black tracking-tight">{confession.welcomeTitle || 'Welcome Home'}</h3>
+              <p className="mt-4 text-sm leading-7 text-white/65">{confession.welcomeMessage}</p>
+              <div className="mt-5 rounded-3xl border border-white/10 bg-white/10 p-4"><p className="text-sm font-bold leading-7 text-white">{confession.confessionText}</p></div>
+              <p className="mt-4 text-xs font-semibold leading-6 text-white/45">{confession.motto}</p>
+            </div>
+          </div>
+        </Panel>
+      ) : null}
+
+      {activeTab === 'requests' ? (
+        <section className="grid gap-6 xl:grid-cols-2">
+          <Panel title="Recent pastoral requests" subtitle="Latest care records submitted from public forms." icon={HeartHandshake}>
+            <RequestList
+              empty="No pastoral requests yet."
+              items={pastoralRequests.map((item) => ({
+                id: item.id,
+                title: `${item.firstName} ${item.lastName}`,
+                meta: item.email,
+                detail: `${item.eventType} • ${item.eventDate || 'No date recorded'}`,
+              }))}
+            />
+          </Panel>
+          <Panel title="Recent giving intents" subtitle="Latest giving submissions and areas of interest." icon={HandCoins}>
+            <RequestList
+              empty="No giving intents yet."
+              items={givingIntents.map((item) => ({
+                id: item.id,
+                title: item.title,
+                meta: item.description || 'No description',
+                detail: 'Giving intent',
+              }))}
+            />
+          </Panel>
+        </section>
+      ) : null}
+
+      {activeTab === 'automation' ? (
+        <Panel title="Automation email templates" subtitle="Keep required confirmation templates active for workflows." icon={ShieldCheck} actions={<Button icon={<ShieldCheck className="h-4 w-4" />} onClick={() => void ensureAllTemplates()} loading={syncingTemplates}>Activate Required Templates</Button>}>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {AUTOMATION_TEMPLATE_DEFS.map((def) => {
+              const state = templateStatus[def.key];
+              const isActive = Boolean(state?.active);
+              return (
+                <article key={def.key} className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 transition hover:bg-white hover:shadow-sm">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-black text-slate-950">{def.title}</h3><StatusPill active={isActive} /></div>
+                      <p className="mt-2 break-all text-xs font-semibold text-slate-500">{def.key}</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-400">{state?.version ? `Version ${state.version}` : 'No version detected'}</p>
+                    </div>
+                    <Button size="sm" variant={isActive ? 'outline' : 'primary'} onClick={() => void ensureTemplate(def.key)} loading={templateBusyKey === def.key}>{isActive ? 'Re-check' : 'Activate'}</Button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </Panel>
+      ) : null}
+    </main>
+  );
+}
+
+function RequestList({ items, empty }: { items: Array<{ id: string; title: string; meta: string; detail: string }>; empty: string }) {
+  if (items.length === 0) return <EmptyState label={empty} />;
+
+  return (
+    <div className="space-y-3">
+      {items.map((item) => (
+        <article key={item.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4 transition hover:bg-white hover:shadow-sm">
+          <p className="text-sm font-black text-slate-950">{item.title}</p>
+          <p className="mt-1 text-xs font-semibold text-slate-500">{item.meta}</p>
+          <p className="mt-3 text-xs font-semibold text-slate-400">{item.detail}</p>
+        </article>
+      ))}
     </div>
   );
 }
 
-function Field({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-[var(--color-text-secondary)]">{label}</span>
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:ring-2 focus:ring-[var(--color-border-focus)]"
-      />
-    </label>
-  );
-}
-
-function TextArea({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="mt-3 flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-[var(--color-text-secondary)]">{label}</span>
-      <textarea
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        rows={4}
-        className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:ring-2 focus:ring-[var(--color-border-focus)]"
-      />
-    </label>
-  );
+function EmptyState({ label }: { label: string }) {
+  return <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center"><p className="text-sm font-bold text-slate-500">{label}</p></div>;
 }
