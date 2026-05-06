@@ -7,7 +7,6 @@ import {
   Activity,
   BarChart3,
   CalendarClock,
-  Copy,
   Eye,
   FileText,
   Link as LinkIcon,

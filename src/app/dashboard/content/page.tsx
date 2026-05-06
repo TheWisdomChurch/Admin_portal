@@ -9,7 +9,7 @@ import {
   ImageIcon,
   Loader2,
   MailCheck,
-  MessageSquareText,
+
   RefreshCw,
   Save,
   ShieldCheck,
