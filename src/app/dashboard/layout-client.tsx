@@ -25,6 +25,30 @@ function FullPageMessage({
   );
 }
 
+const adminOnlyPrefixes = [
+  '/dashboard/event',
+  '/dashboard/reels',
+  '/dashboard/testimonials',
+  '/dashboard/forms',
+  '/dashboard/email-marketing',
+  '/dashboard/newsletter',
+  '/dashboard/registrations',
+  '/dashboard/notifications',
+  '/dashboard/content',
+  '/dashboard/settings',
+  '/dashboard/store',
+  '/dashboard/administration',
+  '/dashboard/leadership',
+  '/dashboard/workforce',
+  '/dashboard/new-members',
+  '/dashboard/members',
+];
+
+function isAdminOnlyPath(pathname: string): boolean {
+  if (pathname === '/dashboard') return true;
+  return adminOnlyPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 export default function DashboardLayoutClient({
   children,
 }: {
@@ -62,8 +86,13 @@ export default function DashboardLayoutClient({
       return;
     }
 
-    if (isSuperAdmin && pathname === '/dashboard') {
+    if (isSuperAdmin && isAdminOnlyPath(pathname)) {
       router.replace('/dashboard/super');
+      return;
+    }
+
+    if (normalizedRole === 'admin' && pathname.startsWith('/dashboard/super')) {
+      router.replace('/dashboard');
     }
   }, [
     auth.isInitialized,

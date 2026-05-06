@@ -24,6 +24,7 @@ import {
   Mail,
   UserPlus,
   IdCard,
+  ShoppingBag,
 } from 'lucide-react';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Badge } from '@/ui/Badge';
@@ -45,6 +46,7 @@ const adminNavItems = [
   { href: '/dashboard/registrations', label: 'Registrations', icon: Users, description: 'Registered people list' },
   { href: '/dashboard/notifications', label: 'Notifications', icon: BellRing, description: 'Alerts and approvals' },
   { href: '/dashboard/event', label: 'Event', icon: Calendar, description: 'Single event page' },
+  { href: '/dashboard/store', label: 'Store', icon: ShoppingBag, description: 'Products and orders' },
   { href: '/dashboard/content', label: 'Content', icon: FileText, description: 'Website content' },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings, description: 'System configuration' },
 ];
@@ -53,7 +55,6 @@ const superNavItems = [
   { href: '/dashboard/super', label: 'Dashboard', icon: LayoutDashboard, description: 'Approvals & analytics' },
   { href: '/dashboard/super/requests', label: 'Requests', icon: BellRing, description: 'Pending approvals' },
   { href: '/dashboard/super/analytics', label: 'Analytics', icon: LineChart, description: 'Charts & trends' },
-  { href: '/dashboard/email-marketing', label: 'Email Marketing', icon: Mail, description: 'Audience campaigns & outreach' },
   { href: '/dashboard/super/reports', label: 'Reports', icon: FileText, description: 'Monthly exports' },
   { href: '/dashboard/super/notifications', label: 'Notifications', icon: BarChart3, description: 'Alerts and updates' },
 ];
