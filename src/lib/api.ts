@@ -1262,13 +1262,85 @@ export const apiClient = {
     throw createApiError('Invalid login challenge payload', 400, res);
   },
 
-  async register(data: RegisterData): Promise<User> {
+   async register(data: RegisterData): Promise<User> {
+    const raw = data as RegisterData & {
+      firstName?: unknown;
+      lastName?: unknown;
+      first_name?: unknown;
+      last_name?: unknown;
+      confirmPassword?: unknown;
+      confirm_password?: unknown;
+      rememberMe?: unknown;
+    };
+
+    const firstName = String(raw.first_name ?? raw.firstName ?? '').trim();
+    const lastName = String(raw.last_name ?? raw.lastName ?? '').trim();
+    const email = String(raw.email ?? '').trim().toLowerCase();
+    const password = String(raw.password ?? '');
+    const roleInput = String(raw.role ?? 'admin').trim().toLowerCase();
+    const role = roleInput === 'super_admin' ? 'super_admin' : 'admin';
+
+    const validationErrors: ValidationFieldError[] = [];
+
+    if (firstName.length < 2) {
+      validationErrors.push({
+        field: 'first_name',
+        code: 'required',
+        message: 'First name must be at least 2 characters.',
+      });
+    }
+
+    if (lastName.length < 2) {
+      validationErrors.push({
+        field: 'last_name',
+        code: 'required',
+        message: 'Last name must be at least 2 characters.',
+      });
+    }
+
+    if (!email || !email.includes('@')) {
+      validationErrors.push({
+        field: 'email',
+        code: 'email',
+        message: 'Enter a valid email address.',
+      });
+    }
+
+    if (password.trim().length < 8) {
+      validationErrors.push({
+        field: 'password',
+        code: 'min',
+        message: 'Password must be at least 8 characters.',
+      });
+    }
+
+    if (validationErrors.length > 0) {
+      throw createApiError(
+        'Please complete the required account fields.',
+        400,
+        { source: 'client_register_payload_validation' },
+        validationErrors
+      );
+    }
+
+    // Backend contract: internal/handlers/auth.go Register expects snake_case names
+    // and role must be exactly "admin" or "super_admin". Do not send UI-only fields.
+    const payload = {
+      first_name: firstName,
+      last_name: lastName,
+      email,
+      password,
+      role,
+    };
+
     const res = await apiFetch<ApiResponse<unknown>>('/auth/register', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
+
     return extractUser(res);
   },
+
 
   async requestPasswordReset(
     payload: PasswordResetRequestPayload
