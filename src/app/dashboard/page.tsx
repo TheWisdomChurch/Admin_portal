@@ -8,10 +8,12 @@ import {
   CalendarDays,
   CheckCircle2,
   ClipboardList,
-  // FileText,
   Mail,
   Megaphone,
   RefreshCw,
+  ShoppingBag,
+  TrendingUp,
+  UserPlus,
   Users,
 } from 'lucide-react';
 import {
@@ -35,6 +37,11 @@ import type {
   DashboardAnalytics,
   EventData,
   FormStatsResponse,
+  MemberStatsResponse,
+  NewMemberDashboardResponse,
+  StoreOrdersPaginated,
+  StoreProductAdmin,
+  WorkforceStatsResponse,
 } from '@/lib/types';
 import { Button } from '@/ui/Button';
 
@@ -122,17 +129,37 @@ function DashboardPage() {
   const [events, setEvents] = useState<EventData[]>([]);
   const [formStats, setFormStats] = useState<FormStatsResponse | null>(null);
   const [marketing, setMarketing] = useState<AdminEmailMarketingSummary | null>(null);
+  const [memberStats, setMemberStats] = useState<MemberStatsResponse | null>(null);
+  const [newMembers, setNewMembers] = useState<NewMemberDashboardResponse | null>(null);
+  const [workforceStats, setWorkforceStats] = useState<WorkforceStatsResponse | null>(null);
+  const [storeProducts, setStoreProducts] = useState<StoreProductAdmin[]>([]);
+  const [storeOrders, setStoreOrders] = useState<StoreOrdersPaginated | null>(null);
 
   const loadDashboard = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true);
     else setLoading(true);
 
     try {
-      const [analyticsResult, eventsResult, formStatsResult, marketingResult] = await Promise.allSettled([
+      const [
+        analyticsResult,
+        eventsResult,
+        formStatsResult,
+        marketingResult,
+        memberStatsResult,
+        newMembersResult,
+        workforceStatsResult,
+        storeProductsResult,
+        storeOrdersResult,
+      ] = await Promise.allSettled([
         apiClient.getAnalytics(),
         apiClient.getEvents({ page: 1, limit: 10 }),
         apiClient.getFormStats(),
         apiClient.getEmailMarketingSummary(),
+        apiClient.getMemberStats(),
+        apiClient.getNewMemberDashboard(),
+        apiClient.getWorkforceStats(),
+        apiClient.listStoreProductsAdmin(true),
+        apiClient.listStoreOrders({ page: 1, limit: 20 }),
       ]);
 
       setAnalytics(analyticsResult.status === 'fulfilled' ? analyticsResult.value : null);
@@ -143,8 +170,23 @@ function DashboardPage() {
       );
       setFormStats(formStatsResult.status === 'fulfilled' ? formStatsResult.value : null);
       setMarketing(marketingResult.status === 'fulfilled' ? marketingResult.value : null);
+      setMemberStats(memberStatsResult.status === 'fulfilled' ? memberStatsResult.value : null);
+      setNewMembers(newMembersResult.status === 'fulfilled' ? newMembersResult.value : null);
+      setWorkforceStats(workforceStatsResult.status === 'fulfilled' ? workforceStatsResult.value : null);
+      setStoreProducts(storeProductsResult.status === 'fulfilled' ? storeProductsResult.value : []);
+      setStoreOrders(storeOrdersResult.status === 'fulfilled' ? storeOrdersResult.value : null);
 
-      const failed = [analyticsResult, eventsResult, formStatsResult, marketingResult].some(
+      const failed = [
+        analyticsResult,
+        eventsResult,
+        formStatsResult,
+        marketingResult,
+        memberStatsResult,
+        newMembersResult,
+        workforceStatsResult,
+        storeProductsResult,
+        storeOrdersResult,
+      ].some(
         (result) => result.status === 'rejected'
       );
 
@@ -169,6 +211,12 @@ function DashboardPage() {
   const recentCampaigns = useMemo(() => marketing?.recentCampaigns ?? [], [marketing]);
   const monthlyStats = useMemo(() => analytics?.monthlyStats ?? [], [analytics]);
   const eventsByCategory = useMemo(() => analytics?.eventsByCategory ?? {}, [analytics]);
+  const activeProducts = useMemo(() => storeProducts.filter((item) => item.isActive).length, [storeProducts]);
+  const lowStockProducts = useMemo(() => storeProducts.filter((item) => item.stock > 0 && item.stock <= 5).length, [storeProducts]);
+  const workforceDepartments = useMemo(
+    () => Object.entries(workforceStats?.byDepartment || {}).sort((a, b) => b[1] - a[1]).slice(0, 6),
+    [workforceStats]
+  );
 
   const upcomingEvents = useMemo(() => {
     const now = Date.now();
@@ -281,6 +329,30 @@ function DashboardPage() {
       hint: 'Captured form responses',
       icon: <ClipboardList className="h-5 w-5" />,
     },
+    {
+      label: 'Members',
+      value: formatNumber(memberStats?.total),
+      hint: `${formatNumber(memberStats?.active)} active profiles`,
+      icon: <Users className="h-5 w-5" />,
+    },
+    {
+      label: 'New Members',
+      value: formatNumber(newMembers?.thisMonth),
+      hint: `${formatNumber(newMembers?.thisYear)} this year`,
+      icon: <UserPlus className="h-5 w-5" />,
+    },
+    {
+      label: 'Workforce',
+      value: formatNumber(workforceStats?.byStatus?.serving),
+      hint: `${formatNumber(workforceStats?.total)} total profiles`,
+      icon: <TrendingUp className="h-5 w-5" />,
+    },
+    {
+      label: 'Store',
+      value: formatNumber(activeProducts),
+      hint: `${formatNumber(storeOrders?.total)} orders · ${formatNumber(lowStockProducts)} low stock`,
+      icon: <ShoppingBag className="h-5 w-5" />,
+    },
   ];
 
   if (loading) {
@@ -351,10 +423,42 @@ function DashboardPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
         {kpis.map((item) => (
           <StatCard key={item.label} {...item} />
         ))}
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[1.1fr_1fr_1fr]">
+        <article className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+          <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Membership Pulse</h2>
+          <div className="mt-4 space-y-2">
+            <PulseRow label="Total members" value={memberStats?.total || 0} />
+            <PulseRow label="New this week" value={newMembers?.thisWeek || 0} />
+            <PulseRow label="New this quarter" value={newMembers?.thisQuarter || 0} />
+            <PulseRow label="New this year" value={newMembers?.thisYear || 0} />
+          </div>
+        </article>
+
+        <article className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+          <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Workforce Coverage</h2>
+          <div className="mt-4 space-y-2">
+            <PulseRow label="Serving" value={workforceStats?.byStatus?.serving || 0} />
+            <PulseRow label="New / pending" value={(workforceStats?.byStatus?.new || 0) + (workforceStats?.byStatus?.pending || 0)} />
+            <PulseRow label="No longer serving" value={workforceStats?.byStatus?.not_serving || 0} />
+          </div>
+        </article>
+
+        <article className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+          <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Department Load</h2>
+          <div className="mt-4 space-y-2">
+            {workforceDepartments.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-tertiary)]">No department records yet.</p>
+            ) : (
+              workforceDepartments.map(([department, count]) => <PulseRow key={department} label={department} value={count} />)
+            )}
+          </div>
+        </article>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.35fr_1fr]">
@@ -565,7 +669,7 @@ function DashboardPage() {
 
           <div className="flex flex-wrap gap-2">
             <Link
-              href="/dashboard/events"
+              href="/dashboard/event"
               className="inline-flex items-center gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-background-hover)]"
             >
               Events
@@ -582,10 +686,28 @@ function DashboardPage() {
             >
               Administration
             </Link>
+            <Link
+              href="/dashboard/store"
+              className="inline-flex items-center gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-background-hover)]"
+            >
+              Store
+            </Link>
           </div>
         </div>
       </section>
     </div>
+  );
+}
+
+function PulseRow({ label, value }: { label: string; value: number }) {
+  return (
+    <details className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm">
+        <span className="font-medium text-[var(--color-text-secondary)]">{label}</span>
+        <span className="font-semibold text-[var(--color-text-primary)]">{formatNumber(value)}</span>
+      </summary>
+      <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">Live count from saved operational records.</p>
+    </details>
   );
 }
 
