@@ -510,47 +510,61 @@ function StatCard({ label, value, icon }: { label: string; value: number; icon: 
 }
 
 function ProfileCard({ worker, onClose }: { worker: WorkforceMember; onClose: () => void }) {
+  const initials = `${worker.firstName?.[0] || 'W'}${worker.lastName?.[0] || ''}`.toUpperCase();
+  const birthday = worker.birthdayMonth && worker.birthdayDay
+    ? `${String(worker.birthdayDay).padStart(2, '0')}/${String(worker.birthdayMonth).padStart(2, '0')}`
+    : 'Not provided';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
-      <div className="w-full max-w-md rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-xl">
-        <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-5 py-4">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Workforce ID Card</p>
-            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{workerName(worker)}</h2>
+      <div className="w-full max-w-lg overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-2xl">
+        <div className="bg-slate-950 px-5 py-5 text-white">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-white text-xl font-black text-slate-950">
+                {initials}
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/55">Workforce Profile</p>
+                <h2 className="mt-1 text-xl font-bold">{workerName(worker)}</h2>
+                <p className="mt-1 text-sm text-white/70">{worker.department || 'Unassigned department'}</p>
+              </div>
+            </div>
+            <button className="rounded-[var(--radius-button)] p-2 text-white/70 hover:bg-white/10 hover:text-white" onClick={onClose} aria-label="Close profile card">
+              <X className="h-5 w-5" />
+            </button>
           </div>
-          <button className="rounded-[var(--radius-button)] p-2 hover:bg-[var(--color-background-hover)]" onClick={onClose} aria-label="Close profile card">
-            <X className="h-5 w-5" />
-          </button>
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <Badge variant={statusVariant(worker.status)}>{statusLabels[worker.status]}</Badge>
+            <span className="rounded-full border border-white/15 px-3 py-1 text-xs font-semibold text-white/70">ID {worker.id.slice(0, 8).toUpperCase()}</span>
+          </div>
         </div>
-        <div className="space-y-4 px-5 py-5">
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-[var(--radius-card)] bg-[var(--color-accent-primary)] text-xl font-bold text-[var(--color-text-onprimary)]">
-              {worker.firstName?.[0] || 'W'}{worker.lastName?.[0] || ''}
-            </div>
-            <div>
-              <Badge variant={statusVariant(worker.status)}>{statusLabels[worker.status]}</Badge>
-              <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">ID: {worker.id.slice(0, 8).toUpperCase()}</p>
-            </div>
+
+        <div className="space-y-5 px-5 py-5">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ProfileTile label="Email" value={worker.email || 'Not provided'} />
+            <ProfileTile label="Phone" value={worker.phone || 'Not provided'} />
+            <ProfileTile label="Birthday" value={birthday} />
+            <ProfileTile label="Department" value={worker.department || 'Unassigned'} />
           </div>
-          <div className="grid gap-3 text-sm">
-            <ProfileRow label="Department" value={worker.department || 'Unassigned'} />
-            <ProfileRow label="Email" value={worker.email || 'Not provided'} />
-            <ProfileRow label="Phone" value={worker.phone || 'Not provided'} />
-            <ProfileRow label="Source" value={worker.sourceChannel || 'Church record'} />
-            <ProfileRow label="Birthday" value={worker.birthdayMonth && worker.birthdayDay ? `${String(worker.birthdayDay).padStart(2, '0')}/${String(worker.birthdayMonth).padStart(2, '0')}` : 'Not provided'} />
-            <ProfileRow label="Notes" value={worker.notes || 'No notes'} />
-          </div>
+
+          {worker.notes && (
+            <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Service notes</p>
+              <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[var(--color-text-secondary)]">{worker.notes}</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function ProfileRow({ label, value }: { label: string; value: string }) {
+function ProfileTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-3 border-b border-[var(--color-border-secondary)] pb-2 last:border-0">
-      <span className="text-[var(--color-text-tertiary)]">{label}</span>
-      <span className="break-words font-medium text-[var(--color-text-primary)]">{value}</span>
+    <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">{label}</p>
+      <p className="mt-1 break-words text-sm font-semibold text-[var(--color-text-primary)]">{value}</p>
     </div>
   );
 }

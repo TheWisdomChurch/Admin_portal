@@ -69,18 +69,23 @@ export function useSuperQueues() {
         if (item.source !== 'api') {
           return;
         }
-        if (!item.entityId) {
+        const targetId = item.entityId || item.id;
+        if (!targetId) {
           throw new Error('Request has no entity id');
         }
         if (item.status !== 'pending') {
           throw new Error('Only pending requests can be approved');
         }
         if (item.type === 'testimonial') {
-          await apiClient.approveTestimonial(item.entityId);
+          await apiClient.approveTestimonial(targetId);
         } else if (item.type === 'event') {
-          await apiClient.approveEvent(item.entityId);
+          await apiClient.approveEvent(targetId);
         } else if (item.type === 'admin_user') {
-          await apiClient.approveAdminUser(item.entityId);
+          await apiClient.approveAdminUser(targetId);
+        } else if (item.type === 'leadership_delete') {
+          await apiClient.approveLeadershipDelete(targetId);
+        } else if (item.type === 'workforce_delete') {
+          await apiClient.approveWorkforceDelete(targetId);
         } else {
           throw new Error('Unsupported approval type');
         }
@@ -129,6 +134,8 @@ export function useSuperQueues() {
       testimonials: items.filter((item) => item.type === 'testimonial' && item.status === 'pending').length,
       events: items.filter((item) => item.type === 'event' && item.status === 'pending').length,
       adminUsers: items.filter((item) => item.type === 'admin_user' && item.status === 'pending').length,
+      leadershipDeletes: items.filter((item) => item.type === 'leadership_delete' && item.status === 'pending').length,
+      workforceDeletes: items.filter((item) => item.type === 'workforce_delete' && item.status === 'pending').length,
     }),
     [items]
   );

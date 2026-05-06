@@ -30,6 +30,32 @@ function safeRedirect(pathname: string) {
   return pathname;
 }
 
+const adminOnlyPrefixes = [
+  '/dashboard/event',
+  '/dashboard/reels',
+  '/dashboard/testimonials',
+  '/dashboard/forms',
+  '/dashboard/email-marketing',
+  '/dashboard/newsletter',
+  '/dashboard/registrations',
+  '/dashboard/notifications',
+  '/dashboard/content',
+  '/dashboard/settings',
+  '/dashboard/store',
+  '/dashboard/administration',
+  '/dashboard/leadership',
+  '/dashboard/workforce',
+  '/dashboard/new-members',
+  '/dashboard/members',
+];
+
+function inferredRequiredRole(pathname: string): 'admin' | 'super_admin' | undefined {
+  if (pathname.startsWith('/dashboard/super')) return 'super_admin';
+  if (pathname === '/dashboard') return 'admin';
+  if (adminOnlyPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) return 'admin';
+  return undefined;
+}
+
 export function withAuth<P extends object>(
   Component: React.ComponentType<P>,
   options: WithAuthOptions = {}
@@ -50,7 +76,9 @@ export function withAuth<P extends object>(
         return;
       }
 
-      if (requiredRole && !hasRequiredRole(user, requiredRole)) {
+      const effectiveRole = requiredRole || inferredRequiredRole(pathname);
+
+      if (effectiveRole && !hasRequiredRole(user, effectiveRole)) {
         router.replace(dashboardFor(user));
       }
     }, [user, isInitialized, router, pathname]);
@@ -65,7 +93,8 @@ export function withAuth<P extends object>(
     }
 
     if (!user) return null;
-    if (requiredRole && !hasRequiredRole(user, requiredRole)) return null;
+    const effectiveRole = requiredRole || inferredRequiredRole(pathname);
+    if (effectiveRole && !hasRequiredRole(user, effectiveRole)) return null;
 
     return <Component {...props} />;
   };

@@ -20,6 +20,9 @@ import {
   MapPin,
   RefreshCcw,
   ShieldCheck,
+  TrendingUp,
+  UserPlus,
+  Users,
 } from 'lucide-react';
 
 import { Badge } from '@/ui/Badge';
@@ -28,7 +31,7 @@ import { Card } from '@/ui/Card';
 import { PageHeader } from '@/layouts';
 import { useSuperQueues, type ApprovalItem } from '@/hooks/useSuperQueues';
 import { apiClient } from '@/lib/api';
-import type { DashboardAnalytics, EventData } from '@/lib/types';
+import type { DashboardAnalytics, EventData, MemberStatsResponse, NewMemberDashboardResponse, WorkforceStatsResponse } from '@/lib/types';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { getUserRole } from '@/lib/authRole';
 
@@ -60,6 +63,18 @@ function AccessDeniedState() {
   );
 }
 
+function MetricRow({ label, value }: { label: string; value: number }) {
+  return (
+    <details className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm">
+        <span className="font-medium text-[var(--color-text-secondary)]">{label}</span>
+        <span className="font-semibold text-[var(--color-text-primary)]">{value.toLocaleString()}</span>
+      </summary>
+      <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">Computed from current church records.</p>
+    </details>
+  );
+}
+
 export default function SuperDashboard() {
   const auth = useAuthContext();
   const role = getUserRole(auth.user);
@@ -77,6 +92,9 @@ export default function SuperDashboard() {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
   const [events, setEvents] = useState<EventData[]>([]);
+  const [memberStats, setMemberStats] = useState<MemberStatsResponse | null>(null);
+  const [newMembers, setNewMembers] = useState<NewMemberDashboardResponse | null>(null);
+  const [workforceStats, setWorkforceStats] = useState<WorkforceStatsResponse | null>(null);
   const [opsLoading, setOpsLoading] = useState(true);
 
   useEffect(() => {
@@ -87,15 +105,21 @@ export default function SuperDashboard() {
     async function loadOps() {
       setOpsLoading(true);
 
-      const [analyticsResult, eventsResult] = await Promise.allSettled([
+      const [analyticsResult, eventsResult, memberStatsResult, newMembersResult, workforceStatsResult] = await Promise.allSettled([
         apiClient.getAnalytics(),
         apiClient.getEvents({ limit: 8, page: 1 }),
+        apiClient.getMemberStats(),
+        apiClient.getNewMemberDashboard(),
+        apiClient.getWorkforceStats(),
       ]);
 
       if (cancelled) return;
 
       setAnalytics(analyticsResult.status === 'fulfilled' ? analyticsResult.value : null);
       setEvents(eventsResult.status === 'fulfilled' ? eventsResult.value.data : []);
+      setMemberStats(memberStatsResult.status === 'fulfilled' ? memberStatsResult.value : null);
+      setNewMembers(newMembersResult.status === 'fulfilled' ? newMembersResult.value : null);
+      setWorkforceStats(workforceStatsResult.status === 'fulfilled' ? workforceStatsResult.value : null);
       setOpsLoading(false);
     }
 
@@ -111,11 +135,11 @@ export default function SuperDashboard() {
 
   const queueByTypeChart = useMemo(
     () => ({
-      labels: ['Testimonials', 'Events', 'Admin Access'],
+      labels: ['Testimonials', 'Events', 'Admin Access', 'Leadership Delete', 'Workforce Delete'],
       datasets: [
         {
-          data: [stats.testimonials, stats.events, stats.adminUsers],
-          backgroundColor: ['#1d4ed8', '#059669', '#a16207'],
+          data: [stats.testimonials, stats.events, stats.adminUsers, stats.leadershipDeletes, stats.workforceDeletes],
+          backgroundColor: ['#1d4ed8', '#059669', '#a16207', '#7c3aed', '#dc2626'],
           borderWidth: 1,
         },
       ],
@@ -301,6 +325,47 @@ export default function SuperDashboard() {
             Upcoming events under oversight
           </p>
         </article>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-3">
+        <Card className="p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Membership Growth</h2>
+            <Users className="h-4 w-4 text-[var(--color-accent-primary)]" />
+          </div>
+          <div className="mt-4 space-y-2">
+            <MetricRow label="Total members" value={memberStats?.total || 0} />
+            <MetricRow label="New this month" value={newMembers?.thisMonth || 0} />
+            <MetricRow label="New this quarter" value={newMembers?.thisQuarter || 0} />
+            <MetricRow label="New this year" value={newMembers?.thisYear || 0} />
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Workforce Health</h2>
+            <TrendingUp className="h-4 w-4 text-[var(--color-accent-primary)]" />
+          </div>
+          <div className="mt-4 space-y-2">
+            <MetricRow label="Serving" value={workforceStats?.byStatus?.serving || 0} />
+            <MetricRow label="New / pending" value={(workforceStats?.byStatus?.new || 0) + (workforceStats?.byStatus?.pending || 0)} />
+            <MetricRow label="Inactive" value={workforceStats?.byStatus?.not_serving || 0} />
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Forecast Signal</h2>
+            <UserPlus className="h-4 w-4 text-[var(--color-accent-primary)]" />
+          </div>
+          <p className="mt-4 text-sm leading-6 text-[var(--color-text-secondary)]">
+            At the current monthly intake pace, the projected next-quarter intake is{' '}
+            <span className="font-semibold text-[var(--color-text-primary)]">{(newMembers?.thisMonth || 0) * 3}</span> people.
+          </p>
+          <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">
+            Use this with outreach planning, follow-up capacity, and department onboarding.
+          </p>
+        </Card>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
