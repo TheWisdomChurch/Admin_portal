@@ -7,7 +7,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock3,
-  Eye,
+
   ImageIcon,
   Link2,
   Loader2,

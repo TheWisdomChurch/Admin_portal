@@ -14,7 +14,6 @@ import {
   ArrowRight,
   BarChart3,
   CalendarDays,
-  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -665,8 +664,8 @@ function DashboardPage() {
   const monthlyStats = useMemo(() => snapshot.analytics?.monthlyStats ?? [], [snapshot.analytics]);
   const eventsByCategory = useMemo(() => snapshot.analytics?.eventsByCategory ?? {}, [snapshot.analytics]);
   const recentSubmissions = useMemo(() => extractArray<unknown>((snapshot.formStats as RawRecord | null)?.recent ?? []), [snapshot.formStats]);
-  const recentCampaigns = useMemo(() => extractArray<unknown>((snapshot.marketing as RawRecord | null)?.recentCampaigns ?? []), [snapshot.marketing]);
-  const orderItems = useMemo(() => extractArray<unknown>(snapshot.storeOrders), [snapshot.storeOrders]);
+  // const recentCampaigns = useMemo(() => extractArray<unknown>((snapshot.marketing as RawRecord | null)?.recentCampaigns ?? []), [snapshot.marketing]);
+  // const orderItems = useMemo(() => extractArray<unknown>(snapshot.storeOrders), [snapshot.storeOrders]);
   const activeProducts = useMemo(() => snapshot.storeProducts.filter((item) => Boolean(asRecord(item).isActive ?? asRecord(item).is_active)).length, [snapshot.storeProducts]);
   const lowStockProducts = useMemo(
     () => snapshot.storeProducts.filter((item) => {
