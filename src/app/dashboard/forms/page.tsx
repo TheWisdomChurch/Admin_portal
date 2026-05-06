@@ -1,21 +1,30 @@
-// src/app/dashboard/forms/page.tsx
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import Image from 'next/image';
+import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Plus, Link as LinkIcon, Save, Copy, Trash2 } from 'lucide-react';
+import {
+  Activity,
+  BarChart3,
+  CalendarClock,
+  Eye,
+  FileText,
+  Link as LinkIcon,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Search,
+  Send,
+  Users,
+} from 'lucide-react';
 
-import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { DataTable } from '@/components/DateTable';
 import { PageHeader } from '@/layouts';
 import { Input } from '@/ui/input';
 import { VerifyActionModal } from '@/ui/VerifyActionModal';
-import { AlertModal } from '@/ui/AlertModal';
 
-import { apiClient, mapValidationErrors } from '@/lib/api';
+import { apiClient } from '@/lib/api';
 import {
   buildFormSubmissionsReportPath,
   copyFormSubmissionsReportLink,
@@ -26,35 +35,12 @@ import {
   resolveFormSubmissionEmail,
   resolveFormSubmissionName,
 } from '@/lib/formSubmissions';
-import type {
-  AdminForm,
-  CreateFormRequest,
-  EventData,
-  FormFieldType,
-  FormSettings,
-  FormStatsResponse,
-  FormStatus,
-  FormSubmission,
-} from '@/lib/types';
+import type { AdminForm, EventData, FormStatsResponse, FormStatus, FormSubmission } from '@/lib/types';
 import { buildPublicFormUrl } from '@/lib/utils';
-import { createFormSchema } from '@/lib/validation/forms';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
-import {
-  extractServerFieldErrors,
-  getFirstServerFieldError,
-  getServerErrorMessage,
-} from '@/lib/serverValidation';
-
-type FieldDraft = {
-  key: string;
-  label: string;
-  type: FormFieldType;
-  required: boolean;
-  order: number;
-  options?: { label: string; value: string }[];
-};
+import { getServerErrorMessage } from '@/lib/serverValidation';
 
 type Column<T> = {
   key: keyof T;
@@ -62,167 +48,9 @@ type Column<T> = {
   cell?: (item: T) => ReactNode;
 };
 
-const dateFormats = ['yyyy-mm-dd', 'mm/dd/yyyy', 'dd/mm/yyyy', 'dd/mm'] as const;
-type DateFormat = (typeof dateFormats)[number];
-
-const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; label: string }> = [
-  { value: 'registration', label: 'Registration' },
-  { value: 'event', label: 'Event' },
-  { value: 'membership', label: 'Membership' },
-  { value: 'workforce', label: 'Workforce' },
-  { value: 'leadership', label: 'Leadership' },
-  { value: 'application', label: 'Application' },
-  { value: 'contact', label: 'Contact' },
-  { value: 'general', label: 'General' },
-];
-
-const MAX_BANNER_MB = 5;
-const MAX_BANNER_BYTES = MAX_BANNER_MB * 1024 * 1024;
-const ACCEPTED_BANNER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+type DashboardTab = 'forms' | 'submissions';
 
 const buildPublicUrl = buildPublicFormUrl;
-
-function isOptionField(t: FormFieldType) {
-  return t === 'select' || t === 'radio' || t === 'checkbox';
-}
-
-function normalizeSlug(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, '-')
-    .replace(/-{2,}/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
-function slugifyValue(label: string, fallback: string) {
-  const value = label
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-
-  return value || fallback;
-}
-
-function normalizeFieldKey(value: string, fallback: string) {
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_]+/g, '_')
-    .replace(/_{2,}/g, '_')
-    .replace(/^_+|_+$/g, '');
-
-  return normalized || fallback;
-}
-
-function normalizeAbsoluteHttpUrl(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-
-  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-
-  try {
-    const parsed = new URL(candidate);
-    if ((parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.host) {
-      return parsed.toString();
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function ensureOptions(field: FieldDraft): FieldDraft {
-  if (!isOptionField(field.type)) return { ...field, options: undefined };
-
-  const existing = Array.isArray(field.options) ? field.options : [];
-  if (existing.length > 0) return { ...field, options: existing };
-
-  return {
-    ...field,
-    options: [
-      { label: 'Option 1', value: 'option-1' },
-      { label: 'Option 2', value: 'option-2' },
-    ],
-  };
-}
-
-function normalizeFieldOptions(field: FieldDraft): { label: string; value: string }[] | undefined {
-  if (!isOptionField(field.type)) return undefined;
-
-  const normalized = (field.options ?? [])
-    .map((option, index) => {
-      const label = (option.label || '').trim();
-      if (!label) return null;
-
-      return {
-        label,
-        value: slugifyValue(option.value || label, `option-${index + 1}`),
-      };
-    })
-    .filter((option): option is { label: string; value: string } => option !== null);
-
-  return normalized.length > 0 ? normalized : undefined;
-}
-
-function buildLeadershipBiodataFields(): FieldDraft[] {
-  return [
-    { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
-    { key: 'email', label: 'Email Address', type: 'email', required: true, order: 2 },
-    { key: 'phone', label: 'Contact Number', type: 'tel', required: true, order: 3 },
-    {
-      key: 'leadership_role',
-      label: 'Leadership Role',
-      type: 'radio',
-      required: true,
-      order: 4,
-      options: [
-        { label: 'Senior Pastor', value: 'senior_pastor' },
-        { label: 'Associate Pastor', value: 'associate_pastor' },
-        { label: 'Reverend', value: 'reverend' },
-        { label: 'Deacon', value: 'deacon' },
-        { label: 'Deaconess', value: 'deaconess' },
-      ],
-    },
-    {
-      key: 'bio',
-      label: 'Short Bio',
-      type: 'textarea',
-      required: false,
-      order: 5,
-    },
-    {
-      key: 'birthday',
-      label: 'Birthday (DD/MM/YYYY)',
-      type: 'text',
-      required: false,
-      order: 6,
-    },
-    {
-      key: 'wedding_anniversary',
-      label: 'Wedding Anniversary (DD/MM/YYYY)',
-      type: 'text',
-      required: false,
-      order: 7,
-    },
-    {
-      key: 'profile_photo',
-      label: 'Profile Photo',
-      type: 'image',
-      required: false,
-      order: 8,
-    },
-    {
-      key: 'publish_consent',
-      label: 'I consent to this leadership profile being reviewed and published',
-      type: 'checkbox',
-      required: true,
-      order: 9,
-      options: [{ label: 'Yes, I consent', value: 'yes' }],
-    },
-  ];
-}
 
 function normalizeFormStatus(status?: string): FormStatus | undefined {
   if (status === 'draft' || status === 'published' || status === 'invalid') return status;
@@ -231,38 +59,29 @@ function normalizeFormStatus(status?: string): FormStatus | undefined {
 
 function isExpiredForm(form: AdminForm): boolean {
   if (form.status === 'invalid') return true;
-
   const closesAt = form.settings?.closesAt;
   if (!closesAt) return false;
-
   const date = new Date(closesAt);
   if (Number.isNaN(date.getTime())) return false;
-
   return date.getTime() < Date.now();
 }
 
 function formatDateTime(value?: string): string {
   if (!value) return '—';
-
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-
   return date.toLocaleString();
 }
 
 function formatRemaining(value?: string): string {
   if (!value) return 'No expiry';
-
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'No expiry';
-
   const diff = date.getTime() - Date.now();
   if (diff <= 0) return 'Expired';
-
   const hours = Math.floor(diff / (1000 * 60 * 60));
   const days = Math.floor(hours / 24);
   const remHours = hours % 24;
-
   if (days > 0) return `${days}d ${remHours}h left`;
   return `${remHours}h left`;
 }
@@ -278,16 +97,62 @@ function getFormCount(form: AdminForm, formCounts: Record<string, number>) {
   return formCounts[form.id] ?? 0;
 }
 
+function statusClass(status: 'draft' | 'published' | 'invalid'): string {
+  if (status === 'published') return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+  if (status === 'invalid') return 'bg-rose-50 text-rose-700 ring-rose-200';
+  return 'bg-amber-50 text-amber-700 ring-amber-200';
+}
+
+function Panel({ title, subtitle, icon: Icon, actions, children }: { title: string; subtitle?: string; icon?: ComponentType<{ className?: string }>; actions?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:shadow-md">
+      <div className="flex flex-col gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          {Icon ? <div className="rounded-2xl bg-slate-950 p-3 text-white shadow-sm"><Icon className="h-5 w-5" /></div> : null}
+          <div>
+            <h2 className="text-lg font-black tracking-tight text-slate-950">{title}</h2>
+            {subtitle ? <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">{subtitle}</p> : null}
+          </div>
+        </div>
+        {actions ? <div className="shrink-0">{actions}</div> : null}
+      </div>
+      <div className="mt-5">{children}</div>
+    </section>
+  );
+}
+
+function StatCard({ label, value, hint, icon: Icon }: { label: string; value: number | string; hint: string; icon: ComponentType<{ className?: string }> }) {
+  return (
+    <article className="overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{label}</p>
+          <strong className="mt-3 block text-3xl font-black tracking-tight text-slate-950">{value}</strong>
+        </div>
+        <div className="rounded-2xl bg-slate-950 p-3 text-white"><Icon className="h-5 w-5" /></div>
+      </div>
+      <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">{hint}</p>
+    </article>
+  );
+}
+
+function TabButton({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className={`rounded-2xl px-4 py-2 text-sm font-black transition ${active ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'}`}>
+      {children}
+    </button>
+  );
+}
+
 export default withAuth(
   function FormsPage() {
     const router = useRouter();
     const auth = useAuthContext();
 
-    const [activeTab, setActiveTab] = useState<'forms' | 'submissions'>('forms');
+    const [activeTab, setActiveTab] = useState<DashboardTab>('forms');
     const [forms, setForms] = useState<AdminForm[]>([]);
     const [events, setEvents] = useState<EventData[]>([]);
     const [loading, setLoading] = useState(true);
-
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
@@ -295,7 +160,6 @@ export default withAuth(
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [formCounts, setFormCounts] = useState<Record<string, number>>({});
     const [formStats, setFormStats] = useState<FormStatsResponse | null>(null);
-    const [publishedPublicUrl, setPublishedPublicUrl] = useState<string | null>(null);
 
     const [selectedFormId, setSelectedFormId] = useState('');
     const [submissions, setSubmissions] = useState<FormSubmission[]>([]);
@@ -308,127 +172,12 @@ export default withAuth(
     const [filterEnd, setFilterEnd] = useState('');
     const [liveUpdates, setLiveUpdates] = useState(true);
     const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
-
     const [exportingPdf, setExportingPdf] = useState(false);
     const [exportingCsv, setExportingCsv] = useState(false);
-
-    const [showBuilder, setShowBuilder] = useState(false);
-    const [saving, setSaving] = useState(false);
-
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [slug, setSlug] = useState('');
-    const [eventsLoading, setEventsLoading] = useState(false);
-    const [eventId, setEventId] = useState('');
-    const [capacity, setCapacity] = useState('');
-    const [closesAt, setClosesAt] = useState('');
-    const [expiresAt, setExpiresAt] = useState('');
-    const [formType, setFormType] = useState<FormSettings['formType'] | ''>('registration');
-    const [submissionTarget, setSubmissionTarget] = useState<FormSettings['submissionTarget'] | ''>('');
-    const [submissionDepartment, setSubmissionDepartment] = useState('');
-    const [responseEmailEnabled, setResponseEmailEnabled] = useState(true);
-    const [responseEmailSubject, setResponseEmailSubject] = useState('');
-    const [responseEmailTemplateKey, setResponseEmailTemplateKey] = useState('');
-    const [responseEmailTemplateId, setResponseEmailTemplateId] = useState('');
-    const [responseEmailTemplateUrl, setResponseEmailTemplateUrl] = useState('');
-
-    const [introTitle, setIntroTitle] = useState('Event Registration');
-    const [introSubtitle, setIntroSubtitle] = useState('Secure your spot by registering below.');
-    const [introBullets, setIntroBullets] = useState('Smooth check-in\nEngaging sessions\nFriendly community');
-    const [introBulletSubs, setIntroBulletSubs] = useState('Arrive early for badges\nShort, powerful sessions\nMeet friendly stewards');
-    const [layoutMode, setLayoutMode] = useState<'split' | 'stack'>('split');
-    const [dateFormat, setDateFormat] = useState<DateFormat>('yyyy-mm-dd');
-
-    const footerText = 'Powered by Wisdom House Registration';
-    const footerBg = '#f5c400';
-    const footerTextColor = '#111827';
-
-    const submitButtonText = 'Submit Registration';
-    const submitButtonBg = '#f59e0b';
-    const submitButtonTextColor = '#111827';
-    const submitButtonIcon: FormSettings['submitButtonIcon'] = 'check';
-
-    const [formHeaderNote, setFormHeaderNote] = useState('Please ensure details are accurate before submitting.');
-    const [coverImageUrl, setCoverImageUrl] = useState('');
-    const [bannerFile, setBannerFile] = useState<File | null>(null);
-    const [bannerPreview, setBannerPreview] = useState<string | null>(null);
-    const [successTitle, setSuccessTitle] = useState('');
-    const [successSubtitle, setSuccessSubtitle] = useState('');
-    const [successMessage, setSuccessMessage] = useState('We would love to see you.');
-    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-    const [removeFieldIndex, setRemoveFieldIndex] = useState<number | null>(null);
-
-    const [fields, setFields] = useState<FieldDraft[]>([
-      { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
-      { key: 'email', label: 'Email', type: 'email', required: true, order: 2 },
-    ]);
+    const [formSearch, setFormSearch] = useState('');
 
     const authBlocked = useMemo(() => !auth.isInitialized || auth.isLoading, [auth.isInitialized, auth.isLoading]);
-
-    const clearFieldError = (key: string) =>
-      setFieldErrors((prev) => {
-        if (!prev[key]) return prev;
-
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-
-    const toIso = (value: string) => {
-      if (!value) return undefined;
-
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return undefined;
-
-      return date.toISOString();
-    };
-
-    const validateBannerFile = (file: File): string | null => {
-      if (!ACCEPTED_BANNER_TYPES.includes(file.type)) {
-        return 'Banner must be JPEG, PNG, or WebP.';
-      }
-
-      if (file.size > MAX_BANNER_BYTES) {
-        return `Banner must be ${MAX_BANNER_MB}MB or smaller.`;
-      }
-
-      return null;
-    };
-
-    useEffect(() => {
-      return () => {
-        if (bannerPreview) URL.revokeObjectURL(bannerPreview);
-      };
-    }, [bannerPreview]);
-
-    const handleBannerFile = (file?: File) => {
-      if (!file) {
-        setBannerFile(null);
-        setBannerPreview(null);
-        return;
-      }
-
-      const error = validateBannerFile(file);
-      if (error) {
-        toast.error(error);
-        setBannerFile(null);
-        setBannerPreview(null);
-        return;
-      }
-
-      setBannerFile(file);
-      setBannerPreview(URL.createObjectURL(file));
-    };
-
-    const resolvedPublicUrl = useMemo(() => {
-      if (publishedPublicUrl) return publishedPublicUrl;
-
-      const firstPublished = forms.find((form) => form.publicUrl || (form.slug && getFormStatus(form) === 'published'));
-      if (!firstPublished) return null;
-
-      return buildPublicUrl(firstPublished.slug, firstPublished.publicUrl);
-    }, [publishedPublicUrl, forms]);
-
+    const selectedForm = useMemo(() => forms.find((form) => form.id === selectedFormId) ?? null, [forms, selectedFormId]);
     const perFormStats = useMemo(() => formStats?.perForm ?? [], [formStats]);
 
     const maxPerForm = useMemo(() => {
@@ -436,26 +185,18 @@ export default withAuth(
       return counts.length > 0 ? Math.max(...counts) : 1;
     }, [perFormStats]);
 
-    const eventMap = useMemo(() => {
-      return events.reduce((acc, event) => {
-        acc[event.id] = event.title;
-        return acc;
-      }, {} as Record<string, string>);
-    }, [events]);
+    const eventMap = useMemo(() => events.reduce((acc, event) => ({ ...acc, [event.id]: event.title }), {} as Record<string, string>), [events]);
 
     const eventCounts = useMemo(() => {
       const bucket = new Map<string, { eventId: string; name: string; count: number }>();
-
       perFormStats.forEach((stat) => {
         const form = forms.find((item) => item.id === stat.formId);
         const linkedEventId = form?.eventId || 'no_event';
         const name = linkedEventId === 'no_event' ? 'No event attached' : eventMap[linkedEventId] || linkedEventId;
         const current = bucket.get(linkedEventId) || { eventId: linkedEventId, name, count: 0 };
-
         current.count += stat.count;
         bucket.set(linkedEventId, current);
       });
-
       return Array.from(bucket.values()).sort((a, b) => b.count - a.count);
     }, [perFormStats, forms, eventMap]);
 
@@ -471,30 +212,18 @@ export default withAuth(
     }, [formStats, selectedFormId]);
 
     const trendData = useMemo(() => {
-      const days = 7;
       const today = new Date();
-
-      const buckets = Array.from({ length: days }, (_, index) => {
+      const buckets = Array.from({ length: 7 }, (_, index) => {
         const date = new Date(today);
-        date.setDate(today.getDate() - (days - 1 - index));
-
-        return {
-          label: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-          dateKey: date.toDateString(),
-          count: 0,
-        };
+        date.setDate(today.getDate() - (6 - index));
+        return { label: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), dateKey: date.toDateString(), count: 0 };
       });
-
       trendSource.forEach((item) => {
         const created = new Date(item.createdAt);
         if (Number.isNaN(created.getTime())) return;
-
-        const key = created.toDateString();
-        const bucket = buckets.find((entry) => entry.dateKey === key);
-
+        const bucket = buckets.find((entry) => entry.dateKey === created.toDateString());
         if (bucket) bucket.count += 1;
       });
-
       return buckets;
     }, [trendSource]);
 
@@ -503,21 +232,14 @@ export default withAuth(
       return counts.length > 0 ? Math.max(...counts) : 1;
     }, [trendData]);
 
-    const selectedForm = useMemo(() => forms.find((form) => form.id === selectedFormId) ?? null, [forms, selectedFormId]);
-
     const load = useCallback(async () => {
       try {
         setLoading(true);
-
-        const [formsResult, statsResult] = await Promise.allSettled([
-          apiClient.getAdminForms({ page, limit }),
-          apiClient.getFormStats(),
-        ]);
+        const [formsResult, statsResult] = await Promise.allSettled([apiClient.getAdminForms({ page, limit }), apiClient.getFormStats()]);
 
         if (formsResult.status === 'fulfilled') {
-          const res = formsResult.value;
-          setForms(Array.isArray(res.data) ? res.data : []);
-          setTotal(typeof res.total === 'number' ? res.total : 0);
+          setForms(Array.isArray(formsResult.value.data) ? formsResult.value.data : []);
+          setTotal(typeof formsResult.value.total === 'number' ? formsResult.value.total : 0);
         } else {
           console.error(formsResult.reason);
           setForms([]);
@@ -526,12 +248,8 @@ export default withAuth(
 
         if (statsResult.status === 'fulfilled') {
           setFormStats(statsResult.value);
-
           const map: Record<string, number> = {};
-          statsResult.value.perForm?.forEach((row) => {
-            map[row.formId] = row.count;
-          });
-
+          statsResult.value.perForm?.forEach((row) => { map[row.formId] = row.count; });
           setFormCounts(map);
         } else {
           console.warn('Form stats unavailable:', statsResult.reason);
@@ -540,10 +258,7 @@ export default withAuth(
         }
       } catch (error) {
         console.error(error);
-
-        const message = error instanceof Error ? error.message : 'Failed to load forms';
-        toast.error(message);
-
+        toast.error(error instanceof Error ? error.message : 'Failed to load forms');
         setForms([]);
         setTotal(0);
         setFormCounts({});
@@ -553,10 +268,7 @@ export default withAuth(
       }
     }, [page, limit]);
 
-    useEffect(() => {
-      if (authBlocked) return;
-      load();
-    }, [authBlocked, load]);
+    useEffect(() => { if (!authBlocked) void load(); }, [authBlocked, load]);
 
     useEffect(() => {
       if (selectedFormId) return;
@@ -566,28 +278,18 @@ export default withAuth(
     useEffect(() => {
       const loadEvents = async () => {
         try {
-          setEventsLoading(true);
           const res = await apiClient.getEvents({ page: 1, limit: 200 });
           setEvents(Array.isArray(res.data) ? res.data : []);
         } catch {
           setEvents([]);
-        } finally {
-          setEventsLoading(false);
         }
       };
-
-      loadEvents();
+      void loadEvents();
     }, []);
-
-    const requestDelete = (form: AdminForm) => {
-      setDeleteTarget(form);
-    };
 
     const confirmDelete = useCallback(async () => {
       if (!deleteTarget) return;
-
       setDeleteLoading(true);
-
       try {
         await apiClient.deleteAdminForm(deleteTarget.id);
         toast.success('Form deleted');
@@ -610,12 +312,7 @@ export default withAuth(
 
       try {
         setSubmissionsLoading(true);
-
-        const res = await apiClient.getFormSubmissions(selectedFormId, {
-          page: submissionsPage,
-          limit: submissionsLimit,
-        });
-
+        const res = await apiClient.getFormSubmissions(selectedFormId, { page: submissionsPage, limit: submissionsLimit });
         setSubmissions(Array.isArray(res.data) ? res.data : []);
         setSubmissionsTotal(typeof res.total === 'number' ? res.total : 0);
         setLastUpdatedAt(new Date().toISOString());
@@ -629,79 +326,42 @@ export default withAuth(
       }
     }, [selectedFormId, submissionsPage, submissionsLimit]);
 
-    useEffect(() => {
-      if (activeTab !== 'submissions') return;
-      loadSubmissions();
-    }, [activeTab, loadSubmissions]);
+    useEffect(() => { if (activeTab === 'submissions') void loadSubmissions(); }, [activeTab, loadSubmissions]);
 
     useEffect(() => {
-      if (activeTab !== 'submissions') return;
-      if (!liveUpdates) return;
-
-      const interval = setInterval(() => {
-        load();
-        loadSubmissions();
-      }, 15000);
-
+      if (activeTab !== 'submissions' || !liveUpdates) return;
+      const interval = setInterval(() => { void load(); void loadSubmissions(); }, 15000);
       return () => clearInterval(interval);
     }, [activeTab, liveUpdates, load, loadSubmissions]);
 
-    const filteredSubmissions = useMemo(
-      () =>
-        filterFormSubmissions(submissions, {
-          query: filterText,
-          from: filterStart,
-          to: filterEnd,
-        }),
-      [submissions, filterText, filterStart, filterEnd]
-    );
+    const filteredSubmissions = useMemo(() => filterFormSubmissions(submissions, { query: filterText, from: filterStart, to: filterEnd }), [submissions, filterText, filterStart, filterEnd]);
 
     const filteredTotal = useMemo(() => {
       const hasFilters = filterText.trim() || filterStart || filterEnd;
       return hasFilters ? filteredSubmissions.length : submissionsTotal;
     }, [filterText, filterStart, filterEnd, filteredSubmissions.length, submissionsTotal]);
 
+    const visibleForms = useMemo(() => {
+      const term = formSearch.trim().toLowerCase();
+      if (!term) return forms;
+      return forms.filter((form) => `${form.title} ${form.slug || ''} ${form.status || ''}`.toLowerCase().includes(term));
+    }, [forms, formSearch]);
+
     const exportSubmissions = useCallback(async () => {
       if (!selectedFormId) {
         toast.error('Select a form first');
         return;
       }
-
       try {
         setExportingPdf(true);
-
-        const exportForm =
-          selectedForm?.id === selectedFormId && (selectedForm.fields?.length || 0) > 0
-            ? selectedForm
-            : await apiClient.getAdminForm(selectedFormId);
-
-        const source =
-          submissions.length >= submissionsTotal && !filterText.trim() && !filterStart && !filterEnd
-            ? submissions
-            : await fetchAllFormSubmissions(selectedFormId);
-
-        const filtered = filterFormSubmissions(source, {
-          query: filterText,
-          from: filterStart,
-          to: filterEnd,
-        });
-
+        const exportForm = selectedForm?.id === selectedFormId && (selectedForm.fields?.length || 0) > 0 ? selectedForm : await apiClient.getAdminForm(selectedFormId);
+        const source = submissions.length >= submissionsTotal && !filterText.trim() && !filterStart && !filterEnd ? submissions : await fetchAllFormSubmissions(selectedFormId);
+        const filtered = filterFormSubmissions(source, { query: filterText, from: filterStart, to: filterEnd });
         if (filtered.length === 0) {
           toast.error('No submissions to export');
           return;
         }
-
-        await exportFormSubmissionsPdf(
-          filtered,
-          exportForm.title || selectedFormId,
-          {
-            query: filterText,
-            from: filterStart,
-            to: filterEnd,
-          },
-          exportForm.fields
-        );
-
+        await exportFormSubmissionsPdf(filtered, exportForm.title || selectedFormId, { query: filterText, from: filterStart, to: filterEnd }, exportForm.fields);
         toast.success('PDF exported');
       } catch (error) {
         console.error(error);
@@ -716,31 +376,15 @@ export default withAuth(
         toast.error('Select a form first');
         return;
       }
-
       try {
         setExportingCsv(true);
-
-        const exportForm =
-          selectedForm?.id === selectedFormId && (selectedForm.fields?.length || 0) > 0
-            ? selectedForm
-            : await apiClient.getAdminForm(selectedFormId);
-
-        const source =
-          submissions.length >= submissionsTotal && !filterText.trim() && !filterStart && !filterEnd
-            ? submissions
-            : await fetchAllFormSubmissions(selectedFormId);
-
-        const filtered = filterFormSubmissions(source, {
-          query: filterText,
-          from: filterStart,
-          to: filterEnd,
-        });
-
+        const exportForm = selectedForm?.id === selectedFormId && (selectedForm.fields?.length || 0) > 0 ? selectedForm : await apiClient.getAdminForm(selectedFormId);
+        const source = submissions.length >= submissionsTotal && !filterText.trim() && !filterStart && !filterEnd ? submissions : await fetchAllFormSubmissions(selectedFormId);
+        const filtered = filterFormSubmissions(source, { query: filterText, from: filterStart, to: filterEnd });
         if (filtered.length === 0) {
           toast.error('No submissions to export');
           return;
         }
-
         exportFormSubmissionsCsv(filtered, exportForm.title || selectedFormId, exportForm.fields);
         toast.success('CSV exported. You can open it in Excel.');
       } catch (error) {
@@ -756,7 +400,6 @@ export default withAuth(
         toast.error('Select a form first');
         return;
       }
-
       try {
         await copyFormSubmissionsReportLink(selectedFormId);
         toast.success('Client report link copied');
@@ -765,163 +408,43 @@ export default withAuth(
       }
     }, [selectedFormId]);
 
-    const addField = () => {
-      const order = fields.length + 1;
-
-      setFields((prev) => [
-        ...prev,
-        {
-          key: `field_${order}`,
-          label: 'New field',
-          type: 'text',
-          required: false,
-          order,
-        },
-      ]);
-    };
-
-    const updateField = (index: number, updates: Partial<FieldDraft>) => {
-      setFields((prev) =>
-        prev.map((field, currentIndex) => {
-          if (currentIndex !== index) return field;
-
-          const merged: FieldDraft = { ...field, ...updates };
-          if (updates.type) return ensureOptions(merged);
-
-          return merged;
-        })
-      );
-    };
-
-    const requestRemoveField = (index: number) => {
-      setRemoveFieldIndex(index);
-    };
-
-    const confirmRemoveField = () => {
-      if (removeFieldIndex === null) return;
-
-      setFields((prev) => prev.filter((_, index) => index !== removeFieldIndex).map((field, index) => ({ ...field, order: index + 1 })));
-      setRemoveFieldIndex(null);
-    };
-
-    const addOption = (fieldIndex: number) => {
-      setFields((prev) =>
-        prev.map((field, index) => {
-          if (index !== fieldIndex) return field;
-
-          const next = ensureOptions(field);
-          const options = next.options ?? [];
-          const nextNumber = options.length + 1;
-
-          return {
-            ...next,
-            options: [...options, { label: `Option ${nextNumber}`, value: `option-${nextNumber}` }],
-          };
-        })
-      );
-    };
-
-    const updateOption = (fieldIndex: number, optionIndex: number, label: string) => {
-      setFields((prev) =>
-        prev.map((field, index) => {
-          if (index !== fieldIndex) return field;
-
-          const next = ensureOptions(field);
-          const options = (next.options ?? []).map((option, currentIndex) => {
-            if (currentIndex !== optionIndex) return option;
-
-            return {
-              ...option,
-              label,
-              value: slugifyValue(label, `option-${currentIndex + 1}`),
-            };
-          });
-
-          return { ...next, options };
-        })
-      );
-    };
-
-    const removeOption = (fieldIndex: number, optionIndex: number) => {
-      setFields((prev) =>
-        prev.map((field, index) => {
-          if (index !== fieldIndex) return field;
-
-          const next = ensureOptions(field);
-          const options = (next.options ?? []).filter((_, currentIndex) => currentIndex !== optionIndex);
-
-          return {
-            ...next,
-            options: options.length > 0 ? options : [{ label: 'Option 1', value: 'option-1' }],
-          };
-        })
-      );
-    };
-
-    const handlePublish = useCallback(
-      async (form: AdminForm) => {
-        try {
-          const res = await apiClient.publishAdminForm(form.id);
-          toast.success('Form published');
-
-          let nextSlug = res?.slug || form.slug || '';
-          if (!nextSlug && form.title) nextSlug = normalizeSlug(form.title);
-
-          const nextPublicUrl = buildPublicUrl(nextSlug, res?.publicUrl || form.publicUrl || undefined);
-          if (nextPublicUrl) setPublishedPublicUrl(nextPublicUrl);
-
-          setForms((prev) =>
-            prev.map((item) =>
-              item.id === form.id
-                ? {
-                    ...item,
-                    slug: nextSlug || item.slug,
-                    publicUrl: nextPublicUrl || item.publicUrl,
-                    isPublished: true,
-                    status: normalizeFormStatus(res?.status) ?? 'published',
-                    publishedAt: res?.publishedAt || item.publishedAt,
-                  }
-                : item
-            )
-          );
-
-          if (nextPublicUrl) {
-            try {
-              await navigator.clipboard.writeText(nextPublicUrl);
-              toast.success('Link copied to clipboard');
-            } catch {
-              toast.success('Form published');
-            }
+    const handlePublish = useCallback(async (form: AdminForm) => {
+      try {
+        const res = await apiClient.publishAdminForm(form.id);
+        toast.success('Form published');
+        const nextSlug = res?.slug || form.slug || '';
+        const nextPublicUrl = buildPublicUrl(nextSlug, res?.publicUrl || form.publicUrl || undefined);
+        setForms((prev) => prev.map((item) => item.id === form.id ? { ...item, slug: nextSlug || item.slug, publicUrl: nextPublicUrl || item.publicUrl, isPublished: true, status: normalizeFormStatus(res?.status) ?? 'published', publishedAt: res?.publishedAt || item.publishedAt } : item));
+        if (nextPublicUrl) {
+          try {
+            await navigator.clipboard.writeText(nextPublicUrl);
+            toast.success('Link copied to clipboard');
+          } catch {
+            toast.success('Form published');
           }
-
-          await load();
-        } catch (error) {
-          console.error(error);
-          toast.error(getServerErrorMessage(error, 'Failed to publish form'));
         }
-      },
-      [load]
-    );
+        await load();
+      } catch (error) {
+        console.error(error);
+        toast.error(getServerErrorMessage(error, 'Failed to publish form'));
+      }
+    }, [load]);
 
     const handleCopyLink = useCallback(async (form: AdminForm) => {
       const status = getFormStatus(form);
-
       if (status === 'invalid') {
         toast.error('This form has expired and is no longer available.');
         return;
       }
-
       if (status !== 'published') {
         toast.error('This form is not published yet');
         return;
       }
-
       const link = buildPublicUrl(form.slug, form.publicUrl);
       if (!link) {
         toast.error('This form is not published yet');
         return;
       }
-
       try {
         await navigator.clipboard.writeText(link);
         toast.success('Link copied');
@@ -930,1149 +453,177 @@ export default withAuth(
       }
     }, []);
 
-    const isWorkforceTarget =
-      submissionTarget === 'workforce' ||
-      submissionTarget === 'workforce_new' ||
-      submissionTarget === 'workforce_serving';
+    const handleEdit = (form: AdminForm) => router.push(`/dashboard/forms/${form.id}/edit`);
 
-    const resetBuilder = () => {
-      setTitle('');
-      setDescription('');
-      setSlug('');
-      setEventId('');
-      setCapacity('');
-      setClosesAt('');
-      setExpiresAt('');
-      setFormType('registration');
-      setSubmissionTarget('');
-      setSubmissionDepartment('');
-      setResponseEmailEnabled(true);
-      setResponseEmailSubject('');
-      setResponseEmailTemplateKey('');
-      setResponseEmailTemplateId('');
-      setResponseEmailTemplateUrl('');
-      setCoverImageUrl('');
-      setBannerFile(null);
-      setBannerPreview(null);
-      setSuccessTitle('');
-      setSuccessSubtitle('');
-      setSuccessMessage('We would love to see you.');
-      setFieldErrors({});
-      setFields([
-        { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
-        { key: 'email', label: 'Email', type: 'email', required: true, order: 2 },
-      ]);
-    };
-
-    const applyLeadershipBiodataPreset = () => {
-      setTitle('Leadership Biodata');
-      setSlug('leadership-biodata');
-      setDescription('Collect leadership profile details for review and publication.');
-      setFormType('leadership');
-      setSubmissionTarget('leadership');
-      setDateFormat('dd/mm/yyyy');
-      setIntroTitle('Leadership Biodata');
-      setIntroSubtitle('Provide accurate profile details for review and publication.');
-      setIntroBullets('Profile review\nPublic leadership page\nSecure submission');
-      setIntroBulletSubs('Reviewed by administration\nPublished only after approval\nSubmitted through Wisdom Church');
-      setSuccessTitle('Leadership biodata received');
-      setSuccessSubtitle('Thank you. Your profile details have been sent for review.');
-      setSuccessMessage('The administration team will review this submission before it appears on the public leadership page.');
-      setFormHeaderNote('Leadership submissions are reviewed before publication.');
-      setFields(buildLeadershipBiodataFields());
-    };
-
-    const save = async () => {
-      setFieldErrors({});
-
-      const normalizedTitle = title.trim();
-      if (!normalizedTitle) {
-        setFieldErrors((prev) => ({ ...prev, title: 'Title is required' }));
-        toast.error('Title is required');
-        return;
-      }
-
-      const normalizedSlug = normalizeSlug(slug || normalizedTitle);
-
-      let normalizedResponseTemplateURL = responseEmailTemplateUrl.trim();
-
-      if (responseEmailEnabled && normalizedResponseTemplateURL) {
-        const resolved = normalizeAbsoluteHttpUrl(normalizedResponseTemplateURL);
-
-        if (!resolved) {
-          setFieldErrors((prev) => ({
-            ...prev,
-            responseEmailTemplateUrl: 'Use a valid absolute URL like https://...png',
-          }));
-          toast.error('Template image URL is invalid. Use a full URL like https://...png');
-          return;
-        }
-
-        normalizedResponseTemplateURL = resolved;
-      }
-
-      for (const field of fields) {
-        if (isOptionField(field.type)) {
-          const options = normalizeFieldOptions(field);
-
-          if (!options || options.length === 0) {
-            toast.error(`${field.label || 'Option field'} must have at least one option.`);
-            return;
-          }
-        }
-      }
-
-      const payload: CreateFormRequest = {
-        title: normalizedTitle,
-        description: description.trim() || undefined,
-        slug: normalizedSlug,
-        eventId: eventId || undefined,
-        fields: fields.map((field, index) => {
-          const base = {
-            key: normalizeFieldKey(field.key || `field_${index + 1}`, `field_${index + 1}`),
-            label: field.label.trim() || `Field ${index + 1}`,
-            type: field.type,
-            required: field.required,
-            order: index + 1,
-          };
-
-          if (isOptionField(field.type)) {
-            return {
-              ...base,
-              options: normalizeFieldOptions(field),
-            };
-          }
-
-          return base;
-        }),
-        settings: {
-          capacity: capacity ? Number(capacity) : undefined,
-          closesAt: toIso(closesAt),
-          expiresAt: toIso(expiresAt),
-          formType: formType || undefined,
-          submissionTarget: submissionTarget || undefined,
-          submissionDepartment: isWorkforceTarget ? submissionDepartment.trim() || undefined : undefined,
-          responseEmailEnabled,
-          responseEmailSubject: responseEmailEnabled ? responseEmailSubject.trim() || undefined : undefined,
-          responseEmailTemplateKey: responseEmailEnabled ? responseEmailTemplateKey.trim() || undefined : undefined,
-          responseEmailTemplateId: responseEmailEnabled ? responseEmailTemplateId.trim() || undefined : undefined,
-          responseEmailTemplateUrl: responseEmailEnabled ? normalizedResponseTemplateURL || undefined : undefined,
-          successTitle: successTitle.trim() || undefined,
-          successSubtitle: successSubtitle.trim() || undefined,
-          successMessage: successMessage.trim() || undefined,
-          introTitle,
-          introSubtitle,
-          introBullets: introBullets.split('\n').map((item) => item.trim()).filter(Boolean),
-          introBulletSubtexts: introBulletSubs.split('\n').map((item) => item.trim()).filter(Boolean),
-          layoutMode,
-          dateFormat,
-          footerText,
-          footerBg,
-          footerTextColor,
-          submitButtonText,
-          submitButtonBg,
-          submitButtonTextColor,
-          submitButtonIcon,
-          formHeaderNote,
-          design: coverImageUrl.trim() ? { coverImageUrl: coverImageUrl.trim() } : undefined,
-        },
-      };
-
-      const parsed = createFormSchema.safeParse(payload);
-
-      if (!parsed.success) {
-        const issue = parsed.error.issues[0];
-        toast.error(issue?.message || 'Please fix validation errors before saving.');
-        return;
-      }
-
-      try {
-        setSaving(true);
-
-        let created = await apiClient.createAdminForm(payload);
-
-        if (bannerFile) {
-          try {
-            created = await apiClient.uploadFormBanner(created.id, bannerFile);
-          } catch (uploadError) {
-            console.error('Banner upload failed:', uploadError);
-            toast.error('Form saved, but banner upload failed.');
-          }
-        }
-
-        let slugToUse = created.slug || normalizedSlug;
-        let publicUrlToUse: string | null = created.publicUrl
-          ? buildPublicUrl(created.slug, created.publicUrl)
-          : buildPublicUrl(slugToUse);
-
-        let publishedOk = false;
-        let publishError: string | null = null;
-
-        try {
-          const published = await apiClient.publishAdminForm(created.id);
-
-          publishedOk = true;
-          slugToUse = published?.slug || slugToUse;
-          publicUrlToUse = buildPublicUrl(slugToUse, published?.publicUrl || publicUrlToUse || undefined);
-        } catch (error) {
-          publishedOk = false;
-          publishError = getServerErrorMessage(error, 'Publish failed. Form saved as draft.');
-        }
-
-        setPublishedPublicUrl(publishedOk ? publicUrlToUse : null);
-
-        if (publishedOk) {
-          toast.success('Form created and link ready');
-        } else {
-          toast.success('Form created');
-          toast.error(publishError || 'Publish the form to get a live link.');
-        }
-
-        resetBuilder();
-        setShowBuilder(false);
-        await load();
-      } catch (error) {
-        console.error(error);
-
-        const validationMap = mapValidationErrors(error);
-        if (validationMap && Object.keys(validationMap).length > 0) {
-          setFieldErrors(validationMap);
-          toast.error(getFirstServerFieldError(validationMap) || 'Please review the highlighted fields.');
-          return;
-        }
-
-        const serverFieldErrors = extractServerFieldErrors(error);
-        if (Object.keys(serverFieldErrors).length > 0) {
-          setFieldErrors(serverFieldErrors);
-          toast.error(getFirstServerFieldError(serverFieldErrors) || 'Please review the highlighted fields.');
-          return;
-        }
-
-        const message = getServerErrorMessage(error, 'Failed to create form');
-
-        if (message.toLowerCase().includes('slug already')) {
-          setFieldErrors((prev) => ({
-            ...prev,
-            slug: 'This form link name is already in use. Choose another link name.',
-          }));
-          toast.error('This form link name is already in use.');
-          return;
-        }
-
-        toast.error(message);
-      } finally {
-        setSaving(false);
-      }
-    };
-
-    const handleEdit = (form: AdminForm) => {
-      router.push(`/dashboard/forms/${form.id}/edit`);
-    };
-
-    const columns = useMemo<Column<AdminForm>[]>(
-      () => [
-        {
-          key: 'title',
-          header: 'Title',
-          cell: (form) => <div className="font-medium text-secondary-900">{form.title}</div>,
-        },
-        {
-          key: 'id',
-          header: 'Registrations',
-          cell: (form) => <span className="text-sm text-secondary-700">{getFormCount(form, formCounts)}</span>,
-        },
-        {
-          key: 'slug',
-          header: 'Link',
-          cell: (form) => {
-            const status = getFormStatus(form);
-
-            return (
-              <div className="flex items-center gap-2">
-                {status === 'invalid' ? (
-                  <span className="text-xs text-red-500">Expired</span>
-                ) : status !== 'published' ? (
-                  <button
-                    type="button"
-                    onClick={() => handlePublish(form)}
-                    className="inline-flex items-center gap-1 rounded-md border border-secondary-200 bg-white px-2 py-1 text-xs text-secondary-700 hover:bg-secondary-50"
-                  >
-                    Publish
-                  </button>
-                ) : (
-                  <>
-                    <span className="max-w-[220px] truncate text-xs text-secondary-600">
-                      {buildPublicUrl(form.slug, form.publicUrl) || `/forms/${form.slug}`}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyLink(form)}
-                      className="inline-flex items-center gap-1 rounded-md border border-secondary-200 bg-white px-2 py-1 text-xs text-secondary-700 hover:bg-secondary-50"
-                    >
-                      <LinkIcon className="h-3.5 w-3.5" />
-                      Copy
-                    </button>
-                  </>
-                )}
-              </div>
-            );
-          },
-        },
-        {
-          key: 'publishedAt',
-          header: 'Published',
-          cell: (form) => <span className="text-xs text-secondary-600">{formatDateTime(form.publishedAt)}</span>,
-        },
-        {
-          key: 'settings',
-          header: 'Active Until',
-          cell: (form) => (
-            <div className="text-xs text-secondary-600">
-              <div>{formatDateTime(form.settings?.closesAt)}</div>
-              <div className="text-[0.7rem] text-secondary-400">{formatRemaining(form.settings?.closesAt)}</div>
-            </div>
-          ),
-        },
-        {
-          key: 'updatedAt',
-          header: 'Updated',
-          cell: (form) => (
-            <span className="text-sm text-secondary-600">
-              {form.updatedAt ? new Date(form.updatedAt).toLocaleString() : '-'}
-            </span>
-          ),
-        },
-      ],
-      [handleCopyLink, handlePublish, formCounts]
-    );
-
-    const submissionColumns = useMemo<Column<FormSubmission>[]>(
-      () => [
-        {
-          key: 'name' as keyof FormSubmission,
-          header: 'Name',
-          cell: (item) => (
+    const columns = useMemo<Column<AdminForm>[]>(() => [
+      {
+        key: 'title',
+        header: 'Title',
+        cell: (form) => {
+          const status = getFormStatus(form);
+          return (
             <div className="space-y-1">
-              <div className="text-sm font-semibold text-secondary-900">{resolveFormSubmissionName(item, 'Anonymous')}</div>
-              <div className="text-xs text-secondary-500">{resolveFormSubmissionEmail(item) || 'No email'}</div>
+              <div className="font-black text-slate-950">{form.title}</div>
+              <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-black capitalize ring-1 ${statusClass(status)}`}>{status}</span>
             </div>
-          ),
+          );
         },
-        {
-          key: 'contactNumber' as keyof FormSubmission,
-          header: 'Contact',
-          cell: (item) => <div className="text-xs text-secondary-600">{item.contactNumber || item.contactAddress || '—'}</div>,
+      },
+      { key: 'id', header: 'Registrations', cell: (form) => <span className="text-sm font-black text-slate-700">{getFormCount(form, formCounts)}</span> },
+      {
+        key: 'slug',
+        header: 'Link',
+        cell: (form) => {
+          const status = getFormStatus(form);
+          return (
+            <div className="flex items-center gap-2">
+              {status === 'invalid' ? (
+                <span className="text-xs font-bold text-red-500">Expired</span>
+              ) : status !== 'published' ? (
+                <button type="button" onClick={() => void handlePublish(form)} className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2 py-1 text-xs font-black text-slate-700 hover:bg-slate-50">Publish</button>
+              ) : (
+                <>
+                  <span className="max-w-[220px] truncate text-xs font-semibold text-slate-600">{buildPublicUrl(form.slug, form.publicUrl) || `/forms/${form.slug}`}</span>
+                  <button type="button" onClick={() => void handleCopyLink(form)} className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2 py-1 text-xs font-black text-slate-700 hover:bg-slate-50"><LinkIcon className="h-3.5 w-3.5" />Copy</button>
+                </>
+              )}
+            </div>
+          );
         },
-        {
-          key: 'values' as keyof FormSubmission,
-          header: 'Responses',
-          cell: (item) => <span className="text-xs text-secondary-600">{Object.keys(item.values || {}).length} fields</span>,
-        },
-        {
-          key: 'createdAt' as keyof FormSubmission,
-          header: 'Submitted',
-          cell: (item) => <span className="text-xs text-secondary-600">{formatDateTime(item.createdAt)}</span>,
-        },
-      ],
-      []
-    );
+      },
+      { key: 'settings', header: 'Active Until', cell: (form) => <div className="text-xs font-semibold text-slate-600"><div>{formatDateTime(form.settings?.closesAt)}</div><div className="text-[0.7rem] text-slate-400">{formatRemaining(form.settings?.closesAt)}</div></div> },
+      { key: 'updatedAt', header: 'Updated', cell: (form) => <span className="text-sm font-semibold text-slate-600">{form.updatedAt ? new Date(form.updatedAt).toLocaleString() : '-'}</span> },
+    ], [handleCopyLink, handlePublish, formCounts]);
+
+    const submissionColumns = useMemo<Column<FormSubmission>[]>(() => [
+      {
+        key: 'name' as keyof FormSubmission,
+        header: 'Name',
+        cell: (item) => <div className="space-y-1"><div className="text-sm font-black text-slate-950">{resolveFormSubmissionName(item, 'Anonymous')}</div><div className="text-xs font-semibold text-slate-500">{resolveFormSubmissionEmail(item) || 'No email'}</div></div>,
+      },
+      { key: 'contactNumber' as keyof FormSubmission, header: 'Contact', cell: (item) => <div className="text-xs font-semibold text-slate-600">{item.contactNumber || item.contactAddress || '—'}</div> },
+      { key: 'values' as keyof FormSubmission, header: 'Responses', cell: (item) => <span className="text-xs font-semibold text-slate-600">{Object.keys(item.values || {}).length} fields</span> },
+      { key: 'createdAt' as keyof FormSubmission, header: 'Submitted', cell: (item) => <span className="text-xs font-semibold text-slate-600">{formatDateTime(item.createdAt)}</span> },
+    ], []);
 
     const deletePhrase = deleteTarget ? `DELETE ${deleteTarget.title || deleteTarget.id}` : 'DELETE';
-    const pendingField = removeFieldIndex !== null ? fields[removeFieldIndex] : null;
 
-    if (authBlocked) {
-      return (
-        <div className="flex min-h-[300px] w-full items-center justify-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent" />
-        </div>
-      );
-    }
+    const stats = useMemo(() => ({
+      totalSubmissions: formStats?.totalSubmissions ?? 0,
+      published: forms.filter((form) => getFormStatus(form) === 'published').length,
+      expired: forms.filter((form) => getFormStatus(form) === 'invalid').length,
+      totalForms: total || forms.length,
+    }), [formStats?.totalSubmissions, forms, total]);
+
+    if (authBlocked) return <div className="flex min-h-[300px] w-full items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-slate-950" /></div>;
 
     return (
-      <div className="space-y-6">
+      <main className="space-y-6">
         <PageHeader
           title="Forms"
-          subtitle="Create and publish event registration forms, then attach the link to an event."
-          actions={
-            showBuilder ? (
-              <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
-                <Button variant="ghost" onClick={() => setShowBuilder(false)} className="whitespace-nowrap">
-                  Back to forms
-                </Button>
-                <Button variant="outline" onClick={load} className="whitespace-nowrap">
-                  Refresh
-                </Button>
-              </div>
-            ) : (
-              <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
-                <Button variant="outline" onClick={load} className="whitespace-nowrap">
-                  Refresh
-                </Button>
-                <Button onClick={() => setShowBuilder(true)} className="whitespace-nowrap">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Form
-                </Button>
-              </div>
-            )
-          }
+          subtitle="Create, publish, monitor, and export form submissions from one professional operations workspace."
+          actions={<div className="flex flex-wrap items-center gap-2"><Button variant="outline" onClick={() => void load()} icon={<RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />}>Refresh</Button><Button onClick={() => router.push('/dashboard/forms/new')} icon={<Plus className="h-4 w-4" />}>Create Form</Button></div>}
         />
 
-        <Card>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant={activeTab === 'forms' ? 'secondary' : 'ghost'} onClick={() => setActiveTab('forms')}>
-              Forms
-            </Button>
-            <Button variant={activeTab === 'submissions' ? 'secondary' : 'ghost'} onClick={() => setActiveTab('submissions')}>
-              Submissions
-            </Button>
-            <div className="ml-auto text-xs text-[var(--color-text-tertiary)]">
-              Last updated: {lastUpdatedAt ? formatDateTime(lastUpdatedAt) : '—'}
+        <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white shadow-xl">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white/65"><FileText className="h-4 w-4" />Registration intelligence</div>
+              <h1 className="mt-4 max-w-4xl text-3xl font-black tracking-tight sm:text-4xl">Forms, registrations, reports, outreach, and public links in one organized place.</h1>
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-white/65">Use forms for publishing and links. Use submissions for analytics, exports, client reports, and outreach.</p>
             </div>
+            <div className="rounded-3xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-bold text-white/70">Last updated: {lastUpdatedAt ? formatDateTime(lastUpdatedAt) : '—'}</div>
           </div>
-        </Card>
+        </section>
 
-        {activeTab === 'submissions' && (
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <StatCard icon={FileText} label="Total forms" value={stats.totalForms} hint="All forms available in the admin workspace." />
+          <StatCard icon={Users} label="Registrations" value={stats.totalSubmissions} hint="Total submissions across tracked forms." />
+          <StatCard icon={Send} label="Published" value={stats.published} hint="Forms currently available to public users." />
+          <StatCard icon={CalendarClock} label="Expired / invalid" value={stats.expired} hint="Forms closed or no longer available." />
+        </section>
+
+        <section className="sticky top-2 z-20 rounded-3xl border border-slate-200 bg-white/85 p-2 shadow-sm backdrop-blur">
+          <div className="flex gap-2 overflow-x-auto"><TabButton active={activeTab === 'forms'} onClick={() => setActiveTab('forms')}>Forms</TabButton><TabButton active={activeTab === 'submissions'} onClick={() => setActiveTab('submissions')}>Submissions</TabButton></div>
+        </section>
+
+        {activeTab === 'forms' ? (
           <>
-            <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-              <Card title="Registration Insights">
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                    <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Total registrations</p>
-                    <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">
-                      {formStats?.totalSubmissions ?? 0}
-                    </p>
-                  </div>
-                  <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                    <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Active forms</p>
-                    <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">
-                      {forms.filter((form) => getFormStatus(form) === 'published').length}
-                    </p>
-                  </div>
-                  <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                    <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Invalid/expired</p>
-                    <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">
-                      {forms.filter((form) => getFormStatus(form) === 'invalid').length}
-                    </p>
-                  </div>
-                </div>
+            <Panel title="Published forms and draft queue" subtitle="Manage form lifecycle, copy public links, edit records, and inspect registrations." icon={FileText} actions={<div className="relative w-full sm:w-80"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><Input value={formSearch} onChange={(event) => setFormSearch(event.target.value)} placeholder="Search forms..." className="pl-10" /></div>}>
+              <div className="overflow-hidden rounded-[1.5rem] border border-slate-200">
+                <DataTable data={visibleForms ?? []} columns={columns} total={total} page={page} limit={limit} onPageChange={setPage} onLimitChange={(next) => { setLimit(next); setPage(1); }} onEdit={handleEdit} onDelete={setDeleteTarget} onView={(form: AdminForm) => router.push(buildFormSubmissionsReportPath(form.id))} isLoading={loading} />
+              </div>
+            </Panel>
+            <div className="text-xs font-semibold text-slate-500">Tip: Click “View” to open the client-ready registration report. Click “Edit” to adjust the form builder.</div>
+          </>
+        ) : null}
 
+        {activeTab === 'submissions' ? (
+          <>
+            <section className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_420px]">
+              <Panel title="Registration insights" subtitle="Live form analytics from backend submission data." icon={BarChart3}>
+                <div className="grid gap-4 md:grid-cols-3"><MiniMetric label="Total registrations" value={formStats?.totalSubmissions ?? 0} /><MiniMetric label="Active forms" value={stats.published} /><MiniMetric label="Invalid / expired" value={stats.expired} /></div>
+                <div className="mt-6 grid gap-6 xl:grid-cols-2"><MetricBars title="Registrations per form" rows={perFormStats.slice(0, 6).map((item) => ({ label: item.formTitle, value: item.count }))} max={maxPerForm} /><MetricBars title="Event registrations" rows={eventCounts.slice(0, 6).map((item) => ({ label: item.name, value: item.count }))} max={maxEventCount} /></div>
                 <div className="mt-6">
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">Registrations per form</p>
-                  {perFormStats.length === 0 ? (
-                    <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">No registrations yet.</p>
-                  ) : (
-                    <div className="mt-3 space-y-3">
-                      {perFormStats.slice(0, 6).map((item) => (
-                        <div key={item.formId} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
-                            <span className="font-medium">{item.formTitle}</span>
-                            <span>{item.count}</span>
-                          </div>
-                          <div className="h-2 rounded-full bg-[var(--color-background-tertiary)]">
-                            <div
-                              className="h-2 rounded-full bg-[var(--color-accent-primary)]"
-                              style={{ width: `${Math.max(5, (item.count / maxPerForm) * 100)}%` }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-6">
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">Registration trend (last 7 days)</p>
+                  <p className="text-sm font-black text-slate-950">Registration trend</p>
                   <div className="mt-3 grid grid-cols-7 gap-2">
-                    {trendData.map((item) => (
-                      <div key={item.label} className="flex flex-col items-center gap-2">
-                        <div className="flex h-24 w-full items-end rounded-[var(--radius-card)] bg-[var(--color-background-tertiary)] p-1">
-                          <div
-                            className="w-full rounded-[var(--radius-card)] bg-[var(--color-accent-primary)]"
-                            style={{ height: `${Math.max(6, (item.count / maxTrendCount) * 100)}%` }}
-                          />
-                        </div>
-                        <div className="text-[0.7rem] text-[var(--color-text-tertiary)]">{item.label}</div>
-                        <div className="text-[0.7rem] font-semibold text-[var(--color-text-secondary)]">{item.count}</div>
-                      </div>
-                    ))}
+                    {trendData.map((item) => <div key={item.label} className="flex flex-col items-center gap-2"><div className="flex h-24 w-full items-end rounded-2xl bg-slate-100 p-1"><div className="w-full rounded-xl bg-slate-950" style={{ height: `${Math.max(6, (item.count / maxTrendCount) * 100)}%` }} /></div><div className="text-[0.7rem] font-bold text-slate-400">{item.label}</div><div className="text-[0.7rem] font-black text-slate-600">{item.count}</div></div>)}
                   </div>
                 </div>
+              </Panel>
+              <Panel title="Recent submissions" subtitle="Latest captured registration activity." icon={Activity}>
+                {formStats?.recent?.length ? <div className="space-y-3">{formStats.recent.slice(0, 7).map((submission) => <article key={submission.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4 transition hover:bg-white hover:shadow-sm"><p className="text-sm font-black text-slate-950">{resolveFormSubmissionName(submission, 'Anonymous')}</p><p className="mt-1 text-xs font-semibold text-slate-500">{submission.formTitle}</p><p className="mt-2 text-[0.7rem] font-bold text-slate-400">{formatDateTime(submission.createdAt)}</p></article>)}</div> : <EmptyState label="No submissions yet." />}
+              </Panel>
+            </section>
 
-                <div className="mt-6">
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">Event registrations</p>
-                  {eventCounts.length === 0 ? (
-                    <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">No event registrations yet.</p>
-                  ) : (
-                    <div className="mt-3 space-y-3">
-                      {eventCounts.slice(0, 6).map((item) => (
-                        <div key={item.eventId} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
-                            <span className="font-medium">{item.name}</span>
-                            <span>{item.count}</span>
-                          </div>
-                          <div className="h-2 rounded-full bg-[var(--color-background-tertiary)]">
-                            <div
-                              className="h-2 rounded-full bg-[var(--color-accent-primary)]"
-                              style={{ width: `${Math.max(5, (item.count / maxEventCount) * 100)}%` }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </Card>
-
-              <Card title="Recent Submissions">
-                {formStats?.recent?.length ? (
-                  <div className="space-y-3">
-                    {formStats.recent.slice(0, 6).map((submission) => (
-                      <div
-                        key={submission.id}
-                        className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3"
-                      >
-                        <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                          {resolveFormSubmissionName(submission, 'Anonymous')}
-                        </p>
-                        <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{submission.formTitle}</p>
-                        <p className="mt-2 text-[0.7rem] text-[var(--color-text-tertiary)]">
-                          {formatDateTime(submission.createdAt)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-[var(--color-text-tertiary)]">No submissions yet.</p>
-                )}
-              </Card>
-            </div>
-
-            <Card title="Submission Explorer">
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="min-w-[220px]">
-                  <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">Form</label>
-                  <select
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                    value={selectedFormId}
-                    onChange={(event) => {
-                      setSelectedFormId(event.target.value);
-                      setSubmissionsPage(1);
-                    }}
-                  >
+            <Panel title="Submission explorer" subtitle="Filter registrations, open reports, launch outreach, and export clean PDF/CSV files." icon={Eye}>
+              <div className="grid gap-3 xl:grid-cols-[minmax(220px,1.2fr)_repeat(3,minmax(150px,0.8fr))]">
+                <div>
+                  <label className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-slate-400">Form</label>
+                  <select className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-400" value={selectedFormId} onChange={(event) => { setSelectedFormId(event.target.value); setSubmissionsPage(1); }}>
                     <option value="">Select a form</option>
-                    {forms.map((form) => (
-                      <option key={form.id} value={form.id}>
-                        {form.title}
-                      </option>
-                    ))}
+                    {forms.map((form) => <option key={form.id} value={form.id}>{form.title}</option>)}
                   </select>
                 </div>
-
                 <Input label="Search" value={filterText} onChange={(event) => setFilterText(event.target.value)} placeholder="Name, email, phone..." />
                 <Input label="From" type="date" value={filterStart} onChange={(event) => setFilterStart(event.target.value)} />
                 <Input label="To" type="date" value={filterEnd} onChange={(event) => setFilterEnd(event.target.value)} />
-
-                <label className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
-                  <input type="checkbox" checked={liveUpdates} onChange={(event) => setLiveUpdates(event.target.checked)} />
-                  Live updates
-                </label>
-
-                <Button variant="outline" onClick={loadSubmissions} className="whitespace-nowrap">
-                  Refresh
-                </Button>
-
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    if (!selectedFormId) {
-                      toast.error('Select a form first');
-                      return;
-                    }
-                    router.push(buildFormSubmissionsReportPath(selectedFormId));
-                  }}
-                  disabled={!selectedFormId}
-                  className="whitespace-nowrap"
-                >
-                  Open Report
-                </Button>
-
-                <Button variant="outline" onClick={handleCopyReportLink} disabled={!selectedFormId} className="whitespace-nowrap">
-                  Copy Client Report Link
-                </Button>
-
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    if (!selectedFormId) {
-                      toast.error('Select a form first');
-                      return;
-                    }
-                    router.push(`/dashboard/forms/${selectedFormId}/campaigns`);
-                  }}
-                  disabled={!selectedFormId}
-                  className="whitespace-nowrap"
-                >
-                  Open Outreach
-                </Button>
-
-                <Button
-                  variant="outline"
-                  onClick={exportSubmissions}
-                  loading={exportingPdf}
-                  disabled={exportingPdf || filteredSubmissions.length === 0 || !selectedFormId}
-                  className="whitespace-nowrap"
-                >
-                  Export PDF
-                </Button>
-
-                <Button
-                  variant="outline"
-                  onClick={exportSubmissionsCsvHandler}
-                  loading={exportingCsv}
-                  disabled={exportingCsv || !selectedFormId || submissionsTotal === 0}
-                  className="whitespace-nowrap"
-                >
-                  Export CSV
-                </Button>
               </div>
-
-              {!selectedFormId ? (
-                <p className="mt-4 text-sm text-[var(--color-text-tertiary)]">Select a form to view registrations.</p>
-              ) : (
-                <div className="mt-4">
-                  <DataTable
-                    data={filteredSubmissions}
-                    columns={submissionColumns}
-                    total={filteredTotal}
-                    page={submissionsPage}
-                    limit={submissionsLimit}
-                    onPageChange={setSubmissionsPage}
-                    onLimitChange={(next) => {
-                      setSubmissionsLimit(next);
-                      setSubmissionsPage(1);
-                    }}
-                    isLoading={submissionsLoading}
-                  />
-                </div>
-              )}
-            </Card>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600"><input type="checkbox" checked={liveUpdates} onChange={(event) => setLiveUpdates(event.target.checked)} />Live updates</label>
+                <Button variant="outline" onClick={() => void loadSubmissions()}>Refresh</Button>
+                <Button variant="outline" onClick={() => selectedFormId ? router.push(buildFormSubmissionsReportPath(selectedFormId)) : toast.error('Select a form first')} disabled={!selectedFormId}>Open Report</Button>
+                <Button variant="outline" onClick={() => void handleCopyReportLink()} disabled={!selectedFormId}>Copy Client Report Link</Button>
+                <Button variant="outline" onClick={() => selectedFormId ? router.push(`/dashboard/forms/${selectedFormId}/campaigns`) : toast.error('Select a form first')} disabled={!selectedFormId}>Open Outreach</Button>
+                <Button variant="outline" onClick={() => void exportSubmissions()} loading={exportingPdf} disabled={exportingPdf || filteredSubmissions.length === 0 || !selectedFormId}>Export PDF</Button>
+                <Button variant="outline" onClick={() => void exportSubmissionsCsvHandler()} loading={exportingCsv} disabled={exportingCsv || !selectedFormId || submissionsTotal === 0}>Export CSV</Button>
+             
+              </div>
+              {!selectedFormId ? <div className="mt-5"><EmptyState label="Select a form to view registrations." /></div> : <div className="mt-5 overflow-hidden rounded-[1.5rem] border border-slate-200"><DataTable data={filteredSubmissions} columns={submissionColumns} total={filteredTotal} page={submissionsPage} limit={submissionsLimit} onPageChange={setSubmissionsPage} onLimitChange={(next) => { setSubmissionsLimit(next); setSubmissionsPage(1); }} isLoading={submissionsLoading} /></div>}
+            </Panel>
           </>
-        )}
+        ) : null}
 
-        {activeTab === 'forms' && showBuilder && (
-          <div className="space-y-6">
-            <Card className="p-6">
-              <div className="grid gap-5 md:grid-cols-2">
-                <Input
-                  label="Title *"
-                  value={title}
-                  onChange={(event) => {
-                    clearFieldError('title');
-                    setTitle(event.target.value);
-                  }}
-                  placeholder="e.g., Youth Summit Registration"
-                  error={fieldErrors.title}
-                />
-
-                <div className="space-y-2">
-                  <Input
-                    label="Form Link Name *"
-                    value={slug}
-                    onChange={(event) => {
-                      clearFieldError('slug');
-                      setSlug(event.target.value);
-                    }}
-                    onBlur={() => setSlug((current) => normalizeSlug(current))}
-                    placeholder="e.g., wpc"
-                    error={fieldErrors.slug}
-                  />
-                  <p className="text-xs text-[var(--color-text-tertiary)]">
-                    Public link preview:{' '}
-                    <span className="font-medium text-[var(--color-text-secondary)]">
-                      /forms/{normalizeSlug(slug || title || 'your-link')}
-                    </span>
-                  </p>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Description</label>
-                  <textarea
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
-                    rows={3}
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value)}
-                    placeholder="Optional short intro"
-                  />
-                </div>
-
-                <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
-                  <Input
-                    label="Header image URL (optional)"
-                    value={coverImageUrl}
-                    onChange={(event) => setCoverImageUrl(event.target.value)}
-                    placeholder="https://..."
-                    helperText="Shown at the top of the public form."
-                  />
-                  <Input
-                    label="Or upload header image"
-                    type="file"
-                    accept="image/*"
-                    onChange={(event) => handleBannerFile(event.target.files?.[0])}
-                    helperText="Uploads to S3 and replaces the URL above."
-                  />
-                  <Input
-                    label="Success modal title (optional)"
-                    value={successTitle}
-                    onChange={(event) => setSuccessTitle(event.target.value)}
-                    placeholder="Thank you for registering"
-                    helperText="Supports tokens like {{formTitle}} and {{name}}."
-                  />
-                  <Input
-                    label="Success modal subtitle (optional)"
-                    value={successSubtitle}
-                    onChange={(event) => setSuccessSubtitle(event.target.value)}
-                    placeholder="for {{formTitle}}"
-                    helperText="Use {{eventDate}} or {{eventLocation}} if relevant."
-                  />
-                  <div className="space-y-2 md:col-span-2">
-                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Success modal message</label>
-                    <textarea
-                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                      rows={2}
-                      value={successMessage}
-                      onChange={(event) => setSuccessMessage(event.target.value)}
-                      placeholder="We would love to see you."
-                    />
-                  </div>
-                  {(bannerPreview || coverImageUrl.trim()) && (
-                    <div className="md:col-span-2">
-                      <Image
-                        src={bannerPreview || coverImageUrl.trim()}
-                        alt="Banner preview"
-                        width={1200}
-                        height={400}
-                        className="max-h-64 w-full rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] object-cover"
-                        unoptimized
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 md:col-span-2">
-                  <div className="mb-3">
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">Registration Settings</p>
-                    <p className="text-xs text-[var(--color-text-tertiary)]">Set capacity and registration window for this form.</p>
-                  </div>
-
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Form Type</label>
-                      <select
-                        className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-                        value={formType}
-                        onChange={(event) => {
-                          clearFieldError('formType');
-                          setFormType(event.target.value as FormSettings['formType'] | '');
-                        }}
-                      >
-                        <option value="">Select a type</option>
-                        {formTypeOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      {fieldErrors.formType && <p className="mt-1 text-sm text-red-500">{fieldErrors.formType}</p>}
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Linked Event</label>
-                      <select
-                        className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-                        value={eventId}
-                        onChange={(event) => setEventId(event.target.value)}
-                        disabled={eventsLoading}
-                      >
-                        <option value="">No event (standalone form)</option>
-                        {events.map((event) => (
-                          <option key={event.id} value={event.id}>
-                            {event.title}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <Input label="Capacity (optional)" type="number" min={0} value={capacity} onChange={(event) => setCapacity(event.target.value)} placeholder="e.g., 250" />
-                    <Input label="Closes At (optional)" type="datetime-local" value={closesAt} onChange={(event) => setClosesAt(event.target.value)} />
-                    <Input label="Expires At (optional)" type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />
-                  </div>
-                </div>
-
-                <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 md:col-span-2">
-                  <div className="mb-3">
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">Submission Routing</p>
-                    <p className="text-xs text-[var(--color-text-tertiary)]">
-                      Route submissions into Workforce, Member, Leadership, or Testimonial workflows automatically.
-                    </p>
-                  </div>
-
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Submission Target</label>
-                      <select
-                        className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-                        value={submissionTarget}
-                        onChange={(event) => {
-                          clearFieldError('submissionTarget');
-                          setSubmissionTarget(event.target.value as FormSettings['submissionTarget'] | '');
-                        }}
-                      >
-                        <option value="">Do not route</option>
-                        <option value="workforce_new">Workforce (new workers)</option>
-                        <option value="workforce_serving">Workforce (already serving)</option>
-                        <option value="workforce">Workforce (legacy)</option>
-                        <option value="member">Member</option>
-                        <option value="leadership">Leadership</option>
-                        <option value="testimonial">Testimonial</option>
-                      </select>
-                      {fieldErrors.submissionTarget && <p className="text-sm text-red-500">{fieldErrors.submissionTarget}</p>}
-                    </div>
-
-                    <Input
-                      label="Department (workforce only)"
-                      value={submissionDepartment}
-                      onChange={(event) => {
-                        clearFieldError('submissionDepartment');
-                        setSubmissionDepartment(event.target.value);
-                      }}
-                      placeholder="e.g., Hospitality"
-                      disabled={!isWorkforceTarget}
-                      error={fieldErrors.submissionDepartment}
-                    />
-                  </div>
-                </div>
-
-                <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 md:col-span-2">
-                  <div className="mb-3">
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">Response Email</p>
-                    <p className="text-xs text-[var(--color-text-tertiary)]">Send a confirmation email after the form is submitted.</p>
-                  </div>
-
-                  <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                    <input type="checkbox" checked={responseEmailEnabled} onChange={(event) => setResponseEmailEnabled(event.target.checked)} />
-                    Enable response email
-                  </label>
-
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <Input
-                      label="Email subject"
-                      value={responseEmailSubject}
-                      onChange={(event) => {
-                        clearFieldError('responseEmailSubject');
-                        setResponseEmailSubject(event.target.value);
-                      }}
-                      placeholder="Welcome to Wisdom House Church"
-                      disabled={!responseEmailEnabled}
-                      error={fieldErrors.responseEmailSubject}
-                    />
-                    <Input
-                      label="Template key"
-                      value={responseEmailTemplateKey}
-                      onChange={(event) => {
-                        clearFieldError('responseEmailTemplateKey');
-                        setResponseEmailTemplateKey(event.target.value);
-                      }}
-                      placeholder="welcome-member"
-                      disabled={!responseEmailEnabled}
-                      error={fieldErrors.responseEmailTemplateKey}
-                    />
-                    <Input
-                      label="Template ID (optional)"
-                      value={responseEmailTemplateId}
-                      onChange={(event) => {
-                        clearFieldError('responseEmailTemplateId');
-                        setResponseEmailTemplateId(event.target.value);
-                      }}
-                      placeholder="Template UUID"
-                      disabled={!responseEmailEnabled}
-                      error={fieldErrors.responseEmailTemplateId}
-                    />
-                    <Input
-                      label="Template image URL (optional)"
-                      value={responseEmailTemplateUrl}
-                      onChange={(event) => {
-                        clearFieldError('responseEmailTemplateUrl');
-                        setResponseEmailTemplateUrl(event.target.value);
-                      }}
-                      placeholder="https://churchasset.fra1.cdn.digitaloceanspaces.com/email_template/WPC_26.png"
-                      disabled={!responseEmailEnabled}
-                      error={fieldErrors.responseEmailTemplateUrl}
-                    />
-                  </div>
-
-                  <p className="mt-3 text-xs text-[var(--color-text-tertiary)]">
-                    Use template key/ID from Email Templates registry, or provide a direct template image URL.
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card title="Form Builder">
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">Leadership Biodata Preset</p>
-                    <p className="text-xs text-[var(--color-text-tertiary)]">
-                      Adds leadership role radio options, consent checkbox, photo upload, and DD/MM/YYYY date fields.
-                    </p>
-                  </div>
-
-                  <Button type="button" variant="outline" onClick={applyLeadershipBiodataPreset}>
-                    Use Leadership Biodata
-                  </Button>
-                </div>
-
-                {fields.map((field, index) => {
-                  const optionReadyField = isOptionField(field.type) ? ensureOptions(field) : field;
-
-                  return (
-                    <div
-                      key={`${field.key}-${index}`}
-                      className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4"
-                    >
-                      <div className="flex flex-wrap items-start gap-3">
-                        <Input label="Label" value={field.label} onChange={(event) => updateField(index, { label: event.target.value })} />
-
-                        <div className="flex flex-wrap gap-2">
-                          <select
-                            value={field.type}
-                            onChange={(event) => updateField(index, { type: event.target.value as FormFieldType })}
-                            className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                          >
-                            <option value="text">Text</option>
-                            <option value="textarea">Textarea</option>
-                            <option value="email">Email</option>
-                            <option value="tel">Phone</option>
-                            <option value="number">Number</option>
-                            <option value="date">Date</option>
-                            <option value="select">Dropdown</option>
-                            <option value="checkbox">Checkbox</option>
-                            <option value="radio">Radio</option>
-                            <option value="image">Image Upload</option>
-                          </select>
-
-                          <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                            <input type="checkbox" checked={field.required} onChange={(event) => updateField(index, { required: event.target.checked })} />
-                            Required
-                          </label>
-
-                          <Button variant="outline" size="sm" onClick={() => requestRemoveField(index)} icon={<Trash2 className="h-4 w-4" />}>
-                            Remove
-                          </Button>
-                        </div>
-                      </div>
-
-                      {isOptionField(field.type) && (
-                        <div className="mt-3 space-y-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-xs text-[var(--color-text-tertiary)]">Options</p>
-                            <Button type="button" variant="outline" size="sm" onClick={() => addOption(index)} className="whitespace-nowrap">
-                              <Plus className="mr-2 h-4 w-4" />
-                              Add option
-                            </Button>
-                          </div>
-
-                          <div className="space-y-2">
-                            {(optionReadyField.options ?? []).map((option, optionIndex) => (
-                              <div key={`${field.key}-option-${optionIndex}`} className="flex items-center gap-2">
-                                <input
-                                  className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                                  value={option.label}
-                                  onChange={(event) => updateOption(index, optionIndex, event.target.value)}
-                                  placeholder={`Option ${optionIndex + 1}`}
-                                />
-                                <Button type="button" variant="outline" size="sm" onClick={() => removeOption(index, optionIndex)} className="whitespace-nowrap">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-
-                          <p className="text-[11px] text-[var(--color-text-tertiary)]">Tip: Values are auto-generated from labels.</p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                <Button variant="outline" onClick={addField} icon={<Plus className="h-4 w-4" />} className="whitespace-nowrap">
-                  Add Field
-                </Button>
-              </div>
-            </Card>
-
-            <Card title="Publish">
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs text-[var(--color-text-tertiary)]">Build your fields above, then publish the form link.</p>
-                  <Button onClick={save} loading={saving} disabled={saving} icon={<Save className="h-4 w-4" />} className="whitespace-nowrap">
-                    Create & Publish
-                  </Button>
-                </div>
-
-                <details className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
-                  <summary className="cursor-pointer list-none text-sm font-semibold text-[var(--color-text-primary)]">
-                    Advanced Public Layout
-                  </summary>
-
-                  <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    <Input label="Left column title" value={introTitle} onChange={(event) => setIntroTitle(event.target.value)} />
-                    <Input label="Left column subtitle" value={introSubtitle} onChange={(event) => setIntroSubtitle(event.target.value)} />
-
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Left column bullets</label>
-                      <textarea
-                        className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                        rows={3}
-                        value={introBullets}
-                        onChange={(event) => setIntroBullets(event.target.value)}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Bullet subtext</label>
-                      <textarea
-                        className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                        rows={3}
-                        value={introBulletSubs}
-                        onChange={(event) => setIntroBulletSubs(event.target.value)}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Form header note</label>
-                      <textarea
-                        className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                        rows={2}
-                        value={formHeaderNote}
-                        onChange={(event) => setFormHeaderNote(event.target.value)}
-                      />
-                    </div>
-
-                    <div className="grid gap-3 md:col-span-3 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Layout</label>
-                        <select
-                          value={layoutMode}
-                          onChange={(event) => setLayoutMode(event.target.value === 'split' ? 'split' : 'stack')}
-                          className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                        >
-                          <option value="split">Two column layout</option>
-                          <option value="stack">Single column layout</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Date format</label>
-                        <select
-                          value={dateFormat}
-                          onChange={(event) => {
-                            const next = event.target.value as DateFormat;
-                            if (dateFormats.includes(next)) setDateFormat(next);
-                          }}
-                          className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-                        >
-                          <option value="yyyy-mm-dd">YYYY-MM-DD</option>
-                          <option value="mm/dd/yyyy">MM/DD/YYYY</option>
-                          <option value="dd/mm/yyyy">DD/MM/YYYY</option>
-                          <option value="dd/mm">DD/MM</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                </details>
-              </div>
-            </Card>
-
-            <Card title="Form Link">
-              <div className="flex flex-wrap items-center gap-3">
-                <p className="text-sm text-[var(--color-text-secondary)]">{resolvedPublicUrl || 'Create & publish to generate link'}</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    if (!resolvedPublicUrl) {
-                      toast.error('Publish first to copy link');
-                      return;
-                    }
-
-                    await navigator.clipboard.writeText(resolvedPublicUrl);
-                    toast.success('Link copied');
-                  }}
-                  icon={<Copy className="h-4 w-4" />}
-                  disabled={!resolvedPublicUrl}
-                >
-                  Copy
-                </Button>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {activeTab === 'forms' && !showBuilder && (
-          <>
-            <Card className="p-0">
-              <DataTable
-                data={forms ?? []}
-                columns={columns}
-                total={total}
-                page={page}
-                limit={limit}
-                onPageChange={setPage}
-                onLimitChange={(next) => {
-                  setLimit(next);
-                  setPage(1);
-                }}
-                onEdit={handleEdit}
-                onDelete={requestDelete}
-                onView={(form: AdminForm) => router.push(buildFormSubmissionsReportPath(form.id))}
-                isLoading={loading}
-              />
-            </Card>
-
-            {formStats && (
-              <div className="text-xs text-secondary-500">
-                Total registrations across all forms: {formStats.totalSubmissions}
-              </div>
-            )}
-
-            <div className="text-xs text-secondary-500">Tip: Click “View” to see registrations for a form.</div>
-          </>
-        )}
-
-        <AlertModal
-          open={removeFieldIndex !== null}
-          onClose={() => setRemoveFieldIndex(null)}
-          title="Remove Field"
-          description={`Remove "${pendingField?.label || 'this field'}"? This will delete it from the form.`}
-          primaryAction={{ label: 'Remove', onClick: confirmRemoveField, variant: 'danger' }}
-          secondaryAction={{ label: 'Cancel', onClick: () => setRemoveFieldIndex(null), variant: 'outline' }}
-        />
-
-        <VerifyActionModal
-          isOpen={!!deleteTarget}
-          onClose={() => setDeleteTarget(null)}
-          onConfirm={confirmDelete}
-          title="Delete Form"
-          description="This action permanently removes the form and its configuration."
-          confirmText="Delete Form"
-          cancelText="Cancel"
-          variant="danger"
-          loading={deleteLoading}
-          verifyText={deletePhrase}
-        />
-      </div>
+        <VerifyActionModal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={confirmDelete} title="Delete Form" description="This action permanently removes the form and its configuration." confirmText="Delete Form" cancelText="Cancel" variant="danger" loading={deleteLoading} verifyText={deletePhrase} />
+      </main>
     );
   },
-  { requiredRole: 'admin' }
+  { requiredRole: 'admin' },
 );
+
+function MiniMetric({ label, value }: { label: string; value: number | string }) {
+  return <div className="rounded-3xl border border-slate-100 bg-slate-50 p-4"><p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{label}</p><p className="mt-2 text-3xl font-black text-slate-950">{value}</p></div>;
+}
+
+function MetricBars({ title, rows, max }: { title: string; rows: Array<{ label: string; value: number }>; max: number }) {
+  return (
+    <div>
+      <p className="text-sm font-black text-slate-950">{title}</p>
+      {rows.length === 0 ? <p className="mt-2 text-xs font-semibold text-slate-400">No data yet.</p> : <div className="mt-3 space-y-3">{rows.map((item) => <div key={item.label} className="space-y-1"><div className="flex items-center justify-between gap-3 text-xs font-bold text-slate-500"><span className="truncate">{item.label}</span><span>{item.value}</span></div><div className="h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-slate-950" style={{ width: `${Math.max(5, (item.value / max) * 100)}%` }} /></div></div>)}</div>}
+    </div>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center"><p className="text-sm font-bold text-slate-500">{label}</p></div>;
+}
