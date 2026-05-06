@@ -306,7 +306,7 @@ export default withAuth(function NewFormPage() {
   const [submitButtonBg, setSubmitButtonBg] = useState('#f59e0b');
   const [submitButtonTextColor, setSubmitButtonTextColor] = useState('#111827');
   const [submitButtonIcon, setSubmitButtonIcon] = useState<SubmitButtonIcon>('check');
-  const [formHeaderNote, setFormHeaderNote] = useState('Please ensure details are accurate before submitting.');
+  const [formHeaderNote] = useState('Please ensure details are accurate before submitting.');
   const [coverImageUrl, setCoverImageUrl] = useState('');
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
