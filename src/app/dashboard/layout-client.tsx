@@ -101,6 +101,7 @@ export default function DashboardLayoutClient({
     auth.accessStatus,
     isRoleAllowed,
     isSuperAdmin,
+    normalizedRole,
     pathname,
     router,
   ]);
