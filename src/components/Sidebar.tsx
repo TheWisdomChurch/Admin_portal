@@ -1,391 +1,344 @@
-// src/components/admin/Sidebar.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard,
-  Calendar,
-  Video,
   BarChart3,
-  ClipboardList,
-  Users,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-  MessageSquare,
-  Shield,
   BellRing,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Crown,
   FileText,
-  LineChart,
-  Mail,
-  UserPlus,
   IdCard,
+  LayoutDashboard,
+  LogOut,
+  Mail,
+  Menu,
+  MessageSquare,
+  Settings,
+  Shield,
   ShoppingBag,
+  UserPlus,
+  Users,
+  Video,
+  X,
 } from 'lucide-react';
-import { useAuthContext } from '@/providers/AuthProviders';
 import { Badge } from '@/ui/Badge';
+import { Button } from '@/ui/Button';
 import { LogoutModal } from '@/ui/LogoutModal';
-import { textStyles } from '@/styles/text';
+import { useAuthContext } from '@/providers/AuthProviders';
+import { getUserRole } from '@/lib/authRole';
 
-const adminNavItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview and metrics' },
-  { href: '/dashboard/administration', label: 'Administration', icon: Shield, description: 'Workforce, leadership, members' },
-  { href: '/dashboard/leadership', label: 'Leadership', icon: IdCard, description: 'Leadership profiles' },
-  { href: '/dashboard/workforce', label: 'Workforce', icon: ClipboardList, description: 'Serving workers' },
-  { href: '/dashboard/new-members', label: 'New Members', icon: UserPlus, description: 'Membership intake and growth' },
-  { href: '/dashboard/members', label: 'Members', icon: Users, description: 'All church members' },
-  { href: '/dashboard/reels', label: 'Reels', icon: Video, description: 'Video content management' },
-  { href: '/dashboard/testimonials', label: 'Testimonials', icon: MessageSquare, description: 'Member testimonials' },
-  { href: '/dashboard/forms', label: 'Forms', icon: ClipboardList, description: 'Create registration links' },
-  { href: '/dashboard/email-marketing', label: 'Email Marketing', icon: Mail, description: 'Build campaigns from form audiences' },
-  { href: '/dashboard/newsletter', label: 'Newsletter', icon: Mail, description: 'Subscribers and public updates' },
-  { href: '/dashboard/registrations', label: 'Registrations', icon: Users, description: 'Registered people list' },
-  { href: '/dashboard/notifications', label: 'Notifications', icon: BellRing, description: 'Alerts and approvals' },
-  { href: '/dashboard/event', label: 'Event', icon: Calendar, description: 'Single event page' },
-  { href: '/dashboard/store', label: 'Store', icon: ShoppingBag, description: 'Products and orders' },
-  { href: '/dashboard/content', label: 'Content', icon: FileText, description: 'Website content' },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings, description: 'System configuration' },
-];
+type NavItem = {
+  href: string;
+  label: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+  roles?: Array<'admin' | 'super_admin'>;
+};
 
-const superNavItems = [
-  { href: '/dashboard/super', label: 'Dashboard', icon: LayoutDashboard, description: 'Approvals & analytics' },
-  { href: '/dashboard/super/requests', label: 'Requests', icon: BellRing, description: 'Pending approvals' },
-  { href: '/dashboard/super/analytics', label: 'Analytics', icon: LineChart, description: 'Charts & trends' },
-  { href: '/dashboard/super/reports', label: 'Reports', icon: FileText, description: 'Monthly exports' },
-  { href: '/dashboard/super/notifications', label: 'Notifications', icon: BarChart3, description: 'Alerts and updates' },
-];
+type NavGroup = {
+  title: string;
+  items: NavItem[];
+};
+
+const superConsole: NavGroup = {
+  title: 'Super admin',
+  items: [
+    { href: '/dashboard/super', label: 'Command Center', description: 'Authority overview', icon: Crown, roles: ['super_admin'] },
+    { href: '/dashboard/super/requests', label: 'Requests', description: 'Approval queue', icon: BellRing, roles: ['super_admin'] },
+    { href: '/dashboard/super/analytics', label: 'Analytics', description: 'Leadership metrics', icon: BarChart3, roles: ['super_admin'] },
+    { href: '/dashboard/super/reports', label: 'Reports', description: 'Exports and summaries', icon: FileText, roles: ['super_admin'] },
+    { href: '/dashboard/super/notifications', label: 'Notifications', description: 'Super-admin alerts', icon: BellRing, roles: ['super_admin'] },
+  ],
+};
+
+const operations: NavGroup = {
+  title: 'Operations',
+  items: [
+    { href: '/dashboard', label: 'Dashboard', description: 'Admin overview', icon: LayoutDashboard, roles: ['admin'] },
+    { href: '/dashboard/administration', label: 'Administration', description: 'People intelligence', icon: Shield },
+    { href: '/dashboard/leadership', label: 'Leadership', description: 'Leadership profiles', icon: IdCard },
+    { href: '/dashboard/workforce', label: 'Workforce', description: 'Serving teams', icon: ClipboardList },
+    { href: '/dashboard/new-members', label: 'New Members', description: 'Membership intake', icon: UserPlus },
+    { href: '/dashboard/members', label: 'Members', description: 'Member records', icon: Users },
+  ],
+};
+
+const ministries: NavGroup = {
+  title: 'Ministry content',
+  items: [
+    { href: '/dashboard/event', label: 'Events', description: 'Programs and banners', icon: Calendar },
+    { href: '/dashboard/reels', label: 'Reels', description: 'Video content', icon: Video },
+    { href: '/dashboard/testimonials', label: 'Testimonials', description: 'Stories and approvals', icon: MessageSquare },
+    { href: '/dashboard/forms', label: 'Forms', description: 'Registration workflows', icon: ClipboardList },
+    { href: '/dashboard/store', label: 'Store', description: 'Products and orders', icon: ShoppingBag },
+    { href: '/dashboard/content', label: 'Website Content', description: 'Public content blocks', icon: FileText },
+  ],
+};
+
+const communication: NavGroup = {
+  title: 'Communication',
+  items: [
+    { href: '/dashboard/email-marketing', label: 'Email Marketing', description: 'Targeted campaigns', icon: Mail },
+    { href: '/dashboard/newsletter', label: 'Newsletter', description: 'Subscribers and sends', icon: Mail },
+    { href: '/dashboard/notifications', label: 'Notifications', description: 'Inbox and alerts', icon: BellRing },
+    { href: '/dashboard/settings', label: 'Settings', description: 'Portal preferences', icon: Settings },
+  ],
+};
+
+function normalizeRole(role?: string | null): 'admin' | 'super_admin' | '' {
+  const normalized = (role || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
+  if (normalized === 'admin' || normalized === 'super_admin') return normalized;
+  return '';
+}
+
+function initials(first?: string, last?: string, email?: string): string {
+  const value = `${first?.[0] || ''}${last?.[0] || ''}`.toUpperCase();
+  if (value) return value;
+  return (email?.slice(0, 2) || 'WH').toUpperCase();
+}
+
+function roleLabel(role: string): string {
+  return role
+    .replace(/_/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
 
 export function Sidebar() {
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const pathname = usePathname();
   const auth = useAuthContext();
+  const role = normalizeRole(getUserRole(auth.user));
+  const isSuperAdmin = role === 'super_admin';
 
-  // Close mobile sidebar when clicking outside on mobile
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const groups = useMemo(() => {
+    // Role separation is intentional. The super-admin is the approval authority,
+    // not an operational admin. Admin modules stay hidden from this console.
+    const source = isSuperAdmin ? [superConsole] : [operations, ministries, communication];
+
+    return source
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => !item.roles || item.roles.includes(role as 'admin' | 'super_admin')),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [isSuperAdmin, role]);
+
+  const showLabels = isMobileOpen || !isCollapsed;
+  const homeHref = isSuperAdmin ? '/dashboard/super' : '/dashboard';
+  const fullName = `${auth.user?.first_name || ''} ${auth.user?.last_name || ''}`.trim() || 'Administrator';
+  const userInitials = initials(auth.user?.first_name, auth.user?.last_name, auth.user?.email);
+
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isMobileOpen) {
-        setIsMobileOpen(false);
-      }
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMobileOpen(false);
     };
-
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isMobileOpen]);
+  }, []);
 
-  // Prevent body scroll when mobile sidebar is open
   useEffect(() => {
-    if (isMobileOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
+    document.body.style.overflow = isMobileOpen ? 'hidden' : '';
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = '';
     };
   }, [isMobileOpen]);
 
-  // Collapse sidebar on tablets by default, expand on large screens.
   useEffect(() => {
-    const updateCollapseState = () => {
-      if (typeof window === 'undefined') return;
-      const width = window.innerWidth;
-      // mobile uses drawer, so keep labels when open
-      if (width < 768) {
+    const sync = () => {
+      if (window.innerWidth < 768) {
         setIsCollapsed(false);
         return;
       }
-      // tablet: icon-only
-      if (width >= 768 && width < 1024) {
-        setIsCollapsed(true);
-        return;
-      }
-      // desktop: full
-      setIsCollapsed(false);
+      setIsCollapsed(window.innerWidth >= 768 && window.innerWidth < 1180);
     };
-
-    updateCollapseState();
-    window.addEventListener('resize', updateCollapseState);
-    return () => window.removeEventListener('resize', updateCollapseState);
+    sync();
+    window.addEventListener('resize', sync);
+    return () => window.removeEventListener('resize', sync);
   }, []);
 
-  // Keep CSS variable for content offset in sync with collapse state.
   useEffect(() => {
-    if (typeof document === 'undefined') return;
-    if (isCollapsed) {
-      document.body.classList.add('sidebar-collapsed');
-    } else {
-      document.body.classList.remove('sidebar-collapsed');
-    }
+    document.body.classList.toggle('sidebar-collapsed', isCollapsed);
     return () => document.body.classList.remove('sidebar-collapsed');
   }, [isCollapsed]);
 
-  const getUserName = () => {
-    if (!auth.user) return 'User';
-    return `${auth.user.first_name} ${auth.user.last_name}`.trim();
-  };
-
-  const formatRole = (role: string = '') => {
-    return role
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
-  const handleLogoutClick = () => {
-    setShowLogoutModal(true);
-    setIsMobileOpen(false);
-  };
-
-  const handleConfirmLogout = async () => {
+  const confirmLogout = async () => {
     setIsLoggingOut(true);
     try {
       await auth.logout();
-      // AuthProvider will handle the redirect
-    } catch (error) {
-      console.error('Logout error:', error);
     } finally {
       setIsLoggingOut(false);
       setShowLogoutModal(false);
     }
   };
 
-  const getInitials = () => {
-    if (!auth.user) return 'U';
-    const first = auth.user.first_name?.charAt(0) || '';
-    const last = auth.user.last_name?.charAt(0) || '';
-    return `${first}${last}`.toUpperCase() || 'U';
-  };
-
-  const showLabels = isMobileOpen || !isCollapsed;
-
-  const navItems = auth.user?.role === 'super_admin'
-    ? superNavItems
-    : adminNavItems;
-  const isSuperAdmin = auth.user?.role === 'super_admin';
-
-  const homeHref = auth.user?.role === 'super_admin' ? '/dashboard/super' : '/dashboard';
-
   return (
     <>
-      {/* Mobile toggle button */}
       <button
+        type="button"
         onClick={() => setIsMobileOpen(true)}
-        className="md:hidden fixed top-4 left-4 z-50 p-2.5 rounded-[var(--radius-button)] bg-[var(--color-background-primary)] shadow-lg border border-[var(--color-border-primary)] hover:bg-[var(--color-background-hover)] transition-colors"
+        className="fixed left-4 top-4 z-50 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] shadow-lg md:hidden"
         aria-label="Open navigation menu"
       >
-        <Menu className="h-5 w-5 text-[var(--color-text-secondary)]" />
+        <Menu className="h-5 w-5 text-[var(--color-text-primary)]" />
       </button>
 
-      {/* Sidebar */}
+      {isMobileOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
+          onClick={() => setIsMobileOpen(false)}
+          aria-label="Close navigation backdrop"
+        />
+      )}
+
       <aside
-        className={`
-          fixed left-0 top-0 z-50 h-screen border-r border-[var(--color-border-primary)]
-          flex flex-col shadow-xl backdrop-blur-sm bg-[var(--color-background-primary)]
-          transition-transform duration-300 ease-in-out
-          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-        `}
-        style={{
-          width: isMobileOpen
-            ? 'var(--sidebar-width-expanded)'
-            : isCollapsed
-              ? 'var(--sidebar-width-collapsed)'
-              : 'var(--sidebar-width-expanded)',
-        }}
+        className={`fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] shadow-2xl transition-all duration-300 ${
+          isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+        style={{ width: isCollapsed && !isMobileOpen ? 'var(--sidebar-width-collapsed)' : 'var(--sidebar-width-expanded)' }}
       >
-        {/* Header */}
-        <div className="p-5 border-b border-[var(--color-border-secondary)]">
-          <div className="flex items-center justify-between">
-            <Link 
-              href={homeHref} 
-              className="flex items-center gap-3 min-w-0 group"
-              onClick={() => setIsMobileOpen(false)}
-            >
-              <div className="h-11 w-11 rounded-full border-2 border-white bg-black flex items-center justify-center flex-shrink-0 shadow-md group-hover:shadow-lg transition-shadow">
-                <Image
-                  src="/OIP.webp"
-                  alt="Wisdom Church logo"
-                  width={36}
-                  height={36}
-                  className="rounded-full object-cover"
-                />
+        <div className="border-b border-[var(--color-border-secondary)] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <Link href={homeHref} onClick={() => setIsMobileOpen(false)} className="flex min-w-0 items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-black shadow-md ring-1 ring-white/10">
+                <Image src="/OIP.webp" alt="Wisdom Church" width={34} height={34} className="rounded-xl object-cover" priority />
               </div>
               {showLabels && (
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h1 className="font-display font-semibold text-base text-[var(--color-text-primary)] truncate">
-                      The Wisdom Church
-                    </h1>
-                  </div>
-                  <p className={textStyles.subtitle}>
-                    {isSuperAdmin ? 'Super Admin Console' : 'Administration Panel'}
+                  <p className="truncate text-sm font-bold tracking-tight text-[var(--color-text-primary)]">Wisdom Church</p>
+                  <p className="truncate text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">
+                    {isSuperAdmin ? 'Authority Console' : 'Admin Portal'}
                   </p>
                 </div>
               )}
             </Link>
-            
-            {/* Mobile close button */}
+
             <button
+              type="button"
               onClick={() => setIsMobileOpen(false)}
-              className="md:hidden p-2 hover:bg-[var(--color-background-hover)] rounded-[var(--radius-button)] transition-colors"
-              aria-label="Close menu"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-hover)] md:hidden"
+              aria-label="Close navigation menu"
             >
-              <X className="h-4 w-4 text-[var(--color-text-secondary)]" />
+              <X className="h-4 w-4" />
             </button>
           </div>
 
-          {/* User info */}
           {showLabels && auth.user && (
-            <div className="mt-6 border-t border-[var(--color-border-secondary)] pt-6">
+            <div className="mt-4 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3">
               <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-[var(--radius-button)] bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center flex-shrink-0 shadow-sm">
-                  <span className="font-bold text-lg text-amber-700">
-                    {getInitials()}
-                  </span>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-700 text-sm font-bold text-white shadow-sm">
+                  {userInitials}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
-                    {getUserName()}
-                  </p>
-                  <p className="text-xs text-[var(--color-text-tertiary)] truncate">
-                    {auth.user.email}
-                  </p>
-                  <div className="mt-2">
-                    <Badge variant={isSuperAdmin ? 'warning' : 'primary'} className="text-xs">
-                      <Shield className="h-3 w-3 mr-1" />
-                      {formatRole(auth.user.role)}
-                    </Badge>
-                  </div>
+                  <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{fullName}</p>
+                  <p className="truncate text-xs text-[var(--color-text-tertiary)]">{auth.user.email}</p>
                 </div>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <Badge variant={isSuperAdmin ? 'warning' : 'primary'} className="gap-1">
+                  <Shield className="h-3 w-3" />
+                  {roleLabel(role)}
+                </Badge>
+                {isSuperAdmin && <Badge variant="success">Approver</Badge>}
               </div>
             </div>
           )}
         </div>
 
-        {/* Navigation */}
-        <nav className={`flex-1 space-y-1 overflow-y-auto ${isCollapsed ? 'p-3' : 'p-4'}`}>
-          {navItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-            const Icon = item.icon;
-
-            return (
-              <div key={item.href}>
-                <Link
-                  href={item.href}
-                  onClick={() => setIsMobileOpen(false)}
-                  title={item.label}
-                  className={`
-                      flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all
-                      duration-200 ease-out group relative
-                      ${showLabels ? '' : 'justify-center'}
-                      ${isActive 
-                        ? 'bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)] shadow-sm' 
-                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)] hover:shadow-sm'
-                      }
-                    `}
-                  >
-                    <div className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0
-                      ${isActive 
-                        ? 'bg-[var(--color-accent-primary)] text-[var(--color-text-onprimary)]' 
-                        : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)] group-hover:bg-[var(--color-background-tertiary)] group-hover:text-[var(--color-accent-primary)]'
+        <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+          {groups.map((group) => (
+            <div key={group.title}>
+              {showLabels && (
+                <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">
+                  {group.title}
+                </p>
+              )}
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      title={item.label}
+                      aria-current={active ? 'page' : undefined}
+                      onClick={() => setIsMobileOpen(false)}
+                      className={`group relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-all ${
+                        showLabels ? '' : 'justify-center'
+                      } ${
+                        active
+                          ? 'bg-[var(--color-accent-primary)] text-[var(--color-text-onprimary)] shadow-md'
+                          : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)]'
                       }`}
                     >
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    
-                    {showLabels && (
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className="truncate font-medium">{item.label}</span>
-                          {isActive && (
-                            <div className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent-primary)] ml-2" />
-                          )}
-                        </div>
-                        <p className="text-xs text-[var(--color-text-tertiary)] truncate mt-0.5">
-                          {item.description}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {/* Active indicator for collapsed state */}
-                    {!showLabels && isActive && (
-                      <div className="absolute right-0 top-1/2 h-6 w-1.5 -translate-y-1/2 bg-[var(--color-accent-primary)] rounded-l-lg" />
-                    )}
-                    {!showLabels && (
-                      <span className="pointer-events-none absolute left-full top-1/2 ml-3 -translate-y-1/2 whitespace-nowrap rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1 text-xs text-[var(--color-text-secondary)] opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
-                        {item.label}
+                      <span
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                          active ? 'bg-white/15 text-current' : 'bg-[var(--color-background-tertiary)] text-current'
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
                       </span>
-                    )}
-                </Link>
+                      {showLabels && (
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-semibold">{item.label}</span>
+                          <span className={`block truncate text-xs ${active ? 'text-white/75' : 'text-[var(--color-text-tertiary)]'}`}>
+                            {item.description}
+                          </span>
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </nav>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-[var(--color-border-secondary)] bg-gradient-to-t from-[var(--color-background-tertiary)]/60 to-transparent">
-          {showLabels && (
-            <div className="mb-4 px-3 py-2 bg-[var(--color-background-tertiary)] rounded-[var(--radius-button)]">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-[var(--color-text-tertiary)]">
-                  <BellRing className="h-3 w-3 inline mr-1" />
-                  Last login: Today
-                </p>
-                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-              </div>
-            </div>
-          )}
-          
-          <button
-            onClick={handleLogoutClick}
-            className={`
-              flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium 
-              transition-all w-full group
-              text-red-600 hover:bg-red-50 hover:text-red-700 hover:shadow-sm
-              ${showLabels ? 'justify-start' : 'justify-center'}
-            `}
-            aria-label="Logout"
-            disabled={isLoggingOut}
-          >
-            <div className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0
-              bg-red-50 text-red-600 group-hover:bg-red-100 group-hover:text-red-700`}
+        <div className="border-t border-[var(--color-border-secondary)] p-3">
+          <div className={`flex items-center gap-2 ${showLabels ? 'justify-between' : 'justify-center'}`}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsCollapsed((value) => !value)}
+              className="hidden md:inline-flex"
+              aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowLogoutModal(true)}
+              className={showLabels ? 'flex-1' : ''}
             >
               <LogOut className="h-4 w-4" />
-            </div>
-            {showLabels && (
-              <span className="font-medium">Logout</span>
-            )}
-          </button>
-          
-          {showLabels && (
-            <p className="mt-4 text-center text-xs text-[var(--color-text-tertiary)]">
-              v1.0.0 • Wisdom Church Admin
-            </p>
-          )}
+              {showLabels && <span className="ml-2">Logout</span>}
+            </Button>
+          </div>
         </div>
       </aside>
 
-      {/* Mobile overlay */}
-      {isMobileOpen && (
-        <div
-          className="md:hidden fixed inset-0 bg-black/30 z-40 backdrop-blur-sm"
-          onClick={() => setIsMobileOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Logout Confirmation Modal */}
       <LogoutModal
         isOpen={showLogoutModal}
         onClose={() => setShowLogoutModal(false)}
-        onConfirm={handleConfirmLogout}
-        userName={getUserName()}
+        onConfirm={confirmLogout}
+        userName={fullName}
         loading={isLoggingOut}
       />
     </>
