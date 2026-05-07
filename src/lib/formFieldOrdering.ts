@@ -3,14 +3,14 @@ export type OrderedFormField = {
   label?: string;
   type?: string;
   required?: boolean;
-  order?: number | string;
+  order?: number;
 };
 
 function safeOrder(value: unknown, fallback: number): number {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
 
   if (typeof value === 'string') {
-    const parsed = Number(value.trim());
+    const parsed = Number(value);
     if (Number.isFinite(parsed)) return parsed;
   }
 

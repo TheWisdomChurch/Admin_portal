@@ -29,13 +29,11 @@ import { Input } from '@/ui/input';
 import { AlertModal } from '@/ui/AlertModal';
 
 import { apiClient } from '@/lib/api';
+import FormFieldOrderBuilder from '../FormFieldOrderBuilder';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { createFormSchema } from '@/lib/validation/forms';
 import type { CreateFormRequest, EventData, FormFieldType, FormSettings } from '@/lib/types';
-import FormFieldOrderBuilder from '../FormFieldOrderBuilder';
 import { normalizeOrderedFields } from '@/lib/formFieldOrdering';
-
-
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
@@ -332,6 +330,8 @@ export default withAuth(function NewFormPage() {
     { key: 'email', label: 'Email', type: 'email', required: true, order: 2 },
   ]);
 
+  const orderedFields = useMemo(() => normalizeOrderedFields(fields), [fields]);
+
   const descriptionStructure = useMemo(() => renderStructuredLines(description), [description]);
   const isWorkforceTarget = useMemo(() => submissionTarget === 'workforce' || submissionTarget === 'workforce_new' || submissionTarget === 'workforce_serving', [submissionTarget]);
   const includeRegistrationArtifacts = useMemo(() => {
@@ -437,7 +437,7 @@ export default withAuth(function NewFormPage() {
       setResponseEmailSubject((current) => current || 'Testimony received: Share Your Testimony');
       setResponseEmailHeading((current) => current || 'Testimony Received');
       setResponseEmailMessage((current) => current || 'Thank you for sharing your testimony. Our team will review it and contact you if we need clarification.');
-      setFields(buildPresetFields('testimonial'));
+      setFields(normalizeOrderedFields(buildPresetFields('testimonial')));
       return;
     }
 
@@ -453,7 +453,7 @@ export default withAuth(function NewFormPage() {
       setIntroBullets('Share valid contact details\nChoose the role you are applying for\nSubmissions are reviewed before display');
       setIntroBulletSubs('Used for direct follow-up\nHelps routing to the right team\nOnly approved profiles appear publicly');
       setDateFormat('dd-mm');
-      setFields(buildPresetFields('leadership'));
+      setFields(normalizeOrderedFields(buildPresetFields('leadership')));
       return;
     }
 
@@ -468,7 +468,7 @@ export default withAuth(function NewFormPage() {
     setIntroBullets('Provide valid contact details\nEnter accurate date of birth\nOptional prayer request up to 400 words');
     setIntroBulletSubs('Used for follow-up and communication\nHelps pastoral care and records\nOnly authorized staff can review');
     setDateFormat('dd-mm');
-    setFields(buildPresetFields('member'));
+    setFields(normalizeOrderedFields(buildPresetFields('member')));
   }, []);
 
   useEffect(() => {
@@ -481,7 +481,10 @@ export default withAuth(function NewFormPage() {
 
   const addField = () => {
     const order = fields.length + 1;
-    setFields((prev) => [...prev, { key: `field_${order}`, label: 'New field', type: 'text', required: false, order }]);
+    setFields((prev) => normalizeOrderedFields([
+      ...prev,
+      { key: `field_${order}`, label: 'New field', type: 'text', required: false, order },
+    ]));
   };
 
   const updateField = (index: number, updates: Partial<FieldDraft>) => {
@@ -561,7 +564,7 @@ export default withAuth(function NewFormPage() {
       description: description.trim() || undefined,
       slug: normalizedSlug,
       eventId: eventId || undefined,
-      fields: fields.map((field, index) => ({
+      fields: normalizeOrderedFields(fields).map((field, index) => ({
         key: (field.key || `field_${index + 1}`).trim(),
         label: field.label.trim(),
         type: field.type,
@@ -825,54 +828,75 @@ export default withAuth(function NewFormPage() {
       ) : null}
 
       {step === 'fields' ? (
-        <Panel title="Form builder" subtitle="Add fields, select input types, configure options, and mark required answers." icon={Settings2} actions={<Button variant="outline" onClick={() => addField()} icon={<Plus className="h-4 w-4" />}>Add Field</Button>}>
-          <div className="space-y-4">
-            {fields.map((field, index) => (
-              <div key={`${field.key}-${index}`} className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
-                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_140px_120px] lg:items-end">
-                  <Input label="Label" value={field.label} onChange={(event) => updateField(index, { label: event.target.value })} />
-                  <div>
-                    <label className="mb-1 block text-sm font-bold text-slate-600">Type</label>
-                    <select value={field.type} onChange={(event) => {
-                      const nextType = event.target.value as FormFieldType;
-                      const nextOptions = isOptionFieldType(nextType) && (!Array.isArray(field.options) || field.options.length === 0)
-                        ? [{ label: 'Option 1', value: 'option-1' }, { label: 'Option 2', value: 'option-2' }]
-                        : isOptionFieldType(nextType) ? field.options : undefined;
-                      updateField(index, { type: nextType, options: nextOptions });
-                    }} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none">
-                      <option value="text">Text</option>
-                      <option value="textarea">Textarea</option>
-                      <option value="email">Email</option>
-                      <option value="tel">Phone</option>
-                      <option value="number">Number</option>
-                      <option value="date">Date</option>
-                      <option value="select">Dropdown</option>
-                      <option value="checkbox">Checkbox</option>
-                      <option value="radio">Radio</option>
-                      <option value="image">Image Upload</option>
-                    </select>
+        <Panel
+          title="Form builder"
+          subtitle="Add fields, arrange the order, configure options, and mark required answers."
+          icon={Settings2}
+          actions={<Button variant="outline" onClick={() => addField()} icon={<Plus className="h-4 w-4" />}>Add Field</Button>}
+        >
+          <div className="space-y-5">
+            <FormFieldOrderBuilder<FieldDraft>
+              fields={fields}
+              onChange={(nextFields) => setFields(normalizeOrderedFields(nextFields))}
+              title="Arrange public form fields"
+              description="Drag fields into the exact order members should see on the public form. The saved backend order will follow this arrangement."
+            />
+
+            <div className="space-y-4">
+              {orderedFields.map((field, index) => (
+                <div key={`${field.key}-${index}`} className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Field #{index + 1}</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-500">{field.key || `field_${index + 1}`} • {field.type}</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => setRemoveFieldIndex(index)} icon={<Trash2 className="h-4 w-4" />}>Remove</Button>
                   </div>
-                  <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-black text-slate-600"><input type="checkbox" checked={field.required} onChange={(event) => updateField(index, { required: event.target.checked })} />Required</label>
-                  <Button variant="outline" size="sm" onClick={() => setRemoveFieldIndex(index)} icon={<Trash2 className="h-4 w-4" />}>Remove</Button>
+
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_140px] lg:items-end">
+                    <Input label="Label" value={field.label} onChange={(event) => updateField(index, { label: event.target.value })} />
+                    <div>
+                      <label className="mb-1 block text-sm font-bold text-slate-600">Type</label>
+                      <select value={field.type} onChange={(event) => {
+                        const nextType = event.target.value as FormFieldType;
+                        const nextOptions = isOptionFieldType(nextType) && (!Array.isArray(field.options) || field.options.length === 0)
+                          ? [{ label: 'Option 1', value: 'option-1' }, { label: 'Option 2', value: 'option-2' }]
+                          : isOptionFieldType(nextType) ? field.options : undefined;
+                        updateField(index, { type: nextType, options: nextOptions });
+                      }} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none">
+                        <option value="text">Text</option>
+                        <option value="textarea">Textarea</option>
+                        <option value="email">Email</option>
+                        <option value="tel">Phone</option>
+                        <option value="number">Number</option>
+                        <option value="date">Date</option>
+                        <option value="select">Dropdown</option>
+                        <option value="checkbox">Checkbox</option>
+                        <option value="radio">Radio</option>
+                        <option value="image">Image Upload</option>
+                      </select>
+                    </div>
+                    <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-black text-slate-600"><input type="checkbox" checked={field.required} onChange={(event) => updateField(index, { required: event.target.checked })} />Required</label>
+                  </div>
+
+                  {field.type === 'textarea' ? (
+                    <div className="mt-3 max-w-xs"><Input label="Max words (optional)" type="number" min={1} value={field.validation?.maxWords ?? ''} onChange={(event) => updateField(index, { validation: { ...(field.validation || {}), maxWords: event.target.value ? Number(event.target.value) : undefined } })} placeholder="e.g., 400" /></div>
+                  ) : null}
+
+                  {isOptionFieldType(field.type) ? (
+                    <div className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                      <div className="flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Options</p><Button type="button" variant="outline" size="sm" onClick={() => addFieldOption(index)} icon={<Plus className="h-4 w-4" />}>Add option</Button></div>
+                      {(field.options || []).map((option, optionIndex) => (
+                        <div key={`${option.value}-${optionIndex}`} className="flex items-center gap-2">
+                          <input className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none" value={option.label} onChange={(event) => updateFieldOptionLabel(index, optionIndex, event.target.value)} placeholder={`Option ${optionIndex + 1}`} />
+                          <Button type="button" variant="outline" size="sm" onClick={() => removeFieldOption(index, optionIndex)} icon={<Trash2 className="h-4 w-4" />}>Remove</Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-
-                {field.type === 'textarea' ? (
-                  <div className="mt-3 max-w-xs"><Input label="Max words (optional)" type="number" min={1} value={field.validation?.maxWords ?? ''} onChange={(event) => updateField(index, { validation: { ...(field.validation || {}), maxWords: event.target.value ? Number(event.target.value) : undefined } })} placeholder="e.g., 400" /></div>
-                ) : null}
-
-                {isOptionFieldType(field.type) ? (
-                  <div className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Options</p><Button type="button" variant="outline" size="sm" onClick={() => addFieldOption(index)} icon={<Plus className="h-4 w-4" />}>Add option</Button></div>
-                    {(field.options || []).map((option, optionIndex) => (
-                      <div key={`${option.value}-${optionIndex}`} className="flex items-center gap-2">
-                        <input className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none" value={option.label} onChange={(event) => updateFieldOptionLabel(index, optionIndex, event.target.value)} placeholder={`Option ${optionIndex + 1}`} />
-                        <Button type="button" variant="outline" size="sm" onClick={() => removeFieldOption(index, optionIndex)} icon={<Trash2 className="h-4 w-4" />}>Remove</Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </Panel>
       ) : null}
@@ -886,7 +910,7 @@ export default withAuth(function NewFormPage() {
             formHeaderNote={formHeaderNote}
             introBullets={introBullets}
             introBulletSubs={introBulletSubs}
-            fields={fields}
+            fields={orderedFields}
             dateFormat={dateFormat}
             submitButtonText={submitButtonText}
             submitButtonBg={submitButtonBg}
@@ -976,7 +1000,7 @@ export default withAuth(function NewFormPage() {
           label: 'Remove',
           onClick: () => {
             if (removeFieldIndex === null) return;
-            setFields((prev) => prev.filter((_, index) => index !== removeFieldIndex));
+            setFields((prev) => normalizeOrderedFields(prev.filter((_, index) => index !== removeFieldIndex)));
             setRemoveFieldIndex(null);
           },
           variant: 'danger',
