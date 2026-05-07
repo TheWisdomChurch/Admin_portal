@@ -1,31 +1,19 @@
 'use client';
 
-import { ReactNode, useEffect } from 'react';
+import type { ReactNode } from 'react';
+import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/Sidebar';
 import { Navbar } from '@/components/Navbar';
-import { useAuthContext } from '@/providers/AuthProviders';
 import { SessionTimeout } from '@/components/SessionTimeout';
+import { useAuthContext } from '@/providers/AuthProviders';
 import { getUserRole } from '@/lib/authRole';
 
-function FullPageMessage({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-6">
-      <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-8 shadow-2xl">
-        <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">{description}</p>
-      </div>
-    </div>
-  );
-}
+type DashboardLayoutClientProps = Readonly<{
+  children: ReactNode;
+}>;
 
-const adminOnlyPrefixes = [
+const normalAdminPrefixes = [
   '/dashboard/event',
   '/dashboard/reels',
   '/dashboard/testimonials',
@@ -44,24 +32,35 @@ const adminOnlyPrefixes = [
   '/dashboard/members',
 ];
 
-function isAdminOnlyPath(pathname: string): boolean {
-  if (pathname === '/dashboard') return true;
-  return adminOnlyPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+function FullPageMessage({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[var(--color-background-primary)] px-6">
+      <div className="w-full max-w-lg rounded-3xl border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-8 shadow-2xl">
+        <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">{title}</h1>
+        <p className="mt-3 text-sm leading-6 text-[var(--color-text-tertiary)]">{description}</p>
+      </div>
+    </div>
+  );
 }
 
-export default function DashboardLayoutClient({
-  children,
-}: {
-  children: ReactNode;
-}) {
+function isNormalAdminPath(pathname: string): boolean {
+  if (pathname === '/dashboard') return true;
+  return normalAdminPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+function isSuperAdminPath(pathname: string): boolean {
+  return pathname === '/dashboard/super' || pathname.startsWith('/dashboard/super/');
+}
+
+export default function DashboardLayoutClient({ children }: DashboardLayoutClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const auth = useAuthContext();
 
   const normalizedRole = getUserRole(auth.user);
   const isSuperAdmin = normalizedRole === 'super_admin';
-  const isRoleAllowed =
-    normalizedRole === 'admin' || normalizedRole === 'super_admin';
+  const isAdmin = normalizedRole === 'admin';
+  const isRoleAllowed = isAdmin || isSuperAdmin;
 
   useEffect(() => {
     if (!auth.isInitialized || !auth.bootstrapped) return;
@@ -77,31 +76,33 @@ export default function DashboardLayoutClient({
       return;
     }
 
-    if (auth.accessStatus === 'forbidden') {
-      return;
-    }
+    if (auth.accessStatus === 'forbidden') return;
 
     if (!isRoleAllowed) {
       router.replace('/');
       return;
     }
 
-    if (isSuperAdmin && isAdminOnlyPath(pathname)) {
+    // Role separation is intentional:
+    // - super_admin owns the authority console only.
+    // - admin owns the operational dashboard only.
+    // This prevents the super-admin from becoming an operational admin user.
+    if (isSuperAdmin && isNormalAdminPath(pathname)) {
       router.replace('/dashboard/super');
       return;
     }
 
-    if (normalizedRole === 'admin' && pathname.startsWith('/dashboard/super')) {
+    if (isAdmin && isSuperAdminPath(pathname)) {
       router.replace('/dashboard');
     }
   }, [
-    auth.isInitialized,
-    auth.bootstrapped,
-    auth.status,
     auth.accessStatus,
+    auth.bootstrapped,
+    auth.isInitialized,
+    auth.status,
+    isAdmin,
     isRoleAllowed,
     isSuperAdmin,
-    normalizedRole,
     pathname,
     router,
   ]);
@@ -113,10 +114,13 @@ export default function DashboardLayoutClient({
     auth.accessStatus === 'loading'
   ) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-lg text-muted-foreground">Checking your access...</p>
+      <div className="flex min-h-screen items-center justify-center bg-[var(--color-background-primary)]">
+        <div className="flex items-center gap-4 rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-6 py-5 shadow-xl">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-accent-primary)] border-t-transparent" />
+          <div>
+            <p className="text-sm font-semibold text-[var(--color-text-primary)]">Checking your access</p>
+            <p className="text-xs text-[var(--color-text-tertiary)]">Validating session, role and MFA state...</p>
+          </div>
         </div>
       </div>
     );
@@ -126,7 +130,7 @@ export default function DashboardLayoutClient({
     return (
       <FullPageMessage
         title="Redirecting..."
-        description="Please wait while we route your session to the correct access flow."
+        description="Please wait while your session is routed to the correct security step."
       />
     );
   }
@@ -135,7 +139,7 @@ export default function DashboardLayoutClient({
     return (
       <FullPageMessage
         title="Access denied"
-        description="Your account is signed in, but it does not currently have the required admin access for this portal."
+        description="Your account is signed in, but it does not currently have approved administrator access for this portal."
       />
     );
   }
@@ -143,15 +147,13 @@ export default function DashboardLayoutClient({
   if (!auth.isAuthenticated || !isRoleAllowed) return null;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-[var(--color-background-primary)] text-[var(--color-text-primary)]">
       <Sidebar />
-      <div className="dashboard-shell">
+      <div className="dashboard-shell min-h-screen">
         <Navbar />
         <SessionTimeout />
         <main className="flex-1 overflow-auto">
-          <div className="w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-8">
-            {children}
-          </div>
+          <div className="w-full px-4 py-5 sm:px-6 sm:py-7 lg:px-8 xl:px-10">{children}</div>
         </main>
       </div>
     </div>

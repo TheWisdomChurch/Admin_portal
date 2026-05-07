@@ -2,72 +2,238 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import clsx from 'clsx';
-import { Badge } from '@/ui/Badge';
+import {
+  Activity,
+  CheckCircle2,
+  Clock3,
+  Eye,
+  Filter,
+  Loader2,
+  RefreshCcw,
+  Search,
+  ShieldAlert,
+  ThumbsDown,
+  X,
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+import { Badge, type BadgeVariant } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
 import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
-import { useDashboardSearch } from '@/hooks/useDashboardSearch';
-import { apiClient } from '@/lib/api';
-import type {
-  ApprovalRequest,
-  ApprovalRequestStatus,
-  ApprovalRequestType,
-  ApprovalRequestsTimeline,
-} from '@/lib/types';
-import { Activity, CheckCircle2, Clock3, Filter, RefreshCcw, Search } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { adminWorkflowApi,requestCreatedAt,
+  requestEntityId,
+  requestEntityLabel,
+  requestRequesterEmail,
+  requestRequesterName,
+  requestTicketCode,
+  type ApprovalRequest,
+  type ApprovalRequestStatus,
+  type ApprovalRequestType,
+  type ApprovalRequestsTimeline,
+  type ApprovalTimelinePoint} from '@/lib/adminWorkflow';
 
-const typeLabel: Record<ApprovalRequestType, string> = {
+type TypeFilter = 'all' | ApprovalRequestType;
+type StatusFilter = 'all' | ApprovalRequestStatus;
+type SortMode = 'recent' | 'oldest' | 'requester' | 'type';
+type ModalAction = 'approve' | 'reject';
+type TimelinePoint = { day: string; created: number; approved: number };
+
+const typeLabels: Record<string, string> = {
   testimonial: 'Testimonial',
   event: 'Event',
   admin_user: 'Admin Access',
   leadership_delete: 'Leadership Delete',
   workforce_delete: 'Workforce Delete',
+  form_delete: 'Form Delete',
+  form_submission_delete: 'Form Response Delete',
 };
 
-const statusVariant: Record<ApprovalRequestStatus, 'warning' | 'success' | 'danger'> = {
+const typeDescriptions: Record<string, string> = {
+  testimonial: 'Publish or remove testimony requests.',
+  event: 'Approve public event visibility.',
+  admin_user: 'Approve or reject admin account access.',
+  leadership_delete: 'Authorize leadership profile deletion.',
+  workforce_delete: 'Authorize workforce record deletion.',
+  form_delete: 'Authorize form deletion.',
+  form_submission_delete: 'Authorize submitted form-response deletion.',
+};
+
+const statusVariants: Record<string, BadgeVariant> = {
   pending: 'warning',
   approved: 'success',
+  rejected: 'danger',
   deleted: 'danger',
 };
+
+function humanType(type: string): string {
+  return typeLabels[type] || type.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatDate(value: string): string {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
 
 function fallbackMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim()) return error.message;
   return fallback;
 }
 
-function openPathByType(type: ApprovalRequestType): string {
-  if (type === 'testimonial') return '/dashboard/testimonials';
-  if (type === 'event') return '/dashboard/event';
-  if (type === 'leadership_delete') return '/dashboard/leadership';
-  if (type === 'workforce_delete') return '/dashboard/workforce';
-  return '/dashboard';
+function openPathForRequest(request: ApprovalRequest): string {
+  const id = requestEntityId(request);
+  switch (request.type) {
+    case 'admin_user':
+      return id ? `/dashboard/super/requests?admin=${encodeURIComponent(id)}` : '/dashboard/super/requests';
+    case 'testimonial':
+      return '/dashboard/testimonials';
+    case 'event':
+      return '/dashboard/event';
+    case 'leadership_delete':
+      return '/dashboard/leadership';
+    case 'workforce_delete':
+      return '/dashboard/workforce';
+    case 'form_delete':
+    case 'form_submission_delete':
+      return '/dashboard/forms';
+    default:
+      return '/dashboard/super/requests';
+  }
+}
+
+function requestMatches(request: ApprovalRequest, query: string): boolean {
+  if (!query) return true;
+  const haystack = [
+    requestTicketCode(request),
+    humanType(request.type),
+    request.status,
+    requestEntityLabel(request),
+    requestRequesterName(request),
+    requestRequesterEmail(request),
+    requestEntityId(request),
+  ]
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(query.toLowerCase());
+}
+
+function ActionModal({
+  action,
+  request,
+  loading,
+  reason,
+  onReasonChange,
+  onClose,
+  onConfirm,
+}: {
+  action: ModalAction;
+  request: ApprovalRequest | null;
+  loading: boolean;
+  reason: string;
+  onReasonChange: (value: string) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  if (!request) return null;
+
+  const isReject = action === 'reject';
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 px-4 py-8 backdrop-blur-sm">
+      <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-[var(--color-border-secondary)] p-5">
+          <div>
+            <Badge variant={isReject ? 'danger' : 'success'}>{isReject ? 'Reject request' : 'Approve request'}</Badge>
+            <h2 className="mt-3 text-xl font-bold text-[var(--color-text-primary)]">
+              {isReject ? 'Reject' : 'Approve'} {humanType(request.type)}
+            </h2>
+            <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">
+              Ticket {requestTicketCode(request)} · {requestEntityLabel(request) || 'No label'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="rounded-xl p-2 text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-hover)]"
+            aria-label="Close dialog"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4 p-5">
+          <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 text-sm">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Requester</p>
+                <p className="mt-1 text-[var(--color-text-primary)]">
+                  {requestRequesterName(request) || requestRequesterEmail(request) || 'Unknown'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Created</p>
+                <p className="mt-1 text-[var(--color-text-primary)]">{formatDate(requestCreatedAt(request))}</p>
+              </div>
+            </div>
+          </div>
+
+          {isReject && (
+            <label className="block">
+              <span className="text-sm font-semibold text-[var(--color-text-primary)]">Reason sent to requester</span>
+              <textarea
+                value={reason}
+                onChange={(event) => onReasonChange(event.target.value)}
+                rows={4}
+                className="mt-2 w-full rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-4 py-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent-primary)]"
+                placeholder="Example: Access request was not approved at this time."
+              />
+            </label>
+          )}
+        </div>
+
+        <div className="flex flex-col-reverse gap-3 border-t border-[var(--color-border-secondary)] p-5 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button type="button" variant={isReject ? 'danger' : 'primary'} onClick={onConfirm} loading={loading}>
+            {isReject ? 'Reject request' : 'Approve request'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function RequestsPage() {
   const router = useRouter();
-  const { searchTerm, setSearchTerm } = useDashboardSearch('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [requests, setRequests] = useState<ApprovalRequest[]>([]);
   const [timeline, setTimeline] = useState<ApprovalRequestsTimeline | null>(null);
-  const [typeFilter, setTypeFilter] = useState<'all' | ApprovalRequestType>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | ApprovalRequestStatus>('all');
-  const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'requester'>('recent');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
+  const [sortBy, setSortBy] = useState<SortMode>('recent');
+  const [modalAction, setModalAction] = useState<ModalAction | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<ApprovalRequest | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   const loadData = useCallback(async () => {
-    setLoading(true);
     try {
-      const [requestsRes, timelineRes] = await Promise.all([
-        apiClient.listApprovalRequests({ limit: 120 }),
-        apiClient.getApprovalRequestsTimeline(14),
+      setLoading(true);
+      const [requestItems, timelinePayload] = await Promise.all([
+        adminWorkflowApi.listApprovalRequests({ limit: 250 }),
+        adminWorkflowApi.getApprovalTimeline(14).catch(() => null),
       ]);
-      setRequests(Array.isArray(requestsRes) ? requestsRes : []);
-      setTimeline(timelineRes);
-    } catch (error: unknown) {
-      toast.error(fallbackMessage(error, 'Failed to load super-admin requests.'));
+      setRequests(requestItems);
+      setTimeline(timelinePayload);
+    } catch (error) {
+      console.error('Failed to load approval requests:', error);
+      toast.error(fallbackMessage(error, 'Failed to load approval requests.'));
       setRequests([]);
       setTimeline(null);
     } finally {
@@ -79,153 +245,141 @@ function RequestsPage() {
     void loadData();
   }, [loadData]);
 
-  const approveLeadershipDelete = useCallback(
-    async (req: ApprovalRequest) => {
-      if (!req.entityId) {
-        toast.error('This request has no leadership profile attached.');
-        return;
-      }
-      if (!window.confirm(`Approve deletion for ${req.entityLabel || 'this leadership profile'}?`)) {
-        return;
-      }
-      try {
-        await apiClient.approveLeadershipDelete(req.entityId);
-        toast.success('Leadership profile deleted');
-        await loadData();
-      } catch (error) {
-        toast.error(fallbackMessage(error, 'Unable to approve leadership delete.'));
-      }
-    },
-    [loadData]
-  );
-
-  const approveWorkforceDelete = useCallback(
-    async (req: ApprovalRequest) => {
-      if (!req.entityId) {
-        toast.error('This request has no workforce profile attached.');
-        return;
-      }
-      if (!window.confirm(`Approve deletion for ${req.entityLabel || 'this workforce profile'}?`)) {
-        return;
-      }
-      try {
-        await apiClient.approveWorkforceDelete(req.entityId);
-        toast.success('Workforce profile deleted');
-        await loadData();
-      } catch (error) {
-        toast.error(fallbackMessage(error, 'Unable to approve workforce delete.'));
-      }
-    },
-    [loadData]
-  );
+  const counts = useMemo(() => {
+    return requests.reduce(
+      (acc, request) => {
+        acc.total += 1;
+        acc[request.status] = (acc[request.status] || 0) + 1;
+        return acc;
+      },
+      { total: 0 } as Record<string, number>
+    );
+  }, [requests]);
 
   const filteredRequests = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-    const source = Array.isArray(requests) ? requests : [];
-    return source
-      .filter((item) => (typeFilter === 'all' ? true : item.type === typeFilter))
-      .filter((item) => (statusFilter === 'all' ? true : item.status === statusFilter))
-      .filter((item) => {
-        if (!query) return true;
-        const haystack = `${item.ticketCode} ${item.entityLabel ?? ''} ${item.requestedByName ?? ''} ${item.requestedByEmail ?? ''}`.toLowerCase();
-        return haystack.includes(query);
-      })
+    return [...requests]
+      .filter((request) => (typeFilter === 'all' ? true : request.type === typeFilter))
+      .filter((request) => (statusFilter === 'all' ? true : request.status === statusFilter))
+      .filter((request) => requestMatches(request, searchTerm.trim()))
       .sort((a, b) => {
         if (sortBy === 'requester') {
-          return (a.requestedByName || a.requestedByEmail || '').localeCompare(
-            b.requestedByName || b.requestedByEmail || ''
+          return (requestRequesterName(a) || requestRequesterEmail(a)).localeCompare(
+            requestRequesterName(b) || requestRequesterEmail(b)
           );
         }
-        if (sortBy === 'oldest') {
-          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        }
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        if (sortBy === 'type') return humanType(a.type).localeCompare(humanType(b.type));
+        const aTime = new Date(requestCreatedAt(a)).getTime() || 0;
+        const bTime = new Date(requestCreatedAt(b)).getTime() || 0;
+        return sortBy === 'oldest' ? aTime - bTime : bTime - aTime;
       });
   }, [requests, searchTerm, sortBy, statusFilter, typeFilter]);
 
-  const timelinePoints = useMemo(() => {
-    if (!timeline) return [];
-    const created = Array.isArray(timeline.created)
-      ? timeline.created.filter((item): item is { day: string; count: number } => Boolean(item && item.day))
-      : [];
-    const approved = Array.isArray(timeline.approved)
-      ? timeline.approved.filter((item): item is { day: string; count: number } => Boolean(item && item.day))
-      : [];
+  const timelinePoints = useMemo<TimelinePoint[]>(() => {
+    const created: ApprovalTimelinePoint[] = Array.isArray(timeline?.created) ? timeline.created : [];
+    const approved: ApprovalTimelinePoint[] = Array.isArray(timeline?.approved) ? timeline.approved : [];
     const approvedByDay = new Map<string, number>(
-      approved.map((item) => {
-        const safeDay = new Date(item.day);
-        const dayKey = Number.isNaN(safeDay.getTime()) ? item.day.slice(0, 10) : safeDay.toISOString().slice(0, 10);
-        return [dayKey, item.count];
-      })
+      approved.map((item: ApprovalTimelinePoint) => [String(item.day).slice(0, 10), Number(item.count) || 0])
     );
-    return created.map((item) => {
-      const safeDay = new Date(item.day);
-      const key = Number.isNaN(safeDay.getTime()) ? item.day.slice(0, 10) : safeDay.toISOString().slice(0, 10);
+
+    return created.map((item: ApprovalTimelinePoint): TimelinePoint => {
+      const day = String(item.day).slice(0, 10);
       return {
-        day: key,
-        created: item.count,
-        approved: approvedByDay.get(key) || 0,
+        day,
+        created: Number(item.count) || 0,
+        approved: approvedByDay.get(day) || 0,
       };
     });
   }, [timeline]);
 
-  const timelineMax = useMemo(() => {
-    return Math.max(1, ...timelinePoints.map((item) => Math.max(item.created, item.approved)));
-  }, [timelinePoints]);
+  const timelineMax = useMemo(
+    () => Math.max(1, ...timelinePoints.map((item: TimelinePoint) => Math.max(item.created, item.approved))),
+    [timelinePoints]
+  );
+
+  const openAction = (action: ModalAction, request: ApprovalRequest) => {
+    setSelectedRequest(request);
+    setModalAction(action);
+    setRejectReason(action === 'reject' ? 'Request was not approved.' : '');
+  };
+
+  const closeAction = () => {
+    if (actionLoading) return;
+    setSelectedRequest(null);
+    setModalAction(null);
+    setRejectReason('');
+  };
+
+  const confirmAction = async () => {
+    if (!selectedRequest || !modalAction) return;
+    try {
+      setActionLoading(true);
+      if (modalAction === 'approve') {
+        await adminWorkflowApi.approveRequest(selectedRequest);
+        toast.success('Request approved');
+      } else {
+        await adminWorkflowApi.rejectRequest(selectedRequest, rejectReason);
+        toast.success('Request rejected');
+      }
+      closeAction();
+      await loadData();
+    } catch (error) {
+      console.error('Approval action failed:', error);
+      toast.error(fallbackMessage(error, 'Unable to complete request action.'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Requests"
-        subtitle="Live super-admin request stream from approval tickets and workflow events."
+        title="Super Admin Requests"
+        subtitle="Central authority queue for admin accounts, content publishing, deletion requests and operational approvals."
         actions={
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="text-xs px-3" onClick={() => setSearchTerm('')}>
-              Clear search
-            </Button>
-            <Button variant="outline" size="sm" className="text-xs px-3" onClick={() => void loadData()} loading={loading}>
-              <RefreshCcw className="h-4 w-4 mr-2" />
-              Refresh
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => void loadData()} loading={loading}>
+              <RefreshCcw className="h-4 w-4" />
+              <span className="ml-2">Refresh</span>
             </Button>
           </div>
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
-          <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Total tickets</p>
-          <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{requests.length}</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Total tickets</p>
+          <p className="mt-2 text-3xl font-bold text-[var(--color-text-primary)]">{counts.total || 0}</p>
         </Card>
         <Card>
-          <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending</p>
-          <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">
-            {requests.filter((item) => item.status === 'pending').length}
-          </p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending</p>
+          <p className="mt-2 text-3xl font-bold text-amber-600">{counts.pending || 0}</p>
         </Card>
         <Card>
-          <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Approved</p>
-          <p className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">
-            {requests.filter((item) => item.status === 'approved').length}
-          </p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Approved</p>
+          <p className="mt-2 text-3xl font-bold text-emerald-600">{counts.approved || 0}</p>
+        </Card>
+        <Card>
+          <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Rejected / Deleted</p>
+          <p className="mt-2 text-3xl font-bold text-red-600">{(counts.rejected || 0) + (counts.deleted || 0)}</p>
         </Card>
       </div>
 
       <Card title="Request Timeline" actions={<Activity className="h-4 w-4 text-[var(--color-text-tertiary)]" />}>
         {timelinePoints.length === 0 ? (
-          <p className="text-sm text-[var(--color-text-tertiary)]">No timeline data yet.</p>
+          <p className="text-sm text-[var(--color-text-tertiary)]">No timeline data is available yet.</p>
         ) : (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-7">
-            {timelinePoints.map((point) => {
-              const createdHeight = Math.max(8, Math.round((point.created / timelineMax) * 70));
-              const approvedHeight = Math.max(8, Math.round((point.approved / timelineMax) * 70));
+            {timelinePoints.map((point: TimelinePoint) => {
+              const createdHeight = Math.max(8, Math.round((point.created / timelineMax) * 72));
+              const approvedHeight = Math.max(8, Math.round((point.approved / timelineMax) * 72));
               return (
-                <div key={point.day} className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] p-3">
-                  <p className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">{point.day.slice(5)}</p>
+                <div key={point.day} className="rounded-2xl border border-[var(--color-border-secondary)] p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">{point.day.slice(5)}</p>
                   <div className="mt-2 flex h-20 items-end gap-2">
-                    <div className="w-3 rounded-sm bg-amber-400/80" style={{ height: `${createdHeight}px` }} title={`Created: ${point.created}`} />
-                    <div className="w-3 rounded-sm bg-emerald-400/80" style={{ height: `${approvedHeight}px` }} title={`Approved: ${point.approved}`} />
+                    <div className="w-3 rounded-t bg-amber-400" style={{ height: `${createdHeight}px` }} />
+                    <div className="w-3 rounded-t bg-emerald-500" style={{ height: `${approvedHeight}px` }} />
                   </div>
-                  <p className="mt-2 text-[10px] text-[var(--color-text-tertiary)]">C:{point.created} • A:{point.approved}</p>
+                  <p className="mt-2 text-[10px] text-[var(--color-text-tertiary)]">C:{point.created} · A:{point.approved}</p>
                 </div>
               );
             })}
@@ -234,132 +388,128 @@ function RequestsPage() {
       </Card>
 
       <Card>
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" className="text-xs px-3" variant={typeFilter === 'all' ? 'primary' : 'ghost'} icon={<Filter className="h-4 w-4" />} onClick={() => setTypeFilter('all')}>
-              All
+            <Button type="button" size="sm" variant={typeFilter === 'all' ? 'primary' : 'ghost'} onClick={() => setTypeFilter('all')}>
+              <Filter className="h-4 w-4" />
+              <span className="ml-2">All</span>
             </Button>
-            <Button size="sm" className="text-xs px-3" variant={typeFilter === 'event' ? 'primary' : 'ghost'} onClick={() => setTypeFilter('event')}>
-              Events
-            </Button>
-            <Button size="sm" className="text-xs px-3" variant={typeFilter === 'testimonial' ? 'primary' : 'ghost'} onClick={() => setTypeFilter('testimonial')}>
-              Testimonials
-            </Button>
-            <Button size="sm" className="text-xs px-3" variant={typeFilter === 'admin_user' ? 'primary' : 'ghost'} onClick={() => setTypeFilter('admin_user')}>
-              Admin Access
-            </Button>
-            <Button size="sm" className="text-xs px-3" variant={typeFilter === 'leadership_delete' ? 'primary' : 'ghost'} onClick={() => setTypeFilter('leadership_delete')}>
-              Leadership Delete
-            </Button>
-            <Button size="sm" className="text-xs px-3" variant={typeFilter === 'workforce_delete' ? 'primary' : 'ghost'} onClick={() => setTypeFilter('workforce_delete')}>
-              Workforce Delete
-            </Button>
-
-            <Button size="sm" className="text-xs px-3" variant={statusFilter === 'pending' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('pending')}>
-              Pending
-            </Button>
-            <Button size="sm" className="text-xs px-3" variant={statusFilter === 'approved' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('approved')}>
-              Approved
-            </Button>
-            <Button size="sm" className="text-xs px-3" variant={statusFilter === 'deleted' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('deleted')}>
-              Deleted
-            </Button>
+            {['admin_user', 'event', 'testimonial', 'leadership_delete', 'workforce_delete', 'form_submission_delete'].map((type) => (
+              <Button
+                key={type}
+                type="button"
+                size="sm"
+                variant={typeFilter === type ? 'primary' : 'ghost'}
+                onClick={() => setTypeFilter(type)}
+              >
+                {humanType(type)}
+              </Button>
+            ))}
           </div>
 
-          <div className="flex items-center gap-2 w-full md:w-[28rem]">
-            <div className="relative flex-1">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative min-w-[240px] flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
-              <Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search by ticket, requester, label..." className="pl-10" />
+              <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} className="pl-10" placeholder="Search ticket, requester, label..." />
             </div>
             <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs md:text-sm"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+              className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
             >
-              <option value="recent">Newest</option>
-              <option value="oldest">Oldest</option>
+              <option value="all">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="deleted">Deleted</option>
+            </select>
+            <select
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value as SortMode)}
+              className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+            >
+              <option value="recent">Newest first</option>
+              <option value="oldest">Oldest first</option>
               <option value="requester">Requester</option>
+              <option value="type">Type</option>
             </select>
           </div>
         </div>
 
-        <div className="mt-4 space-y-3">
-          {filteredRequests.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">No requests match these filters.</p>
+        <div className="mt-5 space-y-3">
+          {loading ? (
+            <div className="flex items-center justify-center gap-3 rounded-2xl border border-dashed border-[var(--color-border-secondary)] p-8 text-[var(--color-text-tertiary)]">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Loading requests...
+            </div>
+          ) : filteredRequests.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[var(--color-border-secondary)] p-8 text-center">
+              <ShieldAlert className="mx-auto h-8 w-8 text-[var(--color-text-tertiary)]" />
+              <p className="mt-3 text-sm font-semibold text-[var(--color-text-primary)]">No matching requests</p>
+              <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">Adjust filters or refresh the queue.</p>
+            </div>
           ) : (
-            filteredRequests.map((req) => (
-              <div
-                key={req.id}
-                className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4"
-              >
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div className="space-y-1.5 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">{req.ticketCode}</p>
-                      <Badge variant="outline" size="sm">{typeLabel[req.type]}</Badge>
-                      <Badge variant={statusVariant[req.status]} size="sm">{req.status}</Badge>
+            filteredRequests.map((request) => {
+              const pending = request.status === 'pending';
+              const requester = requestRequesterName(request) || requestRequesterEmail(request) || 'Unknown requester';
+              return (
+                <div key={request.id} className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={statusVariants[request.status] || 'secondary'}>{request.status}</Badge>
+                        <Badge variant="outline">{humanType(request.type)}</Badge>
+                        <span className="text-xs font-semibold text-[var(--color-text-tertiary)]">{requestTicketCode(request)}</span>
+                      </div>
+                      <h3 className="mt-3 text-base font-bold text-[var(--color-text-primary)]">{requestEntityLabel(request) || humanType(request.type)}</h3>
+                      <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">{typeDescriptions[request.type] || 'Review this request and decide the next action.'}</p>
+                      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--color-text-tertiary)]">
+                        <span>Requester: <strong className="text-[var(--color-text-secondary)]">{requester}</strong></span>
+                        <span>Created: <strong className="text-[var(--color-text-secondary)]">{formatDate(requestCreatedAt(request))}</strong></span>
+                      </div>
                     </div>
-                    <p className="text-sm text-[var(--color-text-secondary)] truncate">{req.entityLabel || 'No label provided'}</p>
-                    <p className="text-xs text-[var(--color-text-tertiary)] flex items-center gap-2">
-                      <Clock3 className="h-3.5 w-3.5" />
-                      {new Date(req.createdAt).toLocaleString()}
-                    </p>
-                    <p className="text-xs text-[var(--color-text-tertiary)]">
-                      Requested by: {req.requestedByName || req.requestedByEmail || 'System'}
-                    </p>
-                    {req.approvedAt && (
-                      <p className="text-xs text-emerald-500 flex items-center gap-1">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Approved {new Date(req.approvedAt).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className={clsx('text-xs px-3')}
-                      onClick={() => router.push(openPathByType(req.type))}
-                    >
-                      Open Related
-                    </Button>
-                    {req.entityId && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs px-3"
-                        onClick={() => setSearchTerm(req.entityId || '')}
-                      >
-                        Track ID
+
+                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                      <Button type="button" variant="outline" size="sm" onClick={() => router.push(openPathForRequest(request))}>
+                        <Eye className="h-4 w-4" />
+                        <span className="ml-2">Open</span>
                       </Button>
-                    )}
-                    {req.type === 'leadership_delete' && req.status === 'pending' && (
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        className="text-xs px-3"
-                        onClick={() => void approveLeadershipDelete(req)}
-                      >
-                        Approve Delete
-                      </Button>
-                    )}
-                    {req.type === 'workforce_delete' && req.status === 'pending' && (
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        className="text-xs px-3"
-                        onClick={() => void approveWorkforceDelete(req)}
-                      >
-                        Approve Delete
-                      </Button>
-                    )}
+                      {pending && (
+                        <>
+                          <Button type="button" variant="primary" size="sm" onClick={() => openAction('approve', request)}>
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span className="ml-2">Approve</span>
+                          </Button>
+                          <Button type="button" variant="danger" size="sm" onClick={() => openAction('reject', request)}>
+                            <ThumbsDown className="h-4 w-4" />
+                            <span className="ml-2">Reject</span>
+                          </Button>
+                        </>
+                      )}
+                      {!pending && (
+                        <Badge variant="secondary" className="gap-1">
+                          <Clock3 className="h-3 w-3" />
+                          Finalized
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </Card>
+
+      <ActionModal
+        action={modalAction || 'approve'}
+        request={selectedRequest}
+        loading={actionLoading}
+        reason={rejectReason}
+        onReasonChange={setRejectReason}
+        onClose={closeAction}
+        onConfirm={() => void confirmAction()}
+      />
     </div>
   );
 }
