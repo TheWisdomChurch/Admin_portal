@@ -32,6 +32,10 @@ import { apiClient } from '@/lib/api';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { createFormSchema } from '@/lib/validation/forms';
 import type { CreateFormRequest, EventData, FormFieldType, FormSettings } from '@/lib/types';
+import FormFieldOrderBuilder from '../FormFieldOrderBuilder';
+import { normalizeOrderedFields } from '@/lib/formFieldOrdering';
+
+
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
