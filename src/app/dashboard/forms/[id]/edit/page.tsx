@@ -11,9 +11,9 @@ import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
 import { PageHeader } from '@/layouts';
 import { AlertModal } from '@/ui/AlertModal';
-
-import { apiClient } from '@/lib/api';
 import FormFieldOrderBuilder from '../../FormFieldOrderBuilder';
+import { apiClient } from '@/lib/api';
+
 import { normalizeOrderedFields } from '@/lib/formFieldOrdering';
 import {
   buildFormSubmissionsReportPath,
@@ -645,8 +645,8 @@ function EditFormPage() {
     );
   };
 
-  const getVisibilityTargetFields = (currentKey: string) =>
-    orderedFields.filter((field) => field.key !== currentKey && Boolean(field.key?.trim()));
+  const getVisibilityTargetFields = (currentIndex: number) =>
+    orderedFields.filter((field, index) => index !== currentIndex && Boolean(field.key?.trim()));
 
   const getVisibilityTargetOptions = (fieldKey: string) => {
     const target = orderedFields.find((field) => field.key === fieldKey);
@@ -710,7 +710,9 @@ function EditFormPage() {
   const confirmRemoveField = () => {
     if (removeFieldIndex === null) return;
 
-    setFields((prev) => normalizeOrderedFields(prev.filter((_, index) => index !== removeFieldIndex)));
+    setFields((prev) =>
+      normalizeOrderedFields(prev.filter((_, index) => index !== removeFieldIndex))
+    );
 
     setRemoveFieldIndex(null);
   };
@@ -740,7 +742,7 @@ function EditFormPage() {
 
     setFieldErrors({});
 
-    for (const field of orderedFields) {
+    for (const field of fields) {
       if (!field.label?.trim()) {
         toast.error('Every field must have a label.');
         return;
@@ -878,7 +880,7 @@ function EditFormPage() {
   const introBulletsValue = (form.settings?.introBullets ?? []).join('\n');
   const introBulletSubtextsValue = (form.settings?.introBulletSubtexts ?? []).join('\n');
   const contentSections = form.settings?.contentSections ?? [];
-  const pendingField = removeFieldIndex !== null ? fields[removeFieldIndex] : null;
+  const pendingField = removeFieldIndex !== null ? orderedFields[removeFieldIndex] : null;
 
   const addContentSection = () => {
     updateSettings({ contentSections: [...contentSections, createEmptyContentSection()] });
@@ -1389,13 +1391,10 @@ function EditFormPage() {
             description="Drag fields into the exact order members should see on the public form. The saved backend order will follow this arrangement."
           />
 
-          {orderedFields.map((field, orderedIndex) => {
-            const index = fields.findIndex((item) => item.key === field.key);
-            if (index === -1) return null;
-
+          {orderedFields.map((field, index) => {
             const visibilityRules = Array.isArray(field.visibility?.rules) ? field.visibility.rules : [];
             const visibilityEnabled = visibilityRules.length > 0;
-            const targetFields = getVisibilityTargetFields(field.key);
+            const targetFields = getVisibilityTargetFields(index);
 
             return (
               <div
