@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Mail, RefreshCw, Send } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Mail, RefreshCw, Search, Send, Users, UserCheck, UserX, Clock3 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { withAuth } from '@/providers/withAuth';
@@ -9,15 +9,33 @@ import { apiClient } from '@/lib/api';
 import { getServerErrorMessage } from '@/lib/serverValidation';
 import type { EventData, Subscriber, SubscriberSummary } from '@/lib/types';
 import { Button } from '@/ui/Button';
-import { Card } from '@/ui/Card';
 import { Badge } from '@/ui/Badge';
 import { Input } from '@/ui/input';
 
 function formatDate(value?: string): string {
-  if (!value) return '-';
+  if (!value) return '—';
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return '-';
-  return parsed.toLocaleString();
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return parsed.toLocaleString(undefined, { month: 'short', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function ShellCard({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <section className={`rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm ${className}`}>{children}</section>;
+}
+
+function Metric({ label, value, icon: Icon, hint }: { label: string; value: number | string; icon: React.ElementType; hint: string }) {
+  return (
+    <ShellCard className="p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="truncate text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</p>
+          <p className="mt-3 text-3xl font-black text-[var(--color-text-primary)]">{value}</p>
+          <p className="mt-2 line-clamp-2 text-sm text-[var(--color-text-secondary)]">{hint}</p>
+        </div>
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]"><Icon className="h-5 w-5" /></div>
+      </div>
+    </ShellCard>
+  );
 }
 
 function NewsletterPage() {
@@ -38,10 +56,7 @@ function NewsletterPage() {
   const [message, setMessage] = useState('');
   const [eventId, setEventId] = useState('');
 
-  const totalPages = useMemo(() => {
-    if (total <= 0) return 1;
-    return Math.max(1, Math.ceil(total / limit));
-  }, [total, limit]);
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(Math.max(0, total) / limit)), [total, limit]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -49,15 +64,9 @@ function NewsletterPage() {
       const status = statusFilter === 'all' ? undefined : statusFilter;
       const [summaryData, listData, eventsData] = await Promise.all([
         apiClient.getSubscriberSummary(),
-        apiClient.listSubscribers({
-          page,
-          limit,
-          status,
-          search: search.trim() || undefined,
-        }),
+        apiClient.listSubscribers({ page, limit, status, search: search.trim() || undefined }),
         apiClient.getEvents({ page: 1, limit: 100 }),
       ]);
-
       setSummary(summaryData);
       setSubscribers(Array.isArray(listData.data) ? listData.data : []);
       setTotal(Number(listData.total || 0));
@@ -69,32 +78,26 @@ function NewsletterPage() {
     }
   }, [limit, page, search, statusFilter]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   async function handleSend() {
-    if (!subject.trim() || !title.trim() || !message.trim()) {
-      toast.error('Subject, title, and message are required.');
-      return;
-    }
-    if (type === 'event' && !eventId) {
-      toast.error('Select an event before sending an event newsletter.');
-      return;
-    }
+    if (!subject.trim() || !title.trim() || !message.trim()) { toast.error('Subject, title, and message are required.'); return; }
+    if (type === 'event' && !eventId) { toast.error('Select an event before sending an event newsletter.'); return; }
 
     setSending(true);
     try {
-      const payload = {
+      const result = await apiClient.sendNotification({
         type,
         audience: 'newsletter_subscribers' as const,
         subject: subject.trim(),
         title: title.trim(),
         message: message.trim(),
         eventId: type === 'event' ? eventId : undefined,
-      };
-      const result = await apiClient.sendNotification(payload);
+      });
       toast.success(`Sent ${result.sent} email(s). ${result.failed} failed.`);
+      setSubject('');
+      setTitle('');
+      setMessage('');
       await load();
     } catch (error) {
       toast.error(getServerErrorMessage(error, 'Failed to send newsletter update.'));
@@ -105,180 +108,112 @@ function NewsletterPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Newsletter</p>
-          <h1 className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">Subscriber Control Center</h1>
-          <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-            Manage active and unsubscribed emails, then send only public-safe newsletter updates.
-          </p>
+      <ShellCard className="overflow-hidden">
+        <div className="flex flex-col gap-4 p-6 sm:p-7 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">
+              <Mail className="h-4 w-4" /> Newsletter
+            </div>
+            <h1 className="mt-4 text-2xl font-black tracking-tight text-[var(--color-text-primary)] sm:text-3xl">Subscriber Control Center</h1>
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--color-text-secondary)]">Manage public newsletter subscribers and send clean audience-safe updates.</p>
+          </div>
+          <Button variant="outline" onClick={() => void load()} disabled={loading} loading={loading} icon={<RefreshCw className="h-4 w-4" />}>Refresh</Button>
         </div>
-        <Button variant="outline" onClick={() => void load()} disabled={loading}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Refresh
-        </Button>
+      </ShellCard>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Metric label="Total subscribers" value={summary?.total ?? 0} icon={Users} hint="All newsletter records" />
+        <Metric label="Active" value={summary?.active ?? 0} icon={UserCheck} hint="Can receive newsletter sends" />
+        <Metric label="Unsubscribed" value={summary?.unsubscribed ?? 0} icon={UserX} hint="Opted out from email" />
+        <Metric label="Last send" value={formatDate(summary?.lastNotifiedAt).split(',')[0]} icon={Clock3} hint="Most recent newsletter delivery" />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <p className="text-xs text-[var(--color-text-tertiary)]">Total subscribers</p>
-          <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">{summary?.total ?? 0}</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-[var(--color-text-tertiary)]">Active</p>
-          <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">{summary?.active ?? 0}</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-[var(--color-text-tertiary)]">Unsubscribed</p>
-          <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">{summary?.unsubscribed ?? 0}</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-[var(--color-text-tertiary)]">Last newsletter send</p>
-          <p className="mt-2 text-sm font-medium text-[var(--color-text-primary)]">{formatDate(summary?.lastNotifiedAt)}</p>
-        </Card>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,520px)]">
+        <ShellCard className="p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-black text-[var(--color-text-primary)]">Compose newsletter</h2>
+              <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Simple, readable, and focused for public updates.</p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Type</label>
+              <select className="h-11 w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 text-sm text-[var(--color-text-primary)]" value={type} onChange={(e) => setType(e.target.value as 'update' | 'event')}>
+                <option value="update">General update</option>
+                <option value="event">Event update</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Event</label>
+              <select className="h-11 w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 text-sm text-[var(--color-text-primary)] disabled:opacity-50" value={eventId} onChange={(e) => setEventId(e.target.value)} disabled={type !== 'event'}>
+                <option value="">Select event</option>
+                {events.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-4">
+            <Input label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Email subject" />
+            <Input label="Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Email title" />
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-[var(--color-text-secondary)]">Message</label>
+              <textarea className="min-h-[150px] w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-border-focus)] focus:ring-2 focus:ring-[var(--color-border-focus)]/20" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Public newsletter message" />
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-col gap-3 border-t border-[var(--color-border-secondary)] pt-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-[var(--color-text-tertiary)]">Internal operational messages are blocked from this channel.</p>
+            <Button onClick={handleSend} loading={sending} disabled={sending} icon={<Send className="h-4 w-4" />}>Send Newsletter</Button>
+          </div>
+        </ShellCard>
+
+        <ShellCard className="p-5">
+          <h2 className="text-lg font-black text-[var(--color-text-primary)]">Subscribers</h2>
+          <div className="mt-4 grid gap-2 sm:grid-cols-[160px_minmax(0,1fr)]">
+            <select className="h-11 rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 text-sm text-[var(--color-text-primary)]" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as 'all' | 'active' | 'unsubscribed'); setPage(1); }}>
+              <option value="all">All statuses</option>
+              <option value="active">Active</option>
+              <option value="unsubscribed">Unsubscribed</option>
+            </select>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
+              <Input className="pl-9" placeholder="Search by email or name" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {loading ? <p className="text-sm text-[var(--color-text-tertiary)]">Loading subscribers...</p> : null}
+            {!loading && subscribers.length === 0 ? <p className="text-sm text-[var(--color-text-tertiary)]">No subscribers found for this filter.</p> : null}
+            {!loading && subscribers.map((item) => (
+              <article key={item.id} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="break-all text-sm font-black text-[var(--color-text-primary)]">{item.email}</p>
+                    <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{item.name || 'No name'} · {item.source || 'No source'}</p>
+                  </div>
+                  <Badge variant={item.status === 'active' ? 'success' : 'warning'} size="sm">{item.status}</Badge>
+                </div>
+                <div className="mt-3 grid gap-2 text-xs text-[var(--color-text-tertiary)] sm:grid-cols-2">
+                  <span>Last notified: {formatDate(item.lastNotifiedAt)}</span>
+                  <span>Unsubscribed: {formatDate(item.unsubscribedAt)}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="mt-5 flex items-center justify-between border-t border-[var(--color-border-secondary)] pt-4">
+            <p className="text-xs text-[var(--color-text-tertiary)]">{total} total • page {page} of {totalPages}</p>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Previous</Button>
+              <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)}>Next</Button>
+            </div>
+          </div>
+        </ShellCard>
       </div>
-
-      <Card title="Send Newsletter Update">
-        <div className="grid gap-3 md:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-xs text-[var(--color-text-tertiary)]">Type</label>
-            <select
-              className="w-full rounded-[var(--radius-input)] border border-[var(--color-border-secondary)] bg-white px-3 py-2 text-sm"
-              value={type}
-              onChange={(e) => setType(e.target.value as 'update' | 'event')}
-            >
-              <option value="update">General update</option>
-              <option value="event">Event update</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-[var(--color-text-tertiary)]">Event (for event updates)</label>
-            <select
-              className="w-full rounded-[var(--radius-input)] border border-[var(--color-border-secondary)] bg-white px-3 py-2 text-sm"
-              value={eventId}
-              onChange={(e) => setEventId(e.target.value)}
-              disabled={type !== 'event'}
-            >
-              <option value="">Select event</option>
-              {events.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.title}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="mt-3 grid gap-3">
-          <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Email subject" />
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Email title" />
-          <textarea
-            className="min-h-[120px] w-full rounded-[var(--radius-input)] border border-[var(--color-border-secondary)] bg-white px-3 py-2 text-sm"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Public newsletter message"
-          />
-        </div>
-
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <p className="text-xs text-[var(--color-text-tertiary)]">
-            Internal operational messages are blocked from this channel.
-          </p>
-          <Button onClick={handleSend} loading={sending} disabled={sending}>
-            <Send className="mr-2 h-4 w-4" />
-            Send Newsletter
-          </Button>
-        </div>
-      </Card>
-
-      <Card title="Subscribers">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <select
-            className="rounded-[var(--radius-input)] border border-[var(--color-border-secondary)] bg-white px-3 py-2 text-sm"
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value as 'all' | 'active' | 'unsubscribed');
-              setPage(1);
-            }}
-          >
-            <option value="all">All statuses</option>
-            <option value="active">Active</option>
-            <option value="unsubscribed">Unsubscribed</option>
-          </select>
-          <Input
-            placeholder="Search by email or name"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-          />
-        </div>
-
-        {loading ? (
-          <p className="text-sm text-[var(--color-text-tertiary)]">Loading subscribers...</p>
-        ) : subscribers.length === 0 ? (
-          <p className="text-sm text-[var(--color-text-tertiary)]">No subscribers found for this filter.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-[var(--color-border-secondary)]">
-                  <th className="py-2">Email</th>
-                  <th className="py-2">Name</th>
-                  <th className="py-2">Status</th>
-                  <th className="py-2">Source</th>
-                  <th className="py-2">Last notified</th>
-                  <th className="py-2">Unsubscribed at</th>
-                </tr>
-              </thead>
-              <tbody>
-                {subscribers.map((item) => (
-                  <tr key={item.id} className="border-b border-[var(--color-border-secondary)]">
-                    <td className="py-2">{item.email}</td>
-                    <td className="py-2">{item.name || '-'}</td>
-                    <td className="py-2">
-                      <Badge variant={item.status === 'active' ? 'success' : 'warning'} size="sm">
-                        {item.status}
-                      </Badge>
-                    </td>
-                    <td className="py-2">{item.source || '-'}</td>
-                    <td className="py-2">{formatDate(item.lastNotifiedAt)}</td>
-                    <td className="py-2">{formatDate(item.unsubscribedAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <div className="mt-3 flex items-center justify-between">
-          <p className="text-xs text-[var(--color-text-tertiary)]">
-            {total} total • page {page} of {totalPages}
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
-              Previous
-            </Button>
-            <Button variant="outline" disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)}>
-              Next
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      <Card>
-        <div className="flex items-start gap-3">
-          <Mail className="mt-0.5 h-4 w-4 text-[var(--color-text-tertiary)]" />
-          <p className="text-xs text-[var(--color-text-tertiary)]">
-            Newsletter sends are restricted to subscriber audience only. Use Admin Notifications inbox for internal
-            approval, security, and operational alerts.
-          </p>
-        </div>
-      </Card>
     </div>
   );
 }
 
 export default withAuth(NewsletterPage, { requiredRole: 'admin' });
-

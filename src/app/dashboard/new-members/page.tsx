@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   BarElement,
   CategoryScale,
@@ -10,18 +10,19 @@ import {
   Tooltip,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import { CalendarDays, ExternalLink, RefreshCw, Search } from 'lucide-react';
+import { ExternalLink, RefreshCw, Search, TrendingUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { PageHeader } from '@/layouts';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
-import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
 import { apiClient } from '@/lib/api';
 import type { NewMemberDashboardResponse, NewMemberSubmission } from '@/lib/types';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+
+type GrowthPoint = { period: string; count: number };
 
 function text(value: unknown): string {
   if (typeof value === 'string') return value.trim();
@@ -49,10 +50,28 @@ function displayName(item: NewMemberSubmission): string {
 }
 
 function formatDate(value?: string): string {
-  if (!value) return '-';
+  if (!value) return '—';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
+  if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function shortPeriod(period: string, prefix?: string): string {
+  if (!period) return '—';
+  if (prefix === 'Year') return period.slice(0, 4);
+  if (prefix === 'Quarter') {
+    const date = new Date(period);
+    if (!Number.isNaN(date.getTime())) return `${date.getFullYear()} Q${Math.floor(date.getMonth() / 3) + 1}`;
+  }
+  return period.slice(0, 10);
+}
+
+function ShellCard({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <section className={`rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm ${className}`}>{children}</section>;
+}
+
+function StatCard({ label, value, hint }: { label: string; value: number; hint: string }) {
+  return <ShellCard className="p-5"><p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</p><p className="mt-3 text-3xl font-black text-[var(--color-text-primary)]">{value}</p><p className="mt-2 text-sm text-[var(--color-text-secondary)]">{hint}</p></ShellCard>;
 }
 
 export default function NewMembersPage() {
@@ -60,6 +79,7 @@ export default function NewMembersPage() {
   const [submissions, setSubmissions] = useState<NewMemberSubmission[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [section, setSection] = useState<'weekly' | 'monthly' | 'quarterly' | 'yearly'>('monthly');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,197 +100,123 @@ export default function NewMembersPage() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return submissions;
-    return submissions.filter((item) =>
-      `${displayName(item)} ${item.email || ''} ${item.contactNumber || ''} ${item.formTitle}`
-        .toLowerCase()
-        .includes(needle)
-    );
+    return submissions.filter((item) => `${displayName(item)} ${item.email || ''} ${item.contactNumber || ''} ${item.formTitle}`.toLowerCase().includes(needle));
   }, [query, submissions]);
 
-  const weekly = dashboard?.weeklyGrowth?.slice(-12) || [];
-  const monthly = dashboard?.monthlyGrowth?.slice(-12) || [];
-  const quarterly = dashboard?.quarterlyGrowth?.slice(-8) || [];
-  const yearly = dashboard?.yearlyGrowth?.slice(-6) || [];
+  const growthSets = useMemo(() => ({
+    weekly: dashboard?.weeklyGrowth?.slice(-12) || [],
+    monthly: dashboard?.monthlyGrowth?.slice(-12) || [],
+    quarterly: dashboard?.quarterlyGrowth?.slice(-8) || [],
+    yearly: dashboard?.yearlyGrowth?.slice(-6) || [],
+  }), [dashboard]);
+
+  const activeGrowth = growthSets[section] as GrowthPoint[];
+  const chartData = useMemo(() => ({
+    labels: activeGrowth.map((item) => shortPeriod(item.period, section === 'yearly' ? 'Year' : section === 'quarterly' ? 'Quarter' : undefined)),
+    datasets: [{ label: 'New members', data: activeGrowth.map((item) => item.count), backgroundColor: '#2563eb', borderRadius: 10, maxBarThickness: 36 }],
+  }), [activeGrowth, section]);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="New Members"
-        subtitle="Add New Member intake, growth trends, and follow-up records. This is separate from the all-members registry."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={load} loading={loading}>
-              Refresh
-            </Button>
-            <Button icon={<ExternalLink className="h-4 w-4" />} onClick={() => window.location.assign('/dashboard/forms/new?preset=member')}>
-              Prepare form
-            </Button>
-          </div>
-        }
+        subtitle="Intake, growth trends, and follow-up records, separated from the main member registry."
+        actions={<div className="flex flex-wrap gap-2"><Button variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={() => void load()} loading={loading}>Refresh</Button><Button icon={<ExternalLink className="h-4 w-4" />} onClick={() => window.location.assign('/dashboard/forms/new?preset=member')}>Prepare form</Button></div>}
       />
 
-      <div className="grid gap-4 md:grid-cols-5">
-        {[
-          ['Total', dashboard?.totalSubmissions],
-          ['This week', dashboard?.thisWeek],
-          ['This month', dashboard?.thisMonth],
-          ['This quarter', dashboard?.thisQuarter],
-          ['This year', dashboard?.thisYear],
-        ].map(([label, value]) => (
-          <Card key={label}>
-            <p className="text-sm text-[var(--color-text-tertiary)]">{label}</p>
-            <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">{Number(value || 0)}</p>
-          </Card>
-        ))}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <StatCard label="Total" value={Number(dashboard?.totalSubmissions || 0)} hint="All intake submissions" />
+        <StatCard label="This week" value={Number(dashboard?.thisWeek || 0)} hint="Current week intake" />
+        <StatCard label="This month" value={Number(dashboard?.thisMonth || 0)} hint="Current month intake" />
+        <StatCard label="This quarter" value={Number(dashboard?.thisQuarter || 0)} hint="Quarterly movement" />
+        <StatCard label="This year" value={Number(dashboard?.thisYear || 0)} hint="Annual growth" />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <Card title="New-member growth">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <GrowthChart title="Weekly" data={weekly} color="#2563eb" labelPrefix="Week" />
-            <GrowthChart title="Monthly" data={monthly} color="#16a34a" labelPrefix="Month" />
-            <GrowthChart title="Quarterly" data={quarterly} color="#d97706" labelPrefix="Quarter" />
-            <GrowthChart title="Yearly" data={yearly} color="#7c3aed" labelPrefix="Year" />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <ShellCard className="p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-lg font-black text-[var(--color-text-primary)]">New-member growth</h2>
+              <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Switch between backend-provided periods.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(['weekly', 'monthly', 'quarterly', 'yearly'] as const).map((key) => <Button key={key} size="sm" variant={section === key ? 'primary' : 'outline'} onClick={() => setSection(key)}>{key}</Button>)}
+            </div>
           </div>
-        </Card>
-        <Card title="Add New Member form">
-          <div className="space-y-3">
-            {(dashboard?.forms || []).length === 0 ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">No Add New Member form detected.</p>
-            ) : (
-              dashboard?.forms.map((form) => (
-                <div key={form.formId} className="rounded-md border border-[var(--color-border-secondary)] p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-[var(--color-text-primary)]">{form.formTitle}</p>
-                      <p className="text-xs text-[var(--color-text-tertiary)]">{form.slug || form.formId}</p>
-                    </div>
-                    <Badge variant={form.isPublished ? 'success' : 'secondary'}>{form.isPublished ? 'Published' : 'Draft'}</Badge>
-                  </div>
-                  <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{form.submissionCount} submissions</p>
+          <div className="mt-5 h-80">
+            {activeGrowth.length === 0 ? <p className="text-sm text-[var(--color-text-tertiary)]">No growth data yet.</p> : <Bar data={chartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } } }} />}
+          </div>
+        </ShellCard>
+
+        <ShellCard className="p-5">
+          <h2 className="text-lg font-black text-[var(--color-text-primary)]">Add New Member forms</h2>
+          <div className="mt-4 space-y-3">
+            {(dashboard?.forms || []).length === 0 ? <p className="text-sm text-[var(--color-text-tertiary)]">No Add New Member form detected.</p> : dashboard?.forms.map((form) => (
+              <article key={form.formId} className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0"><p className="truncate text-sm font-black text-[var(--color-text-primary)]">{form.formTitle}</p><p className="mt-1 truncate text-xs text-[var(--color-text-tertiary)]">{form.slug || form.formId}</p></div>
+                  <Badge variant={form.isPublished ? 'success' : 'secondary'}>{form.isPublished ? 'Published' : 'Draft'}</Badge>
                 </div>
-              ))
-            )}
+                <p className="mt-3 text-sm font-semibold text-[var(--color-text-secondary)]">{form.submissionCount} submissions</p>
+              </article>
+            ))}
           </div>
-        </Card>
+        </ShellCard>
       </div>
 
-      <Card title="Period summaries">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <GrowthAccordion title="Weekly" data={weekly} />
-          <GrowthAccordion title="Monthly" data={monthly} />
-          <GrowthAccordion title="Quarterly" data={quarterly} />
-          <GrowthAccordion title="Yearly" data={yearly} />
+      <ShellCard className="p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div><h2 className="text-lg font-black text-[var(--color-text-primary)]">Period summaries</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Compact accordions prevent dashboard overcrowding.</p></div>
+          <TrendingUp className="h-5 w-5 text-[var(--color-text-tertiary)]" />
         </div>
-      </Card>
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <GrowthAccordion title="Weekly" data={growthSets.weekly} />
+          <GrowthAccordion title="Monthly" data={growthSets.monthly} open />
+          <GrowthAccordion title="Quarterly" data={growthSets.quarterly} />
+          <GrowthAccordion title="Yearly" data={growthSets.yearly} />
+        </div>
+      </ShellCard>
 
-      <Card
-        title="Add New Member submissions"
-        actions={
-          <div className="relative w-full sm:w-72">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
-            <Input className="pl-9" placeholder="Search submissions" value={query} onChange={(event) => setQuery(event.target.value)} />
-          </div>
-        }
-      >
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-[var(--color-border-secondary)] text-sm">
-            <thead>
-              <tr className="text-left text-[var(--color-text-tertiary)]">
-                <th className="px-3 py-3 font-medium">Profile</th>
-                <th className="px-3 py-3 font-medium">Contact</th>
-                <th className="px-3 py-3 font-medium">Source</th>
-                <th className="px-3 py-3 font-medium">Submitted</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--color-border-secondary)]">
-              {loading ? (
-                <tr><td className="px-3 py-8 text-[var(--color-text-tertiary)]" colSpan={4}>Loading new members...</td></tr>
-              ) : filtered.length === 0 ? (
-                <tr><td className="px-3 py-8 text-[var(--color-text-tertiary)]" colSpan={4}>No new-member submissions found.</td></tr>
-              ) : (
-                filtered.map((item) => (
-                  <tr key={item.id}>
-                    <td className="px-3 py-3">
-                      <p className="font-medium text-[var(--color-text-primary)]">{displayName(item)}</p>
-                      <p className="text-xs text-[var(--color-text-tertiary)]">{item.registrationCode || item.id}</p>
-                    </td>
-                    <td className="px-3 py-3 text-[var(--color-text-secondary)]">
-                      <p>{item.email || valueFromSubmission(item, ['email', 'emailAddress']) || '-'}</p>
-                      <p className="text-xs">{item.contactNumber || valueFromSubmission(item, ['phone', 'phoneNumber', 'mobile']) || ''}</p>
-                    </td>
-                    <td className="px-3 py-3">
-                      <Badge variant="info">{item.formTitle}</Badge>
-                    </td>
-                    <td className="px-3 py-3 text-[var(--color-text-secondary)]">{formatDate(item.createdAt)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      <ShellCard className="p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div><h2 className="text-lg font-black text-[var(--color-text-primary)]">Add New Member submissions</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Latest form-driven intake records.</p></div>
+          <div className="relative w-full sm:w-80"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" /><Input className="pl-9" placeholder="Search submissions" value={query} onChange={(event) => setQuery(event.target.value)} /></div>
         </div>
-      </Card>
+
+        <div className="mt-5 overflow-hidden rounded-3xl border border-[var(--color-border-secondary)]">
+          <div className="hidden grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_160px_180px] gap-4 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
+            <div>Profile</div><div>Contact</div><div>Source</div><div>Submitted</div>
+          </div>
+          <div className="divide-y divide-[var(--color-border-secondary)]">
+            {loading ? <div className="p-6 text-sm text-[var(--color-text-tertiary)]">Loading new members...</div> : null}
+            {!loading && filtered.length === 0 ? <div className="p-6 text-sm text-[var(--color-text-tertiary)]">No new-member submissions found.</div> : null}
+            {!loading && filtered.map((item) => (
+              <article key={item.id} className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_160px_180px] lg:items-center">
+                <div className="min-w-0"><p className="truncate text-sm font-black text-[var(--color-text-primary)]">{displayName(item)}</p><p className="truncate text-xs text-[var(--color-text-tertiary)]">{item.registrationCode || item.id}</p></div>
+                <div className="min-w-0 text-sm text-[var(--color-text-secondary)]"><p className="truncate">{item.email || valueFromSubmission(item, ['email', 'emailAddress']) || 'No email'}</p><p className="truncate text-xs text-[var(--color-text-tertiary)]">{item.contactNumber || valueFromSubmission(item, ['phone', 'phoneNumber', 'mobile']) || 'No phone'}</p></div>
+                <Badge variant="info">{item.formTitle}</Badge>
+                <div className="text-sm text-[var(--color-text-secondary)]">{formatDate(item.createdAt)}</div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </ShellCard>
     </div>
   );
 }
 
-function shortPeriod(period: string, prefix?: string): string {
-  if (!period) return '-';
-  if (prefix === 'Year') return period.slice(0, 4);
-  if (prefix === 'Quarter') {
-    const date = new Date(period);
-    if (!Number.isNaN(date.getTime())) {
-      return `${date.getFullYear()} Q${Math.floor(date.getMonth() / 3) + 1}`;
-    }
-  }
-  return period.slice(0, 10);
-}
-
-function GrowthChart({ title, data, color, labelPrefix }: { title: string; data: { period: string; count: number }[]; color: string; labelPrefix: string }) {
-  return (
-    <div className="rounded-md border border-[var(--color-border-secondary)] p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</p>
-        <CalendarDays className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-      </div>
-      <div className="h-52">
-        <Bar
-          data={{
-            labels: data.map((item) => shortPeriod(item.period, labelPrefix)),
-            datasets: [{ label: 'New members', data: data.map((item) => item.count), backgroundColor: color, borderRadius: 6 }],
-          }}
-          options={{ maintainAspectRatio: false, responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function GrowthAccordion({ title, data }: { title: string; data: { period: string; count: number }[] }) {
+function GrowthAccordion({ title, data, open }: { title: string; data: GrowthPoint[]; open?: boolean }) {
   const total = data.reduce((sum, item) => sum + item.count, 0);
   return (
-    <details className="rounded-md border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3" open={title === 'Monthly'}>
-      <summary className="cursor-pointer text-sm font-semibold text-[var(--color-text-primary)]">
-        {title} <span className="text-[var(--color-text-tertiary)]">({total})</span>
-      </summary>
-      <div className="mt-3 space-y-2">
-        {data.length === 0 ? (
-          <p className="text-xs text-[var(--color-text-tertiary)]">No records yet.</p>
-        ) : (
-          data.map((item) => (
-            <div key={`${title}-${item.period}`} className="flex items-center justify-between rounded-[var(--radius-button)] bg-[var(--color-background-primary)] px-3 py-2 text-xs">
-              <span className="text-[var(--color-text-secondary)]">{shortPeriod(item.period)}</span>
-              <span className="font-semibold text-[var(--color-text-primary)]">{item.count}</span>
-            </div>
-          ))
-        )}
+    <details className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 open:bg-[var(--color-background-primary)]" open={open}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-black text-[var(--color-text-primary)]"><span>{title}</span><span className="rounded-full bg-[var(--color-background-primary)] px-3 py-1 text-xs text-[var(--color-text-tertiary)]">{total}</span></summary>
+      <div className="mt-4 space-y-2">
+        {data.length === 0 ? <p className="text-xs text-[var(--color-text-tertiary)]">No records yet.</p> : data.map((item) => <div key={`${title}-${item.period}`} className="flex items-center justify-between rounded-2xl bg-[var(--color-background-secondary)] px-3 py-2 text-xs"><span className="text-[var(--color-text-secondary)]">{shortPeriod(item.period)}</span><span className="font-black text-[var(--color-text-primary)]">{item.count}</span></div>)}
       </div>
     </details>
   );

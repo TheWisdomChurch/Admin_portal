@@ -1,200 +1,120 @@
-// src/app/dashboard/testimonials/page.tsx
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { CheckCircle2, ClipboardCopy, MessageSquareText, RefreshCcw, Search, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { MessageSquareText, UserPlus, CheckCircle2, Clock, Pencil, Trash2, Copy, Link2 } from 'lucide-react';
-import { Card } from '@/ui/Card';
-import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
+import { Button } from '@/ui/Button';
+import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
 import { VerifyActionModal } from '@/ui/VerifyActionModal';
-import { GridLayout, PageHeader } from '@/layouts';
+import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
-import MediaUploadField from '@/components/MediaUploadField';
-import { uploadAsset } from '@/lib/uploads';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { useAuthContext } from '@/providers/AuthProviders';
 import type { AdminForm, Testimonial } from '@/lib/types';
 
-const formatName = (t: Testimonial) => {
-  if (t.fullName) return t.fullName;
-  const first = t.firstName || '';
-  const last = t.lastName || '';
-  const name = `${first} ${last}`.trim();
-  return name || 'Anonymous';
-};
+function normalizeRole(role?: string | null): string {
+  return (role || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
+}
 
-const formatDate = (value?: string) => {
+function formatName(item: Testimonial): string {
+  const name = item.fullName || `${item.firstName || ''} ${item.lastName || ''}`.trim();
+  return name || 'Anonymous testimony';
+}
+
+function formatDate(value?: string): string {
   if (!value) return '—';
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleDateString();
-};
+  return parsed.toLocaleDateString(undefined, { dateStyle: 'medium' });
+}
 
-const isSuperAdminRole = (role?: string) => {
-  if (!role) return false;
-  const normalized = role.toLowerCase().replace(/[-\s]/g, '_');
-  return normalized === 'super_admin';
-};
+function isTestimonialForm(form: AdminForm): boolean {
+  const settings = form.settings || {};
+  const target = String(settings.submissionTarget || '').trim().toLowerCase();
+  const formType = String(settings.formType || '').trim().toLowerCase();
+  const slug = String(form.slug || '').trim().toLowerCase();
+  const title = String(form.title || '').trim().toLowerCase();
 
-const isTestimonialForm = (form: AdminForm): boolean => {
-  const target = (form.settings?.submissionTarget || '').trim().toLowerCase();
-  if (target === 'testimonial') return true;
-
-  const formType = (form.settings?.formType || '').trim().toLowerCase();
-  if (formType === 'testimonial') return true;
-
-  const slug = (form.slug || '').trim().toLowerCase();
-  const title = (form.title || '').trim().toLowerCase();
   return (
-    slug.includes('testimony') ||
+    target === 'testimonial' ||
+    formType === 'testimonial' ||
     slug.includes('testimonial') ||
-    title.includes('testimony') ||
-    title.includes('testimonial')
+    slug.includes('testimony') ||
+    title.includes('testimonial') ||
+    title.includes('testimony')
   );
-};
+}
 
-type TestimonialTableProps = {
-  title: string;
-  items: Testimonial[];
-  status: 'pending' | 'approved';
-  loading?: boolean;
-  canApprove: boolean;
-  onApprove?: (id: string) => void;
-  approvingId?: string | null;
-  onEdit?: (item: Testimonial) => void;
-  onDelete?: (item: Testimonial) => void;
-};
-
-function TestimonialTable({
-  title,
-  items,
+function TestimonialCard({
+  item,
   status,
-  loading,
   canApprove,
+  approving,
   onApprove,
-  approvingId,
-  onEdit,
-  onDelete,
-}: TestimonialTableProps) {
+}: {
+  item: Testimonial;
+  status: 'pending' | 'approved';
+  canApprove: boolean;
+  approving: boolean;
+  onApprove: (item: Testimonial) => void;
+}) {
   return (
-    <Card title={title}>
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead className="text-left text-[var(--color-text-tertiary)]">
-            <tr>
-              <th className="py-2 pr-4">Name</th>
-              <th className="py-2 pr-4">Testimony</th>
-              <th className="py-2 pr-4">Submitted</th>
-              <th className="py-2 pr-4">Status</th>
-              <th className="py-2 text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={5} className="py-6 text-center text-[var(--color-text-tertiary)]">
-                  Loading testimonials...
-                </td>
-              </tr>
-            ) : items.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="py-6 text-center text-[var(--color-text-tertiary)]">
-                  No testimonials found.
-                </td>
-              </tr>
-            ) : (
-              items.map((item) => (
-                <tr key={String(item.id)} className="border-t border-[var(--color-border-secondary)]">
-                  <td className="py-3 pr-4 font-medium text-[var(--color-text-primary)]">
-                    {formatName(item)}
-                  </td>
-                  <td className="py-3 pr-4 text-[var(--color-text-secondary)] line-clamp-2">
-                    {item.testimony}
-                  </td>
-                  <td className="py-3 pr-4 text-[var(--color-text-tertiary)]">
-                    {formatDate(item.createdAt)}
-                  </td>
-                  <td className="py-3 pr-4">
-                    <Badge variant={status === 'approved' ? 'success' : 'warning'}>
-                      {status === 'approved' ? 'Published' : 'Pending'}
-                    </Badge>
-                  </td>
-                  <td className="py-3 text-right">
-                    {status === 'pending' ? (
-                      canApprove ? (
-                        <Button
-                          size="sm"
-                          onClick={() => onApprove?.(String(item.id))}
-                          variant="primary"
-                          loading={approvingId === String(item.id)}
-                          disabled={approvingId === String(item.id)}
-                        >
-                          Approve
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-[var(--color-text-tertiary)]">Awaiting approval</span>
-                      )
-                    ) : (
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onEdit?.(item)}
-                          icon={<Pencil className="h-4 w-4" />}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() => onDelete?.(item)}
-                          icon={<Trash2 className="h-4 w-4" />}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+    <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm transition hover:shadow-md">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start">
+        <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-[var(--color-background-tertiary)]">
+          {item.imageUrl ? (
+            <Image src={item.imageUrl} alt={formatName(item)} fill sizes="96px" className="object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <MessageSquareText className="h-8 w-8 text-[var(--color-text-tertiary)]" />
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="truncate text-base font-bold text-[var(--color-text-primary)]">{formatName(item)}</h3>
+            <Badge variant={status === 'approved' ? 'success' : 'warning'}>
+              {status === 'approved' ? 'Published' : 'Pending'}
+            </Badge>
+            {item.isAnonymous && <Badge variant="secondary">Anonymous</Badge>}
+          </div>
+          <p className="mt-2 line-clamp-3 text-sm leading-6 text-[var(--color-text-secondary)]">{item.testimony}</p>
+          <p className="mt-3 text-xs text-[var(--color-text-tertiary)]">Submitted {formatDate(item.createdAt)}</p>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2 md:flex-col md:items-end">
+          {status === 'pending' && canApprove ? (
+            <Button type="button" size="sm" onClick={() => onApprove(item)} loading={approving} disabled={approving}>
+              <CheckCircle2 className="h-4 w-4" />
+              <span className="ml-2">Approve</span>
+            </Button>
+          ) : status === 'pending' ? (
+            <Badge variant="warning">Awaiting super admin</Badge>
+          ) : (
+            <Badge variant="success">Live</Badge>
+          )}
+        </div>
       </div>
-    </Card>
+    </div>
   );
 }
 
 export default function TestimonialsPage() {
-  const router = useRouter();
   const auth = useAuthContext();
-  const canApprove = useMemo(() => isSuperAdminRole(auth.user?.role), [auth.user?.role]);
+  const canApprove = normalizeRole(auth.user?.role) === 'super_admin';
 
+  const [loading, setLoading] = useState(true);
+  const [formsLoading, setFormsLoading] = useState(true);
   const [pending, setPending] = useState<Testimonial[]>([]);
   const [approved, setApproved] = useState<Testimonial[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [approveLoading, setApproveLoading] = useState<string | null>(null);
-  const [editTarget, setEditTarget] = useState<Testimonial | null>(null);
-  const [editDraft, setEditDraft] = useState({
-    firstName: '',
-    lastName: '',
-    testimony: '',
-    imageUrl: '',
-    isAnonymous: false,
-  });
-  const [editImageFile, setEditImageFile] = useState<File | null>(null);
-  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
-  const [editSaving, setEditSaving] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Testimonial | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
   const [testimonialForms, setTestimonialForms] = useState<AdminForm[]>([]);
-  const [formsLoading, setFormsLoading] = useState(false);
-  const [deleteFormTarget, setDeleteFormTarget] = useState<AdminForm | null>(null);
-  const [deleteFormLoading, setDeleteFormLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [approveTarget, setApproveTarget] = useState<Testimonial | null>(null);
 
   const loadTestimonials = useCallback(async () => {
     try {
@@ -215,11 +135,7 @@ export default function TestimonialsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    loadTestimonials();
-  }, [loadTestimonials]);
-
-  const loadTestimonialForms = useCallback(async () => {
+  const loadForms = useCallback(async () => {
     try {
       setFormsLoading(true);
       const res = await apiClient.getAdminForms({ page: 1, limit: 100 });
@@ -234,48 +150,29 @@ export default function TestimonialsPage() {
   }, []);
 
   useEffect(() => {
-    loadTestimonialForms();
-  }, [loadTestimonialForms]);
+    void loadTestimonials();
+    void loadForms();
+  }, [loadForms, loadTestimonials]);
 
-  useEffect(() => {
-    return () => {
-      if (editImagePreview) URL.revokeObjectURL(editImagePreview);
-    };
-  }, [editImagePreview]);
-
-  const monthlySummary = useMemo(() => {
-    const bucket = new Map<string, { month: string; total: number; approved: number; pending: number }>();
-    const all = [...approved, ...pending];
-    all.forEach((item) => {
-      const dt = item.createdAt ? new Date(item.createdAt) : null;
-      if (!dt || Number.isNaN(dt.getTime())) return;
-      const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
-      const month = dt.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
-      const existing = bucket.get(key) || { month, total: 0, approved: 0, pending: 0 };
-      existing.total += 1;
-      if (item.isApproved) existing.approved += 1;
-      else existing.pending += 1;
-      bucket.set(key, existing);
-    });
-
-    return Array.from(bucket.entries())
-      .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([, value]) => value);
-  }, [approved, pending]);
-
-  const currentMonthKey = useMemo(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  }, []);
+  const query = search.trim().toLowerCase();
+  const filteredPending = useMemo(
+    () => pending.filter((item) => `${formatName(item)} ${item.testimony}`.toLowerCase().includes(query)),
+    [pending, query]
+  );
+  const filteredApproved = useMemo(
+    () => approved.filter((item) => `${formatName(item)} ${item.testimony}`.toLowerCase().includes(query)),
+    [approved, query]
+  );
 
   const currentMonthTotals = useMemo(() => {
-    const all = [...approved, ...pending];
-    return all.reduce(
+    const now = new Date();
+    const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return [...pending, ...approved].reduce(
       (acc, item) => {
-        const dt = item.createdAt ? new Date(item.createdAt) : null;
-        if (!dt || Number.isNaN(dt.getTime())) return acc;
-        const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
-        if (key !== currentMonthKey) return acc;
+        const created = item.createdAt ? new Date(item.createdAt) : null;
+        if (!created || Number.isNaN(created.getTime())) return acc;
+        const createdKey = `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, '0')}`;
+        if (createdKey !== key) return acc;
         acc.total += 1;
         if (item.isApproved) acc.approved += 1;
         else acc.pending += 1;
@@ -283,12 +180,12 @@ export default function TestimonialsPage() {
       },
       { total: 0, approved: 0, pending: 0 }
     );
-  }, [approved, currentMonthKey, pending]);
+  }, [approved, pending]);
 
   const copyPublicFormLink = async (form: AdminForm) => {
     const url = buildPublicFormUrl(form.slug, form.publicUrl);
     if (!url) {
-      toast.error('Form link not available yet. Publish the form first.');
+      toast.error('Publish this form before copying its public link.');
       return;
     }
     try {
@@ -299,136 +196,20 @@ export default function TestimonialsPage() {
     }
   };
 
-  const handleApprove = async (id: string) => {
-    if (!canApprove) return;
+  const approveSelected = async () => {
+    if (!approveTarget || !canApprove) return;
+    const id = String(approveTarget.id);
     try {
-      setApproveLoading(id);
+      setApprovingId(id);
       await apiClient.approveTestimonial(id);
       toast.success('Testimonial approved');
+      setApproveTarget(null);
       await loadTestimonials();
     } catch (error) {
       console.error('Failed to approve testimonial:', error);
       toast.error('Failed to approve testimonial');
     } finally {
-      setApproveLoading(null);
-    }
-  };
-
-  const openEdit = (item: Testimonial) => {
-    if (editImagePreview) URL.revokeObjectURL(editImagePreview);
-    setEditTarget(item);
-    setEditImageFile(null);
-    setEditImagePreview(null);
-    setEditDraft({
-      firstName: item.firstName || '',
-      lastName: item.lastName || '',
-      testimony: item.testimony || '',
-      imageUrl: item.imageUrl || '',
-      isAnonymous: Boolean(item.isAnonymous),
-    });
-  };
-
-  const closeEdit = () => {
-    setEditTarget(null);
-    setEditImageFile(null);
-    if (editImagePreview) URL.revokeObjectURL(editImagePreview);
-    setEditImagePreview(null);
-  };
-
-  const handleEditImageFile = (file: File | null) => {
-    setEditImageFile(file);
-    if (editImagePreview) URL.revokeObjectURL(editImagePreview);
-    setEditImagePreview(file ? URL.createObjectURL(file) : null);
-  };
-
-  const isValidHttpURL = (value: string): boolean => {
-    try {
-      const url = new URL(value);
-      return url.protocol === 'http:' || url.protocol === 'https:';
-    } catch {
-      return false;
-    }
-  };
-
-  const saveEdit = async () => {
-    if (!editTarget) return;
-
-    const manualImageUrl = editDraft.imageUrl.trim();
-    if (manualImageUrl && !isValidHttpURL(manualImageUrl)) {
-      toast.error('Image URL must be a valid http(s) URL.');
-      return;
-    }
-
-    try {
-      setEditSaving(true);
-      let imageUrl = manualImageUrl || undefined;
-
-      if (editImageFile) {
-        const uploaded = await uploadAsset(editImageFile, {
-          kind: 'image',
-          module: 'testimonials',
-          ownerType: 'testimonial',
-          ownerId: editTarget.id,
-          folder: `testimonials/${editTarget.id}/images`,
-        });
-        imageUrl = uploaded.publicUrl || uploaded.url;
-      }
-
-      await apiClient.updateTestimonial(editTarget.id, {
-        firstName: editDraft.firstName.trim() || undefined,
-        lastName: editDraft.lastName.trim() || undefined,
-        testimony: editDraft.testimony.trim() || undefined,
-        imageUrl,
-        isAnonymous: editDraft.isAnonymous,
-      });
-      toast.success('Testimonial updated');
-      closeEdit();
-      await loadTestimonials();
-    } catch (error) {
-      console.error('Failed to update testimonial:', error);
-      toast.error('Failed to update testimonial');
-    } finally {
-      setEditSaving(false);
-    }
-  };
-
-  const requestDelete = (item: Testimonial) => {
-    setDeleteTarget(item);
-  };
-
-  const confirmDelete = async () => {
-    if (!deleteTarget) return;
-    try {
-      setDeleteLoading(true);
-      await apiClient.deleteTestimonial(deleteTarget.id);
-      toast.success('Testimonial deleted');
-      setDeleteTarget(null);
-      await loadTestimonials();
-    } catch (error) {
-      console.error('Failed to delete testimonial:', error);
-      toast.error('Failed to delete testimonial');
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
-
-  const requestDeleteForm = (form: AdminForm) => {
-    setDeleteFormTarget(form);
-  };
-
-  const confirmDeleteForm = async () => {
-    if (!deleteFormTarget) return;
-    try {
-      setDeleteFormLoading(true);
-      await apiClient.deleteAdminForm(deleteFormTarget.id);
-      toast.success('Testimonial form deleted');
-      setDeleteFormTarget(null);
-      await loadTestimonialForms();
-    } catch (error) {
-      console.error('Failed to delete testimonial form:', error);
-      toast.error('Failed to delete testimonial form');
-    } finally {
-      setDeleteFormLoading(false);
+      setApprovingId(null);
     }
   };
 
@@ -436,287 +217,131 @@ export default function TestimonialsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Testimonials"
-        subtitle="Review submissions, approve highlights, and publish them to the website."
+        subtitle="Review, approve and publish testimonies from public forms and direct submissions."
         actions={
-          <div className="flex items-center gap-2">
-            <Button
-              icon={<UserPlus className="h-4 w-4" />}
-              onClick={() => router.push('/dashboard/forms/new?preset=testimonial')}
-            >
-              Create Testimony Form
-            </Button>
-          </div>
+          <Button type="button" variant="outline" size="sm" onClick={() => void loadTestimonials()} loading={loading}>
+            <RefreshCcw className="h-4 w-4" />
+            <span className="ml-2">Refresh</span>
+          </Button>
         }
       />
 
-      <Card>
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3 text-sm text-[var(--color-text-tertiary)]">
-            <div className="h-10 w-10 rounded-[var(--radius-button)] bg-[var(--color-background-tertiary)] flex items-center justify-center">
-              <MessageSquareText className="h-5 w-5 text-[var(--color-text-secondary)]" />
-            </div>
-            <div>
-              <p className="text-[var(--color-text-secondary)] font-semibold">Stories from the community</p>
-              <p className="text-xs">Pending items require super-admin approval.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="success" className="flex items-center gap-1">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              {approved.length} Published
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending review</p>
+          <p className="mt-2 text-3xl font-bold text-amber-600">{pending.length}</p>
+        </Card>
+        <Card>
+          <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Published</p>
+          <p className="mt-2 text-3xl font-bold text-emerald-600">{approved.length}</p>
+        </Card>
+        <Card>
+          <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">This month</p>
+          <p className="mt-2 text-3xl font-bold text-[var(--color-text-primary)]">{currentMonthTotals.total}</p>
+        </Card>
+        <Card>
+          <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Authority</p>
+          <div className="mt-3">
+            <Badge variant={canApprove ? 'success' : 'warning'} className="gap-1">
+              <ShieldCheck className="h-3 w-3" />
+              {canApprove ? 'Can approve' : 'Read only'}
             </Badge>
-            <Badge variant="warning" className="flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" />
-              {pending.length} Pending
-            </Badge>
           </div>
-        </div>
-      </Card>
+        </Card>
+      </div>
 
-      <GridLayout columns="grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">This month</p>
-          <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">{currentMonthTotals.total}</p>
-          <p className="text-xs text-[var(--color-text-tertiary)]">Total testimonies received</p>
-        </Card>
-        <Card>
-          <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">This month approved</p>
-          <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">{currentMonthTotals.approved}</p>
-          <p className="text-xs text-[var(--color-text-tertiary)]">Published testimonies</p>
-        </Card>
-        <Card>
-          <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">This month pending</p>
-          <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">{currentMonthTotals.pending}</p>
-          <p className="text-xs text-[var(--color-text-tertiary)]">Awaiting super-admin approval</p>
-        </Card>
-      </GridLayout>
-
-      <Card title="Testimonial Form Links">
+      <Card title="Testimonial collection forms">
         {formsLoading ? (
-          <p className="text-sm text-[var(--color-text-tertiary)]">Loading forms...</p>
+          <p className="text-sm text-[var(--color-text-tertiary)]">Loading testimonial forms...</p>
         ) : testimonialForms.length === 0 ? (
-          <div className="space-y-3">
-            <p className="text-sm text-[var(--color-text-tertiary)]">
-              No testimonial form has been created yet.
-            </p>
-            <Button
-              icon={<UserPlus className="h-4 w-4" />}
-              onClick={() => router.push('/dashboard/forms/new?preset=testimonial')}
-            >
-              Create testimonial form
-            </Button>
-          </div>
+          <p className="text-sm text-[var(--color-text-tertiary)]">No testimonial forms found yet.</p>
         ) : (
-          <div className="space-y-3">
-            {testimonialForms.map((form) => {
-              const url = buildPublicFormUrl(form.slug, form.publicUrl);
-              return (
-                <div
-                  key={form.id}
-                  className="flex flex-col gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] p-3 md:flex-row md:items-center md:justify-between"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-[var(--color-text-primary)]">{form.title}</p>
-                    <p className="truncate text-xs text-[var(--color-text-tertiary)]">
-                      {url || 'Publish this form to generate public link'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      icon={<Pencil className="h-4 w-4" />}
-                      onClick={() => router.push(`/dashboard/forms/${form.id}/edit`)}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      icon={<Link2 className="h-4 w-4" />}
-                      disabled={!url}
-                      onClick={() => url && window.open(url, '_blank', 'noopener,noreferrer')}
-                    >
-                      Open
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      icon={<Copy className="h-4 w-4" />}
-                      disabled={!url}
-                      onClick={() => copyPublicFormLink(form)}
-                    >
-                      Copy Link
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      icon={<Trash2 className="h-4 w-4" />}
-                      onClick={() => requestDeleteForm(form)}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {testimonialForms.map((form) => (
+              <div key={form.id} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+                <p className="font-semibold text-[var(--color-text-primary)]">{form.title}</p>
+                <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">/{form.slug || 'unpublished'}</p>
+                <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => void copyPublicFormLink(form)}>
+                  <ClipboardCopy className="h-4 w-4" />
+                  <span className="ml-2">Copy link</span>
+                </Button>
+              </div>
+            ))}
           </div>
         )}
       </Card>
 
-      <Card title="Monthly Intake">
-        {monthlySummary.length === 0 ? (
-          <p className="text-sm text-[var(--color-text-tertiary)]">No monthly data available yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="text-left text-[var(--color-text-tertiary)]">
-                <tr>
-                  <th className="py-2 pr-4">Month</th>
-                  <th className="py-2 pr-4">Total</th>
-                  <th className="py-2 pr-4">Approved</th>
-                  <th className="py-2 pr-4">Pending</th>
-                </tr>
-              </thead>
-              <tbody>
-                {monthlySummary.map((row) => (
-                  <tr key={row.month} className="border-t border-[var(--color-border-secondary)]">
-                    <td className="py-2 pr-4 text-[var(--color-text-primary)]">{row.month}</td>
-                    <td className="py-2 pr-4">{row.total}</td>
-                    <td className="py-2 pr-4">{row.approved}</td>
-                    <td className="py-2 pr-4">{row.pending}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <Card>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-base font-bold text-[var(--color-text-primary)]">Review queue</h2>
+            <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Super admin approval publishes testimonials to the public website.</p>
           </div>
-        )}
-      </Card>
-
-      <GridLayout columns="grid-cols-1 gap-6">
-        <TestimonialTable
-          title="Pending approvals"
-          items={pending}
-          status="pending"
-          loading={loading}
-          canApprove={canApprove}
-          onApprove={handleApprove}
-          approvingId={approveLoading}
-        />
-        <TestimonialTable
-          title="Published testimonials"
-          items={approved}
-          status="approved"
-          loading={loading}
-          canApprove={false}
-          onEdit={openEdit}
-          onDelete={requestDelete}
-        />
-      </GridLayout>
-
-      {editTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur">
-          <div className="w-full max-w-xl rounded-[var(--radius-card)] bg-[var(--color-background-primary)] p-6 shadow-xl border border-[var(--color-border-secondary)]">
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Edit testimonial</h3>
-                <p className="text-sm text-[var(--color-text-tertiary)]">Update and republish instantly.</p>
-              </div>
-              <button
-                onClick={closeEdit}
-                aria-label="Close"
-                className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
-              >
-                ×
-              </button>
-            </div>
-            <div className="space-y-3">
-              <div className="grid gap-3 md:grid-cols-2">
-                <Input
-                  label="First name"
-                  value={editDraft.firstName}
-                  onChange={(e) => setEditDraft({ ...editDraft, firstName: e.target.value })}
-                />
-                <Input
-                  label="Last name"
-                  value={editDraft.lastName}
-                  onChange={(e) => setEditDraft({ ...editDraft, lastName: e.target.value })}
-                />
-              </div>
-              <Input
-                label="Image URL (optional)"
-                value={editDraft.imageUrl}
-                onChange={(e) => setEditDraft({ ...editDraft, imageUrl: e.target.value })}
-              />
-              <MediaUploadField
-                field={{ key: 'imageUrl', label: 'Testimonial image', type: 'image', validation: { max: 5 } }}
-                value={editImageFile}
-                onChange={handleEditImageFile}
-              />
-              {(editImagePreview || editDraft.imageUrl.trim()) && (
-                <Image
-                  src={editImagePreview || editDraft.imageUrl.trim()}
-                  alt="Testimonial image preview"
-                  width={720}
-                  height={360}
-                  className="h-40 w-full rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] object-cover"
-                  unoptimized
-                />
-              )}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Testimony</label>
-                <textarea
-                  className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
-                  rows={4}
-                  value={editDraft.testimony}
-                  onChange={(e) => setEditDraft({ ...editDraft, testimony: e.target.value })}
-                />
-              </div>
-              <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                <input
-                  type="checkbox"
-                  checked={editDraft.isAnonymous}
-                  onChange={(e) => setEditDraft({ ...editDraft, isAnonymous: e.target.checked })}
-                />
-                Anonymous testimonial
-              </label>
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <Button variant="ghost" onClick={closeEdit}>
-                Cancel
-              </Button>
-              <Button onClick={saveEdit} loading={editSaving}>
-                Save changes
-              </Button>
-            </div>
+          <div className="relative w-full sm:max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} className="pl-10" placeholder="Search testimonials..." />
           </div>
         </div>
-      )}
+
+        <div className="mt-5 grid gap-4 xl:grid-cols-2">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-[var(--color-text-primary)]">Pending</h3>
+              <Badge variant="warning">{filteredPending.length}</Badge>
+            </div>
+            {loading ? (
+              <p className="rounded-2xl border border-dashed border-[var(--color-border-secondary)] p-6 text-center text-sm text-[var(--color-text-tertiary)]">Loading pending testimonials...</p>
+            ) : filteredPending.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-[var(--color-border-secondary)] p-6 text-center text-sm text-[var(--color-text-tertiary)]">No pending testimonials.</p>
+            ) : (
+              filteredPending.map((item) => (
+                <TestimonialCard
+                  key={item.id}
+                  item={item}
+                  status="pending"
+                  canApprove={canApprove}
+                  approving={approvingId === String(item.id)}
+                  onApprove={setApproveTarget}
+                />
+              ))
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-[var(--color-text-primary)]">Published</h3>
+              <Badge variant="success">{filteredApproved.length}</Badge>
+            </div>
+            {loading ? (
+              <p className="rounded-2xl border border-dashed border-[var(--color-border-secondary)] p-6 text-center text-sm text-[var(--color-text-tertiary)]">Loading published testimonials...</p>
+            ) : filteredApproved.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-[var(--color-border-secondary)] p-6 text-center text-sm text-[var(--color-text-tertiary)]">No published testimonials.</p>
+            ) : (
+              filteredApproved.map((item) => (
+                <TestimonialCard
+                  key={item.id}
+                  item={item}
+                  status="approved"
+                  canApprove={canApprove}
+                  approving={false}
+                  onApprove={setApproveTarget}
+                />
+              ))
+            )}
+          </div>
+        </div>
+      </Card>
 
       <VerifyActionModal
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={confirmDelete}
-        title="Delete Testimonial"
-        description="This action permanently removes the testimonial from the site."
-        confirmText="Delete"
-        cancelText="Cancel"
-        variant="danger"
-        loading={deleteLoading}
-        verifyText={deleteTarget ? `DELETE ${formatName(deleteTarget)}` : 'DELETE'}
-      />
-
-      <VerifyActionModal
-        isOpen={!!deleteFormTarget}
-        onClose={() => setDeleteFormTarget(null)}
-        onConfirm={confirmDeleteForm}
-        title="Delete Testimonial Form"
-        description="This removes the testimonial form link and public access for submissions."
-        confirmText="Delete Form"
-        cancelText="Cancel"
-        variant="danger"
-        loading={deleteFormLoading}
-        verifyText={deleteFormTarget ? `DELETE ${deleteFormTarget.title}` : 'DELETE'}
+        isOpen={Boolean(approveTarget)}
+        onClose={() => setApproveTarget(null)}
+        onConfirm={() => void approveSelected()}
+        title="Approve testimonial"
+        description={`This will publish ${approveTarget ? formatName(approveTarget) : 'this testimonial'} to the public testimonials area.`}
+        verifyText={approveTarget ? formatName(approveTarget) : ''}
+        confirmText="Approve testimonial"
+        variant="primary"
+        loading={Boolean(approvingId)}
       />
     </div>
   );

@@ -1,14 +1,25 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bell, CheckCheck, ChevronRight, Eye, RefreshCcw, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  Bell,
+  CheckCheck,
+  ChevronRight,
+  Eye,
+  Inbox,
+  RefreshCcw,
+  Search,
+  ShieldAlert,
+  X,
+} from 'lucide-react';
+
 import { apiClient } from '@/lib/api';
-import { AdminNotification } from '@/lib/types';
+import type { AdminNotification } from '@/lib/types';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Button } from '@/ui/Button';
-import { Card } from '@/ui/Card';
 import { Badge } from '@/ui/Badge';
+import { Input } from '@/ui/input';
 import { PageHeader } from '@/layouts';
 
 type Props = {
@@ -16,13 +27,85 @@ type Props = {
   subtitle: string;
 };
 
+type NotificationFilter = 'all' | 'unread' | 'approval' | 'content' | 'system';
+
+function formatDateTime(value?: string): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function itemTypeLabel(value?: string): string {
+  const raw = value?.trim() || 'notification';
+  return raw.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function classifyNotification(item: AdminNotification): Exclude<NotificationFilter, 'all' | 'unread'> {
+  const type = `${item.type || ''} ${item.entityType || ''}`.toLowerCase();
+  if (item.ticketCode || type.includes('request') || type.includes('approval') || type.includes('delete')) return 'approval';
+  if (type.includes('testimonial') || type.includes('event') || type.includes('form') || type.includes('content')) return 'content';
+  return 'system';
+}
+
+function ShellCard({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return (
+    <section className={`rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm ${className}`}>
+      {children}
+    </section>
+  );
+}
+
+function SummaryTile({ label, value, hint }: { label: string; value: number; hint: string }) {
+  return (
+    <ShellCard className="p-4">
+      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</p>
+      <p className="mt-2 text-2xl font-black text-[var(--color-text-primary)]">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-[var(--color-text-secondary)]">{hint}</p>
+    </ShellCard>
+  );
+}
+
+function FilterButton({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-2xl px-3 py-2 text-xs font-black transition ${
+        active
+          ? 'bg-[var(--color-text-primary)] text-[var(--color-background-primary)] shadow-sm'
+          : 'border border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="rounded-3xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-8 text-center">
+      <Inbox className="mx-auto h-8 w-8 text-[var(--color-text-tertiary)]" />
+      <p className="mt-3 text-sm font-black text-[var(--color-text-primary)]">No notifications found</p>
+      <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Try another filter or refresh the inbox.</p>
+    </div>
+  );
+}
+
 export function NotificationInbox({ title, subtitle }: Props) {
   const router = useRouter();
   const auth = useAuthContext();
   const [items, setItems] = useState<AdminNotification[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [filter, setFilter] = useState<NotificationFilter>('all');
+  const [query, setQuery] = useState('');
   const [activeItem, setActiveItem] = useState<AdminNotification | null>(null);
 
   const load = useCallback(async () => {
@@ -41,20 +124,31 @@ export function NotificationInbox({ title, subtitle }: Props) {
   }, []);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
-  const sorted = useMemo(
-    () =>
-      [...items].sort((a, b) => {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      }),
-    [items]
-  );
-  const visibleItems = useMemo(
-    () => (filter === 'unread' ? sorted.filter((item) => !item.isRead) : sorted),
-    [filter, sorted]
-  );
+  const sorted = useMemo(() => {
+    return [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [items]);
+
+  const visibleItems = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return sorted
+      .filter((item) => {
+        if (filter === 'unread') return !item.isRead;
+        if (filter === 'approval' || filter === 'content' || filter === 'system') return classifyNotification(item) === filter;
+        return true;
+      })
+      .filter((item) => {
+        if (!needle) return true;
+        return `${item.title || ''} ${item.message || ''} ${item.type || ''} ${item.entityType || ''} ${item.ticketCode || ''}`
+          .toLowerCase()
+          .includes(needle);
+      });
+  }, [filter, query, sorted]);
+
+  const approvalCount = useMemo(() => items.filter((item) => classifyNotification(item) === 'approval').length, [items]);
+  const contentCount = useMemo(() => items.filter((item) => classifyNotification(item) === 'content').length, [items]);
 
   const markRead = useCallback(async (id: string) => {
     try {
@@ -82,30 +176,26 @@ export function NotificationInbox({ title, subtitle }: Props) {
       const type = (item.type || '').toLowerCase();
       const entityType = (item.entityType || '').toLowerCase();
 
-      if (item.ticketCode && isSuperAdmin) {
-        return { href: '/dashboard/super/requests', label: 'Open approval requests' };
+      if ((item.ticketCode || type.includes('request') || type.includes('approval')) && isSuperAdmin) {
+        return { href: '/dashboard/super/requests', label: 'Open request queue' };
       }
       if (entityType === 'testimonial' || type.includes('testimonial')) {
-        return { href: '/dashboard/testimonials', label: 'Open testimonials' };
+        return { href: '/dashboard/testimonials', label: 'Review testimonials' };
       }
       if (entityType === 'event' || type.includes('event')) {
-        return { href: '/dashboard/events', label: 'Open events' };
+        return { href: '/dashboard/events', label: 'Review events' };
       }
-      if (
-        entityType === 'leadership' ||
-        entityType === 'member' ||
-        entityType === 'workforce' ||
-        type.includes('leadership') ||
-        type.includes('member') ||
-        type.includes('workforce')
-      ) {
-        return { href: '/dashboard/administration', label: 'Open administration' };
+      if (entityType === 'leadership' || type.includes('leadership')) {
+        return { href: '/dashboard/leadership', label: 'Open leadership' };
+      }
+      if (entityType === 'workforce' || type.includes('workforce')) {
+        return { href: '/dashboard/workforce', label: 'Open workforce' };
+      }
+      if (entityType === 'member' || type.includes('member')) {
+        return { href: '/dashboard/members', label: 'Open members' };
       }
       if (entityType === 'form' || type.includes('form')) {
         return { href: '/dashboard/forms', label: 'Open forms' };
-      }
-      if (type.includes('request') && isSuperAdmin) {
-        return { href: '/dashboard/super/requests', label: 'Open approval requests' };
       }
       return { href: '/dashboard', label: 'Open dashboard' };
     },
@@ -115,9 +205,7 @@ export function NotificationInbox({ title, subtitle }: Props) {
   const openItem = useCallback(
     async (item: AdminNotification) => {
       setActiveItem(item);
-      if (!item.isRead) {
-        await markRead(item.id);
-      }
+      if (!item.isRead) await markRead(item.id);
     },
     [markRead]
   );
@@ -131,158 +219,161 @@ export function NotificationInbox({ title, subtitle }: Props) {
     [resolveNotificationRoute, router]
   );
 
-  const itemTypeLabel = useCallback((value: string) => {
-    return value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  }, []);
-
   return (
     <div className="space-y-6">
       <PageHeader
         title={title}
         subtitle={subtitle}
         actions={
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={load} disabled={loading}>
-              <RefreshCcw className="h-4 w-4 mr-2" />
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => void load()} disabled={loading} loading={loading} icon={<RefreshCcw className="h-4 w-4" />}>
               Refresh
             </Button>
-            <Button variant="secondary" onClick={markAllRead} disabled={unread === 0}>
-              <CheckCheck className="h-4 w-4 mr-2" />
+            <Button variant="secondary" onClick={() => void markAllRead()} disabled={unread === 0} icon={<CheckCheck className="h-4 w-4" />}>
               Mark all read
             </Button>
           </div>
         }
       />
 
-      <Card>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[var(--color-text-secondary)]">
-            <Bell className="h-4 w-4" />
-            Inbox
+      <div className="grid gap-4 md:grid-cols-4">
+        <SummaryTile label="Total inbox" value={items.length} hint="All super-admin notifications loaded." />
+        <SummaryTile label="Unread" value={unread} hint="Items requiring attention." />
+        <SummaryTile label="Approval signals" value={approvalCount} hint="Tickets, requests, and actions." />
+        <SummaryTile label="Content signals" value={contentCount} hint="Events, forms, testimonials, and records." />
+      </div>
+
+      <ShellCard className="p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
+              <Bell className="h-5 w-5" />
+              <h2 className="text-lg font-black">Decision inbox</h2>
+            </div>
+            <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Prioritised alerts for super-admin decisions.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className={`rounded-[var(--radius-button)] border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                filter === 'all'
-                  ? 'border-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)]'
-                  : 'border-[var(--color-border-secondary)] text-[var(--color-text-secondary)]'
-              }`}
-              onClick={() => setFilter('all')}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              className={`rounded-[var(--radius-button)] border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                filter === 'unread'
-                  ? 'border-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)]'
-                  : 'border-[var(--color-border-secondary)] text-[var(--color-text-secondary)]'
-              }`}
-              onClick={() => setFilter('unread')}
-            >
-              Unread
-            </button>
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,300px)_auto]">
+            <div className="relative min-w-0">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
+              <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search notifications..." className="pl-10" />
+            </div>
             <Badge variant={unread > 0 ? 'warning' : 'secondary'} size="sm">
               {unread} unread
             </Badge>
           </div>
         </div>
 
-        <div className="mt-4 space-y-2">
-          {visibleItems.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">No notifications yet.</p>
-          ) : (
-            visibleItems.map((item) => (
-              <div
-                key={item.id}
-                className={`rounded-[var(--radius-card)] border p-3 ${
-                  item.isRead
-                    ? 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]'
-                    : 'border-amber-300/70 bg-amber-50/40'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-[var(--color-text-primary)]">{item.title}</p>
-                      <Badge variant="secondary" size="sm">{itemTypeLabel(item.type || 'notification')}</Badge>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <FilterButton active={filter === 'all'} onClick={() => setFilter('all')}>All</FilterButton>
+          <FilterButton active={filter === 'unread'} onClick={() => setFilter('unread')}>Unread</FilterButton>
+          <FilterButton active={filter === 'approval'} onClick={() => setFilter('approval')}>Approvals</FilterButton>
+          <FilterButton active={filter === 'content'} onClick={() => setFilter('content')}>Content</FilterButton>
+          <FilterButton active={filter === 'system'} onClick={() => setFilter('system')}>System</FilterButton>
+        </div>
+
+        <div className="mt-5 space-y-3">
+          {loading ? <p className="text-sm text-[var(--color-text-tertiary)]">Loading notifications...</p> : null}
+          {!loading && visibleItems.length === 0 ? <EmptyState /> : null}
+          {!loading &&
+            visibleItems.map((item) => {
+              const route = resolveNotificationRoute(item);
+              const category = classifyNotification(item);
+              return (
+                <article
+                  key={item.id}
+                  className={`rounded-3xl border p-4 transition hover:shadow-sm ${
+                    item.isRead
+                      ? 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]'
+                      : 'border-amber-300/80 bg-amber-50/50'
+                  }`}
+                >
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="break-words text-sm font-black text-[var(--color-text-primary)]">{item.title}</p>
+                        <Badge variant={category === 'approval' ? 'warning' : category === 'content' ? 'info' : 'secondary'} size="sm">
+                          {itemTypeLabel(item.type || category)}
+                        </Badge>
+                        {!item.isRead ? <span className="h-2 w-2 rounded-full bg-amber-500" aria-label="Unread" /> : null}
+                      </div>
+                      <p className="break-words text-sm leading-6 text-[var(--color-text-secondary)]">{item.message}</p>
+                      <p className="text-xs text-[var(--color-text-tertiary)]">{formatDateTime(item.createdAt)}</p>
                     </div>
-                    <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{item.message}</p>
-                    <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
-                      {new Date(item.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {!item.isRead && (
-                      <Button size="sm" variant="ghost" onClick={() => markRead(item.id)}>
-                        Mark read
+                    <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
+                      {!item.isRead ? (
+                        <Button size="sm" variant="ghost" onClick={() => void markRead(item.id)}>
+                          Mark read
+                        </Button>
+                      ) : null}
+                      <Button size="sm" variant="outline" icon={<Eye className="h-4 w-4" />} onClick={() => void openItem(item)}>
+                        Inspect
                       </Button>
-                    )}
-                    <Button size="sm" variant="outline" icon={<Eye className="h-4 w-4" />} onClick={() => openItem(item)}>
-                      Open
-                    </Button>
+                      <Button size="sm" icon={<ChevronRight className="h-4 w-4" />} onClick={() => openResolvedRoute(item)}>
+                        {route.label}
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))
-          )}
+                </article>
+              );
+            })}
         </div>
-      </Card>
+      </ShellCard>
 
-      {activeItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-xl rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-6 shadow-2xl">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Notification detail</p>
-                <h3 className="mt-1 text-lg font-semibold text-[var(--color-text-primary)]">{activeItem.title}</h3>
+      {activeItem ? (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-sm">
+          <button className="absolute inset-0 cursor-default" aria-label="Close notification detail" onClick={() => setActiveItem(null)} />
+          <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-2xl">
+            <div className="bg-slate-950 px-5 py-6 text-white">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-white/55">Notification detail</p>
+                  <h3 className="mt-2 break-words text-2xl font-black">{activeItem.title}</h3>
+                </div>
+                <button className="rounded-2xl p-2 text-white/70 hover:bg-white/10 hover:text-white" onClick={() => setActiveItem(null)} aria-label="Close">
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              <button
-                type="button"
-                aria-label="Close"
-                className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
-                onClick={() => setActiveItem(null)}
-              >
-                <X className="h-5 w-5" />
-              </button>
             </div>
 
-            <div className="space-y-3 text-sm">
-              <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-                <p className="text-xs text-[var(--color-text-tertiary)]">Message</p>
-                <p className="mt-1 text-[var(--color-text-secondary)]">{activeItem.message}</p>
+            <div className="space-y-4 p-5">
+              <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Message</p>
+                <p className="mt-3 whitespace-pre-line break-words text-sm leading-7 text-[var(--color-text-secondary)]">{activeItem.message}</p>
               </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
                   <p className="text-xs text-[var(--color-text-tertiary)]">Type</p>
-                  <p className="mt-1 font-medium text-[var(--color-text-primary)]">{itemTypeLabel(activeItem.type || 'notification')}</p>
+                  <p className="mt-1 font-bold text-[var(--color-text-primary)]">{itemTypeLabel(activeItem.type)}</p>
                 </div>
-                <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
                   <p className="text-xs text-[var(--color-text-tertiary)]">Created</p>
-                  <p className="mt-1 font-medium text-[var(--color-text-primary)]">{new Date(activeItem.createdAt).toLocaleString()}</p>
+                  <p className="mt-1 font-bold text-[var(--color-text-primary)]">{formatDateTime(activeItem.createdAt)}</p>
                 </div>
               </div>
-              {(activeItem.ticketCode || activeItem.entityType || activeItem.entityId) && (
-                <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3 text-xs text-[var(--color-text-tertiary)]">
-                  {activeItem.ticketCode && <p>Ticket: {activeItem.ticketCode}</p>}
-                  {activeItem.entityType && <p>Entity: {itemTypeLabel(activeItem.entityType)}</p>}
-                  {activeItem.entityId && <p className="truncate">Reference: {activeItem.entityId}</p>}
-                </div>
-              )}
-            </div>
 
-            <div className="mt-6 flex flex-wrap justify-end gap-2">
-              <Button variant="ghost" onClick={() => setActiveItem(null)}>
-                Close
-              </Button>
-              <Button onClick={() => openResolvedRoute(activeItem)} icon={<ChevronRight className="h-4 w-4" />}>
-                {resolveNotificationRoute(activeItem).label}
-              </Button>
+              {(activeItem.ticketCode || activeItem.entityType || activeItem.entityId) ? (
+                <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 text-sm">
+                  <div className="mb-3 flex items-center gap-2 font-bold text-[var(--color-text-primary)]">
+                    <ShieldAlert className="h-4 w-4" />
+                    Routing metadata
+                  </div>
+                  {activeItem.ticketCode ? <p className="break-words text-[var(--color-text-secondary)]">Ticket: {activeItem.ticketCode}</p> : null}
+                  {activeItem.entityType ? <p className="break-words text-[var(--color-text-secondary)]">Entity: {itemTypeLabel(activeItem.entityType)}</p> : null}
+                  {activeItem.entityId ? <p className="break-words text-[var(--color-text-secondary)]">Reference: {activeItem.entityId}</p> : null}
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--color-border-secondary)] pt-5">
+                <Button variant="ghost" onClick={() => setActiveItem(null)}>Close</Button>
+                <Button onClick={() => openResolvedRoute(activeItem)} icon={<ChevronRight className="h-4 w-4" />}>
+                  {resolveNotificationRoute(activeItem).label}
+                </Button>
+              </div>
             </div>
-          </div>
+          </aside>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
