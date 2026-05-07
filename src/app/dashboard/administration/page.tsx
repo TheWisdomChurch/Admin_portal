@@ -179,6 +179,14 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/+$/, ''
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const TRACKING_WINDOW_DAYS = 45;
 const PAGE_SIZE_OPTIONS = [8, 12, 20, 40];
+const PEOPLE_DISTRIBUTION_LABELS = ['Leadership', 'Members', 'Workforce'] as const;
+
+const PEOPLE_DISTRIBUTION_COLORS = [
+  'rgba(245, 158, 11, 0.8)',
+  'rgba(37, 99, 235, 0.8)',
+  'rgba(16, 185, 129, 0.8)',
+] as const;
+
 
 const segmentMeta: Record<SegmentKey, { label: string; description: string; icon: React.ElementType; tone: string; badge: string }> = {
   leadership: {
@@ -1105,118 +1113,158 @@ function TabButton({ tab, active, onClick, children }: { tab: DashboardTab; acti
 }
 
 function DashboardCharts({ data }: { data: DashboardData }) {
-  const growth = makeMonthlyGrowth(data.allPeople, data.forms, data.events);
-  const peopleLabels = ['Leadership', 'Members', 'Workforce'];
-  const peopleValues = [data.leadership.length, data.members.length, data.workforce.length];
-  const submissions = extractSubmissionTotal(data.forms);
+  const growth = useMemo(
+    () => makeMonthlyGrowth(data.allPeople, data.forms, data.events),
+    [data.allPeople, data.forms, data.events]
+  );
 
-  const doughnutData = useMemo<ChartData<'doughnut'>>(() => ({
-    labels: peopleLabels,
-    datasets: [{
-      data: peopleValues,
-      backgroundColor: ['rgba(245, 158, 11, 0.8)', 'rgba(37, 99, 235, 0.8)', 'rgba(16, 185, 129, 0.8)'],
-      borderColor: '#ffffff',
-      borderWidth: 4,
-      hoverOffset: 12,
-    }],
-  }), [peopleValues.join('|')]);
+  const peopleValues = useMemo(
+    () => [data.leadership.length, data.members.length, data.workforce.length],
+    [data.leadership.length, data.members.length, data.workforce.length]
+  );
 
-  const monthBarData = useMemo<ChartData<'bar'>>(() => ({
-    labels: MONTH_LABELS,
-    datasets: [
-      {
-        label: 'Birthdays',
-        data: data.birthdayMonths.map((item) => item.count),
-        backgroundColor: 'rgba(236, 72, 153, 0.75)',
-        borderRadius: 12,
-      },
-      {
-        label: 'Anniversaries',
-        data: data.anniversaryMonths.map((item) => item.count),
-        backgroundColor: 'rgba(249, 115, 22, 0.75)',
-        borderRadius: 12,
-      },
-    ],
-  }), [data.birthdayMonths, data.anniversaryMonths]);
+  const submissions = useMemo(
+    () => extractSubmissionTotal(data.forms),
+    [data.forms]
+  );
 
-  const growthLineData = useMemo<ChartData<'line'>>(() => ({
-    labels: MONTH_LABELS,
-    datasets: [{
-      label: 'Recorded growth activity',
-      data: growth.map((item) => item.count),
-      borderColor: 'rgba(15, 23, 42, 0.95)',
-      backgroundColor: 'rgba(15, 23, 42, 0.12)',
-      borderWidth: 3,
-      pointRadius: 4,
-      pointHoverRadius: 7,
-      tension: 0.42,
-      fill: true,
-    }],
-  }), [growth]);
+  const birthdayMonthValues = useMemo(
+    () => data.birthdayMonths.map((item) => item.count),
+    [data.birthdayMonths]
+  );
 
-  const operationsData = useMemo<ChartData<'bar'>>(() => ({
-    labels: ['Forms', 'Campaigns', 'Events', 'Submissions', 'Products'],
-    datasets: [{
-      label: 'Operations volume',
-      data: [data.forms.length, data.campaigns.length, data.events.length, submissions, data.storeItems.length],
-      backgroundColor: ['rgba(59, 130, 246, 0.78)', 'rgba(245, 158, 11, 0.78)', 'rgba(139, 92, 246, 0.78)', 'rgba(16, 185, 129, 0.78)', 'rgba(15, 23, 42, 0.78)'],
-      borderRadius: 14,
-    }],
-  }), [data.forms.length, data.campaigns.length, data.events.length, submissions, data.storeItems.length]);
+  const anniversaryMonthValues = useMemo(
+    () => data.anniversaryMonths.map((item) => item.count),
+    [data.anniversaryMonths]
+  );
 
-  const barAxisOptions: ChartOptions<'bar'> = {
-    scales: {
-      x: {
-        grid: {
-          display: false,
+  const growthValues = useMemo(
+    () => growth.map((item) => item.count),
+    [growth]
+  );
+
+  const operationsValues = useMemo(
+    () => [data.forms.length, data.campaigns.length, data.events.length, submissions, data.storeItems.length],
+    [data.forms.length, data.campaigns.length, data.events.length, submissions, data.storeItems.length]
+  );
+
+  const doughnutData = useMemo<ChartData<'doughnut'>>(
+    () => ({
+      labels: [...PEOPLE_DISTRIBUTION_LABELS],
+      datasets: [
+        {
+          data: peopleValues,
+          backgroundColor: [...PEOPLE_DISTRIBUTION_COLORS],
+          borderColor: '#ffffff',
+          borderWidth: 4,
+          hoverOffset: 12,
         },
-      },
-      y: {
-        beginAtZero: true,
-        ticks: {
-          precision: 0,
-        },
-      },
-    },
-  };
+      ],
+    }),
+    [peopleValues]
+  );
 
-  const lineAxisOptions: ChartOptions<'line'> = {
-    scales: {
-      x: {
-        grid: {
-          display: false,
+  const monthBarData = useMemo<ChartData<'bar'>>(
+    () => ({
+      labels: MONTH_LABELS,
+      datasets: [
+        {
+          label: 'Birthdays',
+          data: birthdayMonthValues,
+          backgroundColor: 'rgba(236, 72, 153, 0.75)',
+          borderRadius: 12,
         },
-      },
-      y: {
-        beginAtZero: true,
-        ticks: {
-          precision: 0,
+        {
+          label: 'Anniversaries',
+          data: anniversaryMonthValues,
+          backgroundColor: 'rgba(249, 115, 22, 0.75)',
+          borderRadius: 12,
         },
+      ],
+    }),
+    [birthdayMonthValues, anniversaryMonthValues]
+  );
+
+  const growthLineData = useMemo<ChartData<'line'>>(
+    () => ({
+      labels: MONTH_LABELS,
+      datasets: [
+        {
+          label: 'Recorded growth activity',
+          data: growthValues,
+          borderColor: 'rgba(15, 23, 42, 0.95)',
+          backgroundColor: 'rgba(15, 23, 42, 0.12)',
+          borderWidth: 3,
+          pointRadius: 4,
+          pointHoverRadius: 7,
+          tension: 0.42,
+          fill: true,
+        },
+      ],
+    }),
+    [growthValues]
+  );
+
+  const operationsData = useMemo<ChartData<'bar'>>(
+    () => ({
+      labels: ['Forms', 'Campaigns', 'Events', 'Submissions', 'Products'],
+      datasets: [
+        {
+          label: 'Operations volume',
+          data: operationsValues,
+          backgroundColor: [
+            'rgba(59, 130, 246, 0.78)',
+            'rgba(245, 158, 11, 0.78)',
+            'rgba(139, 92, 246, 0.78)',
+            'rgba(16, 185, 129, 0.78)',
+            'rgba(15, 23, 42, 0.78)',
+          ],
+          borderRadius: 14,
+        },
+      ],
+    }),
+    [operationsValues]
+  );
+
+  const barAxisOptions = useMemo<ChartOptions<'bar'>>(
+    () => ({
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true, ticks: { precision: 0 } },
       },
-    },
-  };
+    }),
+    []
+  );
+
+  const lineAxisOptions = useMemo<ChartOptions<'line'>>(
+    () => ({
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true, ticks: { precision: 0 } },
+      },
+    }),
+    []
+  );
+
+  const operationsOptions = useMemo<ChartOptions<'bar'>>(
+    () => ({ ...barAxisOptions, plugins: { legend: { display: false } } }),
+    [barAxisOptions]
+  );
+
+  const doughnutOptions = useMemo<ChartOptions<'doughnut'>>(
+    () => ({ cutout: '66%' }),
+    []
+  );
 
   return (
     <div className="grid gap-5 xl:grid-cols-5">
       <Panel title="People distribution" subtitle="Live split between leadership, members, and workforce." icon={Users}>
-        <ChartCanvas
-          type="doughnut"
-          data={doughnutData}
-          className="min-h-[320px]"
-          options={{
-            cutout: '66%',
-          }}
-        />
+        <ChartCanvas type="doughnut" data={doughnutData} className="min-h-[320px]" options={doughnutOptions} />
       </Panel>
 
       <div className="xl:col-span-3">
         <Panel title="Growth intelligence" subtitle="Monthly growth activity from saved profiles, forms, and events for the current year." icon={TrendingUp}>
-          <ChartCanvas
-            type="line"
-            data={growthLineData}
-            className="min-h-[320px]"
-            options={lineAxisOptions}
-          />
+          <ChartCanvas type="line" data={growthLineData} className="min-h-[320px]" options={lineAxisOptions} />
         </Panel>
       </div>
 
@@ -1232,35 +1280,19 @@ function DashboardCharts({ data }: { data: DashboardData }) {
 
       <div className="xl:col-span-3">
         <Panel title="Birthday and anniversary distribution" subtitle="Month-by-month record intelligence from backend profile data." icon={BarChart3}>
-          <ChartCanvas
-            type="bar"
-            data={monthBarData}
-            className="min-h-[330px]"
-            options={barAxisOptions}
-          />
+          <ChartCanvas type="bar" data={monthBarData} className="min-h-[330px]" options={barAxisOptions} />
         </Panel>
       </div>
 
       <div className="xl:col-span-2">
         <Panel title="Operations volume" subtitle="Forms, campaigns, events, submissions, and store records from connected endpoints." icon={Activity}>
-          <ChartCanvas
-            type="bar"
-            data={operationsData}
-            className="min-h-[330px]"
-            options={{
-              ...barAxisOptions,
-              plugins: {
-                legend: {
-                  display: false,
-                },
-              },
-            }}
-          />
+          <ChartCanvas type="bar" data={operationsData} className="min-h-[330px]" options={operationsOptions} />
         </Panel>
       </div>
     </div>
   );
 }
+
 
 function MiniMetric({ label, value }: { label: string; value: number | string }) {
   return (

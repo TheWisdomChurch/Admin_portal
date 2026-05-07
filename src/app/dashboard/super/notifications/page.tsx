@@ -7,10 +7,9 @@ function SuperNotificationsPage() {
   return (
     <NotificationInbox
       title="Super Admin Notifications"
-      subtitle="Review priority alerts and action items across the platform."
+      subtitle="Priority alerts, approval signals, and platform events requiring executive attention."
     />
   );
 }
 
 export default withAuth(SuperNotificationsPage, { requiredRole: 'super_admin' });
-
