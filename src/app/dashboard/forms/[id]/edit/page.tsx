@@ -11,8 +11,10 @@ import { Card } from '@/ui/Card';
 import { Input } from '@/ui/input';
 import { PageHeader } from '@/layouts';
 import { AlertModal } from '@/ui/AlertModal';
-
+import FormFieldOrderBuilder from '../../FormFieldOrderBuilder';
 import { apiClient } from '@/lib/api';
+
+import { normalizeOrderedFields } from '@/lib/formFieldOrdering';
 import {
   buildFormSubmissionsReportPath,
   copyFormSubmissionsReportLink,
@@ -344,6 +346,7 @@ function EditFormPage() {
 
   const [form, setForm] = useState<AdminForm | null>(null);
   const [fields, setFields] = useState<FieldDraft[]>([]);
+  const orderedFields = useMemo(() => normalizeOrderedFields(fields), [fields]);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -408,7 +411,7 @@ function EditFormPage() {
       try {
         const res = await apiClient.getAdminForm(formId);
         setForm(res);
-        setFields(applyImplicitYesVisibilityDefaults(res.fields || []).map(ensureOptions));
+        setFields(normalizeOrderedFields(applyImplicitYesVisibilityDefaults(res.fields || []).map(ensureOptions)));
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Failed to load form');
         router.back();
@@ -643,10 +646,10 @@ function EditFormPage() {
   };
 
   const getVisibilityTargetFields = (currentIndex: number) =>
-    fields.filter((field, index) => index !== currentIndex && Boolean(field.key?.trim()));
+    orderedFields.filter((field, index) => index !== currentIndex && Boolean(field.key?.trim()));
 
   const getVisibilityTargetOptions = (fieldKey: string) => {
-    const target = fields.find((field) => field.key === fieldKey);
+    const target = orderedFields.find((field) => field.key === fieldKey);
     return Array.isArray(target?.options) ? target.options : [];
   };
 
@@ -686,16 +689,18 @@ function EditFormPage() {
   const addField = () => {
     const order = fields.length + 1;
 
-    setFields((prev) => [
-      ...prev,
-      {
-        key: `field_${order}`,
-        label: 'New field',
-        type: 'text',
-        required: false,
-        order,
-      },
-    ]);
+    setFields((prev) =>
+      normalizeOrderedFields([
+        ...prev,
+        {
+          key: `field_${order}`,
+          label: 'New field',
+          type: 'text',
+          required: false,
+          order,
+        },
+      ])
+    );
   };
 
   const requestRemoveField = (index: number) => {
@@ -706,10 +711,7 @@ function EditFormPage() {
     if (removeFieldIndex === null) return;
 
     setFields((prev) =>
-      prev.filter((_, index) => index !== removeFieldIndex).map((field, index) => ({
-        ...field,
-        order: index + 1,
-      }))
+      normalizeOrderedFields(prev.filter((_, index) => index !== removeFieldIndex))
     );
 
     setRemoveFieldIndex(null);
@@ -770,7 +772,7 @@ function EditFormPage() {
       description: form.description?.trim() || undefined,
       slug: form.slug,
       eventId: form.eventId,
-      fields: fields.map((field, index) => ({
+      fields: normalizeOrderedFields(fields).map((field, index) => ({
         ...field,
         key: normalizeFieldKey(field.key || `field_${index + 1}`, `field_${index + 1}`),
         label: field.label.trim(),
@@ -786,7 +788,7 @@ function EditFormPage() {
       const updated = await apiClient.updateAdminForm(form.id, payload);
 
       setForm(updated);
-      setFields(applyImplicitYesVisibilityDefaults(updated.fields || []).map(ensureOptions));
+      setFields(normalizeOrderedFields(applyImplicitYesVisibilityDefaults(updated.fields || []).map(ensureOptions)));
 
       toast.success('Form updated');
       router.push('/dashboard/forms');
@@ -878,7 +880,7 @@ function EditFormPage() {
   const introBulletsValue = (form.settings?.introBullets ?? []).join('\n');
   const introBulletSubtextsValue = (form.settings?.introBulletSubtexts ?? []).join('\n');
   const contentSections = form.settings?.contentSections ?? [];
-  const pendingField = removeFieldIndex !== null ? fields[removeFieldIndex] : null;
+  const pendingField = removeFieldIndex !== null ? orderedFields[removeFieldIndex] : null;
 
   const addContentSection = () => {
     updateSettings({ contentSections: [...contentSections, createEmptyContentSection()] });
@@ -1381,8 +1383,15 @@ function EditFormPage() {
       </Card>
 
       <Card title="Fields">
-        <div className="space-y-4">
-          {fields.map((field, index) => {
+        <div className="space-y-5">
+          <FormFieldOrderBuilder<FieldDraft>
+            fields={fields}
+            onChange={(nextFields) => setFields(normalizeOrderedFields(nextFields))}
+            title="Arrange public form fields"
+            description="Drag fields into the exact order members should see on the public form. The saved backend order will follow this arrangement."
+          />
+
+          {orderedFields.map((field, index) => {
             const visibilityRules = Array.isArray(field.visibility?.rules) ? field.visibility.rules : [];
             const visibilityEnabled = visibilityRules.length > 0;
             const targetFields = getVisibilityTargetFields(index);
