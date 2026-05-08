@@ -1011,8 +1011,14 @@ function unwrapData<T>(res: unknown, errorMessage: string): T {
 
 function parseApprovalType(
   value: unknown
-): 'testimonial' | 'event' | 'admin_user' {
-  if (value === 'testimonial' || value === 'event' || value === 'admin_user') {
+): ApprovalRequest['type'] {
+  if (
+    value === 'testimonial' ||
+    value === 'event' ||
+    value === 'admin_user' ||
+    value === 'leadership_delete' ||
+    value === 'workforce_delete'
+  ) {
     return value;
   }
   return 'admin_user';
@@ -1020,8 +1026,8 @@ function parseApprovalType(
 
 function parseApprovalStatus(
   value: unknown
-): 'pending' | 'approved' | 'deleted' {
-  if (value === 'pending' || value === 'approved' || value === 'deleted') {
+): ApprovalRequest['status'] {
+  if (value === 'pending' || value === 'approved' || value === 'rejected' || value === 'deleted') {
     return value;
   }
   return 'pending';
