@@ -10,11 +10,17 @@ export type ApprovalRequestType =
 
 export type ApprovalRequestStatus = 'pending' | 'approved' | 'rejected' | 'deleted' | string;
 
+export type ApprovalActionLink = {
+  label?: string;
+  method?: string;
+  url?: string;
+};
+
 export type ApprovalRequestActions = {
-  approve?: string;
-  reject?: string;
-  delete?: string;
-  view?: string;
+  approve?: string | ApprovalActionLink;
+  reject?: string | ApprovalActionLink;
+  delete?: string | ApprovalActionLink;
+  view?: string | ApprovalActionLink;
 };
 
 export type ApprovalRequest = {
@@ -43,18 +49,17 @@ export type ApprovalRequest = {
   created_at?: string;
   updatedAt?: string;
   updated_at?: string;
+  approveAction?: ApprovalActionLink;
+  rejectAction?: ApprovalActionLink;
+  deleteAction?: ApprovalActionLink;
   actions?: ApprovalRequestActions;
 };
 
 export type ApprovalRequestDetail = ApprovalRequest & {
   target?: unknown;
-  actions?: ApprovalRequestActions;
 };
 
-export type ApprovalTimelinePoint = {
-  day: string;
-  count: number;
-};
+export type ApprovalTimelinePoint = { day: string; count: number };
 
 export type ApprovalRequestsTimeline = {
   start?: string;
@@ -73,21 +78,16 @@ type ApiEnvelope<T = unknown> = {
 
 type JsonRecord = Record<string, unknown>;
 
-const RAW_API_ORIGIN =
-  process.env.NEXT_PUBLIC_API_URL ??
-  process.env.NEXT_PUBLIC_BACKEND_URL ??
-  '';
-
+const RAW_API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 const USE_API_PROXY = process.env.NEXT_PUBLIC_API_PROXY !== 'false';
+const DEFAULT_CSRF_HEADER = 'X-CSRF-Token';
 
 let csrfTokenCache: string | null = null;
-let csrfHeaderNameCache = 'X-CSRF-Token';
+let csrfHeaderNameCache = DEFAULT_CSRF_HEADER;
 
 function normalizeOrigin(raw: string): string {
   let base = raw.trim().replace(/\/+$/, '');
-  if (base.endsWith('/api/v1')) {
-    base = base.slice(0, -'/api/v1'.length);
-  }
+  if (base.endsWith('/api/v1')) base = base.slice(0, -'/api/v1'.length);
   return base;
 }
 
@@ -95,19 +95,13 @@ const API_ORIGIN = RAW_API_ORIGIN ? normalizeOrigin(RAW_API_ORIGIN) : '';
 const API_V1_BASE_URL = USE_API_PROXY ? '/api/v1' : `${API_ORIGIN}/api/v1`;
 
 function apiUrl(path: string): string {
-  const normalized = path.startsWith('/') ? path : `/${path}`;
+  const cleanPath = String(path || '').trim();
+  if (!cleanPath) return API_V1_BASE_URL;
+  if (/^https?:\/\//i.test(cleanPath)) return cleanPath;
 
-  if (normalized.startsWith('/api/v1/')) {
-    return normalized;
-  }
-
+  const normalized = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+  if (normalized === '/api/v1' || normalized.startsWith('/api/v1/')) return normalized;
   return `${API_V1_BASE_URL}${normalized}`;
-}
-
-function normalizeActionPath(path: string): string {
-  const trimmed = path.trim();
-  if (!trimmed) return '';
-  return trimmed.replace(/^\/api\/v1/, '');
 }
 
 function isRecord(value: unknown): value is JsonRecord {
@@ -121,61 +115,49 @@ function stringValue(value: unknown): string {
   return '';
 }
 
-async function safeJson<T>(response: Response): Promise<T> {
+async function safeJson(response: Response): Promise<unknown> {
   const text = await response.text();
-
-  if (!text) {
-    return {} as T;
-  }
+  if (!text) return {};
 
   try {
-    return JSON.parse(text) as T;
+    return JSON.parse(text) as unknown;
   } catch {
-    return { message: text } as T;
+    return { message: text };
   }
 }
 
 function unwrap<T>(payload: unknown): T {
-  if (isRecord(payload) && 'data' in payload) {
-    return payload.data as T;
-  }
-
+  if (isRecord(payload) && 'data' in payload) return payload.data as T;
   return payload as T;
 }
 
 function normalizeArray<T>(value: unknown): T[] {
   const data = unwrap<unknown>(value);
-
-  if (Array.isArray(data)) {
-    return data as T[];
-  }
+  if (Array.isArray(data)) return data as T[];
 
   if (isRecord(data)) {
     const list = data.data ?? data.items ?? data.results ?? data.records ?? data.rows;
-
-    if (Array.isArray(list)) {
-      return list as T[];
-    }
+    if (Array.isArray(list)) return list as T[];
   }
 
   return [];
 }
 
 function messageFromPayload(payload: unknown, fallback: string): string {
-  if (isRecord(payload)) {
-    const message = payload.message ?? payload.error;
+  if (!isRecord(payload)) return fallback;
 
-    if (typeof message === 'string' && message.trim()) {
-      return message.trim();
-    }
+  const directMessage = stringValue(payload.message);
+  if (directMessage) return directMessage;
 
-    if (isRecord(payload.data)) {
-      const nestedMessage = payload.data.message ?? payload.data.error;
+  const directError = stringValue(payload.error);
+  if (directError) return directError;
 
-      if (typeof nestedMessage === 'string' && nestedMessage.trim()) {
-        return nestedMessage.trim();
-      }
-    }
+  if (isRecord(payload.data)) {
+    const nestedMessage = stringValue(payload.data.message);
+    if (nestedMessage) return nestedMessage;
+
+    const nestedError = stringValue(payload.data.error);
+    if (nestedError) return nestedError;
   }
 
   return fallback;
@@ -183,25 +165,17 @@ function messageFromPayload(payload: unknown, fallback: string): string {
 
 function query(params: Record<string, string | number | undefined>): string {
   const search = new URLSearchParams();
-
   Object.entries(params).forEach(([key, value]) => {
     if (value === undefined || value === '') return;
     search.set(key, String(value));
   });
-
   const text = search.toString();
   return text ? `?${text}` : '';
 }
 
-function csrfPayloadFromEnvelope(payload: ApiEnvelope<JsonRecord> | JsonRecord): JsonRecord {
-  if (isRecord(payload) && isRecord(payload.data)) {
-    return payload.data;
-  }
-
-  if (isRecord(payload)) {
-    return payload;
-  }
-
+function envelopeData(payload: unknown): JsonRecord {
+  if (isRecord(payload) && isRecord(payload.data)) return payload.data;
+  if (isRecord(payload)) return payload;
   return {};
 }
 
@@ -222,8 +196,26 @@ function extractCsrfHeader(payload: JsonRecord): string {
     stringValue(payload.header_name) ||
     stringValue(payload.csrfHeader) ||
     stringValue(payload.csrf_header) ||
-    'X-CSRF-Token'
+    DEFAULT_CSRF_HEADER
   );
+}
+
+function actionURL(action?: string | ApprovalActionLink): string {
+  if (!action) return '';
+  if (typeof action === 'string') return action.trim();
+  return stringValue(action.url);
+}
+
+function actionMethod(action: string | ApprovalActionLink | undefined, fallback: string): string {
+  if (!action || typeof action === 'string') return fallback.toUpperCase();
+  return (stringValue(action.method) || fallback).toUpperCase();
+}
+
+function normalizeActionPath(action?: string | ApprovalActionLink): string {
+  const url = actionURL(action);
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  return url.replace(/^\/api\/v1/, '') || '/';
 }
 
 export class AdminWorkflowApiError extends Error {
@@ -240,57 +232,41 @@ export class AdminWorkflowApiError extends Error {
 
 async function requestCsrfToken(forceRefresh = false): Promise<{ token: string; header: string } | null> {
   if (!forceRefresh && csrfTokenCache) {
-    return {
-      token: csrfTokenCache,
-      header: csrfHeaderNameCache,
-    };
+    return { token: csrfTokenCache, header: csrfHeaderNameCache };
   }
 
   const response = await fetch(apiUrl('/auth/csrf-token'), {
     method: 'GET',
     credentials: 'include',
     cache: 'no-store',
-    headers: {
-      Accept: 'application/json',
-    },
+    headers: { Accept: 'application/json' },
   });
 
-  if (!response.ok) {
-    return null;
-  }
+  if (!response.ok) return null;
 
-  const payload = await safeJson<ApiEnvelope<JsonRecord> | JsonRecord>(response);
-  const data = csrfPayloadFromEnvelope(payload);
-
+  const payload = await safeJson(response);
+  const data = envelopeData(payload);
   const token = extractCsrfToken(data);
   const header = extractCsrfHeader(data);
 
-  if (!token) {
-    return null;
-  }
+  if (!token) return null;
 
   csrfTokenCache = token;
-  csrfHeaderNameCache = header;
-
-  return { token, header };
+  csrfHeaderNameCache = header || DEFAULT_CSRF_HEADER;
+  return { token: csrfTokenCache, header: csrfHeaderNameCache };
 }
 
 async function request<T>(path: string, options: RequestInit = {}, retryingAfterCsrfRefresh = false): Promise<T> {
-  const method = (options.method || 'GET').toUpperCase();
+  const method = String(options.method || 'GET').toUpperCase();
   const headers = new Headers(options.headers || {});
 
   headers.set('Accept', 'application/json');
 
   if (method !== 'GET' && method !== 'HEAD') {
-    if (!headers.has('Content-Type') && options.body) {
-      headers.set('Content-Type', 'application/json');
-    }
+    if (!headers.has('Content-Type') && options.body) headers.set('Content-Type', 'application/json');
 
     const csrf = await requestCsrfToken(retryingAfterCsrfRefresh);
-
-    if (csrf) {
-      headers.set(csrf.header, csrf.token);
-    }
+    if (csrf) headers.set(csrf.header, csrf.token);
   }
 
   const response = await fetch(apiUrl(path), {
@@ -301,17 +277,21 @@ async function request<T>(path: string, options: RequestInit = {}, retryingAfter
     headers,
   });
 
-  const payload = await safeJson<ApiEnvelope<T>>(response);
+  const payload = await safeJson(response);
 
   if (!response.ok) {
-    if ((response.status === 401 || response.status === 403) && !retryingAfterCsrfRefresh && method !== 'GET' && method !== 'HEAD') {
+    const shouldRetryWithFreshCsrf =
+      (response.status === 401 || response.status === 403) &&
+      !retryingAfterCsrfRefresh &&
+      method !== 'GET' &&
+      method !== 'HEAD';
+
+    if (shouldRetryWithFreshCsrf) {
       csrfTokenCache = null;
       return request<T>(path, options, true);
     }
 
-    if (response.status === 401 || response.status === 403) {
-      csrfTokenCache = null;
-    }
+    if (response.status === 401 || response.status === 403) csrfTokenCache = null;
 
     throw new AdminWorkflowApiError(
       messageFromPayload(payload, `Request failed with status ${response.status}`),
@@ -323,44 +303,64 @@ async function request<T>(path: string, options: RequestInit = {}, retryingAfter
   return unwrap<T>(payload);
 }
 
-export function requestTicketCode(request: ApprovalRequest): string {
-  return String(request.ticketCode ?? request.ticket_code ?? request.id ?? '').trim();
+export function requestTicketCode(requestItem: ApprovalRequest): string {
+  return String(requestItem.ticketCode ?? requestItem.ticket_code ?? requestItem.id ?? '').trim();
 }
 
-export function requestEntityId(request: ApprovalRequest): string {
-  return String(request.entityId ?? request.entity_id ?? '').trim();
+export function requestEntityId(requestItem: ApprovalRequest): string {
+  return String(requestItem.entityId ?? requestItem.entity_id ?? '').trim();
 }
 
-export function requestEntityLabel(request: ApprovalRequest): string {
-  return String(request.entityLabel ?? request.entity_label ?? requestTicketCode(request) ?? '').trim();
+export function requestEntityLabel(requestItem: ApprovalRequest): string {
+  return String(requestItem.entityLabel ?? requestItem.entity_label ?? requestTicketCode(requestItem) ?? '').trim();
 }
 
-export function requestRequesterName(request: ApprovalRequest): string {
-  return String(request.requestedByName ?? request.requested_by_name ?? '').trim();
+export function requestRequesterName(requestItem: ApprovalRequest): string {
+  return String(requestItem.requestedByName ?? requestItem.requested_by_name ?? '').trim();
 }
 
-export function requestRequesterEmail(request: ApprovalRequest): string {
-  return String(request.requestedByEmail ?? request.requested_by_email ?? '').trim();
+export function requestRequesterEmail(requestItem: ApprovalRequest): string {
+  return String(requestItem.requestedByEmail ?? requestItem.requested_by_email ?? '').trim();
 }
 
-export function requestCreatedAt(request: ApprovalRequest): string {
-  return String(request.createdAt ?? request.created_at ?? '').trim();
+export function requestCreatedAt(requestItem: ApprovalRequest): string {
+  return String(requestItem.createdAt ?? requestItem.created_at ?? '').trim();
 }
 
-export function requestUpdatedAt(request: ApprovalRequest): string {
-  return String(request.updatedAt ?? request.updated_at ?? '').trim();
+export function requestUpdatedAt(requestItem: ApprovalRequest): string {
+  return String(requestItem.updatedAt ?? requestItem.updated_at ?? '').trim();
 }
 
-export function requestApprovedAt(request: ApprovalRequest): string {
-  return String(request.approvedAt ?? request.approved_at ?? '').trim();
+export function requestApprovedAt(requestItem: ApprovalRequest): string {
+  return String(requestItem.approvedAt ?? requestItem.approved_at ?? '').trim();
 }
 
-export function requestApproverName(request: ApprovalRequest): string {
-  return String(request.approvedByName ?? request.approved_by_name ?? '').trim();
+export function requestApproverName(requestItem: ApprovalRequest): string {
+  return String(requestItem.approvedByName ?? requestItem.approved_by_name ?? '').trim();
 }
 
-export function requestApproverEmail(request: ApprovalRequest): string {
-  return String(request.approvedByEmail ?? request.approved_by_email ?? '').trim();
+export function requestApproverEmail(requestItem: ApprovalRequest): string {
+  return String(requestItem.approvedByEmail ?? requestItem.approved_by_email ?? '').trim();
+}
+
+function requireEntityId(requestItem: ApprovalRequest, label: string): string {
+  const entityId = requestEntityId(requestItem);
+  if (!entityId) throw new AdminWorkflowApiError(`${label} id is missing from approval request`, 400, requestItem);
+  return entityId;
+}
+
+function requestByConfiguredAction(
+  action: string | ApprovalActionLink | undefined,
+  fallbackMethod: 'POST' | 'PATCH' | 'DELETE',
+  body?: string
+): Promise<unknown> | null {
+  const path = normalizeActionPath(action);
+  if (!path) return null;
+
+  return request(path, {
+    method: actionMethod(action, fallbackMethod),
+    ...(body !== undefined ? { body } : {}),
+  });
 }
 
 export const adminWorkflowApi = {
@@ -379,12 +379,8 @@ export const adminWorkflowApi = {
   },
 
   async getApprovalRequest(id: string): Promise<ApprovalRequestDetail> {
-    const cleanId = id.trim();
-
-    if (!cleanId) {
-      throw new AdminWorkflowApiError('Approval request id is required', 400);
-    }
-
+    const cleanId = String(id || '').trim();
+    if (!cleanId) throw new AdminWorkflowApiError('Approval request id is required', 400);
     return request<ApprovalRequestDetail>(`/admin/requests/${encodeURIComponent(cleanId)}`);
   },
 
@@ -392,85 +388,90 @@ export const adminWorkflowApi = {
     return request<ApprovalRequestsTimeline>(`/admin/requests/timeline?days=${encodeURIComponent(String(days))}`);
   },
 
-  async approveRequest(req: ApprovalRequest): Promise<unknown> {
-    const entityId = requestEntityId(req);
-    const action = req.actions?.approve;
+  async approveRequest(requestItem: ApprovalRequest): Promise<unknown> {
+    const configuredAction = requestByConfiguredAction(
+      requestItem.approveAction ?? requestItem.actions?.approve,
+      'POST',
+      '{}'
+    );
 
-    if (action) {
-      return request(normalizeActionPath(action), {
-        method: 'POST',
-        body: '{}',
-      });
-    }
+    if (configuredAction) return configuredAction;
 
-    switch (req.type) {
-      case 'admin_user':
-        if (!entityId) throw new AdminWorkflowApiError('Admin user id is missing from approval request', 400, req);
+    switch (requestItem.type) {
+      case 'admin_user': {
+        const entityId = requireEntityId(requestItem, 'Admin user');
         return request(`/admin/users/${encodeURIComponent(entityId)}/approve`, { method: 'POST', body: '{}' });
-      case 'event':
-        if (!entityId) throw new AdminWorkflowApiError('Event id is missing from approval request', 400, req);
+      }
+      case 'event': {
+        const entityId = requireEntityId(requestItem, 'Event');
         return request(`/admin/events/${encodeURIComponent(entityId)}/approve`, { method: 'PATCH', body: '{}' });
-      case 'testimonial':
-        if (!entityId) throw new AdminWorkflowApiError('Testimonial id is missing from approval request', 400, req);
+      }
+      case 'testimonial': {
+        const entityId = requireEntityId(requestItem, 'Testimonial');
         return request(`/admin/testimonials/${encodeURIComponent(entityId)}/approve`, { method: 'PATCH', body: '{}' });
-      case 'leadership_delete':
-        if (!entityId) throw new AdminWorkflowApiError('Leadership id is missing from approval request', 400, req);
+      }
+      case 'leadership_delete': {
+        const entityId = requestEntityId(requestItem) || requestItem.id;
         return request(`/admin/leadership/${encodeURIComponent(entityId)}/delete/approve`, { method: 'POST', body: '{}' });
-      case 'workforce_delete':
-        if (!entityId) throw new AdminWorkflowApiError('Workforce id is missing from approval request', 400, req);
+      }
+      case 'workforce_delete': {
+        const entityId = requestEntityId(requestItem) || requestItem.id;
         return request(`/admin/workforce/${encodeURIComponent(entityId)}/delete/approve`, { method: 'POST', body: '{}' });
+      }
       case 'form_delete':
       case 'form_submission_delete':
-        return request(`/admin/requests/${encodeURIComponent(req.id)}/approve`, { method: 'POST', body: '{}' });
+        return request(`/admin/requests/${encodeURIComponent(requestItem.id)}/approve`, { method: 'POST', body: '{}' });
       default:
-        throw new AdminWorkflowApiError(`No approve action is configured for ${req.type}`, 400, req);
+        throw new AdminWorkflowApiError(`No approve action is configured for ${requestItem.type}`, 400, requestItem);
     }
   },
 
-  async rejectRequest(req: ApprovalRequest, reason: string): Promise<unknown> {
-    const entityId = requestEntityId(req);
+  async rejectRequest(requestItem: ApprovalRequest, reason: string): Promise<unknown> {
     const body = JSON.stringify({ reason: reason.trim() || 'Request was not approved.' });
-    const action = req.actions?.reject;
 
-    if (action) {
-      return request(normalizeActionPath(action), { method: 'POST', body });
-    }
+    const configuredAction = requestByConfiguredAction(
+      requestItem.rejectAction ?? requestItem.actions?.reject,
+      'POST',
+      body
+    );
 
-    switch (req.type) {
-      case 'admin_user':
-        if (!entityId) throw new AdminWorkflowApiError('Admin user id is missing from approval request', 400, req);
+    if (configuredAction) return configuredAction;
+
+    switch (requestItem.type) {
+      case 'admin_user': {
+        const entityId = requireEntityId(requestItem, 'Admin user');
         return request(`/admin/users/${encodeURIComponent(entityId)}/reject`, { method: 'POST', body });
-      case 'leadership_delete':
-        if (!entityId) throw new AdminWorkflowApiError('Leadership id is missing from approval request', 400, req);
+      }
+      case 'leadership_delete': {
+        const entityId = requestEntityId(requestItem) || requestItem.id;
         return request(`/admin/leadership/${encodeURIComponent(entityId)}/decline`, { method: 'POST', body });
-      case 'workforce_delete':
-        if (!entityId) throw new AdminWorkflowApiError('Workforce id is missing from approval request', 400, req);
+      }
+      case 'workforce_delete': {
+        const entityId = requestEntityId(requestItem) || requestItem.id;
         return request(`/admin/workforce/${encodeURIComponent(entityId)}/decline`, { method: 'POST', body });
+      }
       default:
-        return request(`/admin/requests/${encodeURIComponent(req.id)}/reject`, { method: 'POST', body });
+        return request(`/admin/requests/${encodeURIComponent(requestItem.id)}/reject`, { method: 'POST', body });
     }
   },
 
-  async deleteRequest(req: ApprovalRequest): Promise<unknown> {
-    const action = req.actions?.delete;
-
-    if (action) {
-      return request(normalizeActionPath(action), { method: 'DELETE' });
-    }
-
-    return request(`/admin/requests/${encodeURIComponent(req.id)}`, { method: 'DELETE' });
+  async deleteRequest(requestItem: ApprovalRequest): Promise<unknown> {
+    const configuredAction = requestByConfiguredAction(requestItem.deleteAction ?? requestItem.actions?.delete, 'DELETE');
+    if (configuredAction) return configuredAction;
+    return request(`/admin/requests/${encodeURIComponent(requestItem.id)}`, { method: 'DELETE' });
   },
 
   async deleteFormSubmission(formId: string, submissionId: string): Promise<unknown> {
-    const cleanFormId = formId.trim();
-    const cleanSubmissionId = submissionId.trim();
+    const cleanFormId = String(formId || '').trim();
+    const cleanSubmissionId = String(submissionId || '').trim();
 
-    if (!cleanSubmissionId) {
-      throw new AdminWorkflowApiError('Submission id is required', 400);
-    }
+    if (!cleanSubmissionId) throw new AdminWorkflowApiError('Submission id is required', 400);
 
     if (cleanFormId) {
-      return request(`/admin/forms/${encodeURIComponent(cleanFormId)}/submissions/${encodeURIComponent(cleanSubmissionId)}`, { method: 'DELETE' });
+      return request(
+        `/admin/forms/${encodeURIComponent(cleanFormId)}/submissions/${encodeURIComponent(cleanSubmissionId)}`,
+        { method: 'DELETE' }
+      );
     }
 
     return request(`/admin/forms/submissions/${encodeURIComponent(cleanSubmissionId)}`, { method: 'DELETE' });
