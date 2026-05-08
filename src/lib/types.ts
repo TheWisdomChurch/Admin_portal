@@ -1142,7 +1142,7 @@ export interface AdminNotificationInbox {
 ========================= */
 
 export type ApprovalRequestType = 'testimonial' | 'event' | 'admin_user' | 'leadership_delete' | 'workforce_delete';
-export type ApprovalRequestStatus = 'pending' | 'approved' | 'deleted';
+export type ApprovalRequestStatus = 'pending' | 'approved' | 'rejected' | 'deleted';
 
 export interface ApprovalRequest {
   id: string;
