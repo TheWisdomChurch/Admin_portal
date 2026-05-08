@@ -21,6 +21,7 @@ function dashboardFor(user: User) {
 function hasRequiredRole(user: User, requiredRole?: 'admin' | 'super_admin') {
   if (!requiredRole) return true;
   const r = roleOf(user);
+  if (requiredRole === 'admin' && r === 'super_admin') return true;
   return r === requiredRole;
 }
 
