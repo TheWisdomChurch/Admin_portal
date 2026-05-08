@@ -7,10 +7,14 @@ import {
   ArrowRight,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   ClipboardList,
+  Edit3,
+  FileText,
   Mail,
   Megaphone,
   RefreshCw,
+  Search,
   ShoppingBag,
   TrendingUp,
   UserPlus,
@@ -44,6 +48,207 @@ import type {
   WorkforceStatsResponse,
 } from '@/lib/types';
 import { Button } from '@/ui/Button';
+
+type DashboardFormField = {
+  id?: string;
+  key?: string;
+  name?: string;
+  label?: string;
+  type?: string;
+  required?: boolean;
+  order?: number;
+  options?: unknown;
+  validation?: unknown;
+  visibility?: unknown;
+  placeholder?: string;
+  helpText?: string;
+};
+
+type DashboardForm = {
+  id: string;
+  title?: string;
+  name?: string;
+  slug?: string;
+  description?: string;
+  status?: string;
+  submissionTarget?: string;
+  published?: boolean;
+  isPublished?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  fields?: DashboardFormField[];
+  formFields?: DashboardFormField[];
+  totalSubmissions?: number;
+  submissionsCount?: number;
+  _count?: { submissions?: number };
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function asNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function getCookieValue(name: string): string {
+  if (typeof document === 'undefined') return '';
+
+  return document.cookie
+    .split('; ')
+    .find((item) => item.startsWith(`${name}=`))
+    ?.split('=')
+    .slice(1)
+    .join('=') || '';
+}
+
+function normalizeField(raw: unknown): DashboardFormField {
+  if (!isRecord(raw)) return {};
+
+  return {
+    id: asString(raw.id),
+    key: asString(raw.key),
+    name: asString(raw.name),
+    label: asString(raw.label),
+    type: asString(raw.type),
+    required: typeof raw.required === 'boolean' ? raw.required : undefined,
+    order: asNumber(raw.order),
+    options: raw.options,
+    validation: raw.validation,
+    visibility: raw.visibility,
+    placeholder: asString(raw.placeholder),
+    helpText: asString(raw.helpText) || asString(raw.help_text),
+  };
+}
+
+function normalizeForm(raw: unknown): DashboardForm | null {
+  if (!isRecord(raw)) return null;
+
+  const id = asString(raw.id);
+  if (!id) return null;
+
+  const rawFields = Array.isArray(raw.fields)
+    ? raw.fields
+    : Array.isArray(raw.formFields)
+      ? raw.formFields
+      : Array.isArray(raw.form_fields)
+        ? raw.form_fields
+        : [];
+
+  const countRecord = isRecord(raw._count) ? raw._count : undefined;
+
+  return {
+    id,
+    title: asString(raw.title),
+    name: asString(raw.name),
+    slug: asString(raw.slug),
+    description: asString(raw.description),
+    status: asString(raw.status),
+    submissionTarget: asString(raw.submissionTarget) || asString(raw.submission_target),
+    published: typeof raw.published === 'boolean' ? raw.published : undefined,
+    isPublished: typeof raw.isPublished === 'boolean' ? raw.isPublished : typeof raw.is_published === 'boolean' ? raw.is_published : undefined,
+    createdAt: asString(raw.createdAt) || asString(raw.created_at),
+    updatedAt: asString(raw.updatedAt) || asString(raw.updated_at),
+    fields: rawFields.map(normalizeField),
+    formFields: rawFields.map(normalizeField),
+    totalSubmissions: asNumber(raw.totalSubmissions) || asNumber(raw.total_submissions),
+    submissionsCount: asNumber(raw.submissionsCount) || asNumber(raw.submissions_count),
+    _count: countRecord ? { submissions: asNumber(countRecord.submissions) } : undefined,
+  };
+}
+
+function extractFormsFromResponse(payload: unknown): DashboardForm[] {
+  const direct = Array.isArray(payload) ? payload : null;
+  if (direct) return direct.map(normalizeForm).filter((item): item is DashboardForm => Boolean(item));
+
+  if (!isRecord(payload)) return [];
+
+  const possibleArrays = [
+    payload.data,
+    payload.forms,
+    payload.items,
+    payload.results,
+    payload.records,
+    isRecord(payload.data) ? payload.data.forms : undefined,
+    isRecord(payload.data) ? payload.data.items : undefined,
+    isRecord(payload.data) ? payload.data.data : undefined,
+  ];
+
+  for (const value of possibleArrays) {
+    if (Array.isArray(value)) {
+      return value.map(normalizeForm).filter((item): item is DashboardForm => Boolean(item));
+    }
+  }
+
+  return [];
+}
+
+async function loadAdminForms(): Promise<DashboardForm[]> {
+  const client = apiClient as typeof apiClient & Record<string, unknown>;
+  const methodNames = ['getAdminForms', 'listAdminForms', 'getForms', 'listForms'];
+
+  for (const methodName of methodNames) {
+    const method = client[methodName];
+    if (typeof method !== 'function') continue;
+
+    const response = await (method as (params?: { page: number; limit: number }) => Promise<unknown>)({
+      page: 1,
+      limit: 100,
+    });
+    return extractFormsFromResponse(response);
+  }
+
+  const configuredBase =
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    'https://api.wisdomchurchhq.org/api/v1';
+  const baseUrl = configuredBase.replace(/\/$/, '');
+  const csrfToken = decodeURIComponent(getCookieValue('csrf_secret'));
+
+  const response = await fetch(`${baseUrl}/admin/forms?page=1&limit=100`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Forms request failed with ${response.status}`);
+  }
+
+  return extractFormsFromResponse(await response.json());
+}
+
+function getFormTitle(form: DashboardForm): string {
+  return form.title || form.name || 'Untitled form';
+}
+
+function getFormFields(form: DashboardForm): DashboardFormField[] {
+  return Array.isArray(form.fields) ? form.fields : Array.isArray(form.formFields) ? form.formFields : [];
+}
+
+function getFormSubmissionCount(form: DashboardForm): number {
+  return form.totalSubmissions || form.submissionsCount || form._count?.submissions || 0;
+}
+
+function getFormStatus(form: DashboardForm): string {
+  if (form.status) return form.status;
+  if (form.published || form.isPublished) return 'published';
+  return 'draft';
+}
+
+function fieldOptionsLabel(value: unknown): string {
+  if (Array.isArray(value)) return `${value.length} option${value.length === 1 ? '' : 's'}`;
+  if (isRecord(value)) return `${Object.keys(value).length} option group${Object.keys(value).length === 1 ? '' : 's'}`;
+  if (typeof value === 'string' && value.trim()) return value;
+  return '—';
+}
 
 ChartJS.register(
   CategoryScale,
@@ -134,6 +339,9 @@ function DashboardPage() {
   const [workforceStats, setWorkforceStats] = useState<WorkforceStatsResponse | null>(null);
   const [storeProducts, setStoreProducts] = useState<StoreProductAdmin[]>([]);
   const [storeOrders, setStoreOrders] = useState<StoreOrdersPaginated | null>(null);
+  const [createdForms, setCreatedForms] = useState<DashboardForm[]>([]);
+  const [formsLoadError, setFormsLoadError] = useState('');
+  const [formsSearch, setFormsSearch] = useState('');
 
   const loadDashboard = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true);
@@ -150,6 +358,7 @@ function DashboardPage() {
         workforceStatsResult,
         storeProductsResult,
         storeOrdersResult,
+        createdFormsResult,
       ] = await Promise.allSettled([
         apiClient.getAnalytics(),
         apiClient.getEvents({ page: 1, limit: 10 }),
@@ -160,6 +369,7 @@ function DashboardPage() {
         apiClient.getWorkforceStats(),
         apiClient.listStoreProductsAdmin(true),
         apiClient.listStoreOrders({ page: 1, limit: 20 }),
+        loadAdminForms(),
       ]);
 
       setAnalytics(analyticsResult.status === 'fulfilled' ? analyticsResult.value : null);
@@ -175,6 +385,8 @@ function DashboardPage() {
       setWorkforceStats(workforceStatsResult.status === 'fulfilled' ? workforceStatsResult.value : null);
       setStoreProducts(storeProductsResult.status === 'fulfilled' ? storeProductsResult.value : []);
       setStoreOrders(storeOrdersResult.status === 'fulfilled' ? storeOrdersResult.value : null);
+      setCreatedForms(createdFormsResult.status === 'fulfilled' ? createdFormsResult.value : []);
+      setFormsLoadError(createdFormsResult.status === 'rejected' ? 'Created forms could not be loaded.' : '');
 
       const failed = [
         analyticsResult,
@@ -186,6 +398,7 @@ function DashboardPage() {
         workforceStatsResult,
         storeProductsResult,
         storeOrdersResult,
+        createdFormsResult,
       ].some(
         (result) => result.status === 'rejected'
       );
@@ -213,6 +426,34 @@ function DashboardPage() {
   const eventsByCategory = useMemo(() => analytics?.eventsByCategory ?? {}, [analytics]);
   const activeProducts = useMemo(() => storeProducts.filter((item) => item.isActive).length, [storeProducts]);
   const lowStockProducts = useMemo(() => storeProducts.filter((item) => item.stock > 0 && item.stock <= 5).length, [storeProducts]);
+  const publishedForms = useMemo(
+    () => createdForms.filter((form) => ['published', 'active', 'approved'].includes(getFormStatus(form).toLowerCase())).length,
+    [createdForms]
+  );
+  const totalCreatedFields = useMemo(
+    () => createdForms.reduce((total, form) => total + getFormFields(form).length, 0),
+    [createdForms]
+  );
+  const filteredCreatedForms = useMemo(() => {
+    const query = formsSearch.trim().toLowerCase();
+    if (!query) return createdForms;
+
+    return createdForms.filter((form) => {
+      const searchable = [
+        getFormTitle(form),
+        form.slug,
+        form.description,
+        form.submissionTarget,
+        getFormStatus(form),
+        ...getFormFields(form).flatMap((field) => [field.label, field.key, field.name, field.type]),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return searchable.includes(query);
+    });
+  }, [createdForms, formsSearch]);
   const workforceDepartments = useMemo(
     () => Object.entries(workforceStats?.byDepartment || {}).sort((a, b) => b[1] - a[1]).slice(0, 6),
     [workforceStats]
@@ -320,7 +561,7 @@ function DashboardPage() {
     {
       label: 'Audience',
       value: formatNumber(marketing?.reachableRecipients),
-      hint: `${formatNumber(marketing?.publishedForms)} published forms`,
+      hint: `${formatNumber(publishedForms || marketing?.publishedForms)} published forms`,
       icon: <Mail className="h-5 w-5" />,
     },
     {
@@ -427,6 +668,77 @@ function DashboardPage() {
         {kpis.map((item) => (
           <StatCard key={item.label} {...item} />
         ))}
+      </section>
+
+      <section className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">
+              <FileText className="h-3.5 w-3.5" />
+              Created Forms
+            </div>
+            <h2 className="mt-3 text-lg font-semibold text-[var(--color-text-primary)]">
+              Forms and field management
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--color-text-secondary)]">
+              Review every form created in the system, expand each form to inspect its fields, then jump into the forms
+              editor to adjust labels, field types, requirements, and ordering.
+            </p>
+          </div>
+
+          <div className="grid min-w-full grid-cols-3 gap-2 sm:min-w-[360px]">
+            <MiniMetric label="Forms" value={createdForms.length} />
+            <MiniMetric label="Published" value={publishedForms} />
+            <MiniMetric label="Fields" value={totalCreatedFields} />
+          </div>
+        </div>
+
+        <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="relative w-full md:max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
+            <input
+              value={formsSearch}
+              onChange={(event) => setFormsSearch(event.target.value)}
+              placeholder="Search forms, fields, status, target..."
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] py-2 pl-9 pr-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-accent-primary)]"
+            />
+          </div>
+
+          <Link
+            href="/dashboard/forms"
+            className="inline-flex items-center justify-center gap-2 rounded-[var(--radius-button)] bg-[var(--color-accent-primary)] px-3 py-2 text-sm font-semibold text-[var(--color-text-onprimary)] hover:bg-[var(--color-accent-primaryhover)]"
+          >
+            Open Forms Manager
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+
+        <div className="mt-5 overflow-hidden rounded-[var(--radius-button)] border border-[var(--color-border-secondary)]">
+          <div className="hidden grid-cols-[1.4fr_1fr_0.7fr_0.7fr_0.8fr_0.7fr] gap-3 border-b border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
+            <span>Form</span>
+            <span>Slug / Target</span>
+            <span>Status</span>
+            <span>Fields</span>
+            <span>Updated</span>
+            <span className="text-right">Action</span>
+          </div>
+
+          <div className="divide-y divide-[var(--color-border-secondary)]">
+            {formsLoadError ? (
+              <div className="p-5">
+                <EmptyState message={formsLoadError} />
+              </div>
+            ) : filteredCreatedForms.length > 0 ? (
+              filteredCreatedForms.map((form) => (
+                <FormAccordionRow key={form.id} form={form} />
+              ))
+            ) : (
+              <div className="p-5">
+                <EmptyState message={createdForms.length === 0 ? 'No forms have been created yet.' : 'No form matched your search.'} />
+              </div>
+            )}
+          </div>
+        </div>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.1fr_1fr_1fr]">
@@ -696,6 +1008,119 @@ function DashboardPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+function MiniMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</p>
+      <p className="mt-1 text-xl font-bold text-[var(--color-text-primary)]">{formatNumber(value)}</p>
+    </div>
+  );
+}
+
+function StatusPill({ status }: { status: string }) {
+  const normalized = status.replaceAll('_', ' ');
+
+  return (
+    <span className="inline-flex w-fit items-center rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1 text-xs font-semibold capitalize text-[var(--color-text-secondary)]">
+      {normalized}
+    </span>
+  );
+}
+
+function FormAccordionRow({ form }: { form: DashboardForm }) {
+  const fields = getFormFields(form).sort((a, b) => (a.order || 0) - (b.order || 0));
+  const editHref = `/dashboard/forms?edit=${encodeURIComponent(form.id)}`;
+
+  return (
+    <details className="group bg-[var(--color-background-primary)]">
+      <summary className="grid cursor-pointer list-none gap-3 px-4 py-4 transition hover:bg-[var(--color-background-hover)] lg:grid-cols-[1.4fr_1fr_0.7fr_0.7fr_0.8fr_0.7fr] lg:items-center">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <ChevronDown className="h-4 w-4 shrink-0 text-[var(--color-text-tertiary)] transition group-open:rotate-180" />
+            <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{getFormTitle(form)}</p>
+          </div>
+          <p className="mt-1 line-clamp-1 pl-6 text-xs text-[var(--color-text-tertiary)]">
+            {form.description || 'No description provided.'}
+          </p>
+        </div>
+
+        <div className="text-xs text-[var(--color-text-secondary)]">
+          <p className="truncate font-medium">{form.slug || 'No slug'}</p>
+          <p className="mt-1 truncate text-[var(--color-text-tertiary)]">{form.submissionTarget || 'General form'}</p>
+        </div>
+
+        <StatusPill status={getFormStatus(form)} />
+
+        <div className="text-sm font-semibold text-[var(--color-text-primary)]">
+          {formatNumber(fields.length)}
+          <span className="ml-1 text-xs font-normal text-[var(--color-text-tertiary)]">fields</span>
+        </div>
+
+        <div className="text-xs text-[var(--color-text-tertiary)]">
+          {formatDate(form.updatedAt || form.createdAt)}
+          <p className="mt-1">{formatNumber(getFormSubmissionCount(form))} submissions</p>
+        </div>
+
+        <div className="flex justify-start lg:justify-end">
+          <Link
+            href={editHref}
+            onClick={(event) => event.stopPropagation()}
+            className="inline-flex items-center gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-primary)] px-3 py-2 text-xs font-semibold text-[var(--color-text-primary)] hover:bg-[var(--color-background-hover)]"
+          >
+            <Edit3 className="h-3.5 w-3.5" />
+            Edit fields
+          </Link>
+        </div>
+      </summary>
+
+      <div className="border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-4">
+        {fields.length > 0 ? (
+          <div className="overflow-x-auto rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]">
+            <table className="min-w-[760px] w-full text-left text-sm">
+              <thead className="border-b border-[var(--color-border-secondary)] text-xs uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">
+                <tr>
+                  <th className="px-3 py-3 font-semibold">Order</th>
+                  <th className="px-3 py-3 font-semibold">Label</th>
+                  <th className="px-3 py-3 font-semibold">Key</th>
+                  <th className="px-3 py-3 font-semibold">Type</th>
+                  <th className="px-3 py-3 font-semibold">Required</th>
+                  <th className="px-3 py-3 font-semibold">Options</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--color-border-secondary)]">
+                {fields.map((field, index) => (
+                  <tr key={field.id || field.key || `${form.id}-field-${index}`}>
+                    <td className="px-3 py-3 text-xs text-[var(--color-text-tertiary)]">
+                      {field.order ?? index + 1}
+                    </td>
+                    <td className="px-3 py-3 font-medium text-[var(--color-text-primary)]">
+                      {field.label || field.name || 'Untitled field'}
+                    </td>
+                    <td className="px-3 py-3 font-mono text-xs text-[var(--color-text-secondary)]">
+                      {field.key || field.name || '—'}
+                    </td>
+                    <td className="px-3 py-3 text-[var(--color-text-secondary)]">
+                      {field.type || 'text'}
+                    </td>
+                    <td className="px-3 py-3 text-[var(--color-text-secondary)]">
+                      {field.required ? 'Yes' : 'No'}
+                    </td>
+                    <td className="px-3 py-3 text-xs text-[var(--color-text-tertiary)]">
+                      {fieldOptionsLabel(field.options)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState message="This form has no fields yet. Open the forms manager to add fields." />
+        )}
+      </div>
+    </details>
   );
 }
 
