@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Search,
   ShoppingBag,
+  Trash2,
   TrendingUp,
   UserPlus,
   Users,
@@ -342,6 +343,7 @@ function DashboardPage() {
   const [createdForms, setCreatedForms] = useState<DashboardForm[]>([]);
   const [formsLoadError, setFormsLoadError] = useState('');
   const [formsSearch, setFormsSearch] = useState('');
+  const [deletingFormId, setDeletingFormId] = useState<string | null>(null);
 
   const loadDashboard = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true);
@@ -418,6 +420,26 @@ function DashboardPage() {
   useEffect(() => {
     void loadDashboard();
   }, [loadDashboard]);
+
+  const deleteForm = useCallback(
+    async (form: DashboardForm) => {
+      const title = getFormTitle(form);
+      const confirmed = window.confirm(`Delete "${title}"? This removes the form and its saved fields.`);
+      if (!confirmed) return;
+
+      try {
+        setDeletingFormId(form.id);
+        await apiClient.deleteAdminForm(form.id);
+        setCreatedForms((current) => current.filter((item) => item.id !== form.id));
+        toast.success('Form deleted');
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Failed to delete form');
+      } finally {
+        setDeletingFormId(null);
+      }
+    },
+    []
+  );
 
   const safeEvents = useMemo(() => (Array.isArray(events) ? events : []), [events]);
   const recentSubmissions = useMemo(() => formStats?.recent ?? [], [formStats]);
@@ -730,7 +752,12 @@ function DashboardPage() {
               </div>
             ) : filteredCreatedForms.length > 0 ? (
               filteredCreatedForms.map((form) => (
-                <FormAccordionRow key={form.id} form={form} />
+                <FormAccordionRow
+                  key={form.id}
+                  form={form}
+                  deleting={deletingFormId === form.id}
+                  onDelete={deleteForm}
+                />
               ))
             ) : (
               <div className="p-5">
@@ -1030,9 +1057,17 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-function FormAccordionRow({ form }: { form: DashboardForm }) {
+function FormAccordionRow({
+  form,
+  deleting,
+  onDelete,
+}: {
+  form: DashboardForm;
+  deleting: boolean;
+  onDelete: (form: DashboardForm) => void;
+}) {
   const fields = getFormFields(form).sort((a, b) => (a.order || 0) - (b.order || 0));
-  const editHref = `/dashboard/forms?edit=${encodeURIComponent(form.id)}`;
+  const editHref = `/dashboard/forms/${encodeURIComponent(form.id)}/edit`;
 
   return (
     <details className="group bg-[var(--color-background-primary)]">
@@ -1064,7 +1099,7 @@ function FormAccordionRow({ form }: { form: DashboardForm }) {
           <p className="mt-1">{formatNumber(getFormSubmissionCount(form))} submissions</p>
         </div>
 
-        <div className="flex justify-start lg:justify-end">
+        <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
           <Link
             href={editHref}
             onClick={(event) => event.stopPropagation()}
@@ -1073,6 +1108,19 @@ function FormAccordionRow({ form }: { form: DashboardForm }) {
             <Edit3 className="h-3.5 w-3.5" />
             Edit fields
           </Link>
+          <button
+            type="button"
+            disabled={deleting}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onDelete(form);
+            }}
+            className="inline-flex items-center gap-2 rounded-[var(--radius-button)] border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {deleting ? 'Deleting...' : 'Delete'}
+          </button>
         </div>
       </summary>
 
