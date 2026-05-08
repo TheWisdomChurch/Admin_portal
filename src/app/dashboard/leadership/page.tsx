@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ComponentType, type FormEvent, type ReactNode } from 'react';
 import {
   ArcElement,
   BarElement,
@@ -14,8 +14,10 @@ import {
 import { Bar, Doughnut } from 'react-chartjs-2';
 import {
   CalendarHeart,
+  CheckCircle2,
   Clipboard,
   Crown,
+  Edit3,
   ExternalLink,
   IdCard,
   Loader2,
@@ -37,7 +39,7 @@ import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/input';
 import { apiClient } from '@/lib/api';
-import type { LeadershipMember, LeadershipRole, LeadershipStatus } from '@/lib/types';
+import type { LeadershipMember, LeadershipRole, LeadershipStatus, UpdateLeadershipRequest } from '@/lib/types';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
@@ -85,6 +87,11 @@ function formatDayMonth(day?: number, month?: number): string {
   return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`;
 }
 
+function toDayMonthInput(day?: number, month?: number): string {
+  if (!day || !month) return '';
+  return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`;
+}
+
 function Panel({ title, subtitle, icon: Icon, actions, children }: { title: string; subtitle?: string; icon?: ComponentType<{ className?: string }>; actions?: ReactNode; children: ReactNode }) {
   return (
     <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:shadow-md">
@@ -129,23 +136,44 @@ export default function LeadershipPage() {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [selectedLeader, setSelectedLeader] = useState<LeadershipMember | null>(null);
+  const [editingLeader, setEditingLeader] = useState<LeadershipMember | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async (showLoader = true) => {
+    if (showLoader) setLoading(true);
     try {
       const res = await apiClient.listLeadership({ page: 1, limit: 500 });
-      setLeaders(Array.isArray(res.data) ? res.data : []);
+      const nextLeaders = Array.isArray(res.data) ? res.data : [];
+      setLeaders(nextLeaders);
+      setSelectedLeader((prev) => (prev ? nextLeaders.find((item) => item.id === prev.id) || null : prev));
+      setEditingLeader((prev) => (prev ? nextLeaders.find((item) => item.id === prev.id) || prev : prev));
     } catch (error) {
       console.error('Failed to load leadership:', error);
-      toast.error('Unable to load leadership profiles');
-      setLeaders([]);
+      if (showLoader) {
+        toast.error('Unable to load leadership profiles');
+        setLeaders([]);
+      }
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   }, []);
 
   useEffect(() => { void loadData(); }, [loadData]);
+
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') void loadData(false);
+    };
+
+    window.addEventListener('focus', refreshIfVisible);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+
+    return () => {
+      window.removeEventListener('focus', refreshIfVisible);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, [loadData]);
 
   const byRole = useMemo(() => countBy(leaders, (item) => item.role), [leaders]);
   const byStatus = useMemo(() => countBy(leaders, (item) => item.status), [leaders]);
@@ -196,6 +224,41 @@ export default function LeadershipPage() {
   const copyFormLink = async () => {
     await navigator.clipboard.writeText(LEADERSHIP_FORM_URL);
     toast.success('Leadership form link copied');
+  };
+
+  const upsertLeader = useCallback((updated: LeadershipMember) => {
+    setLeaders((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+    setSelectedLeader((prev) => (prev?.id === updated.id ? updated : prev));
+    setEditingLeader((prev) => (prev?.id === updated.id ? updated : prev));
+  }, []);
+
+  const approveLeader = async (item: LeadershipMember) => {
+    setActionId(`approve:${item.id}`);
+    try {
+      const updated = await apiClient.approveLeadership(item.id);
+      upsertLeader(updated);
+      toast.success(`${leaderName(updated)} approved`);
+    } catch (error) {
+      console.error('Failed to approve leadership:', error);
+      toast.error(error instanceof Error ? error.message : 'Unable to approve leadership profile');
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const saveLeaderEdits = async (id: string, payload: UpdateLeadershipRequest) => {
+    setActionId(`edit:${id}`);
+    try {
+      const updated = await apiClient.updateLeadership(id, payload);
+      upsertLeader(updated);
+      setEditingLeader(null);
+      toast.success('Leadership profile updated');
+    } catch (error) {
+      console.error('Failed to update leadership:', error);
+      toast.error(error instanceof Error ? error.message : 'Unable to update leadership profile');
+    } finally {
+      setActionId(null);
+    }
   };
 
   const requestDelete = async (item: LeadershipMember) => {
@@ -279,7 +342,7 @@ export default function LeadershipPage() {
         }
       >
         <div className="overflow-hidden rounded-[1.5rem] border border-slate-200">
-          <div className="hidden grid-cols-[1.4fr_1fr_1fr_1fr_160px] gap-4 bg-slate-950 px-4 py-3 text-xs font-black uppercase tracking-wide text-white xl:grid">
+          <div className="hidden grid-cols-[1.4fr_1fr_1fr_1fr_260px] gap-4 bg-slate-950 px-4 py-3 text-xs font-black uppercase tracking-wide text-white xl:grid">
             <div>Profile</div><div>Role</div><div>Status</div><div>Anniversary</div><div className="text-right">Action</div>
           </div>
           <div className="divide-y divide-slate-100 bg-white">
@@ -289,7 +352,7 @@ export default function LeadershipPage() {
               <div className="p-4"><EmptyState label="No leadership records found." /></div>
             ) : (
               filtered.map((item) => (
-                <div key={item.id} className="grid gap-3 px-4 py-4 transition hover:bg-slate-50 xl:grid-cols-[1.4fr_1fr_1fr_1fr_160px] xl:items-center">
+                <div key={item.id} className="grid gap-3 px-4 py-4 transition hover:bg-slate-50 xl:grid-cols-[1.4fr_1fr_1fr_1fr_260px] xl:items-center">
                   <button type="button" className="flex min-w-0 items-center gap-3 text-left" onClick={() => setSelectedLeader(item)}>
                     <LeaderAvatar leader={item} />
                     <div className="min-w-0"><div className="truncate text-sm font-black text-slate-950">{leaderName(item)}</div><div className="truncate text-xs font-semibold text-slate-500">{item.email || item.phone || 'No contact recorded'}</div></div>
@@ -297,7 +360,13 @@ export default function LeadershipPage() {
                   <div className="text-sm font-semibold text-slate-600">{roleLabels[item.role] || item.role}</div>
                   <div><Badge variant={statusVariant(item.status)}>{statusLabels[item.status] || item.status}</Badge></div>
                   <div className="text-sm font-semibold text-slate-600">{formatDayMonth(item.anniversaryDay, item.anniversaryMonth)}</div>
-                  <div className="xl:text-right"><Button size="sm" variant="outline" icon={<Trash2 className="h-4 w-4" />} loading={deletingId === item.id} onClick={() => void requestDelete(item)}>Request Delete</Button></div>
+                  <div className="flex flex-wrap justify-start gap-2 xl:justify-end">
+                    {item.status !== 'approved' ? (
+                      <Button size="sm" icon={<CheckCircle2 className="h-4 w-4" />} loading={actionId === `approve:${item.id}`} onClick={() => void approveLeader(item)}>Approve</Button>
+                    ) : null}
+                    <Button size="sm" variant="outline" icon={<Edit3 className="h-4 w-4" />} loading={actionId === `edit:${item.id}`} onClick={() => setEditingLeader(item)}>Edit</Button>
+                    <Button size="sm" variant="outline" icon={<Trash2 className="h-4 w-4" />} loading={deletingId === item.id} onClick={() => void requestDelete(item)}>Request Delete</Button>
+                  </div>
                 </div>
               ))
             )}
@@ -305,7 +374,24 @@ export default function LeadershipPage() {
         </div>
       </Panel>
 
-      {selectedLeader ? <LeaderProfile leader={selectedLeader} onClose={() => setSelectedLeader(null)} /> : null}
+      {selectedLeader ? (
+        <LeaderProfile
+          leader={selectedLeader}
+          onClose={() => setSelectedLeader(null)}
+          onEdit={() => setEditingLeader(selectedLeader)}
+          onApprove={selectedLeader.status !== 'approved' ? () => void approveLeader(selectedLeader) : undefined}
+          approving={actionId === `approve:${selectedLeader.id}`}
+        />
+      ) : null}
+      {editingLeader ? (
+        <LeaderEditModal
+          key={editingLeader.id}
+          leader={editingLeader}
+          saving={actionId === `edit:${editingLeader.id}`}
+          onClose={() => setEditingLeader(null)}
+          onSave={(payload) => void saveLeaderEdits(editingLeader.id, payload)}
+        />
+      ) : null}
     </main>
   );
 }
@@ -318,14 +404,30 @@ function EmptyState({ label }: { label: string }) {
   return <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center"><p className="text-sm font-bold text-slate-500">{label}</p></div>;
 }
 
-function LeaderProfile({ leader, onClose }: { leader: LeadershipMember; onClose: () => void }) {
+function LeaderProfile({
+  leader,
+  onClose,
+  onEdit,
+  onApprove,
+  approving,
+}: {
+  leader: LeadershipMember;
+  onClose: () => void;
+  onEdit: () => void;
+  onApprove?: () => void;
+  approving?: boolean;
+}) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/55 backdrop-blur-sm">
       <button type="button" aria-label="Close leadership profile" className="absolute inset-0 cursor-default" onClick={onClose} />
       <aside className="relative h-full w-full max-w-xl overflow-y-auto bg-white shadow-2xl animate-in slide-in-from-right duration-300">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/95 px-5 py-4 backdrop-blur">
           <div><p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Leadership profile</p><h2 className="text-lg font-black text-slate-950">{leaderName(leader)}</h2></div>
-          <button type="button" className="rounded-2xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-950" onClick={onClose} aria-label="Close leadership profile"><X className="h-5 w-5" /></button>
+          <div className="flex items-center gap-2">
+            {onApprove ? <Button size="sm" icon={<CheckCircle2 className="h-4 w-4" />} loading={approving} onClick={onApprove}>Approve</Button> : null}
+            <Button size="sm" variant="outline" icon={<Edit3 className="h-4 w-4" />} onClick={onEdit}>Edit</Button>
+            <button type="button" className="rounded-2xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-950" onClick={onClose} aria-label="Close leadership profile"><X className="h-5 w-5" /></button>
+          </div>
         </div>
         <div className="p-5">
           <div className="rounded-[2rem] bg-slate-950 p-5 text-white">
@@ -343,6 +445,113 @@ function LeaderProfile({ leader, onClose }: { leader: LeadershipMember; onClose:
           <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4"><p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Bio</p><p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-7 text-slate-700">{leader.bio || 'No bio recorded.'}</p></div>
         </div>
       </aside>
+    </div>
+  );
+}
+
+function LeaderEditModal({
+  leader,
+  saving,
+  onClose,
+  onSave,
+}: {
+  leader: LeadershipMember;
+  saving: boolean;
+  onClose: () => void;
+  onSave: (payload: UpdateLeadershipRequest) => void;
+}) {
+  const [draft, setDraft] = useState({
+    firstName: leader.firstName || '',
+    lastName: leader.lastName || '',
+    email: leader.email || '',
+    phone: leader.phone || '',
+    role: leader.role,
+    status: leader.status,
+    bio: leader.bio || '',
+    imageUrl: leader.imageUrl || '',
+    birthday: toDayMonthInput(leader.birthdayDay, leader.birthdayMonth),
+    anniversary: toDayMonthInput(leader.anniversaryDay, leader.anniversaryMonth),
+  });
+
+  const updateDraft = (updates: Partial<typeof draft>) => {
+    setDraft((prev) => ({ ...prev, ...updates }));
+  };
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const firstName = draft.firstName.trim();
+    const lastName = draft.lastName.trim();
+
+    if (!firstName || !lastName) {
+      toast.error('First name and last name are required');
+      return;
+    }
+
+    onSave({
+      firstName,
+      lastName,
+      email: draft.email.trim(),
+      phone: draft.phone.trim(),
+      role: draft.role,
+      status: draft.status,
+      bio: draft.bio.trim(),
+      imageUrl: draft.imageUrl.trim(),
+      birthday: draft.birthday.trim(),
+      anniversary: draft.anniversary.trim(),
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+      <button type="button" aria-label="Close leadership editor" className="absolute inset-0 cursor-default" onClick={onClose} />
+      <form onSubmit={submit} className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl">
+        <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Edit leadership profile</p>
+            <h2 className="mt-1 text-xl font-black text-slate-950">{leaderName(leader)}</h2>
+          </div>
+          <button type="button" className="self-start rounded-2xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-950" onClick={onClose} aria-label="Close leadership editor"><X className="h-5 w-5" /></button>
+        </div>
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <Input label="First name" value={draft.firstName} onChange={(event) => updateDraft({ firstName: event.target.value })} />
+          <Input label="Last name" value={draft.lastName} onChange={(event) => updateDraft({ lastName: event.target.value })} />
+          <Input label="Email" value={draft.email} onChange={(event) => updateDraft({ email: event.target.value })} />
+          <Input label="Phone" value={draft.phone} onChange={(event) => updateDraft({ phone: event.target.value })} />
+          <label className="space-y-2 text-sm font-semibold text-slate-700">
+            <span>Role</span>
+            <select value={draft.role} onChange={(event) => updateDraft({ role: event.target.value as LeadershipRole })} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none transition focus:border-slate-400">
+              {(Object.keys(roleLabels) as LeadershipRole[]).map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}
+            </select>
+          </label>
+          <label className="space-y-2 text-sm font-semibold text-slate-700">
+            <span>Status</span>
+            <select value={draft.status} onChange={(event) => updateDraft({ status: event.target.value as LeadershipStatus })} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none transition focus:border-slate-400">
+              {(Object.keys(statusLabels) as LeadershipStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
+            </select>
+          </label>
+          <Input label="Birthday (DD/MM)" value={draft.birthday} onChange={(event) => updateDraft({ birthday: event.target.value })} />
+          <Input label="Anniversary (DD/MM)" value={draft.anniversary} onChange={(event) => updateDraft({ anniversary: event.target.value })} />
+          <div className="sm:col-span-2">
+            <Input label="Image URL" value={draft.imageUrl} onChange={(event) => updateDraft({ imageUrl: event.target.value })} />
+          </div>
+          <label className="space-y-2 text-sm font-semibold text-slate-700 sm:col-span-2">
+            <span>Bio</span>
+            <textarea
+              value={draft.bio}
+              onChange={(event) => updateDraft({ bio: event.target.value })}
+              rows={5}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-400"
+            />
+          </label>
+        </div>
+
+        <div className="mt-5 flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4">
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" loading={saving} icon={<CheckCircle2 className="h-4 w-4" />}>Save Changes</Button>
+        </div>
+      </form>
     </div>
   );
 }
