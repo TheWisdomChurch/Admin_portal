@@ -558,6 +558,24 @@ export function buildFormEmailHTML(opts: {
     ? styleRichEmailMarkup(opts.messageHtml, accentColor)
     : plainTextToHtmlParagraphs(opts.message || 'Thank you for registering.');
   const messageBlock = formattedMessageHtml || plainTextToHtmlParagraphs(opts.message || 'Thank you for registering.');
+  const brandHeader = `
+    <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+      <tr>
+        <td style="vertical-align:middle;padding:0 18px 0 0;">
+          ${safeLogoUrl
+            ? `<img src="${safeLogoUrl}" alt="The Wisdom Church logo" width="54" height="54" style="display:block;width:54px;height:54px;object-fit:cover;border-radius:16px;border:1px solid #e5e7eb;background:#ffffff;" />`
+            : `<div style="width:54px;height:54px;border-radius:16px;background:#ffffff;color:#111827;font-size:20px;line-height:54px;text-align:center;font-weight:900;">W</div>`}
+        </td>
+        <td style="width:1px;background:#f8fafc;padding:0;"></td>
+        <td style="vertical-align:middle;padding:0 0 0 18px;">
+          <div style="font-size:11px;line-height:1.05;font-weight:900;letter-spacing:.18em;color:#ffffff;text-transform:uppercase;">
+            <div>THE</div>
+            <div style="margin-top:3px;">WISDOM</div>
+            <div style="margin-top:3px;">CHURCH</div>
+          </div>
+        </td>
+      </tr>
+    </table>`;
 
   return `
 <!doctype html>
@@ -575,9 +593,7 @@ export function buildFormEmailHTML(opts: {
                 <table width="100%" cellpadding="0" cellspacing="0">
                   <tr>
                     <td style="padding:22px 30px;">
-                      ${safeLogoUrl
-                        ? `<div style="display:inline-block;background:#ffffff;padding:10px 14px;"><img src="${safeLogoUrl}" alt="Wisdom Church" style="display:block;max-width:170px;height:auto;" /></div>`
-                        : `<p style="margin:0;font-size:22px;font-weight:800;letter-spacing:0.03em;color:#ffffff;">WISDOM CHURCH</p>`}
+                      ${brandHeader}
                     </td>
                     <td align="right" style="padding:22px 30px;vertical-align:top;">
                       {{if .SubscribeURL}}<a href="{{.SubscribeURL}}" style="font-size:12px;color:#f8fafc;text-decoration:underline;font-weight:700;">subscribe</a>{{end}}
