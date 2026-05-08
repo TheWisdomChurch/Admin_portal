@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Code2, Eye, LayoutTemplate, MailCheck, Save } from 'lucide-react';
+import { ArrowLeft, Code2, Eye, Image as ImageIcon, LayoutTemplate, MailCheck, Save } from 'lucide-react';
 
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
@@ -27,6 +27,11 @@ import {
 import type { AdminForm, EmailTemplate, UpdateFormRequest } from '@/lib/types';
 import { getServerErrorMessage } from '@/lib/serverValidation';
 
+function defaultEmailLogoUrl() {
+  if (typeof window === 'undefined') return '';
+  return `${window.location.origin}/OIP.webp`;
+}
+
 function ResponseEmailEditorPage() {
   const params = useParams();
   const router = useRouter();
@@ -44,7 +49,7 @@ function ResponseEmailEditorPage() {
   const [subject, setSubject] = useState('');
   const [heading, setHeading] = useState('Registration Confirmed');
   const [message, setMessage] = useState('Thank you for registering. Your details have been received successfully.');
-  const [logoUrl, setLogoUrl] = useState('');
+  const [logoUrl, setLogoUrl] = useState(defaultEmailLogoUrl);
   const [imageUrl, setImageUrl] = useState('');
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -136,6 +141,7 @@ function ResponseEmailEditorPage() {
           loadedForm.settings?.responseEmailSubject?.trim() || `${subjectPrefix}: ${loadedForm.title}`;
         setSubject(subjectFallback);
         setImageUrl(loadedForm.settings?.responseEmailTemplateUrl?.trim() || '');
+        setLogoUrl((current) => current || defaultEmailLogoUrl());
 
         const res = await apiClient.listAdminEmailTemplates({
           page: 1,
@@ -386,10 +392,11 @@ function ResponseEmailEditorPage() {
               placeholder="Registration Confirmed"
             />
             <Input
-              label="Logo URL (optional)"
+              label="Logo URL"
               value={logoUrl}
               onChange={(e) => setLogoUrl(e.target.value)}
-              placeholder="https://.../logo.png"
+              placeholder="https://admin.wisdomchurchhq.org/OIP.webp"
+              helperText="Used in the branded header beside THE / WISDOM / CHURCH."
             />
             <Input
               label="Template image URL (optional)"
@@ -398,7 +405,7 @@ function ResponseEmailEditorPage() {
               placeholder="https://.../hero.png"
             />
             <div className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-3">
-              <label className="mb-2 block text-sm font-medium text-[var(--color-text-secondary)]">Upload logo (optional)</label>
+              <label className="mb-2 flex items-center gap-2 text-sm font-medium text-[var(--color-text-secondary)]"><ImageIcon className="h-4 w-4" /> Upload logo</label>
               <input
                 type="file"
                 accept="image/*"

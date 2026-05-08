@@ -39,11 +39,13 @@ import { Button } from '@/ui/Button';
 
 import styles from './email-marketing.module.scss';
 
+const EMAIL_BRAND_HEADER = `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr><td style="vertical-align:middle;padding:0 18px 0 0;"><img src="https://admin.wisdomchurchhq.org/OIP.webp" alt="The Wisdom Church logo" width="54" height="54" style="display:block;width:54px;height:54px;object-fit:cover;border-radius:16px;border:1px solid #e5e7eb;background:#ffffff;" /></td><td style="width:1px;background:#f8fafc;padding:0;"></td><td style="vertical-align:middle;padding:0 0 0 18px;"><div style="font-size:11px;line-height:1.05;font-weight:900;letter-spacing:.18em;color:#ffffff;text-transform:uppercase;"><div>THE</div><div style="margin-top:3px;">WISDOM</div><div style="margin-top:3px;">CHURCH</div></div></td></tr></table>`;
+
 const DEFAULT_HTML_TEMPLATE = `<section style="font-family:Arial,sans-serif;color:#111827;line-height:1.7;background:#ffffff;">
   <div style="max-width:620px;margin:0 auto;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;">
     <div style="background:#111827;padding:26px 28px;">
-      <p style="margin:0;color:#facc15;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;">The Wisdom Church</p>
-      <h1 style="margin:10px 0 0;color:#ffffff;font-size:28px;line-height:1.25;">A timely update for you</h1>
+      ${EMAIL_BRAND_HEADER}
+      <h1 style="margin:22px 0 0;color:#ffffff;font-size:28px;line-height:1.25;">A timely update for you</h1>
     </div>
     <div style="padding:28px;">
       <p style="margin:0 0 16px;">Hello {{ .FirstName }},</p>
@@ -69,14 +71,14 @@ const TEMPLATE_PRESETS = [
     id: 'event-reminder',
     label: 'Event Reminder',
     subject: 'Reminder: Upcoming Church Activity',
-    html: `<section style="font-family:Arial,sans-serif;color:#111827;line-height:1.7;"><div style="max-width:620px;margin:0 auto;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;"><div style="background:#111827;padding:26px 28px;"><p style="margin:0;color:#facc15;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;">The Wisdom Church</p><h1 style="margin:10px 0 0;color:#ffffff;font-size:28px;line-height:1.25;">You are warmly invited</h1></div><div style="padding:28px;"><p>Hello {{ .FirstName }},</p><p>This is a kind reminder about an upcoming church activity. We would love to have you join us.</p><p>God bless you,<br /><strong>The Wisdom Church Team</strong></p><p style="font-size:12px;color:#6b7280;">Unsubscribe: <a href="{{ .UnsubscribeURL }}">link</a></p></div></div></section>`,
+    html: `<section style="font-family:Arial,sans-serif;color:#111827;line-height:1.7;"><div style="max-width:620px;margin:0 auto;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;"><div style="background:#111827;padding:26px 28px;">${EMAIL_BRAND_HEADER}<h1 style="margin:22px 0 0;color:#ffffff;font-size:28px;line-height:1.25;">You are warmly invited</h1></div><div style="padding:28px;"><p>Hello {{ .FirstName }},</p><p>This is a kind reminder about an upcoming church activity. We would love to have you join us.</p><p>God bless you,<br /><strong>The Wisdom Church Team</strong></p><p style="font-size:12px;color:#6b7280;">Unsubscribe: <a href="{{ .UnsubscribeURL }}">link</a></p></div></div></section>`,
     text: `Hello {{ .FirstName }},\n\nThis is a kind reminder about an upcoming church activity. We would love to have you join us.\n\nGod bless you,\nThe Wisdom Church Team\n\nUnsubscribe: {{ .UnsubscribeURL }}`,
   },
   {
     id: 'follow-up',
     label: 'Follow-up',
     subject: 'Thank You for Connecting with The Wisdom Church',
-    html: `<section style="font-family:Arial,sans-serif;color:#111827;line-height:1.7;"><div style="max-width:620px;margin:0 auto;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;"><div style="background:#111827;padding:26px 28px;"><p style="margin:0;color:#facc15;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;">The Wisdom Church</p><h1 style="margin:10px 0 0;color:#ffffff;font-size:28px;line-height:1.25;">Thank you for connecting with us</h1></div><div style="padding:28px;"><p>Hello {{ .FirstName }},</p><p>Thank you for recently connecting with The Wisdom Church. We look forward to staying in touch with you.</p><p>With love,<br /><strong>The Wisdom Church Team</strong></p><p style="font-size:12px;color:#6b7280;">Unsubscribe: <a href="{{ .UnsubscribeURL }}">link</a></p></div></div></section>`,
+    html: `<section style="font-family:Arial,sans-serif;color:#111827;line-height:1.7;"><div style="max-width:620px;margin:0 auto;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;"><div style="background:#111827;padding:26px 28px;">${EMAIL_BRAND_HEADER}<h1 style="margin:22px 0 0;color:#ffffff;font-size:28px;line-height:1.25;">Thank you for connecting with us</h1></div><div style="padding:28px;"><p>Hello {{ .FirstName }},</p><p>Thank you for recently connecting with The Wisdom Church. We look forward to staying in touch with you.</p><p>With love,<br /><strong>The Wisdom Church Team</strong></p><p style="font-size:12px;color:#6b7280;">Unsubscribe: <a href="{{ .UnsubscribeURL }}">link</a></p></div></div></section>`,
     text: `Hello {{ .FirstName }},\n\nThank you for recently connecting with The Wisdom Church. We look forward to staying in touch with you.\n\nWith love,\nThe Wisdom Church Team\n\nUnsubscribe: {{ .UnsubscribeURL }}`,
   },
 ];

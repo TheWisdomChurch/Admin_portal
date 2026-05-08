@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Copy, Save, Globe, Mail, Send } from 'lucide-react';
+import { Plus, Trash2, Copy, Save, Globe, Mail, MailCheck, Send } from 'lucide-react';
 
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
@@ -1155,8 +1155,36 @@ function EditFormPage() {
         </div>
       </Card>
 
-      <Card title="Response Email">
+      <Card
+        title="Response Email"
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push(`/dashboard/forms/${form.id}/response-email`)}
+            icon={<MailCheck className="h-4 w-4" />}
+          >
+            Open Email Editor
+          </Button>
+        }
+      >
         <div className="space-y-4">
+          <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                  {responseEmailEnabled ? 'Auto-response is enabled' : 'Auto-response is disabled'}
+                </p>
+                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                  Design the confirmation email, branded header, subject, message, image, and saved template from the editor.
+                </p>
+              </div>
+              <span className="rounded-full border border-[var(--color-border-primary)] px-3 py-1 text-xs font-semibold text-[var(--color-text-secondary)]">
+                {form.settings?.responseEmailTemplateKey ? 'Template linked' : 'No template linked'}
+              </span>
+            </div>
+          </div>
+
           <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
             <input
               type="checkbox"
@@ -1201,7 +1229,7 @@ function EditFormPage() {
           </div>
 
           <p className="text-xs text-[var(--color-text-tertiary)]">
-            Attach a response template to send a confirmation email after successful submission.
+            Save this form after changing the enabled state. Use the email editor to create or update the professional response template.
           </p>
         </div>
       </Card>
