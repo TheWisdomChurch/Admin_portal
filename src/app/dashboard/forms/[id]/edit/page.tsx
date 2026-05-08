@@ -348,6 +348,7 @@ function EditFormPage() {
   const [fields, setFields] = useState<FieldDraft[]>([]);
   const orderedFields = useMemo(() => normalizeOrderedFields(fields), [fields]);
   const [saving, setSaving] = useState(false);
+  const [savingResponseEmail, setSavingResponseEmail] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<EventData[]>([]);
@@ -807,6 +808,40 @@ function EditFormPage() {
     }
   };
 
+  const saveResponseEmailSettings = async () => {
+    if (!form) return;
+
+    setFieldErrors({});
+    setSavingResponseEmail(true);
+
+    const sanitizedSettings: FormSettings = {
+      ...form.settings,
+      responseEmailEnabled,
+      contentSections: sanitizeContentSections(form.settings?.contentSections),
+    };
+
+    try {
+      const updated = await apiClient.updateAdminForm(form.id, {
+        settings: sanitizedSettings,
+      });
+
+      setForm(updated);
+      toast.success('Response email settings saved');
+    } catch (err) {
+      const fieldErrors = extractServerFieldErrors(err);
+
+      if (Object.keys(fieldErrors).length > 0) {
+        setFieldErrors(fieldErrors);
+        toast.error(getFirstServerFieldError(fieldErrors) || 'Please review the highlighted fields.');
+        return;
+      }
+
+      toast.error(getServerErrorMessage(err, 'Failed to save response email settings'));
+    } finally {
+      setSavingResponseEmail(false);
+    }
+  };
+
   const publishForm = async () => {
     if (!form) return;
 
@@ -1158,14 +1193,24 @@ function EditFormPage() {
       <Card
         title="Response Email"
         actions={
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push(`/dashboard/forms/${form.id}/response-email`)}
-            icon={<MailCheck className="h-4 w-4" />}
-          >
-            Open Email Editor
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push(`/dashboard/forms/${form.id}/response-email`)}
+              icon={<MailCheck className="h-4 w-4" />}
+            >
+              Open Email Editor
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void saveResponseEmailSettings()}
+              loading={savingResponseEmail}
+              icon={<Save className="h-4 w-4" />}
+            >
+              Save Response Settings
+            </Button>
+          </div>
         }
       >
         <div className="space-y-4">
@@ -1229,7 +1274,7 @@ function EditFormPage() {
           </div>
 
           <p className="text-xs text-[var(--color-text-tertiary)]">
-            Save this form after changing the enabled state. Use the email editor to create or update the professional response template.
+            Save response settings here for the enabled state, subject, linked template, and template image. Use the email editor to create or update the professional response template.
           </p>
         </div>
       </Card>
