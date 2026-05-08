@@ -750,7 +750,7 @@ async function loadOverviewData(): Promise<DashboardData> {
     apiGetEndpoint<RawRecord>('Members', '/api/v1/admin/members?page=1&limit=500'),
     apiGetEndpoint<RawRecord>('Workforce', '/api/v1/admin/workforce?page=1&limit=500'),
     apiGetEndpoint<RawRecord>('Forms', '/api/v1/admin/forms?page=1&limit=500'),
-    apiGetEndpoint<RawRecord>('Campaigns', '/api/v1/admin/campaigns?page=1&limit=500'),
+    apiGetEndpoint<RawRecord>('Campaigns', '/api/v1/admin/email/compose/history?page=1&limit=500'),
     apiGetEndpoint<RawRecord>('Events', '/api/v1/admin/events?page=1&limit=500'),
     apiGetEndpoint<RawRecord>('Store', '/api/v1/admin/store/products?page=1&limit=500'),
     loadAuditLogs(),
