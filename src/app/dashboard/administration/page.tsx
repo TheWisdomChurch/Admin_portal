@@ -438,7 +438,7 @@ function makeMonthCounts(items: PersonRecord[], mode: TrackerMode): MonthCount[]
   return months;
 }
 
-function mergeBackendMonthStats(fallback: MonthCount[], payload: unknown): MonthCount[] {
+function mergeRemoteMonthStats(fallback: MonthCount[], payload: unknown): MonthCount[] {
   if (!payload) return fallback;
 
   const months = emptyMonthCounts();
@@ -782,14 +782,14 @@ async function loadOverviewData(): Promise<DashboardData> {
   ]);
 
   let birthdayMonths = makeMonthCounts(allPeople, 'birthdays');
-  birthdayMonths = mergeBackendMonthStats(birthdayMonths, leadershipBirthdayStats);
+  birthdayMonths = mergeRemoteMonthStats(birthdayMonths, leadershipBirthdayStats);
   birthdayMonths = combineMonthCounts([
     birthdayMonths,
-    mergeBackendMonthStats(emptyMonthCounts(), memberBirthdayStats),
-    mergeBackendMonthStats(emptyMonthCounts(), workforceBirthdayStats),
+    mergeRemoteMonthStats(emptyMonthCounts(), memberBirthdayStats),
+    mergeRemoteMonthStats(emptyMonthCounts(), workforceBirthdayStats),
   ]);
 
-  const anniversaryMonths = mergeBackendMonthStats(makeMonthCounts(leadership, 'anniversaries'), leadershipAnniversaryStats);
+  const anniversaryMonths = mergeRemoteMonthStats(makeMonthCounts(leadership, 'anniversaries'), leadershipAnniversaryStats);
   const upcomingBirthdays = buildTrackerItems(allPeople, 'birthdays');
   const upcomingAnniversaries = buildTrackerItems(leadership, 'anniversaries');
   const todayBirthdays = [
@@ -1017,9 +1017,9 @@ function SummaryStrip({ data }: { data: DashboardData }) {
 
   return (
     <div className="grid gap-3 md:grid-cols-4">
-      <SummaryItem icon={ShieldCheck} label="API health" value={`${healthy}/${total}`} detail="connected data modules" />
+      <SummaryItem icon={ShieldCheck} label="System health" value={`${healthy}/${total}`} detail="connected data modules" />
       <SummaryItem icon={CalendarDays} label="Upcoming events" value={upcomingEvents} detail={`${data.events.length} event records loaded`} />
-      <SummaryItem icon={ClipboardList} label="Form responses" value={submissions} detail={`${publishedCount(data.forms)} published forms`} />
+      <SummaryItem icon={ClipboardList} label="Form responses" value={submissions} detail={`${publishedCount(data.forms)} live forms`} />
       <SummaryItem icon={Store} label="Store low stock" value={lowStockCount(data.storeItems)} detail={`${data.storeItems.length} products loaded`} />
     </div>
   );
@@ -1279,7 +1279,7 @@ function DashboardCharts({ data }: { data: DashboardData }) {
       </div>
 
       <div className="xl:col-span-3">
-        <Panel title="Birthday and anniversary distribution" subtitle="Month-by-month record intelligence from backend profile data." icon={BarChart3}>
+        <Panel title="Birthday and anniversary distribution" subtitle="Month-by-month record intelligence from profile data." icon={BarChart3}>
           <ChartCanvas type="bar" data={monthBarData} className="min-h-[330px]" options={barAxisOptions} />
         </Panel>
       </div>
@@ -1413,7 +1413,7 @@ function PeopleTable({ people, onOpen }: { people: PersonRecord[]; onOpen: (pers
   return (
     <Panel
       title="Professional profile table"
-      subtitle="Responsive accordion table with backend-driven filtering, sorting, pagination, and profile drawer actions."
+      subtitle="Responsive accordion table with filtering, sorting, pagination, and profile drawer actions."
       icon={SlidersHorizontal}
       right={<Badge tone="blue">{filtered.length} visible</Badge>}
     >
@@ -1521,7 +1521,7 @@ function Timeline({ items, endpointAvailable }: { items: TimelineItem[]; endpoin
   return (
     <Panel
       title="Activity timeline / audit log"
-      subtitle={endpointAvailable ? 'Live audit data from the backend.' : 'Audit endpoint was not available; showing a timeline derived from saved backend records.'}
+      subtitle={endpointAvailable ? 'Live audit activity.' : 'Showing a timeline derived from saved operational records.'}
       icon={Activity}
       right={<Badge tone={endpointAvailable ? 'green' : 'amber'}>{endpointAvailable ? 'Audit connected' : 'Derived activity'}</Badge>}
     >
@@ -1607,7 +1607,7 @@ function ProfileDrawer({ person, onClose }: { person: PersonRecord | null; onClo
           </div>
 
           <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Raw backend source</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Record source</p>
             <pre className="mt-3 max-h-80 overflow-auto rounded-2xl bg-slate-950 p-4 text-xs leading-6 text-slate-100">{JSON.stringify(person.source || {}, null, 2)}</pre>
           </div>
         </div>
@@ -1667,7 +1667,7 @@ function TrackerModal({ mode, items, onClose, onSendToday }: { mode: TrackerMode
                 <div className="rounded-2xl bg-slate-950 p-3 text-white"><Icon className="h-5 w-5" /></div>
                 <div>
                   <div className="font-black text-slate-950">Celebration workflow</div>
-                  <p className="mt-1 text-sm text-slate-500">Generated from saved backend profile data. No mock records are used.</p>
+                  <p className="mt-1 text-sm text-slate-500">Generated from saved profile data.</p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1782,8 +1782,8 @@ export default function AdminDashboardPage() {
       { title: 'Members', value: data.members.length, subtitle: 'Saved membership records', icon: UserRound, tone: 'from-blue-500/15 to-cyan-500/5 text-blue-700 border-blue-200', trend: `${data.members.filter((item) => ['active', 'approved'].includes(item.status || '')).length} active/approved` },
       { title: 'Workforce', value: data.workforce.length, subtitle: 'Workers and serving profiles', icon: BriefcaseBusiness, tone: 'from-emerald-500/15 to-green-500/5 text-emerald-700 border-emerald-200', trend: `${data.workforce.filter((item) => item.department).length} with departments` },
       { title: 'Leadership', value: data.leadership.length, subtitle: 'Pastoral and leadership profiles', icon: Crown, tone: 'from-amber-500/15 to-yellow-500/5 text-amber-700 border-amber-200', trend: `${data.leadership.filter((item) => item.anniversaryMonth).length} anniversary records` },
-      { title: 'Forms', value: data.forms.length, subtitle: `${publishedCount(data.forms)} published forms`, icon: ClipboardList, tone: 'from-indigo-500/15 to-blue-500/5 text-indigo-700 border-indigo-200', trend: `${extractSubmissionTotal(data.forms)} captured submissions` },
-      { title: 'Campaigns', value: data.campaigns.length, subtitle: 'Email and outreach campaigns', icon: Megaphone, tone: 'from-orange-500/15 to-amber-500/5 text-orange-700 border-orange-200', trend: `${publishedCount(data.campaigns)} active/published` },
+      { title: 'Forms', value: data.forms.length, subtitle: `${publishedCount(data.forms)} live forms`, icon: ClipboardList, tone: 'from-indigo-500/15 to-blue-500/5 text-indigo-700 border-indigo-200', trend: `${extractSubmissionTotal(data.forms)} captured submissions` },
+      { title: 'Campaigns', value: data.campaigns.length, subtitle: 'Email and outreach campaigns', icon: Megaphone, tone: 'from-orange-500/15 to-amber-500/5 text-orange-700 border-orange-200', trend: `${publishedCount(data.campaigns)} active/live` },
       { title: 'Events', value: countUpcomingEvents(data.events), subtitle: `${data.events.length} total event records`, icon: CalendarDays, tone: 'from-violet-500/15 to-purple-500/5 text-violet-700 border-violet-200', trend: 'Upcoming events only' },
       { title: 'Store', value: data.storeItems.length, subtitle: `${lowStockCount(data.storeItems)} low stock items`, icon: Store, tone: 'from-rose-500/15 to-pink-500/5 text-rose-700 border-rose-200', trend: 'Inventory intelligence' },
     ];
@@ -1800,11 +1800,11 @@ export default function AdminDashboardPage() {
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white/70">
                   <ShieldCheck className="h-4 w-4" />
-                  Backend driven admin intelligence
+                  Admin intelligence
                 </div>
                 <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl xl:text-5xl">Admin Dashboard</h1>
                 <p className="mt-3 max-w-4xl text-sm leading-7 text-white/65 sm:text-base">
-                  Real-time church operations, people intelligence, celebrations, forms, events, campaigns, store data, and audit activity. No placeholder or mock data is rendered here.
+                  Real-time church operations, people intelligence, celebrations, forms, events, campaigns, store data, and audit activity.
                 </p>
                 <div className="mt-5 flex flex-wrap gap-2">
                   <button type="button" onClick={() => setPaletteOpen(true)} className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-black text-slate-950 transition hover:bg-slate-100"><Command className="h-4 w-4" /> Command palette</button>
@@ -1834,7 +1834,7 @@ export default function AdminDashboardPage() {
           <div className="flex min-h-[50vh] items-center justify-center rounded-[2rem] border border-slate-200 bg-white">
             <div className="text-center">
               <Loader2 className="mx-auto h-10 w-10 animate-spin text-slate-950" />
-              <p className="mt-3 text-sm font-bold text-slate-500">Loading backend dashboard data...</p>
+              <p className="mt-3 text-sm font-bold text-slate-500">Loading dashboard data...</p>
             </div>
           </div>
         ) : null}

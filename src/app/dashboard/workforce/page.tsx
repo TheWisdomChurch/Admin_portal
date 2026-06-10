@@ -573,7 +573,7 @@ export default function WorkforcePage() {
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Service intelligence</p>
                 <h2 className="mt-2 text-xl font-black text-[var(--color-text-primary)]">Department-based workforce command center</h2>
                 <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--color-text-secondary)]">
-                  Track current workers, incoming workforce profiles, inactive service records, and department strength using live backend data.
+                  Track current workers, incoming workforce profiles, inactive service records, and department strength from live ministry data.
                 </p>
               </div>
             </div>

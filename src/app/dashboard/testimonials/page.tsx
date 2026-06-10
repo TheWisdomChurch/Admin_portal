@@ -78,7 +78,7 @@ function TestimonialCard({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="truncate text-base font-bold text-[var(--color-text-primary)]">{formatName(item)}</h3>
             <Badge variant={status === 'approved' ? 'success' : 'warning'}>
-              {status === 'approved' ? 'Published' : 'Pending'}
+              {status === 'approved' ? 'Live' : 'Pending'}
             </Badge>
             {item.isAnonymous && <Badge variant="secondary">Anonymous</Badge>}
           </div>
@@ -232,7 +232,7 @@ export default function TestimonialsPage() {
           <p className="mt-2 text-3xl font-bold text-amber-600">{pending.length}</p>
         </Card>
         <Card>
-          <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Published</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Live</p>
           <p className="mt-2 text-3xl font-bold text-emerald-600">{approved.length}</p>
         </Card>
         <Card>
@@ -309,7 +309,7 @@ export default function TestimonialsPage() {
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-[var(--color-text-primary)]">Published</h3>
+              <h3 className="font-semibold text-[var(--color-text-primary)]">Live</h3>
               <Badge variant="success">{filteredApproved.length}</Badge>
             </div>
             {loading ? (

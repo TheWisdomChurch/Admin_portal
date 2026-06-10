@@ -244,7 +244,7 @@ function RegistrationsPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Registration links" value={forms.length} hint="Available backend forms" icon={Link2} />
+        <Metric label="Registration links" value={forms.length} hint="Available live forms" icon={Link2} />
         <Metric label="Selected total" value={submissionsTotal} hint="All records for selected link" icon={Users} />
         <Metric label="Current view" value={filteredSubmissions.length} hint={hasFilters ? 'After local filters' : 'Loaded page records'} icon={Search} />
         <Metric label="Last updated" value={lastUpdatedAt ? formatDateTime(lastUpdatedAt).split(',')[0] : '—'} hint="Latest successful refresh" icon={CalendarDays} />

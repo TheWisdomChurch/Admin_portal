@@ -734,7 +734,7 @@ export default withAuth(function NewFormPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white/65"><LayoutTemplate className="h-4 w-4" />Form publishing studio</div>
             <h1 className="mt-4 max-w-4xl text-3xl font-black tracking-tight sm:text-4xl">Design the form, route the submission, preview the public experience, then publish.</h1>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-white/65">The builder keeps your advanced backend settings intact while making the workflow clearer.</p>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-white/65">The builder keeps advanced form settings intact while making the workflow clearer.</p>
           </div>
           <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-white/50">Public link preview</p>
@@ -839,7 +839,7 @@ export default withAuth(function NewFormPage() {
               fields={fields}
               onChange={(nextFields) => setFields(normalizeOrderedFields(nextFields))}
               title="Arrange public form fields"
-              description="Drag fields into the exact order members should see on the public form. The saved backend order will follow this arrangement."
+              description="Drag fields into the exact order members should see on the public form. The saved form order will follow this arrangement."
             />
 
             <div className="space-y-4">

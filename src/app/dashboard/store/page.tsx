@@ -413,7 +413,7 @@ export default function StoreDashboardPage() {
                 </div>
                 <h1 className="mt-4 text-2xl font-black tracking-tight text-[var(--color-text-primary)] sm:text-3xl">Products, stock, and order workflow</h1>
                 <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--color-text-secondary)]">
-                  Manage live products, inventory alerts, and customer order movement without mock data or disconnected workflows.
+                  Manage live products, inventory alerts, and customer order movement in one connected workspace.
                 </p>
               </div>
               <Button variant="outline" onClick={() => void loadData()} loading={loading} icon={<RefreshCw className="h-4 w-4" />}>
@@ -434,7 +434,7 @@ export default function StoreDashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Products" value={products.length} hint={`${activeProducts.length} active product${activeProducts.length === 1 ? '' : 's'}`} icon={<Boxes className="h-5 w-5" />} tone="bg-blue-500/10 text-blue-700" />
         <StatCard label="Low stock" value={lowStockProducts.length} hint="Active items at 5 units or lower" icon={<AlertTriangle className="h-5 w-5" />} tone="bg-amber-500/10 text-amber-700" />
-        <StatCard label="Orders loaded" value={orders.length} hint="Current backend order page" icon={<ClipboardList className="h-5 w-5" />} tone="bg-indigo-500/10 text-indigo-700" />
+        <StatCard label="Orders loaded" value={orders.length} hint="Current order page" icon={<ClipboardList className="h-5 w-5" />} tone="bg-indigo-500/10 text-indigo-700" />
         <StatCard label="Delivered" value={orders.filter((order) => order.status === 'delivered').length} hint="Completed orders in current view" icon={<CheckCircle2 className="h-5 w-5" />} tone="bg-emerald-500/10 text-emerald-700" />
       </div>
 
