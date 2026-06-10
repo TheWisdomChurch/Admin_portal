@@ -583,7 +583,7 @@ function DashboardPage() {
     {
       label: 'Audience',
       value: formatNumber(marketing?.reachableRecipients),
-      hint: `${formatNumber(publishedForms || marketing?.publishedForms)} published forms`,
+      hint: `${formatNumber(publishedForms || marketing?.publishedForms)} live forms`,
       icon: <Mail className="h-5 w-5" />,
     },
     {
@@ -653,8 +653,7 @@ function DashboardPage() {
             </h1>
 
             <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)] md:text-base">
-              Monitor live platform data from events, forms, submissions, and email campaigns. No placeholder or mock
-              data is rendered here.
+              Monitor events, forms, submissions, and email campaigns from one connected operations workspace.
             </p>
           </div>
 
@@ -710,7 +709,7 @@ function DashboardPage() {
 
           <div className="grid min-w-full grid-cols-3 gap-2 sm:min-w-[360px]">
             <MiniMetric label="Forms" value={createdForms.length} />
-            <MiniMetric label="Published" value={publishedForms} />
+            <MiniMetric label="Live" value={publishedForms} />
             <MiniMetric label="Fields" value={totalCreatedFields} />
           </div>
         </div>

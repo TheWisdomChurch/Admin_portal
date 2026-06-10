@@ -109,7 +109,7 @@ function normalizeStatus(status?: EventStatus, dateStr = ''): NormalizedStatus {
   return 'upcoming';
 }
 
-function toBackendStatus(status?: EventStatus, dateStr = ''): EventStatus {
+function toRemoteStatus(status?: EventStatus, dateStr = ''): EventStatus {
   const normalized = normalizeStatus(status, dateStr);
   if (normalized === 'ongoing') return 'happening';
   if (normalized === 'completed') return 'past';
@@ -134,7 +134,7 @@ function toEventPayload(event: EventData, overrides?: Partial<EventPayload>): Ev
     time: event.time,
     location: event.location,
     category: event.category,
-    status: toBackendStatus(event.status, event.date),
+    status: toRemoteStatus(event.status, event.date),
     isFeatured: event.isFeatured,
     tags: Array.isArray(event.tags) ? event.tags : [],
     registerLink: event.registerLink,
@@ -332,7 +332,7 @@ function PreviewPanel({ event }: { event: EventData | null }) {
         <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">Frontend preview</p>
         <h2 className="mt-1 text-xl font-black tracking-tight text-slate-950">{event.title}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">
-          This mirrors the public event card state that users will see from saved backend data.
+          This mirrors the public event card state that users will see from saved event data.
         </p>
       </div>
 
@@ -582,7 +582,7 @@ function EventPage() {
       time: draft.time,
       location: draft.location.trim(),
       category: draft.category,
-      status: toBackendStatus(deriveStatus(draft.date), draft.date),
+      status: toRemoteStatus(deriveStatus(draft.date), draft.date),
       isFeatured: false,
       tags: [],
       registerLink: registerLink || undefined,
@@ -660,7 +660,7 @@ function EventPage() {
           icon={CalendarDays}
           label="Total events"
           value={stats.total}
-          hint="All event records returned by the backend."
+          hint="All saved event records."
         />
         <StatCard
           icon={Sparkles}

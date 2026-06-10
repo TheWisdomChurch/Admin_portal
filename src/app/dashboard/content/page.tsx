@@ -370,7 +370,7 @@ export default function ContentPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white/65"><ShieldCheck className="h-4 w-4" /> Website content operations</div>
             <h1 className="mt-4 max-w-3xl text-3xl font-black tracking-tight sm:text-4xl xl:text-5xl">Publish consistent content across homepage, popups, and automated follow-up.</h1>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-white/65">This workspace keeps public-facing messaging and backend automation templates aligned.</p>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-white/65">This workspace keeps public-facing messaging and automation templates aligned.</p>
           </div>
           <div className="relative grid gap-3 sm:grid-cols-2">
             <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
@@ -388,7 +388,7 @@ export default function ContentPage() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={HeartHandshake} label="Pastoral requests" value={stats.pastoral} hint="Latest pastoral care requests pulled from the backend." />
+        <StatCard icon={HeartHandshake} label="Pastoral requests" value={stats.pastoral} hint="Latest pastoral care requests." />
         <StatCard icon={HandCoins} label="Giving intents" value={stats.giving} hint="Recent giving expressions and follow-up opportunities." />
         <StatCard icon={MailCheck} label="Automation templates" value={stats.templates} hint="Confirmation templates needed by service workflows." />
         <StatCard icon={Activity} label="Content status" value={stats.adState} hint="Homepage campaign status based on active date range." />

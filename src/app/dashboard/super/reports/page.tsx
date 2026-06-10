@@ -151,7 +151,7 @@ function ReportsPage() {
   };
 
   const handlePdfNotice = async () => {
-    toast.error('PDF export needs a backend renderer endpoint. The CSV export is active now. See the backend guide in the package.');
+    toast.error('PDF export is not available yet. The CSV export is active now.');
   };
 
   return (

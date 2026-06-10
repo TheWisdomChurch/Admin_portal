@@ -142,7 +142,7 @@ export default function NewMembersPage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-lg font-black text-[var(--color-text-primary)]">New-member growth</h2>
-              <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Switch between backend-provided periods.</p>
+              <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Switch between available periods.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {(['weekly', 'monthly', 'quarterly', 'yearly'] as const).map((key) => <Button key={key} size="sm" variant={section === key ? 'primary' : 'outline'} onClick={() => setSection(key)}>{key}</Button>)}
@@ -160,7 +160,7 @@ export default function NewMembersPage() {
               <article key={form.formId} className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0"><p className="truncate text-sm font-black text-[var(--color-text-primary)]">{form.formTitle}</p><p className="mt-1 truncate text-xs text-[var(--color-text-tertiary)]">{form.slug || form.formId}</p></div>
-                  <Badge variant={form.isPublished ? 'success' : 'secondary'}>{form.isPublished ? 'Published' : 'Draft'}</Badge>
+                  <Badge variant={form.isPublished ? 'success' : 'secondary'}>{form.isPublished ? 'Live' : 'Draft'}</Badge>
                 </div>
                 <p className="mt-3 text-sm font-semibold text-[var(--color-text-secondary)]">{form.submissionCount} submissions</p>
               </article>

@@ -1461,7 +1461,7 @@ function EditFormPage() {
             fields={fields}
             onChange={(nextFields) => setFields(normalizeOrderedFields(nextFields))}
             title="Arrange public form fields"
-            description="Drag fields into the exact order members should see on the public form. The saved backend order will follow this arrangement."
+              description="Drag fields into the exact order members should see on the public form. The saved form order will follow this arrangement."
           />
 
           {orderedFields.map((field, index) => {
