@@ -834,7 +834,7 @@ function DashboardPage() {
     {
       label: 'Audience',
       value: formatNumber(reachableRecipients),
-      hint: `${formatNumber(publishedForms)} published forms`,
+      hint: `${formatNumber(publishedForms)} live forms`,
       icon: Mail,
       accent: 'from-violet-500/20 to-fuchsia-500/5 text-violet-700 border-violet-200',
     },
@@ -961,7 +961,7 @@ function DashboardPage() {
 
           <AccordionSection
             title="Upcoming events"
-            description="Live event schedule from backend records."
+            description="Live event schedule from operational records."
             open={expandedSections.events}
             onToggle={() => toggleAccordion('events')}
           >
@@ -1037,7 +1037,7 @@ function DashboardPage() {
           <ActivityTimeline items={timeline} onOpen={(id) => setDrawerRecord(records.find((record) => record.id === id) ?? null)} />
           <AccordionSection
             title="Campaign and store activity"
-            description="Backend-driven campaign, product, and order movement."
+            description="Campaign, product, and order movement."
             open={expandedSections.campaigns}
             onToggle={() => toggleAccordion('campaigns')}
           >
@@ -1116,7 +1116,7 @@ function HeroSection({ refreshing, onRefresh, onCommand }: { refreshing: boolean
             Real-time church operations, growth intelligence, and outreach control center.
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--color-text-secondary)] md:text-base">
-            Monitor events, members, forms, submissions, campaigns, workforce, and store operations from live backend data. No mock or placeholder data is used.
+            Monitor events, members, forms, submissions, campaigns, workforce, and store operations from one live operations workspace.
           </p>
         </div>
 
@@ -1592,7 +1592,7 @@ function PulseRow({ label, value }: { label: string; value: number }) {
         <span className="font-bold text-[var(--color-text-secondary)]">{label}</span>
         <span className="font-black text-[var(--color-text-primary)]">{formatNumber(value)}</span>
       </summary>
-      <p className="mt-2 text-xs leading-5 text-[var(--color-text-tertiary)]">Live count from saved backend operational records.</p>
+      <p className="mt-2 text-xs leading-5 text-[var(--color-text-tertiary)]">Live count from saved operational records.</p>
     </details>
   );
 }
@@ -1656,7 +1656,7 @@ function CommandPalette({ open, onClose, onRun, onRefresh }: { open: boolean; on
     { label: 'Open analytics', hint: 'Charts and trends', action: () => onRun('analytics') },
     { label: 'Open records', hint: 'Searchable operational table', action: () => onRun('records') },
     { label: 'Open activity', hint: 'Timeline and audit movement', action: () => onRun('activity') },
-    { label: 'Refresh dashboard', hint: 'Reload live backend data', action: onRefresh },
+    { label: 'Refresh dashboard', hint: 'Reload live workspace data', action: onRefresh },
   ].filter((command) => `${command.label} ${command.hint}`.toLowerCase().includes(search.toLowerCase().trim()));
 
   const handleKey = (event: KeyboardEvent<HTMLDivElement>) => {

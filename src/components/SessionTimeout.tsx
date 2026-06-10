@@ -16,7 +16,7 @@ function getStatus(err: unknown): number | undefined {
   return typeof status === 'number' ? status : undefined;
 }
 
-// Idle logout after N minutes. Match the backend default unless explicitly overridden.
+// Idle logout after N minutes. Match the server default unless explicitly overridden.
 const getIdleMs = () => {
   const fromEnv = Number(process.env.NEXT_PUBLIC_SESSION_IDLE_MINUTES);
   const minutes = Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : DEFAULT_IDLE_MINUTES;

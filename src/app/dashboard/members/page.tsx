@@ -151,7 +151,7 @@ export default function MembersPage() {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <ShellCard className="p-5">
           <h2 className="text-lg font-black text-[var(--color-text-primary)]">Monthly membership growth</h2>
-          <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Backend monthly growth data.</p>
+          <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Monthly growth data.</p>
           <div className="mt-5 h-72">
             {growthLabels.length === 0 ? <p className="text-sm text-[var(--color-text-tertiary)]">No monthly growth data yet.</p> : <Bar data={{ labels: growthLabels, datasets: [{ label: 'Members added', data: growthValues, backgroundColor: '#2563eb', borderRadius: 10, maxBarThickness: 36 }] }} options={{ maintainAspectRatio: false, responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } } }} />}
           </div>

@@ -296,7 +296,7 @@ export default function EmailMarketingPage() {
           <Link href="/dashboard" className={styles.backLink}><ArrowLeft className="h-4 w-4" />Back to dashboard</Link>
           <p className={styles.eyebrow}><MailCheck className="h-4 w-4" />Email Marketing Studio</p>
           <h1>Build campaigns from your form audiences.</h1>
-          <p>Deduplicate recipients, add manual contacts, compose the message, preview it, and send through your backend.</p>
+          <p>Deduplicate recipients, add manual contacts, compose the message, preview it, and send with confidence.</p>
           <div className={styles.heroActions}>
             <Button type="button" onClick={useTopAudiences} icon={<Sparkles className="h-4 w-4" />}>Use top audiences</Button>
             <Button type="button" variant="outline" onClick={() => applyPreset('church-update')}>Load template</Button>
@@ -305,7 +305,7 @@ export default function EmailMarketingPage() {
         </div>
         <div className={styles.summaryGrid}>
           <SummaryCard icon={Users} label="Reachable contacts" value={formatNumber(summary?.reachableRecipients ?? 0)} hint="Unique emails across form audiences." />
-          <SummaryCard icon={FileText} label="Tracked forms" value={formatNumber(summary?.totalForms ?? 0)} hint={`${formatNumber(summary?.publishedForms ?? 0)} published forms.`} />
+          <SummaryCard icon={FileText} label="Tracked forms" value={formatNumber(summary?.totalForms ?? 0)} hint={`${formatNumber(summary?.publishedForms ?? 0)} live forms.`} />
           <SummaryCard icon={Send} label="Campaigns sent" value={formatNumber(Number(summary?.totalCampaigns ?? 0))} hint="Recent compose history stays visible." />
           <SummaryCard icon={Mail} label="Current reach" value={formatNumber(estimatedReach)} hint="Selected forms plus manual recipients." />
         </div>
@@ -340,7 +340,7 @@ export default function EmailMarketingPage() {
             <div className={styles.tokenRow}>{['{{ .FirstName }}', '{{ .Email }}', '{{ .UnsubscribeURL }}'].map((token) => <button key={token} type="button" onClick={() => editorMode === 'html' ? setHtmlBody((current) => `${current}\n${token}`) : setTextBody((current) => `${current}\n${token}`)}>{token}</button>)}</div>
             <textarea className={styles.codeEditor} value={editorMode === 'html' ? htmlBody : textBody} onChange={(event) => editorMode === 'html' ? setHtmlBody(event.target.value) : setTextBody(event.target.value)} spellCheck={false} />
           </div>
-          <div className={styles.sendRow}><p>The backend deduplicates overlapping recipients before delivery.</p><Button type="button" onClick={handleSendCampaign} loading={sending} icon={<Send className="h-4 w-4" />}>Send campaign</Button></div>
+          <div className={styles.sendRow}><p>Overlapping recipients are deduplicated before delivery.</p><Button type="button" onClick={handleSendCampaign} loading={sending} icon={<Send className="h-4 w-4" />}>Send campaign</Button></div>
         </section>
 
         <aside className={styles.sidePanel}>
