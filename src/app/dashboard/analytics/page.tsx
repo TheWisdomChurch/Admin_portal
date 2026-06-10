@@ -63,7 +63,7 @@ function AnalyticsPage() {
   /**
    * NOTE:
    * Your current apiClient.getAnalytics() takes 0 arguments.
-   * If you later add backend filtering by range, update api.ts signature too.
+   * If you later add server filtering by range, update api.ts signature too.
    */
   const loadAnalytics = useCallback(async () => {
     try {
@@ -71,7 +71,7 @@ function AnalyticsPage() {
 
       const data = await apiClient.getAnalytics();
 
-      // If your backend later supports timeRange filtering:
+      // If the server later supports timeRange filtering:
       // const data = await apiClient.getAnalytics({ range: timeRange });
 
       setAnalytics(data as AnalyticsData);
@@ -89,7 +89,7 @@ function AnalyticsPage() {
   }, [authBlocked, loadAnalytics]);
 
   // If you still want the UI control, you can optionally refetch on timeRange change.
-  // Right now backend ignores it, but the layout stays the same.
+  // Right now the server ignores it, but the layout stays the same.
   useEffect(() => {
     if (authBlocked) return;
     // If you don't want extra refetches, remove this effect.

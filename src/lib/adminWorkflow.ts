@@ -68,14 +68,6 @@ export type ApprovalRequestsTimeline = {
   approved?: ApprovalTimelinePoint[];
 };
 
-type ApiEnvelope<T = unknown> = {
-  status?: string;
-  message?: string;
-  data?: T;
-  error?: string;
-  statusCode?: number;
-};
-
 type JsonRecord = Record<string, unknown>;
 
 const RAW_API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL ?? '';

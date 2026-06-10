@@ -68,7 +68,7 @@ function SuperAnalyticsPage() {
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Total events</p>
               <p className="mt-2 text-3xl font-bold text-[var(--color-text-primary)]">{numberValue(data?.totalEvents)}</p>
-              <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">All events in the backend catalogue</p>
+              <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">All events in the catalogue</p>
             </div>
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
               <Calendar className="h-5 w-5" />
