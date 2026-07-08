@@ -248,8 +248,8 @@ function PasswordResetInner() {
           </div>
 
           {serverError ? (
-            <div className="mt-5 rounded-[var(--radius-button)] border border-red-200 bg-red-50 p-3">
-              <p className="text-sm text-red-700">{serverError}</p>
+            <div className="mt-5 rounded-[var(--radius-button)] border border-[var(--color-danger-border)] bg-[var(--color-danger-surface)] p-3">
+              <p className="text-sm text-[var(--color-danger-text)]">{serverError}</p>
             </div>
           ) : null}
 

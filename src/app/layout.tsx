@@ -5,6 +5,7 @@ import { AuthProvider } from '@/providers/AuthProviders';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { ThemeProvider } from '@/providers/ThemeProviders';
 import { bodyFont, fontVariables } from '@/styles/fonts';
+import { ToastProvider } from '@/components/Toast';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://admin-portal.example.com';
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME?.trim() || 'Administration Portal';
@@ -89,6 +90,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <QueryProvider>
             <AuthProvider>{children}</AuthProvider>
           </QueryProvider>
+          <ToastProvider />
         </ThemeProvider>
       </body>
     </html>
