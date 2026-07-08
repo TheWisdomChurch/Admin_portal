@@ -14,7 +14,7 @@ import {
 import { Bar } from 'react-chartjs-2';
 
 import { Button } from '@/ui/Button';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { DataTable } from '@/components/DateTable';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';

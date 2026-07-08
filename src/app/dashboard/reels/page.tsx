@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { Film, Plus, Play, RefreshCw, Search, Trash2, UploadCloud, X } from 'lucide-react';
 
 import { Button } from '@/ui/Button';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { VerifyActionModal } from '@/ui/VerifyActionModal';
 import { apiClient } from '@/lib/api';
 import { uploadAsset } from '@/lib/uploads';

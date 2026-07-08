@@ -19,6 +19,7 @@ import {
   Mail,
   Menu,
   MessageSquare,
+  Palette,
   Settings,
   Shield,
   ShoppingBag,
@@ -54,6 +55,7 @@ const superConsole: NavGroup = {
     { href: '/dashboard/super/analytics', label: 'Analytics', description: 'Leadership metrics', icon: BarChart3, roles: ['super_admin'] },
     { href: '/dashboard/super/reports', label: 'Reports', description: 'Exports and summaries', icon: FileText, roles: ['super_admin'] },
     { href: '/dashboard/super/notifications', label: 'Notifications', description: 'Super-admin alerts', icon: BellRing, roles: ['super_admin'] },
+    { href: '/dashboard/design-system', label: 'Design System', description: 'Tokens & component reference', icon: Palette, roles: ['super_admin'] },
   ],
 };
 

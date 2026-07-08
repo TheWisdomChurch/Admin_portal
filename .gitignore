@@ -24,6 +24,11 @@
 # misc
 .DS_Store
 *.pem
+*Zone.Identifier*
+
+# scratch/agent artifacts (never commit working files)
+tmp/
+.codex*
 
 # debug
 npm-debug.log*

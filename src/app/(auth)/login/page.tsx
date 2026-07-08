@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { Checkbox } from '@/ui/Checkbox';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -39,6 +39,7 @@ import {
 import { loginSchema, type LoginFormSchema } from '@/lib/validation/auth';
 import { OtpModal } from '@/ui/OtpModal';
 import { AlertModal } from '@/ui/AlertModal';
+import { Modal } from '@/ui/Modal';
 import type { MFAMethod } from '@/lib/types';
 
 type LoginFormData = LoginFormSchema;
@@ -467,7 +468,7 @@ function LoginInner() {
               : 'Manage events, testimonies, and ministry updates with clarity and control.'}
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-white/70 p-4">
+            <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/70 p-4">
               <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
                 {portalMode === 'super' ? 'Elevated Access' : 'Access Control'}
               </p>
@@ -475,7 +476,7 @@ function LoginInner() {
                 Password sign-in is protected with a one-time verification code before the session is established.
               </p>
             </div>
-            <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-white/70 p-4">
+            <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/70 p-4">
               <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
                 Trusted Devices
               </p>
@@ -498,9 +499,9 @@ function LoginInner() {
           </div>
 
           {mfaGuidance && (
-            <div className="mb-6 rounded-[var(--radius-button)] border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-semibold text-amber-800">{mfaGuidance.title}</p>
-              <p className="mt-1 text-sm text-amber-700">{mfaGuidance.description}</p>
+            <div className="mb-6 rounded-[var(--radius-button)] border border-[var(--color-warning-border)] bg-[var(--color-warning-surface)] p-4">
+              <p className="text-sm font-semibold text-[var(--color-warning-text)]">{mfaGuidance.title}</p>
+              <p className="mt-1 text-sm text-[var(--color-warning-text)]">{mfaGuidance.description}</p>
               <div className="mt-3">
                 <Button
                   type="button"
@@ -523,8 +524,8 @@ function LoginInner() {
           )}
 
           {serverError && (
-            <div className="mb-6 rounded-[var(--radius-button)] border border-red-200 bg-red-50 p-4">
-              <p className="text-sm text-red-600 whitespace-pre-line">{serverError}</p>
+            <div className="mb-6 rounded-[var(--radius-button)] border border-[var(--color-danger-border)] bg-[var(--color-danger-surface)] p-4">
+              <p className="text-sm text-[var(--color-danger-text)] whitespace-pre-line">{serverError}</p>
             </div>
           )}
 
@@ -629,7 +630,7 @@ function LoginInner() {
                     <div className="w-full border-t border-[var(--color-border-secondary)]" />
                   </div>
                   <div className="relative flex justify-center">
-                    <span className="bg-white px-3 text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
+                    <span className="bg-[var(--color-background-primary)] px-3 text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
                       Or continue with
                     </span>
                   </div>
@@ -685,65 +686,70 @@ function LoginInner() {
 
       <Footer />
 
-      {showForgot && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <Card className="w-full max-w-md p-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Reset Password</h2>
-              <button
-                type="button"
+      <Modal
+        open={showForgot}
+        onClose={() => {
+          setShowForgot(false);
+          resetForgotState();
+        }}
+        labelledBy="forgot-password-title"
+      >
+        <div className="p-6">
+          <div className="flex items-center justify-between">
+            <h2 id="forgot-password-title" className="text-lg font-semibold text-[var(--color-text-primary)]">Reset Password</h2>
+            <button
+              type="button"
+              onClick={() => {
+                setShowForgot(false);
+                resetForgotState();
+              }}
+              className="text-sm text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+            >
+              Close
+            </button>
+          </div>
+          <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">
+            {forgotStep === 'email' && 'Enter your email address to receive an OTP.'}
+            {forgotStep === 'otp' && 'Enter the OTP code sent to your email.'}
+          </p>
+          <div className="mt-4 space-y-4">
+            {forgotStep === 'email' && (
+              <Input
+                type="email"
+                placeholder="you@example.com"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                disabled={forgotLoading}
+              />
+            )}
+            {forgotStep === 'otp' && (
+              <Input
+                type="text"
+                placeholder="Enter OTP"
+                value={forgotOtp}
+                onChange={(e) => setForgotOtp(e.target.value)}
+                disabled={forgotLoading}
+              />
+            )}
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
                 onClick={() => {
                   setShowForgot(false);
                   resetForgotState();
                 }}
-                className="text-sm text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+                disabled={forgotLoading}
               >
-                Close
-              </button>
+                Cancel
+              </Button>
+              <Button onClick={handleForgotPassword} loading={forgotLoading} disabled={forgotLoading}>
+                {forgotStep === 'email' && 'Send OTP'}
+                {forgotStep === 'otp' && 'Verify OTP'}
+              </Button>
             </div>
-            <p className="mt-2 text-sm text-[var(--color-text-tertiary)]">
-              {forgotStep === 'email' && 'Enter your email address to receive an OTP.'}
-              {forgotStep === 'otp' && 'Enter the OTP code sent to your email.'}
-            </p>
-            <div className="mt-4 space-y-4">
-              {forgotStep === 'email' && (
-                <Input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={forgotEmail}
-                  onChange={(e) => setForgotEmail(e.target.value)}
-                  disabled={forgotLoading}
-                />
-              )}
-              {forgotStep === 'otp' && (
-                <Input
-                  type="text"
-                  placeholder="Enter OTP"
-                  value={forgotOtp}
-                  onChange={(e) => setForgotOtp(e.target.value)}
-                  disabled={forgotLoading}
-                />
-              )}
-              <div className="flex items-center justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowForgot(false);
-                    resetForgotState();
-                  }}
-                  disabled={forgotLoading}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleForgotPassword} loading={forgotLoading} disabled={forgotLoading}>
-                  {forgotStep === 'email' && 'Send OTP'}
-                  {forgotStep === 'otp' && 'Verify OTP'}
-                </Button>
-              </div>
-            </div>
-          </Card>
+          </div>
         </div>
-      )}
+      </Modal>
 
       <OtpModal
         open={otpOpen}

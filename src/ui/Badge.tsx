@@ -26,10 +26,10 @@ export function Badge({
   const variants = {
     default: 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)] border border-[var(--color-border-secondary)]',
     primary: 'bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)] border border-[var(--color-accent-primary)]',
-    success: 'bg-green-100 text-green-800 border border-green-200',
-    warning: 'bg-yellow-100 text-yellow-800 border border-yellow-200',
-    danger: 'bg-red-100 text-red-800 border border-red-200',
-    info: 'bg-blue-100 text-blue-800 border border-blue-200',
+    success: 'bg-[var(--color-success-surface)] text-[var(--color-success-text)] border border-[var(--color-success-border)]',
+    warning: 'bg-[var(--color-warning-surface)] text-[var(--color-warning-text)] border border-[var(--color-warning-border)]',
+    danger: 'bg-[var(--color-danger-surface)] text-[var(--color-danger-text)] border border-[var(--color-danger-border)]',
+    info: 'bg-[var(--color-info-surface)] text-[var(--color-info-text)] border border-[var(--color-info-border)]',
     outline: 'bg-transparent text-[var(--color-text-secondary)] border border-[var(--color-border-secondary)]',
     secondary: 'bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)] border border-[var(--color-border-secondary)]',
   };
@@ -88,14 +88,14 @@ export function PillBadge({
   };
 
   const variants = {
-    default: 'bg-secondary-100 text-secondary-800',
-    primary: 'bg-primary-600 text-white',
-    success: 'bg-green-600 text-white',
-    warning: 'bg-yellow-600 text-white',
-    danger: 'bg-red-600 text-white',
-    info: 'bg-blue-600 text-white',
-    outline: 'bg-transparent text-secondary-700 border border-secondary-300',
-    secondary: 'bg-secondary-600 text-white',
+    default: 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]',
+    primary: 'bg-[var(--color-accent-primary)] text-[var(--color-text-onprimary)]',
+    success: 'bg-[var(--color-accent-success)] text-white',
+    warning: 'bg-[var(--color-accent-warning)] text-white',
+    danger: 'bg-[var(--color-accent-danger)] text-white',
+    info: 'bg-[var(--color-accent-info)] text-white',
+    outline: 'bg-transparent text-[var(--color-text-secondary)] border border-[var(--color-border-secondary)]',
+    secondary: 'bg-[var(--color-text-secondary)] text-[var(--color-text-inverse)]',
   };
 
   return (
@@ -132,14 +132,14 @@ export function DotBadge({
   };
 
   const colorClasses = {
-    default: 'bg-secondary-500',
-    primary: 'bg-primary-500',
-    success: 'bg-green-500',
-    warning: 'bg-yellow-500',
-    danger: 'bg-red-500',
-    info: 'bg-blue-500',
-    outline: 'bg-transparent border border-secondary-400',
-    secondary: 'bg-secondary-400',
+    default: 'bg-[var(--color-text-tertiary)]',
+    primary: 'bg-[var(--color-accent-primary)]',
+    success: 'bg-[var(--color-accent-success)]',
+    warning: 'bg-[var(--color-accent-warning)]',
+    danger: 'bg-[var(--color-accent-danger)]',
+    info: 'bg-[var(--color-accent-info)]',
+    outline: 'bg-transparent border border-[var(--color-border-secondary)]',
+    secondary: 'bg-[var(--color-text-tertiary)]',
   };
 
   return (

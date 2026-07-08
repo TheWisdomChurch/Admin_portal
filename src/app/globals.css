@@ -1,42 +1,141 @@
-/* src/app/globals.css */
+/* src/app/globals.css
+ *
+ * Single source of truth for design tokens. There is no parallel TS token
+ * system — Tailwind v4 here is CSS-first (no tailwind.config), so these CSS
+ * custom properties ARE the theme. Semantic role tokens (--color-*) below
+ * are what components should consume; the numbered scales (--brand-500 etc.)
+ * exist for the rare case a component needs a specific step directly
+ * (e.g. chart series colors).
+ */
 @import 'tailwindcss';
 
 :root {
-  /* Light theme CSS variables - will be dynamically set by ThemeProvider */
+  /* ============================================================
+     Primitive color scales (50-950, Tailwind-compatible steps)
+     ============================================================ */
+
+  /* Brand gold — the church's identity color */
+  --brand-50: #fefce8;
+  --brand-100: #fef9c3;
+  --brand-200: #fef08a;
+  --brand-300: #fde047;
+  --brand-400: #facc15;
+  --brand-500: #eab308;
+  --brand-600: #ca8a04;
+  --brand-700: #a16207;
+  --brand-800: #854d0e;
+  --brand-900: #713f12;
+  --brand-950: #422006;
+
+  /* Warm neutral (stone) — used for ~90% of surfaces/text/borders */
+  --stone-50: #fafaf9;
+  --stone-100: #f5f5f4;
+  --stone-200: #e7e5e4;
+  --stone-300: #d6d3d1;
+  --stone-400: #a8a29e;
+  --stone-500: #78716c;
+  --stone-600: #57534e;
+  --stone-700: #44403c;
+  --stone-800: #292524;
+  --stone-900: #1c1917;
+  --stone-950: #0c0a09;
+
+  /* Semantic hues */
+  --green-50: #f0fdf4;
+  --green-100: #dcfce7;
+  --green-200: #bbf7d0;
+  --green-300: #86efac;
+  --green-400: #4ade80;
+  --green-500: #22c55e;
+  --green-600: #16a34a;
+  --green-700: #15803d;
+  --green-800: #166534;
+  --green-900: #14532d;
+
+  --amber-50: #fffbeb;
+  --amber-100: #fef3c7;
+  --amber-200: #fde68a;
+  --amber-300: #fcd34d;
+  --amber-400: #fbbf24;
+  --amber-500: #f59e0b;
+  --amber-600: #d97706;
+  --amber-700: #b45309;
+  --amber-800: #92400e;
+  --amber-900: #78350f;
+
+  --red-50: #fef2f2;
+  --red-100: #fee2e2;
+  --red-200: #fecaca;
+  --red-300: #fca5a5;
+  --red-400: #f87171;
+  --red-500: #ef4444;
+  --red-600: #dc2626;
+  --red-700: #b91c1c;
+  --red-800: #991b1b;
+  --red-900: #7f1d1d;
+
+  --sky-50: #f0f9ff;
+  --sky-100: #e0f2fe;
+  --sky-200: #bae6fd;
+  --sky-300: #7dd3fc;
+  --sky-400: #38bdf8;
+  --sky-500: #0ea5e9;
+  --sky-600: #0284c7;
+  --sky-700: #0369a1;
+  --sky-800: #075985;
+  --sky-900: #0c4a6e;
+
+  /* ============================================================
+     Semantic tokens — light theme (default)
+     ============================================================ */
   --color-background-primary: #ffffff;
-  --color-background-secondary: #f8fafc;
-  --color-background-tertiary: #f1f5f9;
-  --color-background-hover: #f5f5f5;
-  --color-background-active: #e5e5e5;
-  
-  --color-text-primary: #09090b;
-  --color-text-secondary: #27272a;
-  --color-text-tertiary: #52525b;
+  --color-background-secondary: var(--stone-50);
+  --color-background-tertiary: var(--stone-100);
+  --color-background-hover: var(--stone-100);
+  --color-background-active: var(--stone-200);
+
+  --color-text-primary: var(--stone-950);
+  --color-text-secondary: var(--stone-700);
+  --color-text-tertiary: var(--stone-500);
   --color-text-inverse: #ffffff;
-  --color-text-disabled: #a1a1aa;
-  --color-text-onprimary: #0b0b0b;
-  
-  --color-border-primary: #e4e4e7;
-  --color-border-secondary: #d4d4d8;
-  --color-border-focus: #eab308;
-  --color-border-error: #ef4444;
-  --color-border-success: #22c55e;
-  
-  --color-accent-primary: #eab308;
-  --color-accent-primaryhover: #ca8a04;
-  --color-accent-primaryactive: #a16207;
-  --color-accent-success: #22c55e;
-  --color-accent-warning: #f59e0b;
-  --color-accent-danger: #ef4444;
-  --color-accent-muted: #737373;
+  --color-text-disabled: var(--stone-400);
+  --color-text-onprimary: var(--stone-950);
+
+  --color-border-primary: var(--stone-200);
+  --color-border-secondary: var(--stone-300);
+  --color-border-focus: var(--brand-600);
+  --color-border-error: var(--red-500);
+  --color-border-success: var(--green-500);
+
+  /* Accent: deeper steps for interactive/text-bearing surfaces (buttons,
+     links, active nav) so contrast holds up — brighter steps stay reserved
+     for backgrounds/highlights, see .dark below for the inverse. */
+  --color-accent-primary: var(--brand-600);
+  --color-accent-primaryhover: var(--brand-700);
+  --color-accent-primaryactive: var(--brand-800);
+  --color-accent-success: var(--green-600);
+  --color-accent-warning: var(--amber-600);
+  --color-accent-danger: var(--red-600);
+  --color-accent-info: var(--sky-600);
+  --color-accent-muted: var(--stone-500);
+
+  /* Tinted surfaces for badges/alerts/callouts (auto light/dark via color-mix) */
+  --color-success-surface: color-mix(in srgb, var(--green-600) 12%, var(--color-background-primary));
+  --color-success-border: color-mix(in srgb, var(--green-600) 35%, transparent);
+  --color-warning-surface: color-mix(in srgb, var(--amber-600) 12%, var(--color-background-primary));
+  --color-warning-border: color-mix(in srgb, var(--amber-600) 35%, transparent);
+  --color-danger-surface: color-mix(in srgb, var(--red-600) 12%, var(--color-background-primary));
+  --color-danger-border: color-mix(in srgb, var(--red-600) 35%, transparent);
+  --color-info-surface: color-mix(in srgb, var(--sky-600) 12%, var(--color-background-primary));
+  --color-info-border: color-mix(in srgb, var(--sky-600) 35%, transparent);
+  --color-success-text: var(--green-700);
+  --color-warning-text: var(--amber-700);
+  --color-danger-text: var(--red-700);
+  --color-info-text: var(--sky-700);
 
   --radius-card: 18px;
   --radius-button: 14px;
   --radius-pill: 999px;
-
-  /* Professional Design System Tokens */
-  --font-family-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-family-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
@@ -81,34 +180,43 @@
   --transition-slow: 350ms ease-in-out;
 }
 
+/* ============================================================
+   Semantic tokens — dark theme overrides
+   ============================================================ */
 .dark {
-  /* Dark theme CSS variables - will be dynamically set by ThemeProvider */
-  --color-background-primary: #0f172a;
-  --color-background-secondary: #18181b;
-  --color-background-tertiary: #27272a;
-  --color-background-hover: #18181b;
-  --color-background-active: #27272a;
-  
-  --color-text-primary: #fafafa;
-  --color-text-secondary: #f4f4f5;
-  --color-text-tertiary: #a1a1aa;
-  --color-text-inverse: #000000;
-  --color-text-disabled: #52525b;
-  --color-text-onprimary: #0b0b0b;
-  
-  --color-border-primary: #3f3f46;
-  --color-border-secondary: #52525b;
-  --color-border-focus: #fde047;
-  --color-border-error: #f87171;
-  --color-border-success: #4ade80;
-  
-  --color-accent-primary: #fde047;
-  --color-accent-primaryhover: #facc15;
-  --color-accent-primaryactive: #eab308;
-  --color-accent-success: #4ade80;
-  --color-accent-warning: #fbbf24;
-  --color-accent-danger: #f87171;
-  --color-accent-muted: #737373;
+  --color-background-primary: var(--stone-950);
+  --color-background-secondary: var(--stone-900);
+  --color-background-tertiary: var(--stone-800);
+  --color-background-hover: var(--stone-900);
+  --color-background-active: var(--stone-800);
+
+  --color-text-primary: var(--stone-50);
+  --color-text-secondary: var(--stone-200);
+  --color-text-tertiary: var(--stone-400);
+  --color-text-inverse: var(--stone-950);
+  --color-text-disabled: var(--stone-600);
+  --color-text-onprimary: var(--stone-950);
+
+  --color-border-primary: var(--stone-700);
+  --color-border-secondary: var(--stone-600);
+  --color-border-focus: var(--brand-300);
+  --color-border-error: var(--red-400);
+  --color-border-success: var(--green-400);
+
+  /* Brighter steps read better against dark surfaces */
+  --color-accent-primary: var(--brand-400);
+  --color-accent-primaryhover: var(--brand-300);
+  --color-accent-primaryactive: var(--brand-500);
+  --color-accent-success: var(--green-400);
+  --color-accent-warning: var(--amber-400);
+  --color-accent-danger: var(--red-400);
+  --color-accent-info: var(--sky-400);
+  --color-accent-muted: var(--stone-500);
+
+  --color-success-text: var(--green-400);
+  --color-warning-text: var(--amber-400);
+  --color-danger-text: var(--red-400);
+  --color-info-text: var(--sky-400);
 }
 
 body {

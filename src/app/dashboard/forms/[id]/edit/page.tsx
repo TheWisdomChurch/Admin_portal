@@ -8,7 +8,7 @@ import { Plus, Trash2, Copy, Save, Globe, Mail, MailCheck, Send } from 'lucide-r
 
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { PageHeader } from '@/layouts';
 import { AlertModal } from '@/ui/AlertModal';
 import FormFieldOrderBuilder from '../../FormFieldOrderBuilder';
@@ -897,7 +897,7 @@ function EditFormPage() {
   if (loading) {
     return (
       <div className="flex min-h-[300px] w-full items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent" />
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-[var(--color-accent-primary)] border-r-transparent" />
       </div>
     );
   }
@@ -1103,7 +1103,7 @@ function EditFormPage() {
               ))}
             </select>
 
-            {fieldErrors.formType && <p className="text-sm text-red-500">{fieldErrors.formType}</p>}
+            {fieldErrors.formType && <p className="text-sm text-[var(--color-danger-text)]">{fieldErrors.formType}</p>}
           </div>
 
           <div className="sm:col-span-2">
@@ -1175,7 +1175,7 @@ function EditFormPage() {
             </select>
 
             {fieldErrors.submissionTarget && (
-              <p className="text-sm text-red-500">{fieldErrors.submissionTarget}</p>
+              <p className="text-sm text-[var(--color-danger-text)]">{fieldErrors.submissionTarget}</p>
             )}
           </div>
 
@@ -1382,7 +1382,7 @@ function EditFormPage() {
                       Section items
                     </label>
                     <textarea
-                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
                       rows={5}
                       value={(section.items ?? []).join('\n')}
                       onChange={(event) => updateContentSection(index, { items: splitLines(event.target.value) ?? [] })}
@@ -1394,7 +1394,7 @@ function EditFormPage() {
                       Item subtext
                     </label>
                     <textarea
-                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
                       rows={5}
                       value={(section.itemSubtexts ?? []).join('\n')}
                       onChange={(event) =>
@@ -1543,8 +1543,7 @@ function EditFormPage() {
                     <div className="space-y-2">
                       {(field.options || []).map((option, optionIndex) => (
                         <div key={`${field.key || index}-option-${optionIndex}`} className="flex items-center gap-2">
-                          <input
-                            className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                          <Input
                             value={option.label}
                             onChange={(event) => updateFieldOptionLabel(index, optionIndex, event.target.value)}
                             placeholder={`Option ${optionIndex + 1}`}
@@ -1696,8 +1695,7 @@ function EditFormPage() {
                                     ))}
                                   </select>
                                 ) : (
-                                  <input
-                                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                                  <Input
                                     value={useListInput ? listValue : scalarValue}
                                     onChange={(event) =>
                                       updateFieldVisibilityRule(

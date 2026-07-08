@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuthContext } from '@/providers/AuthProviders';
 import type { User } from '@/lib/types';
 import { getUserRole } from '@/lib/authRole';
+import { getRequiredRoleForPath } from '@/lib/access';
 
 type WithAuthOptions = {
   requiredRole?: 'admin' | 'super_admin';
@@ -31,32 +32,6 @@ function safeRedirect(pathname: string) {
   return pathname;
 }
 
-const adminOnlyPrefixes = [
-  '/dashboard/event',
-  '/dashboard/reels',
-  '/dashboard/testimonials',
-  '/dashboard/forms',
-  '/dashboard/email-marketing',
-  '/dashboard/newsletter',
-  '/dashboard/registrations',
-  '/dashboard/notifications',
-  '/dashboard/content',
-  '/dashboard/settings',
-  '/dashboard/store',
-  '/dashboard/administration',
-  '/dashboard/leadership',
-  '/dashboard/workforce',
-  '/dashboard/new-members',
-  '/dashboard/members',
-];
-
-function inferredRequiredRole(pathname: string): 'admin' | 'super_admin' | undefined {
-  if (pathname.startsWith('/dashboard/super')) return 'super_admin';
-  if (pathname === '/dashboard') return 'admin';
-  if (adminOnlyPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) return 'admin';
-  return undefined;
-}
-
 export function withAuth<P extends object>(
   Component: React.ComponentType<P>,
   options: WithAuthOptions = {}
@@ -77,7 +52,7 @@ export function withAuth<P extends object>(
         return;
       }
 
-      const effectiveRole = requiredRole || inferredRequiredRole(pathname);
+      const effectiveRole = requiredRole || getRequiredRoleForPath(pathname);
 
       if (effectiveRole && !hasRequiredRole(user, effectiveRole)) {
         router.replace(dashboardFor(user));
@@ -88,13 +63,13 @@ export function withAuth<P extends object>(
     if (!isInitialized) {
       return (
         <div className="flex min-h-[200px] w-full items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-[var(--color-accent-primary)] border-r-transparent" />
         </div>
       );
     }
 
     if (!user) return null;
-    const effectiveRole = requiredRole || inferredRequiredRole(pathname);
+    const effectiveRole = requiredRole || getRequiredRoleForPath(pathname);
     if (effectiveRole && !hasRequiredRole(user, effectiveRole)) return null;
 
     return <Component {...props} />;

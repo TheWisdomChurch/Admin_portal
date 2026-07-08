@@ -2,6 +2,19 @@
 # WISDOM CHURCH ADMIN PANEL - DOCKER MAKEFILE
 # ============================================
 # Usage: make <target>
+# Run `make help` (or just `make`) to list all available targets.
+#
+# Environment variables used by the dev/prod profiles (docker-compose.yml)
+# and the production image build (Dockerfile):
+#   API_INTERNAL_URL       Backend URL reachable from inside the dev container
+#                          (default in docker-compose.yml: http://wisdom_api:8080)
+#   NEXT_PUBLIC_API_URL    Public backend URL exposed to the browser
+#   NEXT_PUBLIC_BACKEND_URL, NEXT_PUBLIC_API_PROXY, APP_ADMIN_PORTAL_URL
+#                          Build-time args for the production image (see Dockerfile);
+#                          all have safe defaults and are only overridden for
+#                          non-default deployments.
+# This app has no database of its own - the `migrate` service/./migrations
+# volume belongs to the separate backend repository, not this one.
 
 # ============================================
 # VARIABLES & CONFIGURATION

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import {
@@ -56,7 +56,10 @@ import type { AdminForm, EmailTemplate, EventData, FormSubmission, UpdateFormReq
 import { withAuth } from '@/providers/withAuth';
 import { ActionStatusModal, type ActionStatusDetail, type ActionStatusMode } from '@/ui/ActionStatusModal';
 import { Button } from '@/ui/Button';
-import { Input } from '@/ui/input';
+import { EmptyState } from '@/ui/EmptyState';
+import { Input } from '@/ui/Input';
+import { SectionCard } from '@/ui/SectionCard';
+import { StatCard } from '@/ui/StatCard';
 
 type AudienceStats = {
   totalSubmissions: number;
@@ -266,42 +269,9 @@ function appendCampaignTextFallback(
   return output;
 }
 
-function Panel({ title, subtitle, icon: Icon, actions, children }: { title: string; subtitle?: string; icon?: ComponentType<{ className?: string }>; actions?: ReactNode; children: ReactNode }) {
-  return (
-    <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:shadow-md">
-      <div className="flex flex-col gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-3">
-          {Icon ? <div className="rounded-2xl bg-slate-950 p-3 text-white shadow-sm"><Icon className="h-5 w-5" /></div> : null}
-          <div>
-            <h2 className="text-lg font-black tracking-tight text-slate-950">{title}</h2>
-            {subtitle ? <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">{subtitle}</p> : null}
-          </div>
-        </div>
-        {actions ? <div className="shrink-0">{actions}</div> : null}
-      </div>
-      <div className="mt-5">{children}</div>
-    </section>
-  );
-}
-
-function StatCard({ label, value, hint, icon: Icon }: { label: string; value: number | string; hint: string; icon: ComponentType<{ className?: string }> }) {
-  return (
-    <article className="overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{label}</p>
-          <strong className="mt-3 block text-3xl font-black tracking-tight text-slate-950">{value}</strong>
-        </div>
-        <div className="rounded-2xl bg-slate-950 p-3 text-white"><Icon className="h-5 w-5" /></div>
-      </div>
-      <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">{hint}</p>
-    </article>
-  );
-}
-
 function TabButton({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={`rounded-2xl px-4 py-2 text-sm font-black transition ${active ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'}`}>
+    <button type="button" onClick={onClick} className={`rounded-2xl px-4 py-2 text-sm font-black transition ${active ? 'bg-[var(--color-text-primary)] text-[var(--color-text-inverse)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]'}`}>
       {children}
     </button>
   );
@@ -881,7 +851,7 @@ function RegistrantCampaignPage() {
     showActionDialog({ mode: 'success', title: 'Custom HTML cleared', description: 'The campaign preview is back on the structured builder.', badge: 'Structured builder' });
   };
 
-  if (loading) return <div className="flex min-h-[300px] w-full items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-slate-950" /></div>;
+  if (loading) return <div className="flex min-h-[300px] w-full items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-[var(--color-text-primary)]" /></div>;
   if (!form) return null;
 
   return (
@@ -899,35 +869,35 @@ function RegistrantCampaignPage() {
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white shadow-xl">
+      <section className="overflow-hidden rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] p-6 text-[var(--color-text-inverse)] shadow-xl">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white/65"><Mail className="h-4 w-4" />Registrant email campaign</div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/65"><Mail className="h-4 w-4" />Registrant email campaign</div>
             <h1 className="mt-4 max-w-4xl text-3xl font-black tracking-tight sm:text-4xl">Compose, preview, target, and send from one professional campaign studio.</h1>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-white/65">The audience is deduplicated directly from form submissions, and the template is saved before sending.</p>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--color-text-inverse)]/65">The audience is deduplicated directly from form submissions, and the template is saved before sending.</p>
           </div>
-          <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-white/50">Template key</p>
-            <p className="mt-2 break-all text-sm font-bold text-white/75">{templateKeyPreview}</p>
-            <p className="mt-2 text-xs font-semibold text-white/45">{selectedRecipients.length} selected recipients</p>
+          <div className="rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-4 backdrop-blur">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-inverse)]/50">Template key</p>
+            <p className="mt-2 break-all text-sm font-bold text-[var(--color-text-inverse)]/75">{templateKeyPreview}</p>
+            <p className="mt-2 text-xs font-semibold text-[var(--color-text-inverse)]/45">{selectedRecipients.length} selected recipients</p>
           </div>
         </div>
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={FileCode2} label="Submissions" value={audienceStats.totalSubmissions} hint="All submissions captured by the form." />
-        <StatCard icon={Mail} label="Valid email records" value={audienceStats.submissionsWithValidEmail} hint="Submissions with usable email addresses." />
-        <StatCard icon={Users} label="Unique recipients" value={audienceStats.uniqueRecipients} hint="Deduplicated by email before delivery." />
-        <StatCard icon={Activity} label="Duplicates or missing" value={audienceStats.duplicateEmails + audienceStats.missingOrInvalidEmail} hint="Skipped or deduplicated records." />
+        <StatCard icon={<FileCode2 className="h-5 w-5" />} label="Submissions" value={audienceStats.totalSubmissions} trend="All submissions captured by the form." />
+        <StatCard icon={<Mail className="h-5 w-5" />} label="Valid email records" value={audienceStats.submissionsWithValidEmail} trend="Submissions with usable email addresses." />
+        <StatCard icon={<Users className="h-5 w-5" />} label="Unique recipients" value={audienceStats.uniqueRecipients} trend="Deduplicated by email before delivery." />
+        <StatCard icon={<Activity className="h-5 w-5" />} label="Duplicates or missing" value={audienceStats.duplicateEmails + audienceStats.missingOrInvalidEmail} trend="Skipped or deduplicated records." />
       </section>
 
-      <section className="sticky top-2 z-20 rounded-3xl border border-slate-200 bg-white/85 p-2 shadow-sm backdrop-blur">
+      <section className="sticky top-2 z-20 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/85 p-2 shadow-sm backdrop-blur">
         <div className="flex gap-2 overflow-x-auto"><TabButton active={activeTab === 'compose'} onClick={() => setActiveTab('compose')}>Compose</TabButton><TabButton active={activeTab === 'audience'} onClick={() => setActiveTab('audience')}>Audience</TabButton><TabButton active={activeTab === 'preview'} onClick={() => setActiveTab('preview')}>Preview</TabButton></div>
       </section>
 
       {activeTab === 'compose' ? (
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_420px]">
-          <Panel title="Campaign message" subtitle="Write the campaign subject, preview text, hero copy, media, CTA, and rich body." icon={Mail}>
+          <SectionCard title="Campaign message" subtitle="Write the campaign subject, preview text, hero copy, media, CTA, and rich body." icon={<Mail className="h-5 w-5" />}>
             <div className="grid gap-4 md:grid-cols-2">
               <Input label="Email subject" value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Important update for registered guests" />
               <Input label="Template key" value={templateKeyPreview} disabled />
@@ -936,63 +906,63 @@ function RegistrantCampaignPage() {
               <Input label="Campaign heading" value={heading} onChange={(event) => setHeading(event.target.value)} placeholder="Here is everything you need before the event" />
               <Input label="Logo URL" value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} placeholder="https://.../logo.png" />
               <Input label="Flyer / hero image URL" value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} placeholder="https://.../flyer.png" />
-              <div className="space-y-2"><label className="block text-sm font-bold text-slate-600">Upload logo</label><input type="file" accept="image/*" onChange={(event) => handleLogoFile(event.target.files?.[0])} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold" /><p className="text-xs font-semibold text-slate-400">Max {MAX_EMAIL_IMAGE_MB}MB. JPEG, PNG, WebP.</p></div>
-              <div className="space-y-2"><label className="block text-sm font-bold text-slate-600">Upload flyer / hero image</label><input type="file" accept="image/*" onChange={(event) => handleImageFile(event.target.files?.[0])} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold" /><p className="text-xs font-semibold text-slate-400">Max {MAX_EMAIL_IMAGE_MB}MB. JPEG, PNG, WebP.</p></div>
+              <div className="space-y-2"><label className="block text-sm font-bold text-[var(--color-text-secondary)]">Upload logo</label><input type="file" accept="image/*" onChange={(event) => handleLogoFile(event.target.files?.[0])} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold" /><p className="text-xs font-semibold text-[var(--color-text-tertiary)]">Max {MAX_EMAIL_IMAGE_MB}MB. JPEG, PNG, WebP.</p></div>
+              <div className="space-y-2"><label className="block text-sm font-bold text-[var(--color-text-secondary)]">Upload flyer / hero image</label><input type="file" accept="image/*" onChange={(event) => handleImageFile(event.target.files?.[0])} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold" /><p className="text-xs font-semibold text-[var(--color-text-tertiary)]">Max {MAX_EMAIL_IMAGE_MB}MB. JPEG, PNG, WebP.</p></div>
 
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:col-span-2">
+              <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 md:col-span-2">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div><p className="text-sm font-black text-slate-950">Call-to-action button</p><p className="mt-1 text-xs font-semibold text-slate-500">Optional. No button appears unless enabled.</p></div>
-                  <label className="flex items-center gap-2 text-sm font-black text-slate-600"><input type="checkbox" checked={ctaEnabled} onChange={(event) => setCtaEnabled(event.target.checked)} />Enable CTA</label>
+                  <div><p className="text-sm font-black text-[var(--color-text-primary)]">Call-to-action button</p><p className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">Optional. No button appears unless enabled.</p></div>
+                  <label className="flex items-center gap-2 text-sm font-black text-[var(--color-text-secondary)]"><input type="checkbox" checked={ctaEnabled} onChange={(event) => setCtaEnabled(event.target.checked)} />Enable CTA</label>
                 </div>
                 <div className="mt-4 grid gap-4 md:grid-cols-2"><Input label="CTA label" value={ctaLabel} onChange={(event) => setCtaLabel(event.target.value)} disabled={!ctaEnabled} /><Input label="CTA URL" value={ctaUrl} onChange={(event) => setCtaUrl(event.target.value)} disabled={!ctaEnabled} /></div>
               </div>
 
-              <div className="space-y-2 md:col-span-2"><label className="block text-sm font-bold text-slate-600">Campaign body</label><RichTextEditor value={messageHtml} onChange={setMessageHtml} placeholder="Write the full outreach message here." /></div>
+              <div className="space-y-2 md:col-span-2"><label className="block text-sm font-bold text-[var(--color-text-secondary)]">Campaign body</label><RichTextEditor value={messageHtml} onChange={setMessageHtml} placeholder="Write the full outreach message here." /></div>
             </div>
-          </Panel>
+          </SectionCard>
 
           <div className="space-y-6">
-            <Panel title="Calendar reminder" subtitle="Generate or attach a calendar link for the event." icon={CalendarDays}>
+            <SectionCard title="Calendar reminder" subtitle="Generate or attach a calendar link for the event." icon={<CalendarDays className="h-5 w-5" />}>
               <div className="grid gap-4">
                 <Input label="Calendar button label" value={calendarLabel} onChange={(event) => setCalendarLabel(event.target.value)} />
                 <Input label="Manual calendar URL" value={calendarUrl} onChange={(event) => setCalendarUrl(event.target.value)} />
                 <Input label="Event title" value={calendarTitle} onChange={(event) => setCalendarTitle(event.target.value)} />
                 <Input label="Time zone" value={calendarTimeZone} onChange={(event) => setCalendarTimeZone(event.target.value)} />
-                <label className="space-y-2 text-sm font-bold text-slate-600">Event start<input type="datetime-local" value={calendarStartAt} onChange={(event) => setCalendarStartAt(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold" /></label>
-                <label className="space-y-2 text-sm font-bold text-slate-600">Event end<input type="datetime-local" value={calendarEndAt} onChange={(event) => setCalendarEndAt(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold" /></label>
+                <Input label="Event start" type="datetime-local" value={calendarStartAt} onChange={(event) => setCalendarStartAt(event.target.value)} />
+                <Input label="Event end" type="datetime-local" value={calendarEndAt} onChange={(event) => setCalendarEndAt(event.target.value)} />
                 <Input label="Venue / location" value={calendarLocation} onChange={(event) => setCalendarLocation(event.target.value)} />
-                <label className="grid gap-1.5"><span className="text-sm font-bold text-slate-600">Calendar description</span><textarea className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-7 outline-none" rows={3} value={calendarDescription} onChange={(event) => setCalendarDescription(event.target.value)} /></label>
-                {normalizedCalendar.error ? <p className="text-xs font-bold text-red-600">{normalizedCalendar.error}</p> : null}
-                {effectiveCalendarUrl ? <a href={effectiveCalendarUrl} target="_blank" rel="noreferrer" className="break-all rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold text-slate-600 underline">{effectiveCalendarUrl}</a> : null}
+                <label className="grid gap-1.5"><span className="text-sm font-bold text-[var(--color-text-secondary)]">Calendar description</span><textarea className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold leading-7 outline-none" rows={3} value={calendarDescription} onChange={(event) => setCalendarDescription(event.target.value)} /></label>
+                {normalizedCalendar.error ? <p className="text-xs font-bold text-[var(--color-danger-text)]">{normalizedCalendar.error}</p> : null}
+                {effectiveCalendarUrl ? <a href={effectiveCalendarUrl} target="_blank" rel="noreferrer" className="break-all rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3 text-xs font-bold text-[var(--color-text-secondary)] underline">{effectiveCalendarUrl}</a> : null}
               </div>
-            </Panel>
+            </SectionCard>
 
-            <Panel title="Theme and highlight" subtitle="Control colors and optional highlighted section." icon={Palette}>
+            <SectionCard title="Theme and highlight" subtitle="Control colors and optional highlighted section." icon={<Palette className="h-5 w-5" />}>
               <div className="grid gap-4">
                 <ColorInput label="Accent color" value={accentColor} onChange={setAccentColor} />
                 <ColorInput label="Surface color" value={surfaceColor} onChange={setSurfaceColor} />
                 <Input label="Highlighted label" value={spotlightLabel} onChange={(event) => setSpotlightLabel(event.target.value)} />
-                <label className="grid gap-1.5"><span className="text-sm font-bold text-slate-600">Highlighted content</span><textarea className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-7 outline-none" rows={3} value={spotlightText} onChange={(event) => setSpotlightText(event.target.value)} /></label>
-                <label className="grid gap-1.5"><span className="text-sm font-bold text-slate-600">Footer note</span><textarea className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-7 outline-none" rows={2} value={footerNote} onChange={(event) => setFooterNote(event.target.value)} /></label>
+                <label className="grid gap-1.5"><span className="text-sm font-bold text-[var(--color-text-secondary)]">Highlighted content</span><textarea className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold leading-7 outline-none" rows={3} value={spotlightText} onChange={(event) => setSpotlightText(event.target.value)} /></label>
+                <label className="grid gap-1.5"><span className="text-sm font-bold text-[var(--color-text-secondary)]">Footer note</span><textarea className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold leading-7 outline-none" rows={2} value={footerNote} onChange={(event) => setFooterNote(event.target.value)} /></label>
 
-                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-black text-slate-950">Resource links</p>
-                      <p className="mt-1 text-xs font-semibold text-slate-500">Add flyers, schedules, documents, or download links.</p>
+                      <p className="text-sm font-black text-[var(--color-text-primary)]">Resource links</p>
+                      <p className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">Add flyers, schedules, documents, or download links.</p>
                     </div>
                     <Button type="button" variant="outline" size="sm" onClick={addResourceLink}>Add</Button>
                   </div>
                   <div className="mt-4 space-y-3">
-                    {resourceLinks.length === 0 ? <p className="text-xs font-semibold text-slate-400">No resource links added.</p> : null}
+                    {resourceLinks.length === 0 ? <p className="text-xs font-semibold text-[var(--color-text-tertiary)]">No resource links added.</p> : null}
                     {resourceLinks.map((resource, index) => (
-                      <div key={`${index}-${resource.kind}`} className="rounded-2xl border border-slate-200 bg-white p-3">
+                      <div key={`${index}-${resource.kind}`} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3">
                         <div className="grid gap-2">
-                          <input value={resource.label} onChange={(event) => updateResourceLink(index, 'label', event.target.value)} placeholder="Resource label" className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold outline-none" />
-                          <input value={resource.url} onChange={(event) => updateResourceLink(index, 'url', event.target.value)} placeholder="https://..." className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold outline-none" />
-                          <textarea value={resource.description} onChange={(event) => updateResourceLink(index, 'description', event.target.value)} placeholder="Short description" rows={2} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold outline-none" />
+                          <Input value={resource.label} onChange={(event) => updateResourceLink(index, 'label', event.target.value)} placeholder="Resource label" />
+                          <Input value={resource.url} onChange={(event) => updateResourceLink(index, 'url', event.target.value)} placeholder="https://..." />
+                          <textarea value={resource.description} onChange={(event) => updateResourceLink(index, 'description', event.target.value)} placeholder="Short description" rows={2} className="rounded-xl border border-[var(--color-border-secondary)] px-3 py-2 text-xs font-semibold outline-none" />
                           <div className="flex items-center justify-between gap-2">
-                            <select value={resource.kind} onChange={(event) => updateResourceLink(index, 'kind', event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-black outline-none">
+                            <select value={resource.kind} onChange={(event) => updateResourceLink(index, 'kind', event.target.value)} className="rounded-xl border border-[var(--color-border-secondary)] px-3 py-2 text-xs font-black outline-none">
                               <option value="flyer">Flyer</option>
                               <option value="document">Document</option>
                               <option value="guide">Guide</option>
@@ -1005,53 +975,59 @@ function RegistrantCampaignPage() {
                       </div>
                     ))}
                   </div>
-                  {normalizedResources.error ? <p className="mt-3 text-xs font-bold text-red-600">{normalizedResources.error}</p> : null}
+                  {normalizedResources.error ? <p className="mt-3 text-xs font-bold text-[var(--color-danger-text)]">{normalizedResources.error}</p> : null}
                 </div>
               </div>
-            </Panel>
+            </SectionCard>
           </div>
         </section>
       ) : null}
 
       {activeTab === 'audience' ? (
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-          <Panel title="Audience targeting" subtitle="Search, select, and send to a precise deduplicated recipient segment." icon={Users}>
+          <SectionCard title="Audience targeting" subtitle="Search, select, and send to a precise deduplicated recipient segment." icon={<Users className="h-5 w-5" />}>
             <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_240px]">
-              <div className="relative"><Search className="absolute left-3 top-9 h-4 w-4 text-slate-400" /><Input label="Search recipients" value={recipientQuery} onChange={(event) => setRecipientQuery(event.target.value)} placeholder="Search by name, email, or registration code" className="pl-10" /></div>
-              <div className="space-y-1"><label className="block text-sm font-bold text-slate-600">Select first N recipients</label><div className="flex gap-2"><input type="number" min={1} value={selectionCount} onChange={(event) => setSelectionCount(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold" placeholder="25" /><Button type="button" variant="outline" onClick={selectFirstRecipients}>Apply</Button></div></div>
+              <div className="relative"><Search className="absolute left-3 top-9 h-4 w-4 text-[var(--color-text-tertiary)]" /><Input label="Search recipients" value={recipientQuery} onChange={(event) => setRecipientQuery(event.target.value)} placeholder="Search by name, email, or registration code" className="pl-10" /></div>
+              <div className="space-y-1">
+                <label className="block text-sm font-bold text-[var(--color-text-secondary)]">Select first N recipients</label>
+                <div className="flex gap-2">
+                  <Input type="number" min={1} value={selectionCount} onChange={(event) => setSelectionCount(event.target.value)} placeholder="25" />
+                  <Button type="button" variant="outline" onClick={selectFirstRecipients}>Apply</Button>
+                </div>
+              </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" onClick={selectAllRecipients}>Select all</Button><Button type="button" size="sm" variant="outline" onClick={selectFilteredRecipients}>Select filtered</Button><Button type="button" size="sm" variant="ghost" onClick={clearRecipientSelection}>Clear selection</Button></div>
-            <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm"><div className="font-black text-slate-950">{selectedRecipients.length} selected of {recipients.length} available recipients</div><div className="mt-1 text-xs font-semibold text-slate-500">{recipientQuery.trim() ? `${filteredRecipients.length} recipients match your current search and ${selectedFilteredRecipientsCount} of them are selected.` : 'Audience selection is deduplicated by email.'}</div></div>
+            <div className="mt-4 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-sm"><div className="font-black text-[var(--color-text-primary)]">{selectedRecipients.length} selected of {recipients.length} available recipients</div><div className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">{recipientQuery.trim() ? `${filteredRecipients.length} recipients match your current search and ${selectedFilteredRecipientsCount} of them are selected.` : 'Audience selection is deduplicated by email.'}</div></div>
             <div className="mt-4 max-h-[560px] space-y-2 overflow-y-auto pr-1">
               {filteredRecipients.length > 0 ? filteredRecipients.map((recipient) => {
                 const checked = selectedRecipientIdSet.has(recipient.submissionId);
-                return <label key={`${recipient.email}-${recipient.submissionId}`} className={`flex cursor-pointer items-start gap-3 rounded-3xl border px-4 py-3 transition-colors ${checked ? 'border-slate-950 bg-slate-50' : 'border-slate-200 bg-white'}`}><input type="checkbox" checked={checked} onChange={() => toggleRecipientSelection(recipient.submissionId)} className="mt-1 h-4 w-4 rounded border-slate-300" /><div className="min-w-0 flex-1"><div className="text-sm font-black text-slate-950">{recipient.name}</div><div className="truncate text-xs font-semibold text-slate-500">{recipient.email}</div><div className="mt-1 text-xs font-semibold text-slate-400">{recipient.registrationCode ? `Reg: ${recipient.registrationCode} · ` : ''}{new Date(recipient.submittedAt).toLocaleString()}</div></div></label>;
-              }) : <EmptyState label={recipients.length === 0 ? 'No valid email addresses have been captured from this form yet.' : 'No recipients match your current search.'} />}
+                return <label key={`${recipient.email}-${recipient.submissionId}`} className={`flex cursor-pointer items-start gap-3 rounded-3xl border px-4 py-3 transition-colors ${checked ? 'border-[var(--color-text-primary)] bg-[var(--color-background-secondary)]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]'}`}><input type="checkbox" checked={checked} onChange={() => toggleRecipientSelection(recipient.submissionId)} className="mt-1 h-4 w-4 rounded border-[var(--color-border-primary)]" /><div className="min-w-0 flex-1"><div className="text-sm font-black text-[var(--color-text-primary)]">{recipient.name}</div><div className="truncate text-xs font-semibold text-[var(--color-text-tertiary)]">{recipient.email}</div><div className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">{recipient.registrationCode ? `Reg: ${recipient.registrationCode} · ` : ''}{new Date(recipient.submittedAt).toLocaleString()}</div></div></label>;
+              }) : <EmptyState title={recipients.length === 0 ? 'No valid email addresses have been captured from this form yet.' : 'No recipients match your current search.'} />}
             </div>
-          </Panel>
+          </SectionCard>
 
-          <Panel title="Delivery result" subtitle="Review the most recent send result and failures." icon={Send}>
+          <SectionCard title="Delivery result" subtitle="Review the most recent send result and failures." icon={<Send className="h-5 w-5" />}>
             <div className="space-y-4">
-              {lastDeliveryError ? <div className="rounded-3xl border border-red-200 bg-red-50 p-4"><div className="text-sm font-black text-red-700">Last delivery error</div><p className="mt-2 text-sm font-semibold leading-6 text-red-700">{lastDeliveryError}</p></div> : null}
-              {lastSendResult ? <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4"><div className="text-sm font-black text-slate-950">Last delivery result</div><p className="mt-2 text-sm font-semibold leading-6 text-slate-600">Sent {lastSendResult.sent} of {lastSendResult.totalRecipients} targeted recipients{lastSendResult.skipped > 0 ? `, with ${lastSendResult.skipped} skipped` : ''}.</p>{lastSendResult.failureReason ? <p className="mt-2 text-sm font-semibold text-red-700">Delivery reported: {lastSendResult.failureReason}</p> : null}</div> : <EmptyState label="No delivery result yet." />}
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4"><p className="text-sm font-black text-slate-950">Delivery controls</p><p className="mt-2 text-sm font-semibold leading-6 text-slate-500">SMTP must be configured in the deployment environment. The current template is saved automatically before sending.</p></div>
+              {lastDeliveryError ? <div className="rounded-3xl border border-[var(--color-danger-border)] bg-[var(--color-danger-surface)] p-4"><div className="text-sm font-black text-[var(--color-danger-text)]">Last delivery error</div><p className="mt-2 text-sm font-semibold leading-6 text-[var(--color-danger-text)]">{lastDeliveryError}</p></div> : null}
+              {lastSendResult ? <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4"><div className="text-sm font-black text-[var(--color-text-primary)]">Last delivery result</div><p className="mt-2 text-sm font-semibold leading-6 text-[var(--color-text-secondary)]">Sent {lastSendResult.sent} of {lastSendResult.totalRecipients} targeted recipients{lastSendResult.skipped > 0 ? `, with ${lastSendResult.skipped} skipped` : ''}.</p>{lastSendResult.failureReason ? <p className="mt-2 text-sm font-semibold text-[var(--color-danger-text)]">Delivery reported: {lastSendResult.failureReason}</p> : null}</div> : <EmptyState title="No delivery result yet." />}
+              <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4"><p className="text-sm font-black text-[var(--color-text-primary)]">Delivery controls</p><p className="mt-2 text-sm font-semibold leading-6 text-[var(--color-text-tertiary)]">SMTP must be configured in the deployment environment. The current template is saved automatically before sending.</p></div>
             </div>
-          </Panel>
+          </SectionCard>
         </section>
       ) : null}
 
       {activeTab === 'preview' ? (
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-          <Panel title="Template preview" subtitle={customHtmlBody.trim() ? 'Previewing your full HTML override.' : 'Previewing the structured campaign builder.'} icon={Eye} actions={<div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant={previewMode === 'rendered' ? 'primary' : 'outline'} onClick={() => setPreviewMode('rendered')}>Rendered</Button><Button type="button" size="sm" variant={previewMode === 'html' ? 'primary' : 'outline'} onClick={() => setPreviewMode('html')}>HTML</Button><Button type="button" size="sm" variant={previewMode === 'text' ? 'primary' : 'outline'} onClick={() => setPreviewMode('text')}>Text</Button></div>}>
-            <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white">{previewMode === 'rendered' ? <iframe title="campaign-email-preview" srcDoc={previewHTML} className="h-[760px] w-full" /> : <pre className="h-[760px] overflow-auto whitespace-pre-wrap bg-slate-950 p-4 font-mono text-xs text-slate-100">{previewMode === 'html' ? activeHtmlBody : activeTextBody}</pre>}</div>
-          </Panel>
+          <SectionCard title="Template preview" subtitle={customHtmlBody.trim() ? 'Previewing your full HTML override.' : 'Previewing the structured campaign builder.'} icon={<Eye className="h-5 w-5" />} actions={<div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant={previewMode === 'rendered' ? 'primary' : 'outline'} onClick={() => setPreviewMode('rendered')}>Rendered</Button><Button type="button" size="sm" variant={previewMode === 'html' ? 'primary' : 'outline'} onClick={() => setPreviewMode('html')}>HTML</Button><Button type="button" size="sm" variant={previewMode === 'text' ? 'primary' : 'outline'} onClick={() => setPreviewMode('text')}>Text</Button></div>}>
+            <div className="overflow-hidden rounded-[1.5rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]">{previewMode === 'rendered' ? <iframe title="campaign-email-preview" srcDoc={previewHTML} className="h-[760px] w-full" /> : <pre className="h-[760px] overflow-auto whitespace-pre-wrap bg-[var(--color-text-primary)] p-4 font-mono text-xs text-[var(--color-text-inverse)]">{previewMode === 'html' ? activeHtmlBody : activeTextBody}</pre>}</div>
+          </SectionCard>
           <div className="space-y-6">
-            <Panel title="Custom HTML override" subtitle="Use only when you need full raw control over the final email HTML." icon={FileCode2}>
-              <div className="space-y-3"><div className="flex flex-wrap gap-2"><Button type="button" variant="outline" size="sm" onClick={loadStructuredHtmlIntoEditor}>Load Structured HTML</Button><Button type="button" variant="ghost" size="sm" onClick={clearCustomHtmlOverride} disabled={!customHtmlBody.trim()}>Clear Override</Button></div><textarea className="h-[360px] w-full rounded-2xl border border-slate-200 bg-slate-950 px-3 py-2 font-mono text-xs leading-6 text-slate-100 outline-none" value={customHtmlBody} onChange={(event) => setCustomHtmlBody(event.target.value)} placeholder="Paste full HTML only if you want to override the structured builder completely." /></div>
-            </Panel>
-            <Panel title="Export tools" subtitle="Copy or download the campaign assets for review." icon={Download}>
+            <SectionCard title="Custom HTML override" subtitle="Use only when you need full raw control over the final email HTML." icon={<FileCode2 className="h-5 w-5" />}>
+              <div className="space-y-3"><div className="flex flex-wrap gap-2"><Button type="button" variant="outline" size="sm" onClick={loadStructuredHtmlIntoEditor}>Load Structured HTML</Button><Button type="button" variant="ghost" size="sm" onClick={clearCustomHtmlOverride} disabled={!customHtmlBody.trim()}>Clear Override</Button></div><textarea className="h-[360px] w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] px-3 py-2 font-mono text-xs leading-6 text-[var(--color-text-inverse)] outline-none" value={customHtmlBody} onChange={(event) => setCustomHtmlBody(event.target.value)} placeholder="Paste full HTML only if you want to override the structured builder completely." /></div>
+            </SectionCard>
+            <SectionCard title="Export tools" subtitle="Copy or download the campaign assets for review." icon={<Download className="h-5 w-5" />}>
               <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => void copyCampaignHtml()} icon={<Copy className="h-4 w-4" />}>Copy HTML</Button><Button variant="outline" onClick={() => void copyCampaignText()} icon={<Copy className="h-4 w-4" />}>Copy Text</Button><Button variant="outline" onClick={downloadCampaignHtml} icon={<Download className="h-4 w-4" />}>Download HTML</Button></div>
-            </Panel>
+            </SectionCard>
           </div>
         </section>
       ) : null}
@@ -1064,15 +1040,12 @@ export default withAuth(RegistrantCampaignPage, { requiredRole: 'admin' });
 function ColorInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
     <label className="grid gap-1.5">
-      <span className="text-sm font-bold text-slate-600">{label}</span>
-      <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-        <input type="color" value={value} onChange={(event) => onChange(event.target.value)} className="h-8 w-12 rounded border border-slate-200 bg-transparent" />
-        <span className="text-xs font-black text-slate-500">{value}</span>
+      <span className="text-sm font-bold text-[var(--color-text-secondary)]">{label}</span>
+      <div className="flex items-center gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
+        <input type="color" value={value} onChange={(event) => onChange(event.target.value)} className="h-8 w-12 rounded border border-[var(--color-border-secondary)] bg-transparent" />
+        <span className="text-xs font-black text-[var(--color-text-tertiary)]">{value}</span>
       </div>
     </label>
   );
 }
 
-function EmptyState({ label }: { label: string }) {
-  return <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center"><p className="text-sm font-bold text-slate-500">{label}</p></div>;
-}
