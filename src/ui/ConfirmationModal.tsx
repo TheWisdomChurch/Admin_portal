@@ -3,6 +3,7 @@
 
 import { X } from 'lucide-react';
 import { Button } from '@/ui/Button';
+import { Modal } from '@/ui/Modal';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -29,48 +30,45 @@ export function ConfirmationModal({
   loading = false,
   children,
 }: ConfirmationModalProps) {
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-            <button
-              onClick={onClose}
-              disabled={loading}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
+    <Modal open={isOpen} onClose={onClose} labelledBy="confirmation-modal-title">
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 id="confirmation-modal-title" className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h3>
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
 
-          <p className="text-gray-600 mb-4">{description}</p>
+        <p className="text-[var(--color-text-secondary)] mb-4">{description}</p>
 
-          {children}
+        {children}
 
-          <div className="flex items-center gap-3 mt-6">
-            <Button
-              onClick={onConfirm}
-              variant={variant}
-              loading={loading}
-              disabled={loading}
-              className="flex-1"
-            >
-              {confirmText}
-            </Button>
-            <Button
-              onClick={onClose}
-              variant="outline"
-              disabled={loading}
-              className="flex-1"
-            >
-              {cancelText}
-            </Button>
-          </div>
+        <div className="flex items-center gap-3 mt-6">
+          <Button
+            onClick={onConfirm}
+            variant={variant}
+            loading={loading}
+            disabled={loading}
+            className="flex-1"
+          >
+            {confirmText}
+          </Button>
+          <Button
+            onClick={onClose}
+            variant="outline"
+            disabled={loading}
+            className="flex-1"
+          >
+            {cancelText}
+          </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

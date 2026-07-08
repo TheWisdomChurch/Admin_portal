@@ -13,7 +13,7 @@ import { Footer } from '@/components/Footer';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Checkbox } from '@/ui/Checkbox';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { PasswordStrengthMeter } from '@/ui/PasswordStrengthMeter';
 import { apiClient } from '@/lib/api';
 import { extractServerFieldErrors, getServerErrorMessage } from '@/lib/serverValidation';
@@ -161,17 +161,17 @@ export default function RegisterPage() {
           </div>
 
           {createdEmail ? (
-            <div className="mt-5 rounded-[var(--radius-button)] border border-emerald-200 bg-emerald-50 p-3">
+            <div className="mt-5 rounded-[var(--radius-button)] border border-[var(--color-success-border)] bg-[var(--color-success-surface)] p-3">
               <div className="flex items-start gap-2">
-                <CheckCircle className="mt-0.5 h-4 w-4 text-emerald-700" />
-                <p className="text-sm text-emerald-800">Account created for {createdEmail}. Redirecting to login.</p>
+                <CheckCircle className="mt-0.5 h-4 w-4 text-[var(--color-success-text)]" />
+                <p className="text-sm text-[var(--color-success-text)]">Account created for {createdEmail}. Redirecting to login.</p>
               </div>
             </div>
           ) : null}
 
           {serverError ? (
-            <div className="mt-5 rounded-[var(--radius-button)] border border-red-200 bg-red-50 p-3">
-              <p className="text-sm text-red-700">{serverError}</p>
+            <div className="mt-5 rounded-[var(--radius-button)] border border-[var(--color-danger-border)] bg-[var(--color-danger-surface)] p-3">
+              <p className="text-sm text-[var(--color-danger-text)]">{serverError}</p>
             </div>
           ) : null}
 
@@ -323,7 +323,7 @@ export default function RegisterPage() {
                   </span>
                 </label>
               </div>
-              {errors.role?.message ? <p className="mt-2 text-xs text-red-600">{errors.role.message}</p> : null}
+              {errors.role?.message ? <p className="mt-2 text-xs text-[var(--color-danger-text)]">{errors.role.message}</p> : null}
             </div>
 
             <Controller

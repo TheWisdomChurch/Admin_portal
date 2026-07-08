@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback, type ChangeEvent, type FormEvent } fr
 import { Save, Bell, Lock, User, Trash2, ShieldCheck, Smartphone, Copy, Link as LinkIcon } from 'lucide-react';
 import QRCode from 'qrcode';
 import { Button } from '@/ui/Button';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { Card } from '@/ui/Card';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { apiClient } from '@/lib/api';
@@ -447,7 +447,7 @@ function SettingsPage() {
   if (auth.isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-accent-primary)]"></div>
       </div>
     );
   }
@@ -478,15 +478,15 @@ function SettingsPage() {
                 <form onSubmit={handleProfileSubmit} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm font-medium text-secondary-600 mb-1">First Name</p>
-                      <p className="text-secondary-900 font-medium">
+                      <p className="text-sm font-medium text-[var(--color-text-tertiary)] mb-1">First Name</p>
+                      <p className="text-[var(--color-text-primary)] font-medium">
                         {auth.user?.first_name || 'N/A'}
                       </p>
                     </div>
                     
                     <div>
-                      <p className="text-sm font-medium text-secondary-600 mb-1">Last Name</p>
-                      <p className="text-secondary-900 font-medium">
+                      <p className="text-sm font-medium text-[var(--color-text-tertiary)] mb-1">Last Name</p>
+                      <p className="text-[var(--color-text-primary)] font-medium">
                         {auth.user?.last_name || 'N/A'}
                       </p>
                     </div>
@@ -793,9 +793,9 @@ function SettingsPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <div className="rounded-[var(--radius-button)] border border-emerald-200/60 bg-emerald-50/70 p-4">
-                        <p className="text-sm font-semibold text-emerald-900">Authenticator app is enabled</p>
-                        <p className="mt-1 text-xs text-emerald-800">
+                      <div className="rounded-[var(--radius-button)] border border-[var(--color-success-border)] bg-[var(--color-success-surface)] p-4">
+                        <p className="text-sm font-semibold text-[var(--color-success-text)]">Authenticator app is enabled</p>
+                        <p className="mt-1 text-xs text-[var(--color-success-text)]">
                           Sign-in can now be protected with codes generated from your registered authenticator app.
                         </p>
                       </div>
@@ -898,7 +898,7 @@ function SettingsPage() {
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer shrink-0">
                       <input type="checkbox" className="sr-only peer" defaultChecked />
-                      <div className="w-11 h-6 bg-[var(--color-background-tertiary)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-background-primary)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent-primary)]"></div>
+                      <div className="w-11 h-6 bg-[var(--color-background-tertiary)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-[var(--color-text-inverse)] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-background-primary)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent-primary)]"></div>
                     </label>
                   </div>
                   
@@ -909,7 +909,7 @@ function SettingsPage() {
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer shrink-0">
                       <input type="checkbox" className="sr-only peer" />
-                      <div className="w-11 h-6 bg-[var(--color-background-tertiary)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-background-primary)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent-primary)]"></div>
+                      <div className="w-11 h-6 bg-[var(--color-background-tertiary)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-[var(--color-text-inverse)] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-background-primary)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent-primary)]"></div>
                     </label>
                   </div>
 
@@ -920,7 +920,7 @@ function SettingsPage() {
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer shrink-0">
                       <input type="checkbox" className="sr-only peer" />
-                      <div className="w-11 h-6 bg-[var(--color-background-tertiary)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-background-primary)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent-primary)]"></div>
+                      <div className="w-11 h-6 bg-[var(--color-background-tertiary)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-[var(--color-text-inverse)] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-background-primary)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent-primary)]"></div>
                     </label>
                   </div>
                 </div>
@@ -928,7 +928,7 @@ function SettingsPage() {
             </Card>
 
             {/* Danger Zone */}
-            <Card className="border border-red-200/40">
+            <Card className="border border-[var(--color-danger-border)]">
               <div className="p-6 space-y-4">
                 <div>
                   <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Danger Zone</h2>
@@ -937,7 +937,7 @@ function SettingsPage() {
                 <div className="grid gap-3">
                   <Button 
                     variant="outline" 
-                    className="w-full text-amber-600 hover:text-amber-700 border-amber-200 hover:bg-amber-50"
+                    className="w-full text-[var(--color-warning-text)] hover:text-[var(--color-warning-text)] border-[var(--color-warning-border)] hover:bg-[var(--color-warning-surface)]"
                     onClick={() => setShowClearDataModal(true)}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
@@ -946,7 +946,7 @@ function SettingsPage() {
                   
                   <Button 
                     variant="outline" 
-                    className="w-full text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50"
+                    className="w-full text-[var(--color-danger-text)] hover:text-[var(--color-danger-text)] border-[var(--color-danger-border)] hover:bg-[var(--color-danger-surface)]"
                     onClick={() => auth.logout()}
                   >
                     <Lock className="h-4 w-4 mr-2" />
@@ -963,8 +963,8 @@ function SettingsPage() {
                   </Button>
                 </div>
                 
-                <div className="rounded-[var(--radius-button)] border border-red-200/40 bg-red-50/60 p-3">
-                  <p className="text-xs text-red-700">
+                <div className="rounded-[var(--radius-button)] border border-[var(--color-danger-border)] bg-[var(--color-danger-surface)] p-3">
+                  <p className="text-xs text-[var(--color-danger-text)]">
                     <strong>Note:</strong> Deleting your account will permanently remove all your data from our servers. This action cannot be undone.
                   </p>
                 </div>
@@ -1013,8 +1013,8 @@ function SettingsPage() {
         loading={deleteAccountLoading}
         verifyText={deletePhrase}
       >
-        <div className="mt-4 p-3 bg-red-50 rounded-md">
-          <ul className="text-xs text-red-700 list-disc pl-4 space-y-1">
+        <div className="mt-4 p-3 bg-[var(--color-danger-surface)] rounded-md">
+          <ul className="text-xs text-[var(--color-danger-text)] list-disc pl-4 space-y-1">
             <li>All your personal data will be permanently deleted</li>
             <li>Your account will be removed from our database</li>
             <li>You will not be able to login with this account again</li>
@@ -1036,8 +1036,8 @@ function SettingsPage() {
         loading={clearDataLoading}
         verifyText={clearDataPhrase}
       >
-        <div className="mt-4 p-3 bg-amber-50 rounded-md">
-          <ul className="text-xs text-amber-700 list-disc pl-4 space-y-1">
+        <div className="mt-4 p-3 bg-[var(--color-warning-surface)] rounded-md">
+          <ul className="text-xs text-[var(--color-warning-text)] list-disc pl-4 space-y-1">
             <li>Your app preferences will be reset to default</li>
             <li>Local cache and temporary files will be removed</li>
             <li>Your account information will remain intact</li>

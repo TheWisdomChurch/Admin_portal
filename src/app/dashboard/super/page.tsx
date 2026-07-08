@@ -31,8 +31,10 @@ import { Card } from '@/ui/Card';
 import { PageHeader } from '@/layouts';
 import { useSuperQueues, type ApprovalItem } from '@/hooks/useSuperQueues';
 import { apiClient } from '@/lib/api';
+import { getChartPalette } from '@/lib/charts/palette';
 import type { DashboardAnalytics, EventData, MemberStatsResponse, NewMemberDashboardResponse, WorkforceStatsResponse } from '@/lib/types';
 import { useAuthContext } from '@/providers/AuthProviders';
+import { useTheme } from '@/providers/ThemeProviders';
 import { getUserRole } from '@/lib/authRole';
 
 ChartJS.register(
@@ -76,6 +78,8 @@ function MetricRow({ label, value }: { label: string; value: number }) {
 }
 
 export default function SuperDashboard() {
+  const { resolvedTheme } = useTheme();
+  const chartPalette = useMemo(() => getChartPalette(resolvedTheme), [resolvedTheme]);
   const auth = useAuthContext();
   const role = getUserRole(auth.user);
   const isSuperAdmin = role === 'super_admin';
@@ -139,12 +143,12 @@ export default function SuperDashboard() {
       datasets: [
         {
           data: [stats.testimonials, stats.events, stats.adminUsers, stats.leadershipDeletes, stats.workforceDeletes],
-          backgroundColor: ['#1d4ed8', '#059669', '#a16207', '#7c3aed', '#dc2626'],
+          backgroundColor: chartPalette.categorical,
           borderWidth: 1,
         },
       ],
     }),
-    [stats]
+    [stats, chartPalette]
   );
 
   const queueVelocity = useMemo(() => {
@@ -170,14 +174,14 @@ export default function SuperDashboard() {
         {
           label: 'Incoming approvals',
           data: queueVelocity.values,
-          borderColor: '#ca8a04',
-          backgroundColor: 'rgba(202,138,4,0.2)',
+          borderColor: chartPalette.series.brand.line,
+          backgroundColor: chartPalette.series.brand.fill,
           borderWidth: 2,
           tension: 0.35,
         },
       ],
     }),
-    [queueVelocity]
+    [queueVelocity, chartPalette]
   );
 
   const monthlyOpsChart = useMemo(
@@ -187,20 +191,20 @@ export default function SuperDashboard() {
         {
           label: 'Events',
           data: analytics?.monthlyStats?.map((row) => row.events) ?? [],
-          backgroundColor: 'rgba(29,78,216,0.42)',
-          borderColor: '#1d4ed8',
+          backgroundColor: chartPalette.series.blue.fill,
+          borderColor: chartPalette.series.blue.line,
           borderWidth: 1,
         },
         {
           label: 'Attendees',
           data: analytics?.monthlyStats?.map((row) => row.attendees) ?? [],
-          backgroundColor: 'rgba(5,150,105,0.42)',
-          borderColor: '#059669',
+          backgroundColor: chartPalette.series.emerald.fill,
+          borderColor: chartPalette.series.emerald.line,
           borderWidth: 1,
         },
       ],
     }),
-    [analytics?.monthlyStats]
+    [analytics?.monthlyStats, chartPalette]
   );
 
   const pendingTop = useMemo(

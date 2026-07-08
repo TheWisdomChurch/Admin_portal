@@ -2,6 +2,7 @@
 
 import { CheckCircle2, X } from 'lucide-react';
 import { Button } from '@/ui/Button';
+import { Modal } from '@/ui/Modal';
 
 interface SuccessAction {
   label: string;
@@ -33,12 +34,9 @@ export function SuccessModal({
   primaryAction,
   secondaryAction,
 }: SuccessModalProps) {
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-2xl">
-        <div className="relative px-6 pt-6">
+    <Modal open={open} onClose={onClose} labelledBy="success-modal-title">
+      <div className="relative px-6 pt-6">
           <button
             onClick={onClose}
             className="absolute right-4 top-4 rounded-full p-2 hover:bg-[var(--color-background-hover)]"
@@ -56,7 +54,7 @@ export function SuccessModal({
           <div className="mt-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)] text-[var(--color-accent-success)]">
             <CheckCircle2 className="h-7 w-7" />
           </div>
-          <h3 className="mt-4 text-2xl font-semibold text-[var(--color-text-primary)]">{title}</h3>
+          <h3 id="success-modal-title" className="mt-4 text-2xl font-semibold text-[var(--color-text-primary)]">{title}</h3>
           {subtitle ? (
             <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{subtitle}</p>
           ) : null}
@@ -106,7 +104,6 @@ export function SuccessModal({
             )}
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }

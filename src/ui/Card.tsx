@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 interface CardProps {
   children: ReactNode;
   className?: string;
-  title?: string;
+  title?: ReactNode;
   actions?: ReactNode;
   headerClassName?: string;
   contentClassName?: string;

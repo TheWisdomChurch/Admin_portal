@@ -10,32 +10,15 @@ import { getServerErrorMessage } from '@/lib/serverValidation';
 import type { EventData, Subscriber, SubscriberSummary } from '@/lib/types';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
+import { Panel } from '@/ui/Panel';
+import { StatCard } from '@/ui/StatCard';
 
 function formatDate(value?: string): string {
   if (!value) return '—';
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return '—';
   return parsed.toLocaleString(undefined, { month: 'short', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
-function ShellCard({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm ${className}`}>{children}</section>;
-}
-
-function Metric({ label, value, icon: Icon, hint }: { label: string; value: number | string; icon: React.ElementType; hint: string }) {
-  return (
-    <ShellCard className="p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</p>
-          <p className="mt-3 text-3xl font-black text-[var(--color-text-primary)]">{value}</p>
-          <p className="mt-2 line-clamp-2 text-sm text-[var(--color-text-secondary)]">{hint}</p>
-        </div>
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]"><Icon className="h-5 w-5" /></div>
-      </div>
-    </ShellCard>
-  );
 }
 
 function NewsletterPage() {

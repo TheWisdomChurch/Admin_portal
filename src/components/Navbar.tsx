@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Bell, CalendarDays, LogOut, Monitor, Moon, Search, ShieldCheck, Sun } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/ui/Button';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { LogoutModal } from '@/ui/LogoutModal';
 import { Badge } from '@/ui/Badge';
 import { useAuthContext } from '@/providers/AuthProviders';

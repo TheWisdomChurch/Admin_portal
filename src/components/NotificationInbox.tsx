@@ -19,7 +19,7 @@ import type { AdminNotification } from '@/lib/types';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { PageHeader } from '@/layouts';
 
 type Props = {

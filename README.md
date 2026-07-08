@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Wisdom Church Admin Portal
 
-## Getting Started
+The administration portal for The Wisdom Church — used by staff to manage members, events,
+forms/registrations, email/newsletter campaigns, content, and workforce/leadership records.
 
-First, run the development server:
+## Architecture
+
+This repository is the **frontend only**. It's a Next.js (App Router) application that:
+
+- Renders the entire admin UI (`src/app`, `src/components`, `src/ui`).
+- Acts as a thin proxy/BFF to a separate backend service — every request under
+  `/api/v1/*` (`src/app/api/v1/[...path]/route.ts`) is forwarded to the real API
+  (`API_INTERNAL_URL` inside Docker, `NEXT_PUBLIC_API_URL` from the browser).
+
+There is **no database, ORM, or business logic in this repo**. Auth, sessions, and all
+domain data live in the backend service (`wisdom_api`). This app only holds session
+state client-side (`src/providers/AuthProviders.tsx`) and never enforces auth in
+`middleware.ts` — see the comment there for why.
+
+## Local Development
+
+All local development runs through Docker via the `Makefile`:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+make dev          # start with hot reload (attached)
+make dev-detach   # start in the background
+make logs-dev      # tail logs
+make shell        # shell into the dev container
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Run `make help` to see every available target. See the top of the `Makefile` for the
+environment variables the dev/prod profiles and production image build expect.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Without Docker, the usual Next.js scripts also work directly (`npm install && npm run dev`),
+as long as `API_INTERNAL_URL`/`NEXT_PUBLIC_API_URL` point at a reachable backend.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Stack
 
-## Learn More
+- **Next.js 16** (App Router) + **React 19** + **TypeScript** (strict mode)
+- **Tailwind CSS v4** (CSS-first config — design tokens live as CSS custom properties in
+  `src/app/globals.css`, not in a `tailwind.config`)
+- **TanStack Query** for data fetching/caching
+- Custom component library in `src/ui/` (no third-party UI kit)
 
-To learn more about Next.js, take a look at the following resources:
+## Contributing
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Reuse `src/ui/` primitives (`Button`, `Card`, `Input`, `Badge`, `Modal`, `Table`,
+  `StatCard`, `EmptyState`, etc.) instead of hand-rolling page-local versions — this is
+  enforced by lint rules, not just convention.
+- A pre-commit hook (`.githooks/pre-commit`, wired up via the `prepare` npm script) runs
+  lint + typecheck before every commit.
