@@ -83,9 +83,9 @@ function InfoStep({ index, title, body }: { index: number; title: string; body: 
 
 function Notice({ type, children }: { type: 'error' | 'success' | 'warning'; children: React.ReactNode }) {
   const styles = {
-    error: 'border-red-200 bg-red-50 text-red-700',
-    success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    warning: 'border-amber-200 bg-amber-50 text-amber-700',
+    error: 'border-[var(--color-danger-border)] bg-[var(--color-danger-surface)] text-[var(--color-danger-text)]',
+    success: 'border-[var(--color-success-border)] bg-[var(--color-success-surface)] text-[var(--color-success-text)]',
+    warning: 'border-[var(--color-warning-border)] bg-[var(--color-warning-surface)] text-[var(--color-warning-text)]',
   }[type];
   const Icon = type === 'success' ? CheckCircle2 : AlertTriangle;
   return (
@@ -209,13 +209,13 @@ export default function MfaSetupPage() {
     <div className="min-h-screen bg-[var(--color-background-primary)]">
       <main className="mx-auto grid w-full max-w-7xl gap-6 px-4 pb-12 pt-10 sm:px-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] lg:px-8">
         <section className="overflow-hidden rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
-          <div className="bg-slate-950 p-8 text-white sm:p-10">
-            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-[var(--color-accent-primary)]">
+          <div className="bg-[var(--color-text-primary)] p-8 text-[var(--color-text-inverse)] sm:p-10">
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-text-inverse)]/10 text-[var(--color-accent-primary)]">
               <ShieldCheck className="h-7 w-7" />
             </div>
-            <p className="mt-7 text-xs font-black uppercase tracking-[0.3em] text-white/50">Multi-factor authentication</p>
+            <p className="mt-7 text-xs font-black uppercase tracking-[0.3em] text-[var(--color-text-inverse)]/50">Multi-factor authentication</p>
             <h1 className="mt-3 max-w-2xl text-3xl font-black tracking-tight sm:text-5xl">Secure your admin account before entering the dashboard.</h1>
-            <p className="mt-5 max-w-2xl text-sm leading-7 text-white/70 sm:text-base">Your account is signed in, but admin access requires authenticator-based MFA. This protects church records, members, and operational data.</p>
+            <p className="mt-5 max-w-2xl text-sm leading-7 text-[var(--color-text-inverse)]/70 sm:text-base">Your account is signed in, but admin access requires authenticator-based MFA. This protects church records, members, and operational data.</p>
           </div>
 
           <div className="grid gap-4 p-6 sm:grid-cols-2 sm:p-8">
