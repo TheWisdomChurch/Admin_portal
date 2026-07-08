@@ -1,13 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Image from 'next/image';
 import {
   CalendarDays,
   CheckCircle2,
   ChevronDown,
   Clock3,
-
   ImageIcon,
   Link2,
   Loader2,
@@ -27,6 +27,8 @@ import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
+import { StatCard } from '@/ui/StatCard';
+import { EmptyState } from '@/ui/EmptyState';
 import { apiClient } from '@/lib/api';
 import MediaUploadField from '@/components/MediaUploadField';
 import { uploadAsset } from '@/lib/uploads';
@@ -48,14 +50,7 @@ type NormalizedStatus = 'upcoming' | 'ongoing' | 'completed';
 
 type OpenBuckets = Record<NormalizedStatus, boolean>;
 
-const categoryOptions: EventCategory[] = [
-  'Outreach',
-  'Conference',
-  'Workshop',
-  'Prayer',
-  'Revival',
-  'Summit',
-];
+const categoryOptions: EventCategory[] = ['Outreach', 'Conference', 'Workshop', 'Prayer', 'Revival', 'Summit'];
 
 const statusLabel: Record<EventStatus, string> = {
   upcoming: 'Upcoming',
@@ -151,11 +146,7 @@ function formatDate(value?: string): string {
   const parsed = new Date(`${value}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) return value;
 
-  return parsed.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function formatTime(value?: string): string {
@@ -169,80 +160,22 @@ function formatTime(value?: string): string {
 
   if (Number.isNaN(parsed.getTime())) return value;
 
-  return parsed.toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  return parsed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
-function statusTone(status: NormalizedStatus): string {
-  const tones: Record<NormalizedStatus, string> = {
-    upcoming: 'bg-blue-50 text-blue-700 ring-blue-200',
-    ongoing: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-    completed: 'bg-slate-100 text-slate-600 ring-slate-200',
-  };
+const statusToneClass: Record<NormalizedStatus, string> = {
+  upcoming: 'bg-[var(--color-info-surface)] text-[var(--color-info-text)] ring-[var(--color-info-border)]',
+  ongoing: 'bg-[var(--color-success-surface)] text-[var(--color-success-text)] ring-[var(--color-success-border)]',
+  completed: 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)] ring-[var(--color-border-secondary)]',
+};
 
-  return tones[status];
-}
+const bucketBorderClass: Record<NormalizedStatus, string> = {
+  upcoming: 'border-[var(--color-info-border)]',
+  ongoing: 'border-[var(--color-success-border)]',
+  completed: 'border-[var(--color-border-secondary)]',
+};
 
-function bucketBorder(status: NormalizedStatus): string {
-  const tones: Record<NormalizedStatus, string> = {
-    upcoming: 'border-blue-200',
-    ongoing: 'border-emerald-200',
-    completed: 'border-slate-200',
-  };
-
-  return tones[status];
-}
-
-function StatCard({
-  label,
-  value,
-  hint,
-  icon: Icon,
-}: {
-  label: string;
-  value: string | number;
-  hint: string;
-  icon: React.ElementType;
-}) {
-  return (
-    <article className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{label}</p>
-          <strong className="mt-3 block text-3xl font-black tracking-tight text-slate-950">{value}</strong>
-        </div>
-        <div className="rounded-2xl bg-slate-950 p-3 text-white">
-          <Icon className="h-5 w-5" />
-        </div>
-      </div>
-      <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">{hint}</p>
-    </article>
-  );
-}
-
-function EmptyState({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-400 shadow-sm">
-        <CalendarDays className="h-5 w-5" />
-      </div>
-      <h3 className="mt-3 text-sm font-black text-slate-800">{title}</h3>
-      <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-slate-500">{description}</p>
-    </div>
-  );
-}
-
-function EventCard({
-  event,
-  active,
-  onPreview,
-}: {
-  event: EventData;
-  active: boolean;
-  onPreview: (event: EventData) => void;
-}) {
+function EventCard({ event, active, onPreview }: { event: EventData; active: boolean; onPreview: (event: EventData) => void }) {
   const normalized = normalizeStatus(event.status, event.date);
   const hasRegisterLink = Boolean(event.registerLink);
   const hasImage = Boolean(event.image);
@@ -251,16 +184,18 @@ function EventCard({
     <button
       type="button"
       onClick={() => onPreview(event)}
-      className={`group grid w-full gap-4 rounded-[1.5rem] border p-4 text-left transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md ${
-        active ? 'border-slate-950 bg-slate-950 text-white shadow-lg shadow-slate-950/10' : 'border-slate-200 bg-white text-slate-950'
+      className={`group grid w-full gap-4 rounded-[1.5rem] border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${
+        active
+          ? 'border-[var(--color-text-primary)] bg-[var(--color-text-primary)] text-[var(--color-text-inverse)] shadow-lg'
+          : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] text-[var(--color-text-primary)] hover:border-[var(--color-border-primary)]'
       }`}
     >
       <div className="flex items-start gap-3">
-        <div className={`relative h-16 w-20 shrink-0 overflow-hidden rounded-2xl ${active ? 'bg-white/10' : 'bg-slate-100'}`}>
+        <div className={`relative h-16 w-20 shrink-0 overflow-hidden rounded-2xl ${active ? 'bg-[var(--color-text-inverse)]/10' : 'bg-[var(--color-background-tertiary)]'}`}>
           {hasImage ? (
             <Image src={event.image || ''} alt={event.title} fill className="object-cover" unoptimized />
           ) : (
-            <div className={`flex h-full w-full items-center justify-center ${active ? 'text-white/50' : 'text-slate-400'}`}>
+            <div className={`flex h-full w-full items-center justify-center ${active ? 'text-[var(--color-text-inverse)]/50' : 'text-[var(--color-text-tertiary)]'}`}>
               <ImageIcon className="h-5 w-5" />
             </div>
           )}
@@ -268,43 +203,34 @@ function EventCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-black ring-1 ${active ? 'bg-white/10 text-white ring-white/10' : statusTone(normalized)}`}>
+            <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-black ring-1 ${active ? 'bg-[var(--color-text-inverse)]/10 text-[var(--color-text-inverse)] ring-[var(--color-text-inverse)]/10' : statusToneClass[normalized]}`}>
               {normalizedStatusLabel[normalized]}
             </span>
             {event.isFeatured ? (
-              <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-black ring-1 ${active ? 'bg-amber-400 text-slate-950 ring-amber-300' : 'bg-amber-50 text-amber-700 ring-amber-200'}`}>
+              <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-black ring-1 ${active ? 'bg-[var(--color-accent-primary)] text-[var(--color-text-onprimary)] ring-transparent' : 'bg-[var(--color-warning-surface)] text-[var(--color-warning-text)] ring-[var(--color-warning-border)]'}`}>
                 Featured
               </span>
             ) : null}
           </div>
 
           <h3 className="mt-2 line-clamp-2 text-sm font-black">{event.title}</h3>
-          <p className={`mt-1 line-clamp-2 text-xs font-semibold leading-5 ${active ? 'text-white/60' : 'text-slate-500'}`}>
+          <p className={`mt-1 line-clamp-2 text-xs font-semibold leading-5 ${active ? 'text-[var(--color-text-inverse)]/60' : 'text-[var(--color-text-tertiary)]'}`}>
             {event.shortDescription || event.description || 'No description recorded.'}
           </p>
         </div>
       </div>
 
-      <div className={`grid gap-2 rounded-2xl p-3 text-xs font-bold ${active ? 'bg-white/10 text-white/65' : 'bg-slate-50 text-slate-500'}`}>
-        <span className="flex items-center gap-2">
-          <CalendarDays className="h-4 w-4" />
-          {formatDate(event.date)} · {formatTime(event.time)}
-        </span>
-        <span className="flex items-center gap-2">
-          <MapPin className="h-4 w-4" />
-          <span className="truncate">{event.location || 'No location'}</span>
-        </span>
-        <span className="flex items-center gap-2">
-          <Tag className="h-4 w-4" />
-          {event.category}
-        </span>
+      <div className={`grid gap-2 rounded-2xl p-3 text-xs font-bold ${active ? 'bg-[var(--color-text-inverse)]/10 text-[var(--color-text-inverse)]/65' : 'bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]'}`}>
+        <span className="flex items-center gap-2"><CalendarDays className="h-4 w-4" />{formatDate(event.date)} · {formatTime(event.time)}</span>
+        <span className="flex items-center gap-2"><MapPin className="h-4 w-4" /><span className="truncate">{event.location || 'No location'}</span></span>
+        <span className="flex items-center gap-2"><Tag className="h-4 w-4" />{event.category}</span>
       </div>
 
       <div className="flex items-center justify-between gap-3 text-[11px] font-black uppercase tracking-[0.14em]">
-        <span className={hasRegisterLink ? (active ? 'text-emerald-300' : 'text-emerald-600') : active ? 'text-white/40' : 'text-slate-400'}>
+        <span className={hasRegisterLink ? 'text-[var(--color-success-text)]' : active ? 'text-[var(--color-text-inverse)]/40' : 'text-[var(--color-text-tertiary)]'}>
           {hasRegisterLink ? 'CTA ready' : 'No CTA'}
         </span>
-        <span className={hasImage ? (active ? 'text-blue-300' : 'text-blue-600') : active ? 'text-white/40' : 'text-slate-400'}>
+        <span className={hasImage ? 'text-[var(--color-info-text)]' : active ? 'text-[var(--color-text-inverse)]/40' : 'text-[var(--color-text-tertiary)]'}>
           {hasImage ? 'Media set' : 'No media'}
         </span>
       </div>
@@ -315,8 +241,9 @@ function EventCard({
 function PreviewPanel({ event }: { event: EventData | null }) {
   if (!event) {
     return (
-      <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
         <EmptyState
+          icon={<CalendarDays className="h-5 w-5" />}
           title="Select an event"
           description="Click any event card to inspect its frontend preview, media state, and CTA readiness."
         />
@@ -327,53 +254,43 @@ function PreviewPanel({ event }: { event: EventData | null }) {
   const normalized = normalizeStatus(event.status, event.date);
 
   return (
-    <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 p-5">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">Frontend preview</p>
-        <h2 className="mt-1 text-xl font-black tracking-tight text-slate-950">{event.title}</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
+    <section className="overflow-hidden rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
+      <div className="border-b border-[var(--color-border-secondary)] p-5">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">Frontend preview</p>
+        <h2 className="mt-1 text-xl font-black tracking-tight text-[var(--color-text-primary)]">{event.title}</h2>
+        <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">
           This mirrors the public event card state that users will see from saved event data.
         </p>
       </div>
 
       <div className="p-5">
-        <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-slate-50">
-          <div className="relative h-64 bg-slate-100">
+        <div className="overflow-hidden rounded-[1.5rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
+          <div className="relative h-64 bg-[var(--color-background-tertiary)]">
             {event.image ? (
               <Image src={event.image} alt={event.title} fill className="object-cover" unoptimized />
             ) : (
-              <div className="flex h-full items-center justify-center text-slate-400">
+              <div className="flex h-full items-center justify-center text-[var(--color-text-tertiary)]">
                 <ImageIcon className="h-8 w-8" />
               </div>
             )}
           </div>
 
-          <div className="space-y-4 bg-white p-5">
+          <div className="space-y-4 bg-[var(--color-background-primary)] p-5">
             <div className="flex flex-wrap items-center gap-2">
-              <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ring-1 ${statusTone(normalized)}`}>
-                {normalizedStatusLabel[normalized]}
-              </span>
-              <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 ring-1 ring-slate-200">
-                {event.category}
-              </span>
+              <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ring-1 ${statusToneClass[normalized]}`}>{normalizedStatusLabel[normalized]}</span>
+              <span className="inline-flex rounded-full bg-[var(--color-background-tertiary)] px-3 py-1 text-xs font-black text-[var(--color-text-secondary)] ring-1 ring-[var(--color-border-secondary)]">{event.category}</span>
             </div>
 
             <div>
-              <h3 className="text-2xl font-black tracking-tight text-slate-950">{event.title}</h3>
-              <p className="mt-2 text-sm leading-7 text-slate-600">
+              <h3 className="text-2xl font-black tracking-tight text-[var(--color-text-primary)]">{event.title}</h3>
+              <p className="mt-2 text-sm leading-7 text-[var(--color-text-secondary)]">
                 {event.description || event.shortDescription || 'No event description provided.'}
               </p>
             </div>
 
-            <div className="grid gap-3 text-sm font-semibold text-slate-600">
-              <span className="flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-slate-400" />
-                {formatDate(event.date)} · {formatTime(event.time)}
-              </span>
-              <span className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-slate-400" />
-                {event.location || 'No location recorded'}
-              </span>
+            <div className="grid gap-3 text-sm font-semibold text-[var(--color-text-secondary)]">
+              <span className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-[var(--color-text-tertiary)]" />{formatDate(event.date)} · {formatTime(event.time)}</span>
+              <span className="flex items-center gap-2"><MapPin className="h-4 w-4 text-[var(--color-text-tertiary)]" />{event.location || 'No location recorded'}</span>
             </div>
 
             {event.registerLink ? (
@@ -381,13 +298,13 @@ function PreviewPanel({ event }: { event: EventData | null }) {
                 href={event.registerLink}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-2 text-sm font-black text-white transition hover:bg-slate-800"
+                className="inline-flex items-center gap-2 rounded-2xl bg-[var(--color-text-primary)] px-4 py-2 text-sm font-black text-[var(--color-text-inverse)] transition hover:opacity-90"
               >
                 <Link2 className="h-4 w-4" />
                 Open registration link
               </a>
             ) : (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
+              <div className="rounded-2xl border border-[var(--color-warning-border)] bg-[var(--color-warning-surface)] px-4 py-3 text-sm font-bold text-[var(--color-warning-text)]">
                 Add a registration link if this event needs a public Register button.
               </div>
             )}
@@ -395,13 +312,13 @@ function PreviewPanel({ event }: { event: EventData | null }) {
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Media</p>
-            <p className="mt-2 text-sm font-bold text-slate-700">{event.image ? 'Image configured' : 'No image configured'}</p>
+          <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Media</p>
+            <p className="mt-2 text-sm font-bold text-[var(--color-text-secondary)]">{event.image ? 'Image configured' : 'No image configured'}</p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">CTA</p>
-            <p className="mt-2 text-sm font-bold text-slate-700">{event.registerLink ? 'Registration link ready' : 'No registration link'}</p>
+          <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">CTA</p>
+            <p className="mt-2 text-sm font-bold text-[var(--color-text-secondary)]">{event.registerLink ? 'Registration link ready' : 'No registration link'}</p>
           </div>
         </div>
       </div>
@@ -410,6 +327,7 @@ function PreviewPanel({ event }: { event: EventData | null }) {
 }
 
 function EventPage() {
+  const queryClient = useQueryClient();
   const [showComposer, setShowComposer] = useState(false);
   const [draft, setDraft] = useState<DraftEvent>(emptyDraft);
   const [events, setEvents] = useState<EventData[]>([]);
@@ -423,11 +341,7 @@ function EventPage() {
   const [categoryFilter, setCategoryFilter] = useState<'all' | EventCategory>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | NormalizedStatus>('all');
   const [selectedEventId, setSelectedEventId] = useState<string>('');
-  const [openBuckets, setOpenBuckets] = useState<OpenBuckets>({
-    upcoming: true,
-    ongoing: true,
-    completed: false,
-  });
+  const [openBuckets, setOpenBuckets] = useState<OpenBuckets>({ upcoming: true, ongoing: true, completed: false });
 
   const filteredEvents = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -437,7 +351,6 @@ function EventPage() {
 
       if (categoryFilter !== 'all' && event.category !== categoryFilter) return false;
       if (statusFilter !== 'all' && status !== statusFilter) return false;
-
       if (!normalizedQuery) return true;
 
       return `${event.title} ${event.shortDescription || ''} ${event.description || ''} ${event.location || ''} ${event.category || ''}`
@@ -463,13 +376,7 @@ function EventPage() {
     const completed = events.filter((event) => normalizeStatus(event.status, event.date) === 'completed').length;
     const withCta = events.filter((event) => Boolean(event.registerLink)).length;
 
-    return {
-      total: events.length,
-      upcoming,
-      ongoing,
-      completed,
-      withCta,
-    };
+    return { total: events.length, upcoming, ongoing, completed, withCta };
   }, [events]);
 
   const selectedEvent = useMemo(() => {
@@ -528,9 +435,7 @@ function EventPage() {
   }, [imagePreview]);
 
   const closeComposer = () => {
-    if (!saving) {
-      setShowComposer(false);
-    }
+    if (!saving) setShowComposer(false);
   };
 
   const handleImageFile = (file: File | null) => {
@@ -608,12 +513,7 @@ function EventPage() {
       }
 
       if (uploadedImageURL && uploadedImageURL !== created.image) {
-        created = await apiClient.updateEvent(
-          created.id,
-          toEventPayload(created, {
-            image: uploadedImageURL,
-          }),
-        );
+        created = await apiClient.updateEvent(created.id, toEventPayload(created, { image: uploadedImageURL }));
       }
 
       toast.success('Event created successfully');
@@ -621,10 +521,8 @@ function EventPage() {
       setSelectedEventId(created.id);
       resetDraft();
       setShowComposer(false);
-      setOpenBuckets((current) => ({
-        ...current,
-        [normalizeStatus(created.status, created.date)]: true,
-      }));
+      setOpenBuckets((current) => ({ ...current, [normalizeStatus(created.status, created.date)]: true }));
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', 'snapshot'] });
     } catch (error) {
       console.error('Failed to create event:', error);
       toast.error('Failed to create event.');
@@ -640,12 +538,7 @@ function EventPage() {
         subtitle="Create, organize, and publish church events with a professional media and registration flow."
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              onClick={() => void loadEvents()}
-              disabled={loading}
-              icon={<RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />}
-            >
+            <Button variant="outline" onClick={() => void loadEvents()} disabled={loading} icon={<RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />}>
               Refresh
             </Button>
             <Button variant="primary" onClick={() => setShowComposer(true)} icon={<Plus className="h-4 w-4" />}>
@@ -656,60 +549,33 @@ function EventPage() {
       />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          icon={CalendarDays}
-          label="Total events"
-          value={stats.total}
-          hint="All saved event records."
-        />
-        <StatCard
-          icon={Sparkles}
-          label="Upcoming"
-          value={stats.upcoming}
-          hint="Future events that should remain visible to users."
-        />
-        <StatCard
-          icon={Clock3}
-          label="Ongoing"
-          value={stats.ongoing}
-          hint="Events happening today or marked as happening."
-        />
-        <StatCard
-          icon={Link2}
-          label="CTA ready"
-          value={stats.withCta}
-          hint="Events with a registration link configured."
-        />
+        <StatCard icon={<CalendarDays className="h-5 w-5" />} label="Total events" value={stats.total} trend="All saved event records." />
+        <StatCard icon={<Sparkles className="h-5 w-5" />} label="Upcoming" value={stats.upcoming} tone="info" trend="Future events that should remain visible." />
+        <StatCard icon={<Clock3 className="h-5 w-5" />} label="Ongoing" value={stats.ongoing} tone="success" trend="Happening today or marked as happening." />
+        <StatCard icon={<Link2 className="h-5 w-5" />} label="CTA ready" value={stats.withCta} tone="warning" trend="Events with a registration link configured." />
       </section>
 
       <section className="grid gap-5 2xl:grid-cols-[minmax(0,1.3fr)_440px]">
         <div className="space-y-5">
-          <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">Event operations</p>
-                <h2 className="mt-1 text-xl font-black tracking-tight text-slate-950">Events workspace</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Search, filter, inspect, and manage events by lifecycle status.
-                </p>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">Event operations</p>
+                <h2 className="mt-1 text-xl font-black tracking-tight text-[var(--color-text-primary)]">Events workspace</h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">Search, filter, inspect, and manage events by lifecycle status.</p>
               </div>
 
               <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_160px_160px] lg:min-w-[680px]">
-                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-                  <Search className="h-4 w-4 text-slate-400" />
+                <div className="flex items-center gap-2 rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2">
+                  <Search className="h-4 w-4 text-[var(--color-text-tertiary)]" />
                   <input
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder="Search title, location, category..."
-                    className="w-full bg-transparent text-sm font-semibold outline-none placeholder:text-slate-400"
+                    className="w-full bg-transparent text-sm font-semibold outline-none placeholder:text-[var(--color-text-tertiary)]"
                   />
                   {query ? (
-                    <button
-                      type="button"
-                      onClick={() => setQuery('')}
-                      className="rounded-xl p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                      aria-label="Clear search"
-                    >
+                    <button type="button" onClick={() => setQuery('')} className="rounded-xl p-1 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)]" aria-label="Clear search">
                       <X className="h-4 w-4" />
                     </button>
                   ) : null}
@@ -718,7 +584,7 @@ function EventPage() {
                 <select
                   value={statusFilter}
                   onChange={(event) => setStatusFilter(event.target.value as 'all' | NormalizedStatus)}
-                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700 outline-none transition focus:border-slate-400"
+                  className="rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-black text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]"
                 >
                   <option value="all">All statuses</option>
                   <option value="upcoming">Upcoming</option>
@@ -729,13 +595,11 @@ function EventPage() {
                 <select
                   value={categoryFilter}
                   onChange={(event) => setCategoryFilter(event.target.value as 'all' | EventCategory)}
-                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700 outline-none transition focus:border-slate-400"
+                  className="rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-black text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]"
                 >
                   <option value="all">All categories</option>
                   {categoryOptions.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
+                    <option key={category} value={category}>{category}</option>
                   ))}
                 </select>
               </div>
@@ -743,8 +607,8 @@ function EventPage() {
           </section>
 
           {loading ? (
-            <section className="rounded-[2rem] border border-slate-200 bg-white p-10 shadow-sm">
-              <div className="flex items-center justify-center gap-3 text-sm font-bold text-slate-500">
+            <section className="rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-10 shadow-sm">
+              <div className="flex items-center justify-center gap-3 text-sm font-bold text-[var(--color-text-tertiary)]">
                 <Loader2 className="h-5 w-5 animate-spin" />
                 Loading events...
               </div>
@@ -756,48 +620,40 @@ function EventPage() {
                 const items = grouped[bucket];
 
                 return (
-                  <article key={bucket} className={`overflow-hidden rounded-[2rem] border bg-white shadow-sm ${bucketBorder(bucket)}`}>
+                  <article key={bucket} className={`overflow-hidden rounded-[2rem] border bg-[var(--color-background-primary)] shadow-sm ${bucketBorderClass[bucket]}`}>
                     <button
                       type="button"
                       onClick={() => setOpenBuckets((current) => ({ ...current, [bucket]: !current[bucket] }))}
-                      className="flex w-full items-center justify-between gap-4 p-5 text-left transition hover:bg-slate-50"
+                      className="flex w-full items-center justify-between gap-4 p-5 text-left transition hover:bg-[var(--color-background-hover)]"
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ring-1 ${statusTone(bucket)}`}>
+                        <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ring-1 ${statusToneClass[bucket]}`}>
                           {bucket === 'upcoming' ? <CalendarDays className="h-5 w-5" /> : bucket === 'ongoing' ? <Clock3 className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
                         </div>
                         <div>
-                          <h3 className="text-lg font-black text-slate-950">{normalizedStatusLabel[bucket]}</h3>
-                          <p className="mt-1 text-sm font-semibold text-slate-500">
-                            {items.length} event{items.length === 1 ? '' : 's'} in this section
-                          </p>
+                          <h3 className="text-lg font-black text-[var(--color-text-primary)]">{normalizedStatusLabel[bucket]}</h3>
+                          <p className="mt-1 text-sm font-semibold text-[var(--color-text-tertiary)]">{items.length} event{items.length === 1 ? '' : 's'} in this section</p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${statusTone(bucket)}`}>
-                          {items.length}
-                        </span>
-                        <ChevronDown className={`h-5 w-5 text-slate-400 transition ${isOpen ? 'rotate-180' : ''}`} />
+                        <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${statusToneClass[bucket]}`}>{items.length}</span>
+                        <ChevronDown className={`h-5 w-5 text-[var(--color-text-tertiary)] transition ${isOpen ? 'rotate-180' : ''}`} />
                       </div>
                     </button>
 
                     {isOpen ? (
-                      <div className="border-t border-slate-100 p-5">
+                      <div className="border-t border-[var(--color-border-secondary)] p-5">
                         {items.length === 0 ? (
                           <EmptyState
+                            icon={<CalendarDays className="h-5 w-5" />}
                             title={`No ${normalizedStatusLabel[bucket].toLowerCase()} events`}
                             description="Create a new event or adjust your filters to see more records."
                           />
                         ) : (
                           <div className="grid gap-4 xl:grid-cols-2">
                             {items.map((event) => (
-                              <EventCard
-                                key={event.id}
-                                event={event}
-                                active={selectedEvent?.id === event.id}
-                                onPreview={(item) => setSelectedEventId(item.id)}
-                              />
+                              <EventCard key={event.id} event={event} active={selectedEvent?.id === event.id} onPreview={(item) => setSelectedEventId(item.id)} />
                             ))}
                           </div>
                         )}
@@ -813,92 +669,65 @@ function EventPage() {
         <div className="space-y-5">
           <PreviewPanel event={selectedEvent} />
 
-          <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">Publishing quality</p>
-            <h2 className="mt-1 text-xl font-black tracking-tight text-slate-950">Frontend readiness</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
+          <section className="rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">Publishing quality</p>
+            <h2 className="mt-1 text-xl font-black tracking-tight text-[var(--color-text-primary)]">Frontend readiness</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">
               A professional event should have media, a clear description, date/time, location, and CTA when registration is needed.
             </p>
 
             <div className="mt-5 grid gap-3">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-center gap-3">
-                  <ImageIcon className="h-5 w-5 text-slate-400" />
-                  <div>
-                    <p className="text-sm font-black text-slate-800">Use event-specific media</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">Upload a clear 16:9 event image instead of using generic artwork.</p>
+              {[
+                { icon: ImageIcon, title: 'Use event-specific media', body: 'Upload a clear 16:9 event image instead of using generic artwork.' },
+                { icon: Link2, title: 'Add CTA links only when needed', body: 'If an event needs registration, use the public form URL as the registration link.' },
+                { icon: UsersRound, title: 'Keep the copy user-focused', body: 'Short description should explain what the user gains from attending.' },
+              ].map((tip) => (
+                <div key={tip.title} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+                  <div className="flex items-center gap-3">
+                    <tip.icon className="h-5 w-5 text-[var(--color-text-tertiary)]" />
+                    <div>
+                      <p className="text-sm font-black text-[var(--color-text-primary)]">{tip.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-[var(--color-text-tertiary)]">{tip.body}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-center gap-3">
-                  <Link2 className="h-5 w-5 text-slate-400" />
-                  <div>
-                    <p className="text-sm font-black text-slate-800">Add CTA links only when needed</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">If an event needs registration, use the public form URL as the registration link.</p>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-center gap-3">
-                  <UsersRound className="h-5 w-5 text-slate-400" />
-                  <div>
-                    <p className="text-sm font-black text-slate-800">Keep the copy user-focused</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">Short description should explain what the user gains from attending.</p>
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
           </section>
         </div>
       </section>
 
       {showComposer ? (
-        <section className="rounded-[2rem] border border-slate-200 bg-white shadow-xl">
-          <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-slate-100 bg-white/95 p-5 backdrop-blur lg:flex-row lg:items-center lg:justify-between">
+        <section className="rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-xl">
+          <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/95 p-5 backdrop-blur lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">Create event</p>
-              <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Event publishing studio</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Add event details, media, registration CTA, and preview the public card before saving.
-              </p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">Create event</p>
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-[var(--color-text-primary)]">Event publishing studio</h2>
+              <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">Add event details, media, registration CTA, and preview the public card before saving.</p>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={resetDraft} disabled={saving}>
-                Reset
-              </Button>
-              <Button variant="ghost" onClick={closeComposer} disabled={saving}>
-                Close
-              </Button>
-              <Button variant="primary" onClick={handleCreate} loading={saving} disabled={saving} icon={<UploadCloud className="h-4 w-4" />}>
-                Save event
-              </Button>
+              <Button variant="outline" onClick={resetDraft} disabled={saving}>Reset</Button>
+              <Button variant="ghost" onClick={closeComposer} disabled={saving}>Close</Button>
+              <Button variant="primary" onClick={handleCreate} loading={saving} disabled={saving} icon={<UploadCloud className="h-4 w-4" />}>Save event</Button>
             </div>
           </div>
 
           <div className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1.2fr)_430px]">
             <div className="space-y-5">
-              <section className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-5">
+              <section className="rounded-[1.75rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h3 className="text-lg font-black text-slate-950">Core details</h3>
-                    <p className="mt-1 text-sm leading-6 text-slate-500">These fields control the event title, display category, location, and schedule.</p>
+                    <h3 className="text-lg font-black text-[var(--color-text-primary)]">Core details</h3>
+                    <p className="mt-1 text-sm leading-6 text-[var(--color-text-tertiary)]">These fields control the event title, display category, location, and schedule.</p>
                   </div>
-                  <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${statusTone(normalizeStatus(previewStatus, draft.date))}`}>
-                    {statusLabel[previewStatus]}
-                  </span>
+                  <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${statusToneClass[normalizeStatus(previewStatus, draft.date)]}`}>{statusLabel[previewStatus]}</span>
                 </div>
 
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
-                  <Input
-                    label="Title"
-                    value={draft.title}
-                    onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-                    placeholder="Event title"
-                  />
+                  <Input label="Title" value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Event title" />
 
-                  <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600">
+                  <label className="flex flex-col gap-1 text-sm font-semibold text-[var(--color-text-secondary)]">
                     Category
                     <select
                       className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-border-focus)]"
@@ -906,48 +735,21 @@ function EventPage() {
                       onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value as EventCategory }))}
                     >
                       {categoryOptions.map((category) => (
-                        <option key={category} value={category}>
-                          {category}
-                        </option>
+                        <option key={category} value={category}>{category}</option>
                       ))}
                     </select>
                   </label>
 
-                  <Input
-                    label="Short description"
-                    value={draft.shortDescription}
-                    onChange={(event) => setDraft((current) => ({ ...current, shortDescription: event.target.value }))}
-                    placeholder="Quick summary for frontend cards"
-                  />
-
-                  <Input
-                    label="Location"
-                    value={draft.location}
-                    onChange={(event) => setDraft((current) => ({ ...current, location: event.target.value }))}
-                    placeholder="Event location"
-                  />
-
-                  <Input
-                    label="Date"
-                    type="date"
-                    value={draft.date}
-                    onChange={(event) => setDraft((current) => ({ ...current, date: event.target.value }))}
-                  />
-
-                  <Input
-                    label="Time"
-                    type="time"
-                    value={draft.time}
-                    onChange={(event) => setDraft((current) => ({ ...current, time: event.target.value }))}
-                  />
+                  <Input label="Short description" value={draft.shortDescription} onChange={(event) => setDraft((current) => ({ ...current, shortDescription: event.target.value }))} placeholder="Quick summary for frontend cards" />
+                  <Input label="Location" value={draft.location} onChange={(event) => setDraft((current) => ({ ...current, location: event.target.value }))} placeholder="Event location" />
+                  <Input label="Date" type="date" value={draft.date} onChange={(event) => setDraft((current) => ({ ...current, date: event.target.value }))} />
+                  <Input label="Time" type="time" value={draft.time} onChange={(event) => setDraft((current) => ({ ...current, time: event.target.value }))} />
                 </div>
               </section>
 
-              <section className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-5">
-                <h3 className="text-lg font-black text-slate-950">Registration and media</h3>
-                <p className="mt-1 text-sm leading-6 text-slate-500">
-                  Registration link powers the frontend CTA. Uploaded media is stored with your existing asset upload flow.
-                </p>
+              <section className="rounded-[1.75rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5">
+                <h3 className="text-lg font-black text-[var(--color-text-primary)]">Registration and media</h3>
+                <p className="mt-1 text-sm leading-6 text-[var(--color-text-tertiary)]">Registration link powers the frontend CTA. Uploaded media is stored with your existing asset upload flow.</p>
 
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <Input
@@ -967,20 +769,14 @@ function EventPage() {
                   />
 
                   <div className="md:col-span-2">
-                    <MediaUploadField
-                      field={{ key: 'image', label: 'Event image', type: 'image', validation: { max: 10 } }}
-                      value={imageFile}
-                      onChange={handleImageFile}
-                    />
+                    <MediaUploadField field={{ key: 'image', label: 'Event image', type: 'image', validation: { max: 10 } }} value={imageFile} onChange={handleImageFile} />
                   </div>
                 </div>
               </section>
 
-              <section className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-5">
-                <h3 className="text-lg font-black text-slate-950">Full description</h3>
-                <p className="mt-1 text-sm leading-6 text-slate-500">
-                  Use this section to explain the event purpose, expectations, and who should attend.
-                </p>
+              <section className="rounded-[1.75rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5">
+                <h3 className="text-lg font-black text-[var(--color-text-primary)]">Full description</h3>
+                <p className="mt-1 text-sm leading-6 text-[var(--color-text-tertiary)]">Use this section to explain the event purpose, expectations, and who should attend.</p>
 
                 <textarea
                   className="mt-5 min-h-[180px] w-full rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 text-sm leading-7 outline-none focus:ring-2 focus:ring-[var(--color-border-focus)]"
@@ -992,55 +788,43 @@ function EventPage() {
             </div>
 
             <aside className="space-y-5">
-              <section className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-5">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Live Preview</p>
+              <section className="rounded-[1.75rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Live Preview</p>
 
-                <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white">
-                  <div className="relative h-56 bg-slate-100">
+                <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]">
+                  <div className="relative h-56 bg-[var(--color-background-tertiary)]">
                     {previewMedia ? (
                       <Image src={previewMedia} alt="Event preview" fill className="object-cover" unoptimized />
                     ) : (
-                      <div className="flex h-full items-center justify-center text-sm font-semibold text-slate-400">
-                        Upload image to preview the event card
-                      </div>
+                      <div className="flex h-full items-center justify-center text-sm font-semibold text-[var(--color-text-tertiary)]">Upload image to preview the event card</div>
                     )}
                   </div>
 
                   <div className="space-y-3 p-4">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ring-1 ${statusTone(normalizeStatus(previewStatus, draft.date))}`}>
-                        {statusLabel[previewStatus]}
-                      </span>
-                      <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 ring-1 ring-slate-200">
-                        {draft.category}
-                      </span>
+                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ring-1 ${statusToneClass[normalizeStatus(previewStatus, draft.date)]}`}>{statusLabel[previewStatus]}</span>
+                      <span className="inline-flex rounded-full bg-[var(--color-background-tertiary)] px-3 py-1 text-xs font-black text-[var(--color-text-secondary)] ring-1 ring-[var(--color-border-secondary)]">{draft.category}</span>
                     </div>
 
-                    <h4 className="text-xl font-black text-slate-950">{draft.title || 'Event title'}</h4>
-                    <p className="text-sm leading-7 text-slate-600">
-                      {(draft.description || draft.shortDescription || 'Event description will appear here.').trim()}
-                    </p>
-                    <p className="text-xs font-bold text-slate-500">
-                      {draft.date || 'YYYY-MM-DD'} · {draft.time || 'HH:MM'} · {draft.location || 'Location'}
-                    </p>
-                    <Button size="sm" variant="outline" disabled>
-                      {draft.registrationLink.trim() ? 'Register now' : 'Add registration link'}
-                    </Button>
+                    <h4 className="text-xl font-black text-[var(--color-text-primary)]">{draft.title || 'Event title'}</h4>
+                    <p className="text-sm leading-7 text-[var(--color-text-secondary)]">{(draft.description || draft.shortDescription || 'Event description will appear here.').trim()}</p>
+                    <p className="text-xs font-bold text-[var(--color-text-tertiary)]">{draft.date || 'YYYY-MM-DD'} · {draft.time || 'HH:MM'} · {draft.location || 'Location'}</p>
+                    <Button size="sm" variant="outline" disabled>{draft.registrationLink.trim() ? 'Register now' : 'Add registration link'}</Button>
                   </div>
                 </div>
               </section>
 
-              <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">Quality checklist</p>
-                <h3 className="mt-1 text-lg font-black text-slate-950">Before publishing</h3>
+              <section className="rounded-[1.75rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">Quality checklist</p>
+                <h3 className="mt-1 text-lg font-black text-[var(--color-text-primary)]">Before publishing</h3>
 
                 <div className="mt-4 grid gap-3">
                   {checklist.map((item) => (
-                    <div key={item.label} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                      <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${item.done ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
+                    <div key={item.label} className="flex items-center gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                      <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${item.done ? 'bg-[var(--color-success-surface)] text-[var(--color-success-text)]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>
                         <CheckCircle2 className="h-4 w-4" />
                       </div>
-                      <span className="text-sm font-bold text-slate-700">{item.label}</span>
+                      <span className="text-sm font-bold text-[var(--color-text-secondary)]">{item.label}</span>
                     </div>
                   ))}
                 </div>

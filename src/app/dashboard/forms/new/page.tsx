@@ -2,7 +2,7 @@
 
 // Canonical form builder used by admins to create new public forms.
 
-import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -27,6 +27,7 @@ import { Button } from '@/ui/Button';
 import { PageHeader } from '@/layouts';
 import { Input } from '@/ui/Input';
 import { AlertModal } from '@/ui/AlertModal';
+import { SectionCard } from '@/ui/SectionCard';
 
 import { apiClient } from '@/lib/api';
 import FormFieldOrderBuilder from '../FormFieldOrderBuilder';
@@ -247,27 +248,9 @@ const renderStructuredLines = (value: string) => {
   return { bullets, paragraphs };
 };
 
-function Panel({ title, subtitle, icon: Icon, actions, children }: { title: string; subtitle?: string; icon?: ComponentType<{ className?: string }>; actions?: ReactNode; children: ReactNode }) {
-  return (
-    <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:shadow-md">
-      <div className="flex flex-col gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-3">
-          {Icon ? <div className="rounded-2xl bg-slate-950 p-3 text-white shadow-sm"><Icon className="h-5 w-5" /></div> : null}
-          <div>
-            <h2 className="text-lg font-black tracking-tight text-slate-950">{title}</h2>
-            {subtitle ? <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">{subtitle}</p> : null}
-          </div>
-        </div>
-        {actions ? <div className="shrink-0">{actions}</div> : null}
-      </div>
-      <div className="mt-5">{children}</div>
-    </section>
-  );
-}
-
 function StepButton({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={`rounded-2xl px-4 py-2 text-sm font-black transition ${active ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'}`}>
+    <button type="button" onClick={onClick} className={`rounded-2xl px-4 py-2 text-sm font-black transition ${active ? 'bg-[var(--color-text-primary)] text-[var(--color-text-inverse)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]'}`}>
       {children}
     </button>
   );
@@ -714,7 +697,7 @@ export default withAuth(function NewFormPage() {
 
   const pendingField = removeFieldIndex !== null ? fields[removeFieldIndex] : null;
 
-  if (authBlocked) return <div className="flex min-h-[300px] w-full items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-slate-950" /></div>;
+  if (authBlocked) return <div className="flex min-h-[300px] w-full items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-[var(--color-text-primary)]" /></div>;
 
   return (
     <main className="space-y-6">
@@ -729,22 +712,22 @@ export default withAuth(function NewFormPage() {
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white shadow-xl">
+      <section className="overflow-hidden rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] p-6 text-[var(--color-text-inverse)] shadow-xl">
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px] xl:items-end">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white/65"><LayoutTemplate className="h-4 w-4" />Form publishing studio</div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/65"><LayoutTemplate className="h-4 w-4" />Form publishing studio</div>
             <h1 className="mt-4 max-w-4xl text-3xl font-black tracking-tight sm:text-4xl">Design the form, route the submission, preview the public experience, then publish.</h1>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-white/65">The builder keeps advanced form settings intact while making the workflow clearer.</p>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--color-text-inverse)]/65">The builder keeps advanced form settings intact while making the workflow clearer.</p>
           </div>
-          <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-white/50">Public link preview</p>
-            <p className="mt-2 break-all text-sm font-bold text-white/75">/forms/{normalizeSlug(slug || title || 'your-link')}</p>
-            <p className="mt-2 text-xs font-semibold text-white/45">{fields.length} fields configured · {responseEmailEnabled ? 'Response email on' : 'Response email off'}</p>
+          <div className="rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-4 backdrop-blur">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-inverse)]/50">Public link preview</p>
+            <p className="mt-2 break-all text-sm font-bold text-[var(--color-text-inverse)]/75">/forms/{normalizeSlug(slug || title || 'your-link')}</p>
+            <p className="mt-2 text-xs font-semibold text-[var(--color-text-inverse)]/45">{fields.length} fields configured · {responseEmailEnabled ? 'Response email on' : 'Response email off'}</p>
           </div>
         </div>
       </section>
 
-      <section className="sticky top-2 z-20 rounded-3xl border border-slate-200 bg-white/85 p-2 shadow-sm backdrop-blur">
+      <section className="sticky top-2 z-20 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/85 p-2 shadow-sm backdrop-blur">
         <div className="flex gap-2 overflow-x-auto">
           <StepButton active={step === 'setup'} onClick={() => setStep('setup')}>Setup</StepButton>
           <StepButton active={step === 'fields'} onClick={() => setStep('fields')}>Fields</StepButton>
@@ -755,30 +738,30 @@ export default withAuth(function NewFormPage() {
 
       {step === 'setup' ? (
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-          <Panel title="Core form setup" subtitle="Name the form, define the public link, choose routing, and attach event settings." icon={FileText}>
+          <SectionCard title="Core form setup" subtitle="Name the form, define the public link, choose routing, and attach event settings." icon={<FileText className="h-5 w-5" />}>
             <div className="grid gap-5 md:grid-cols-2">
               <Input label="Title *" value={title} onChange={(event) => { clearFieldError('title'); setTitle(event.target.value); }} placeholder="e.g., Youth Summit Registration" error={fieldErrors.title} />
               <div className="space-y-2">
                 <Input label="Form Link Name *" value={slug} onChange={(event) => { clearFieldError('slug'); setSlug(event.target.value); }} onBlur={() => setSlug((current) => normalizeSlug(current))} placeholder="e.g., wpc" error={fieldErrors.slug} />
-                <p className="text-xs font-semibold text-slate-500">Public link preview: <span className="text-slate-700">/forms/{normalizeSlug(slug || title || 'your-link')}</span></p>
+                <p className="text-xs font-semibold text-[var(--color-text-tertiary)]">Public link preview: <span className="text-[var(--color-text-secondary)]">/forms/{normalizeSlug(slug || title || 'your-link')}</span></p>
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-bold text-slate-600">Description</label>
-                <textarea className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-7 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-slate-100" rows={5} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Write a clean short description. Use '- ' for bullet points." />
+                <label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Description</label>
+                <textarea className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold leading-7 text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-4 focus:ring-[var(--color-border-focus)]" rows={5} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Write a clean short description. Use '- ' for bullet points." />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-bold text-slate-600">Form Type</label>
-                <select className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none" value={formType} onChange={(event) => setFormType(event.target.value as FormSettings['formType'] | '')}>
+                <label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Form Type</label>
+                <select className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] outline-none" value={formType} onChange={(event) => setFormType(event.target.value as FormSettings['formType'] | '')}>
                   <option value="">Select a type</option>
                   {formTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-bold text-slate-600">Linked Event</label>
-                <select className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none" value={eventId} onChange={(event) => setEventId(event.target.value)} disabled={eventsLoading}>
+                <label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Linked Event</label>
+                <select className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] outline-none" value={eventId} onChange={(event) => setEventId(event.target.value)} disabled={eventsLoading}>
                   <option value="">No event (standalone form)</option>
                   {events.map((event) => <option key={event.id} value={event.id}>{event.title}</option>)}
                 </select>
@@ -789,8 +772,8 @@ export default withAuth(function NewFormPage() {
               <Input label="Expires At (optional)" type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />
 
               <div>
-                <label className="mb-1 block text-sm font-bold text-slate-600">Submission Target</label>
-                <select className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none" value={submissionTarget} onChange={(event) => setSubmissionTarget(event.target.value as FormSettings['submissionTarget'] | '')}>
+                <label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Submission Target</label>
+                <select className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] outline-none" value={submissionTarget} onChange={(event) => setSubmissionTarget(event.target.value as FormSettings['submissionTarget'] | '')}>
                   <option value="">Do not route</option>
                   <option value="workforce_new">Workforce (new workers)</option>
                   <option value="workforce_serving">Workforce (already serving)</option>
@@ -803,35 +786,35 @@ export default withAuth(function NewFormPage() {
 
               <Input label="Department (workforce only)" value={submissionDepartment} onChange={(event) => setSubmissionDepartment(event.target.value)} placeholder="e.g., Hospitality" disabled={!isWorkforceTarget} error={fieldErrors.submissionDepartment} />
             </div>
-          </Panel>
+          </SectionCard>
 
-          <Panel title="Quick presets" subtitle="Apply a professional structure for common ministry workflows." icon={Wand2}>
+          <SectionCard title="Quick presets" subtitle="Apply a professional structure for common ministry workflows." icon={<Wand2 className="h-5 w-5" />}>
             <div className="space-y-4">
-              <select value={selectedPreset} onChange={(event) => setSelectedPreset(event.target.value as FormPreset | '')} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-black text-slate-700 outline-none">
+              <select value={selectedPreset} onChange={(event) => setSelectedPreset(event.target.value as FormPreset | '')} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-black text-[var(--color-text-secondary)] outline-none">
                 <option value="">Choose preset</option>
                 <option value="testimonial">Testimonial Intake</option>
                 <option value="member">New Member Intake</option>
                 <option value="leadership">Leadership Intake</option>
               </select>
               <Button type="button" variant="outline" icon={<Wand2 className="h-4 w-4" />} disabled={!selectedPreset} onClick={() => selectedPreset && applyPreset(selectedPreset)}>Apply Preset</Button>
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Description preview</p>
-                <div className="mt-3 space-y-2 text-sm font-semibold leading-6 text-slate-600">
+              <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Description preview</p>
+                <div className="mt-3 space-y-2 text-sm font-semibold leading-6 text-[var(--color-text-secondary)]">
                   {descriptionStructure.paragraphs.length === 0 && descriptionStructure.bullets.length === 0 ? <p>No description yet.</p> : null}
                   {descriptionStructure.paragraphs.map((paragraph, index) => <p key={`description-paragraph-${index}`}>{paragraph}</p>)}
                   {descriptionStructure.bullets.length > 0 ? <ul className="list-disc space-y-1 pl-5">{descriptionStructure.bullets.map((item, index) => <li key={`description-bullet-${index}`}>{item}</li>)}</ul> : null}
                 </div>
               </div>
             </div>
-          </Panel>
+          </SectionCard>
         </section>
       ) : null}
 
       {step === 'fields' ? (
-        <Panel
+        <SectionCard
           title="Form builder"
           subtitle="Add fields, arrange the order, configure options, and mark required answers."
-          icon={Settings2}
+          icon={<Settings2 className="h-5 w-5" />}
           actions={<Button variant="outline" onClick={() => addField()} icon={<Plus className="h-4 w-4" />}>Add Field</Button>}
         >
           <div className="space-y-5">
@@ -844,11 +827,11 @@ export default withAuth(function NewFormPage() {
 
             <div className="space-y-4">
               {orderedFields.map((field, index) => (
-                <div key={`${field.key}-${index}`} className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+                <div key={`${field.key}-${index}`} className="rounded-[1.5rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Field #{index + 1}</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-500">{field.key || `field_${index + 1}`} • {field.type}</p>
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Field #{index + 1}</p>
+                      <p className="mt-1 text-sm font-semibold text-[var(--color-text-tertiary)]">{field.key || `field_${index + 1}`} • {field.type}</p>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => setRemoveFieldIndex(index)} icon={<Trash2 className="h-4 w-4" />}>Remove</Button>
                   </div>
@@ -856,14 +839,14 @@ export default withAuth(function NewFormPage() {
                   <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_140px] lg:items-end">
                     <Input label="Label" value={field.label} onChange={(event) => updateField(index, { label: event.target.value })} />
                     <div>
-                      <label className="mb-1 block text-sm font-bold text-slate-600">Type</label>
+                      <label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Type</label>
                       <select value={field.type} onChange={(event) => {
                         const nextType = event.target.value as FormFieldType;
                         const nextOptions = isOptionFieldType(nextType) && (!Array.isArray(field.options) || field.options.length === 0)
                           ? [{ label: 'Option 1', value: 'option-1' }, { label: 'Option 2', value: 'option-2' }]
                           : isOptionFieldType(nextType) ? field.options : undefined;
                         updateField(index, { type: nextType, options: nextOptions });
-                      }} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none">
+                      }} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] outline-none">
                         <option value="text">Text</option>
                         <option value="textarea">Textarea</option>
                         <option value="email">Email</option>
@@ -876,7 +859,7 @@ export default withAuth(function NewFormPage() {
                         <option value="image">Image Upload</option>
                       </select>
                     </div>
-                    <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-black text-slate-600"><input type="checkbox" checked={field.required} onChange={(event) => updateField(index, { required: event.target.checked })} />Required</label>
+                    <label className="flex items-center gap-2 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-black text-[var(--color-text-secondary)]"><input type="checkbox" checked={field.required} onChange={(event) => updateField(index, { required: event.target.checked })} />Required</label>
                   </div>
 
                   {field.type === 'textarea' ? (
@@ -884,11 +867,11 @@ export default withAuth(function NewFormPage() {
                   ) : null}
 
                   {isOptionFieldType(field.type) ? (
-                    <div className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
-                      <div className="flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Options</p><Button type="button" variant="outline" size="sm" onClick={() => addFieldOption(index)} icon={<Plus className="h-4 w-4" />}>Add option</Button></div>
+                    <div className="mt-4 space-y-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+                      <div className="flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Options</p><Button type="button" variant="outline" size="sm" onClick={() => addFieldOption(index)} icon={<Plus className="h-4 w-4" />}>Add option</Button></div>
                       {(field.options || []).map((option, optionIndex) => (
                         <div key={`${option.value}-${optionIndex}`} className="flex items-center gap-2">
-                          <input className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none" value={option.label} onChange={(event) => updateFieldOptionLabel(index, optionIndex, event.target.value)} placeholder={`Option ${optionIndex + 1}`} />
+                          <Input value={option.label} onChange={(event) => updateFieldOptionLabel(index, optionIndex, event.target.value)} placeholder={`Option ${optionIndex + 1}`} />
                           <Button type="button" variant="outline" size="sm" onClick={() => removeFieldOption(index, optionIndex)} icon={<Trash2 className="h-4 w-4" />}>Remove</Button>
                         </div>
                       ))}
@@ -898,7 +881,7 @@ export default withAuth(function NewFormPage() {
               ))}
             </div>
           </div>
-        </Panel>
+        </SectionCard>
       ) : null}
 
       {step === 'preview' ? (
@@ -921,33 +904,33 @@ export default withAuth(function NewFormPage() {
             footerTextColor={footerTextColor}
           />
 
-          <Panel title="Media and success state" subtitle="Configure public header image, success modal copy, and response email image." icon={ImageIcon}>
+          <SectionCard title="Media and success state" subtitle="Configure public header image, success modal copy, and response email image." icon={<ImageIcon className="h-5 w-5" />}>
             <div className="space-y-4">
               <Input label="Header image URL" value={coverImageUrl} onChange={(event) => setCoverImageUrl(event.target.value)} placeholder="https://..." />
               <Input label="Or upload header image" type="file" accept="image/*" onChange={(event) => handleBannerFile(event.target.files?.[0])} />
-              {(bannerPreview || coverImageUrl.trim()) ? <Image src={bannerPreview || coverImageUrl.trim()} alt="Banner preview" width={1200} height={400} className="max-h-64 w-full rounded-3xl border border-slate-200 object-cover" unoptimized /> : <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm font-bold text-slate-400">No header image selected.</div>}
+              {(bannerPreview || coverImageUrl.trim()) ? <Image src={bannerPreview || coverImageUrl.trim()} alt="Banner preview" width={1200} height={400} className="max-h-64 w-full rounded-3xl border border-[var(--color-border-secondary)] object-cover" unoptimized /> : <div className="rounded-3xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-8 text-center text-sm font-bold text-[var(--color-text-tertiary)]">No header image selected.</div>}
               <Input label="Success modal title" value={successTitle} onChange={(event) => setSuccessTitle(event.target.value)} placeholder="Thank you for registering" />
               <Input label="Success modal subtitle" value={successSubtitle} onChange={(event) => setSuccessSubtitle(event.target.value)} placeholder="for {{formTitle}}" />
-              <label className="grid gap-1.5"><span className="text-sm font-bold text-slate-600">Success modal message</span><textarea className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-7 text-slate-800 outline-none" rows={3} value={successMessage} onChange={(event) => setSuccessMessage(event.target.value)} /></label>
+              <label className="grid gap-1.5"><span className="text-sm font-bold text-[var(--color-text-secondary)]">Success modal message</span><textarea className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold leading-7 text-[var(--color-text-primary)] outline-none" rows={3} value={successMessage} onChange={(event) => setSuccessMessage(event.target.value)} /></label>
             </div>
-          </Panel>
+          </SectionCard>
         </section>
       ) : null}
 
       {step === 'style' ? (
         <section className="grid gap-6 xl:grid-cols-2">
-          <Panel title="Public layout and copy" subtitle="Fine-tune the left-side information panel and field presentation." icon={Palette}>
+          <SectionCard title="Public layout and copy" subtitle="Fine-tune the left-side information panel and field presentation." icon={<Palette className="h-5 w-5" />}>
             <div className="grid gap-4 md:grid-cols-2">
               <Input label="Left column title" value={introTitle} onChange={(event) => setIntroTitle(event.target.value)} />
               <Input label="Left column subtitle" value={introSubtitle} onChange={(event) => setIntroSubtitle(event.target.value)} />
-              <label className="grid gap-1.5"><span className="text-sm font-bold text-slate-600">Left column bullets</span><textarea className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-7 text-slate-800 outline-none" rows={4} value={introBullets} onChange={(event) => setIntroBullets(event.target.value)} /></label>
-              <label className="grid gap-1.5"><span className="text-sm font-bold text-slate-600">Bullet subtext</span><textarea className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-7 text-slate-800 outline-none" rows={4} value={introBulletSubs} onChange={(event) => setIntroBulletSubs(event.target.value)} /></label>
-              <div><label className="mb-1 block text-sm font-bold text-slate-600">Layout</label><select value={layoutMode} onChange={(event) => setLayoutMode(event.target.value as 'split' | 'stack')} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none"><option value="split">Two column layout</option><option value="stack">Single column layout</option></select></div>
-              <div><label className="mb-1 block text-sm font-bold text-slate-600">Date format</label><select value={dateFormat} onChange={(event) => setDateFormat(event.target.value as DateFormat)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none">{dateFormats.map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}</select></div>
+              <label className="grid gap-1.5"><span className="text-sm font-bold text-[var(--color-text-secondary)]">Left column bullets</span><textarea className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold leading-7 text-[var(--color-text-primary)] outline-none" rows={4} value={introBullets} onChange={(event) => setIntroBullets(event.target.value)} /></label>
+              <label className="grid gap-1.5"><span className="text-sm font-bold text-[var(--color-text-secondary)]">Bullet subtext</span><textarea className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold leading-7 text-[var(--color-text-primary)] outline-none" rows={4} value={introBulletSubs} onChange={(event) => setIntroBulletSubs(event.target.value)} /></label>
+              <div><label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Layout</label><select value={layoutMode} onChange={(event) => setLayoutMode(event.target.value as 'split' | 'stack')} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] outline-none"><option value="split">Two column layout</option><option value="stack">Single column layout</option></select></div>
+              <div><label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Date format</label><select value={dateFormat} onChange={(event) => setDateFormat(event.target.value as DateFormat)} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] outline-none">{dateFormats.map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}</select></div>
             </div>
-          </Panel>
+          </SectionCard>
 
-          <Panel title="Footer, submit button, and response email" subtitle="Control button styling and configure automatic confirmation." icon={CheckCircle2}>
+          <SectionCard title="Footer, submit button, and response email" subtitle="Control button styling and configure automatic confirmation." icon={<CheckCircle2 className="h-5 w-5" />}>
             <div className="grid gap-4 md:grid-cols-2">
               <Input label="Footer text" value={footerText} onChange={(event) => setFooterText(event.target.value)} />
               <Input label="Submit button text" value={submitButtonText} onChange={(event) => setSubmitButtonText(event.target.value)} />
@@ -955,25 +938,25 @@ export default withAuth(function NewFormPage() {
               <ColorInput label="Footer text" value={footerTextColor} onChange={setFooterTextColor} />
               <ColorInput label="Button background" value={submitButtonBg} onChange={setSubmitButtonBg} />
               <ColorInput label="Button text" value={submitButtonTextColor} onChange={setSubmitButtonTextColor} />
-              <div><label className="mb-1 block text-sm font-bold text-slate-600">Submit icon</label><select value={submitButtonIcon} onChange={(event) => setSubmitButtonIcon(event.target.value as SubmitButtonIcon)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none">{submitButtonIcons.map((icon) => <option key={icon} value={icon}>{icon}</option>)}</select></div>
-              <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-600"><input type="checkbox" checked={responseEmailEnabled} onChange={(event) => setResponseEmailEnabled(event.target.checked)} />Enable response email</label>
+              <div><label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Submit icon</label><select value={submitButtonIcon} onChange={(event) => setSubmitButtonIcon(event.target.value as SubmitButtonIcon)} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] outline-none">{submitButtonIcons.map((icon) => <option key={icon} value={icon}>{icon}</option>)}</select></div>
+              <label className="flex items-center gap-2 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-black text-[var(--color-text-secondary)]"><input type="checkbox" checked={responseEmailEnabled} onChange={(event) => setResponseEmailEnabled(event.target.checked)} />Enable response email</label>
               <Input label="Email subject" value={responseEmailSubject} onChange={(event) => setResponseEmailSubject(event.target.value)} disabled={!responseEmailEnabled} />
               <Input label="Template key" value={responseTemplateKeyPreview} disabled />
               <Input label="Email heading" value={responseEmailHeading} onChange={(event) => setResponseEmailHeading(event.target.value)} disabled={!responseEmailEnabled} />
               <Input label="Template image URL" value={responseTemplateUrl} onChange={(event) => setResponseTemplateUrl(event.target.value)} disabled={!responseEmailEnabled} />
               <Input label="Or upload template image" type="file" accept="image/*" onChange={(event) => handleResponseTemplateFile(event.target.files?.[0])} disabled={!responseEmailEnabled} />
-              <label className="grid gap-1.5 md:col-span-2"><span className="text-sm font-bold text-slate-600">Email body message</span><textarea className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-7 text-slate-800 outline-none disabled:opacity-50" rows={3} value={responseEmailMessage} onChange={(event) => setResponseEmailMessage(event.target.value)} disabled={!responseEmailEnabled} /></label>
-              {(responseTemplatePreview || responseTemplateUrl.trim()) ? <Image src={responseTemplatePreview || responseTemplateUrl.trim()} alt="Response template preview" width={1200} height={400} className="max-h-64 w-full rounded-3xl border border-slate-200 object-cover md:col-span-2" unoptimized /> : null}
+              <label className="grid gap-1.5 md:col-span-2"><span className="text-sm font-bold text-[var(--color-text-secondary)]">Email body message</span><textarea className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold leading-7 text-[var(--color-text-primary)] outline-none disabled:opacity-50" rows={3} value={responseEmailMessage} onChange={(event) => setResponseEmailMessage(event.target.value)} disabled={!responseEmailEnabled} /></label>
+              {(responseTemplatePreview || responseTemplateUrl.trim()) ? <Image src={responseTemplatePreview || responseTemplateUrl.trim()} alt="Response template preview" width={1200} height={400} className="max-h-64 w-full rounded-3xl border border-[var(--color-border-secondary)] object-cover md:col-span-2" unoptimized /> : null}
             </div>
-          </Panel>
+          </SectionCard>
         </section>
       ) : null}
 
-      <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Form link</p>
-            <p className="mt-2 break-all text-sm font-bold text-slate-600">{publishedSlug ? buildPublicFormUrl(publishedSlug) : 'Create & publish to generate link'}</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Form link</p>
+            <p className="mt-2 break-all text-sm font-bold text-[var(--color-text-secondary)]">{publishedSlug ? buildPublicFormUrl(publishedSlug) : 'Create & publish to generate link'}</p>
           </div>
           <Button variant="outline" size="sm" onClick={async () => {
             if (!publishedSlug) {
@@ -1014,10 +997,10 @@ export default withAuth(function NewFormPage() {
 function ColorInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
     <label className="grid gap-1.5">
-      <span className="text-sm font-bold text-slate-600">{label}</span>
-      <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-        <input type="color" value={value} onChange={(event) => onChange(event.target.value)} className="h-8 w-12 rounded border border-slate-200 bg-transparent" />
-        <span className="text-xs font-black text-slate-500">{value}</span>
+      <span className="text-sm font-bold text-[var(--color-text-secondary)]">{label}</span>
+      <div className="flex items-center gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
+        <input type="color" value={value} onChange={(event) => onChange(event.target.value)} className="h-8 w-12 rounded border border-[var(--color-border-secondary)] bg-transparent" />
+        <span className="text-xs font-black text-[var(--color-text-tertiary)]">{value}</span>
       </div>
     </label>
   );
@@ -1059,30 +1042,30 @@ function FormPreview({
   const bulletSubtexts = introBulletSubs.split('\n');
 
   return (
-    <Panel title="Live public preview" subtitle="This approximates what visitors will see on the published form." icon={Eye}>
+    <SectionCard title="Live public preview" subtitle="This approximates what visitors will see on the published form." icon={<Eye className="h-5 w-5" />}>
       <div className={`grid gap-6 ${layoutMode === 'split' ? 'lg:grid-cols-[1.1fr_1fr]' : 'grid-cols-1'}`}>
-        <div className="space-y-4 rounded-[1.5rem] border border-slate-200 bg-slate-950 p-5 text-white">
-          <div className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-white/60">Preview</div>
+        <div className="space-y-4 rounded-[1.5rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] p-5 text-[var(--color-text-inverse)]">
+          <div className="inline-flex items-center rounded-full border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-inverse)]/60">Preview</div>
           <h2 className="text-3xl font-black tracking-tight">{introTitle || 'Form Details'}</h2>
-          <p className="text-sm leading-7 text-white/65">{introSubtitle || 'Secure your spot by registering below.'}</p>
-          {formHeaderNote ? <p className="rounded-2xl border border-white/10 bg-white/10 p-3 text-xs font-semibold text-white/55">{formHeaderNote}</p> : null}
+          <p className="text-sm leading-7 text-[var(--color-text-inverse)]/65">{introSubtitle || 'Secure your spot by registering below.'}</p>
+          {formHeaderNote ? <p className="rounded-2xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-3 text-xs font-semibold text-[var(--color-text-inverse)]/55">{formHeaderNote}</p> : null}
           <div className="grid gap-3">
             {introBullets.split('\n').filter(Boolean).map((item, index) => (
-              <div key={item} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-400 text-sm font-black text-slate-950">{index + 1}</div>
-                <div className="text-sm leading-relaxed text-white/70">
-                  <div className="font-black text-white">{item}</div>
-                  {bulletSubtexts[index] ? <div className="mt-1 text-xs text-white/45">{bulletSubtexts[index]}</div> : null}
+              <div key={item} className="flex items-center gap-3 rounded-2xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-4 py-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-accent-primary)] text-sm font-black text-[var(--color-text-primary)]">{index + 1}</div>
+                <div className="text-sm leading-relaxed text-[var(--color-text-inverse)]/70">
+                  <div className="font-black text-[var(--color-text-inverse)]">{item}</div>
+                  {bulletSubtexts[index] ? <div className="mt-1 text-xs text-[var(--color-text-inverse)]/45">{bulletSubtexts[index]}</div> : null}
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="space-y-4 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+        <div className="space-y-4 rounded-[1.5rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5">
           {fields.map((field, index) => (
             <div key={`${field.key}-${index}`} className="space-y-1">
-              {field.type !== 'checkbox' ? <label className="block text-sm font-black text-slate-600">{field.label} {field.required ? <span className="text-red-500">*</span> : null}</label> : null}
+              {field.type !== 'checkbox' ? <label className="block text-sm font-black text-[var(--color-text-secondary)]">{field.label} {field.required ? <span className="text-[var(--color-danger-text)]">*</span> : null}</label> : null}
               {renderFieldPreview(field, dateFormat)}
             </div>
           ))}
@@ -1092,19 +1075,19 @@ function FormPreview({
           <div className="rounded-2xl px-3 py-2 text-center text-xs font-black" style={{ background: footerBg, color: footerTextColor }}>{footerText}</div>
         </div>
       </div>
-    </Panel>
+    </SectionCard>
   );
 }
 
 function renderFieldPreview(field: FieldDraft, dateFormat: DateFormat) {
-  const inputClass = 'w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700';
+  const inputClass = 'w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold text-[var(--color-text-secondary)]';
 
   if (field.type === 'textarea') return <textarea disabled className={inputClass} rows={3} placeholder={field.label} />;
   if (field.type === 'select') return <select disabled className={inputClass}><option value="">Select...</option>{(field.options || []).map((option) => <option key={option.value}>{option.label}</option>)}</select>;
-  if (field.type === 'checkbox') return (field.options?.length ? field.options : [{ label: field.label, value: field.key }]).map((option) => <label key={option.value} className="flex items-center gap-2 text-sm font-semibold text-slate-600"><input type="checkbox" disabled className="h-4 w-4 rounded border-slate-300" />{option.label}</label>);
-  if (field.type === 'radio') return <div className="space-y-1">{(field.options || []).map((option) => <label key={option.value} className="flex items-center gap-2 text-sm font-semibold text-slate-600"><input type="radio" disabled className="h-4 w-4 rounded-full border-slate-300" />{option.label}</label>)}</div>;
-  if (field.type === 'image') return <div className="space-y-1"><input disabled type="file" accept="image/jpeg,image/png,image/webp" className={inputClass} /><p className="text-[11px] font-semibold text-slate-400">JPEG, PNG, WebP up to 5MB</p></div>;
-  if (field.type === 'date') return <div><div className="grid grid-cols-1 gap-2 sm:grid-cols-2"><select disabled className={inputClass}><option value="">Select day</option>{dayOptions.map((day) => <option key={day} value={day}>{day}</option>)}</select><select disabled className={inputClass}><option value="">Select month</option>{monthOptions.map((month) => <option key={month.value} value={month.value}>{month.label}</option>)}</select></div><p className="mt-1 text-[11px] font-semibold text-slate-400">Format: {dateFormat.toUpperCase()}</p></div>;
+  if (field.type === 'checkbox') return (field.options?.length ? field.options : [{ label: field.label, value: field.key }]).map((option) => <label key={option.value} className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-secondary)]"><input type="checkbox" disabled className="h-4 w-4 rounded border-[var(--color-border-primary)]" />{option.label}</label>);
+  if (field.type === 'radio') return <div className="space-y-1">{(field.options || []).map((option) => <label key={option.value} className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-secondary)]"><input type="radio" disabled className="h-4 w-4 rounded-full border-[var(--color-border-primary)]" />{option.label}</label>)}</div>;
+  if (field.type === 'image') return <div className="space-y-1"><input disabled type="file" accept="image/jpeg,image/png,image/webp" className={inputClass} /><p className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">JPEG, PNG, WebP up to 5MB</p></div>;
+  if (field.type === 'date') return <div><div className="grid grid-cols-1 gap-2 sm:grid-cols-2"><select disabled className={inputClass}><option value="">Select day</option>{dayOptions.map((day) => <option key={day} value={day}>{day}</option>)}</select><select disabled className={inputClass}><option value="">Select month</option>{monthOptions.map((month) => <option key={month.value} value={month.value}>{month.label}</option>)}</select></div><p className="mt-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">Format: {dateFormat.toUpperCase()}</p></div>;
 
   return <input disabled type={field.type} className={inputClass} placeholder={field.label} />;
 }
