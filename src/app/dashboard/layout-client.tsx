@@ -8,29 +8,11 @@ import { Navbar } from '@/components/Navbar';
 import { SessionTimeout } from '@/components/SessionTimeout';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { getUserRole } from '@/lib/authRole';
+import { isAdminOnlyPath, isSuperAdminPath } from '@/lib/access';
 
 type DashboardLayoutClientProps = Readonly<{
   children: ReactNode;
 }>;
-
-const normalAdminPrefixes = [
-  '/dashboard/event',
-  '/dashboard/reels',
-  '/dashboard/testimonials',
-  '/dashboard/forms',
-  '/dashboard/email-marketing',
-  '/dashboard/newsletter',
-  '/dashboard/registrations',
-  '/dashboard/notifications',
-  '/dashboard/content',
-  '/dashboard/settings',
-  '/dashboard/store',
-  '/dashboard/administration',
-  '/dashboard/leadership',
-  '/dashboard/workforce',
-  '/dashboard/new-members',
-  '/dashboard/members',
-];
 
 function FullPageMessage({ title, description }: { title: string; description: string }) {
   return (
@@ -41,15 +23,6 @@ function FullPageMessage({ title, description }: { title: string; description: s
       </div>
     </div>
   );
-}
-
-function isNormalAdminPath(pathname: string): boolean {
-  if (pathname === '/dashboard') return true;
-  return normalAdminPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-}
-
-function isSuperAdminPath(pathname: string): boolean {
-  return pathname === '/dashboard/super' || pathname.startsWith('/dashboard/super/');
 }
 
 export default function DashboardLayoutClient({ children }: DashboardLayoutClientProps) {
@@ -87,7 +60,7 @@ export default function DashboardLayoutClient({ children }: DashboardLayoutClien
     // - super_admin owns the authority console only.
     // - admin owns the operational dashboard only.
     // This prevents the super-admin from becoming an operational admin user.
-    if (isSuperAdmin && isNormalAdminPath(pathname)) {
+    if (isSuperAdmin && isAdminOnlyPath(pathname)) {
       router.replace('/dashboard/super');
       return;
     }

@@ -26,7 +26,7 @@ import toast from 'react-hot-toast';
 import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
 import { Button } from '@/ui/Button';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { apiClient } from '@/lib/api';
 import MediaUploadField from '@/components/MediaUploadField';
 import { uploadAsset } from '@/lib/uploads';

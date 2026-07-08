@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback, type ChangeEvent, type FormEvent } fr
 import { Save, Bell, Lock, User, Trash2, ShieldCheck, Smartphone, Copy, Link as LinkIcon } from 'lucide-react';
 import QRCode from 'qrcode';
 import { Button } from '@/ui/Button';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { Card } from '@/ui/Card';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { apiClient } from '@/lib/api';

@@ -17,6 +17,7 @@ import {
   clearAuthStorage,
   // isApiError,
 } from '@/lib/api';
+import { getUserRole as getNormalizedUserRole } from '@/lib/authRole';
 import type {
   User,
   MessageResponse,
@@ -126,12 +127,6 @@ function getStatusCode(e: unknown): number | undefined {
   return typeof status === 'number' ? status : undefined;
 }
 
-function getUserRole(user: User | null): string {
-  if (!user) return '';
-  const maybeRole = (user as unknown as { role?: unknown }).role;
-  return typeof maybeRole === 'string' ? maybeRole.trim().toLowerCase() : '';
-}
-
 function getUserPermissions(user: User | null): string[] {
   if (!user) return [];
   const maybePermissions = (user as unknown as { permissions?: unknown }).permissions;
@@ -142,7 +137,7 @@ function getUserPermissions(user: User | null): string[] {
 function isAdminUser(user: User | null): boolean {
   if (!user) return false;
 
-  const role = getUserRole(user);
+  const role = getNormalizedUserRole(user);
   const directAdminFlag = (user as unknown as { isAdmin?: unknown }).isAdmin === true;
 
   return directAdminFlag || role === 'admin' || role === 'super_admin';

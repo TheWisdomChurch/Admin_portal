@@ -13,7 +13,7 @@ import { Footer } from '@/components/Footer';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Checkbox } from '@/ui/Checkbox';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { PasswordStrengthMeter } from '@/ui/PasswordStrengthMeter';
 import { apiClient } from '@/lib/api';
 import { extractServerFieldErrors, getServerErrorMessage } from '@/lib/serverValidation';

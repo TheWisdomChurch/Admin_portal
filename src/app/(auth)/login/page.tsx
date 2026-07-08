@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { Checkbox } from '@/ui/Checkbox';
 import toast from 'react-hot-toast';
 import Link from 'next/link';

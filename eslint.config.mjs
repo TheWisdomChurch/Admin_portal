@@ -55,6 +55,38 @@ const eslintConfig = defineConfig([
     }
   },
 
+  /*
+   * Drift prevention: src/ui/ is the shared component library. These pages
+   * grew local re-implementations of Panel/StatCard/EmptyState/Badge/Modal
+   * (10+ times each in some cases) and raw <input> elements instead of the
+   * shared Input, rather than reusing src/ui/. Flag both patterns so new
+   * instances of the same drift are caught in review, not months later.
+   */
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/ui/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'warn',
+        {
+          selector: "JSXOpeningElement[name.name='input']",
+          message:
+            'Use the shared <Input> from @/ui/Input instead of a raw <input> (file/color/checkbox-type inputs styled with tokens are fine to suppress inline).'
+        },
+        {
+          selector:
+            ":matches(FunctionDeclaration, VariableDeclarator, ClassDeclaration)[id.name=/^(Panel|StatCard|EmptyState|Modal)$/]",
+          message:
+            'A shared component with this name already exists in @/ui — import it instead of redeclaring a local version.'
+        },
+        {
+          selector: "FunctionDeclaration[id.name='Badge'], VariableDeclarator[id.name='Badge']",
+          message: 'Import Badge from @/ui/Badge instead of declaring a local component with the same name.'
+        }
+      ]
+    }
+  },
+
   globalIgnores([
     '.next/**',
     'out/**',

@@ -2,6 +2,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/providers/AuthProviders';
+import { QueryProvider } from '@/providers/QueryProvider';
 import { ThemeProvider } from '@/providers/ThemeProviders';
 import { bodyFont, fontVariables } from '@/styles/fonts';
 
@@ -85,7 +86,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className={`${bodyFont.className} ${fontVariables}`}>
         <ThemeProvider defaultTheme="light">
-          <AuthProvider>{children}</AuthProvider>
+          <QueryProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

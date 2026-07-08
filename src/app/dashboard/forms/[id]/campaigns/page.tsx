@@ -56,7 +56,7 @@ import type { AdminForm, EmailTemplate, EventData, FormSubmission, UpdateFormReq
 import { withAuth } from '@/providers/withAuth';
 import { ActionStatusModal, type ActionStatusDetail, type ActionStatusMode } from '@/ui/ActionStatusModal';
 import { Button } from '@/ui/Button';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 
 type AudienceStats = {
   totalSubmissions: number;

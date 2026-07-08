@@ -2,6 +2,7 @@
 
 import { AlertTriangle, CheckCircle2, Info, Loader2, Sparkles, X } from 'lucide-react';
 import { Button } from '@/ui/Button';
+import { Modal } from '@/ui/Modal';
 
 export type ActionStatusMode = 'progress' | 'success' | 'error' | 'info';
 
@@ -75,8 +76,6 @@ export function ActionStatusModal({
   primaryAction,
   secondaryAction,
 }: ActionStatusModalProps) {
-  if (!open) return null;
-
   const config = modeConfig[mode];
   const Icon = config.icon;
   const normalizedDetails = (details || []).filter(
@@ -85,11 +84,16 @@ export function ActionStatusModal({
   const showActions = mode !== 'progress';
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm">
-      <div
-        className={`w-full max-w-lg overflow-hidden rounded-[28px] border bg-[var(--color-background-primary)] shadow-[0_32px_90px_rgba(15,23,42,0.26)] ${config.panelClassName}`}
-      >
-        <div className="relative overflow-hidden border-b border-[var(--color-border-secondary)] px-6 pb-6 pt-6">
+    <Modal
+      open={open}
+      onClose={onClose}
+      size="lg"
+      overlayClassName="z-[70] bg-slate-950/55"
+      closeOnBackdrop={mode !== 'progress'}
+      className={`rounded-[28px] shadow-[0_32px_90px_rgba(15,23,42,0.26)] ${config.panelClassName}`}
+      labelledBy="action-status-modal-title"
+    >
+      <div className="relative overflow-hidden border-b border-[var(--color-border-secondary)] px-6 pb-6 pt-6">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.14),transparent_58%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.12),transparent_46%)]" />
           {mode !== 'progress' ? (
             <button
@@ -109,7 +113,7 @@ export function ActionStatusModal({
             <div className="mt-4 flex h-14 w-14 items-center justify-center rounded-[18px] bg-[var(--color-background-secondary)]">
               <Icon className={`h-7 w-7 ${config.iconClassName}`} />
             </div>
-            <h3 className="mt-5 text-2xl font-semibold tracking-tight text-[var(--color-text-primary)]">
+            <h3 id="action-status-modal-title" className="mt-5 text-2xl font-semibold tracking-tight text-[var(--color-text-primary)]">
               {title}
             </h3>
             <p className="mt-3 max-w-xl text-sm leading-7 text-[var(--color-text-secondary)]">
@@ -166,7 +170,6 @@ export function ActionStatusModal({
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }

@@ -7,7 +7,7 @@ import { ArrowLeft, Code2, Eye, Image as ImageIcon, LayoutTemplate, MailCheck, S
 
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
 import { apiClient } from '@/lib/api';

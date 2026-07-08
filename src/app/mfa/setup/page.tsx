@@ -12,7 +12,7 @@ import type { AuthSecurityProfile, TOTPSetupResponse } from '@/lib/types';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 
 type LooseRecord = Record<string, unknown>;
 

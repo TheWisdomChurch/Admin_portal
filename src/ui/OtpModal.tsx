@@ -2,7 +2,8 @@
 
 import { X, ShieldCheck, Mail, KeyRound } from 'lucide-react';
 import { Button } from '@/ui/Button';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
+import { Modal } from '@/ui/Modal';
 
 type Step = 'email' | 'otp';
 
@@ -49,33 +50,30 @@ export function OtpModal({
   secondaryActionText,
   onSecondaryAction,
 }: OtpModalProps) {
-  if (!open) return null;
-
   const isEmailStep = step === 'email';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
-      <div className="w-full max-w-md rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-5 py-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-text-tertiary)]">Two-factor check</p>
-            <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-full p-2 hover:bg-[var(--color-background-hover)]"
-            aria-label="Close"
-            disabled={loading}
-          >
-            <X className="h-4 w-4 text-[var(--color-text-secondary)]" />
-          </button>
+    <Modal open={open} onClose={onClose} labelledBy="otp-modal-title">
+      <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-5 py-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-text-tertiary)]">Two-factor check</p>
+          <h3 id="otp-modal-title" className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h3>
         </div>
+        <button
+          onClick={onClose}
+          className="rounded-full p-2 hover:bg-[var(--color-background-hover)]"
+          aria-label="Close"
+          disabled={loading}
+        >
+          <X className="h-4 w-4 text-[var(--color-text-secondary)]" />
+        </button>
+      </div>
 
-        <div className="space-y-4 px-5 py-5">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]">
-            {isEmailStep ? <Mail className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
-          </div>
-          <p className="text-sm text-[var(--color-text-secondary)]">{subtitle}</p>
+      <div className="space-y-4 px-5 py-5">
+        <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]">
+          {isEmailStep ? <Mail className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
+        </div>
+        <p className="text-sm text-[var(--color-text-secondary)]">{subtitle}</p>
 
           {isEmailStep ? (
             <div className="space-y-2">
@@ -151,7 +149,6 @@ export function OtpModal({
             )}
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

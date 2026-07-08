@@ -51,6 +51,8 @@ import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
+import { getChartPalette } from '@/lib/charts/palette';
+import { useTheme } from '@/providers/ThemeProviders';
 import { withAuth } from '@/providers/withAuth';
 import type {
   AdminEmailMarketingSummary,
@@ -144,19 +146,6 @@ const RAW_API_BASE = (
   process.env.NEXT_PUBLIC_BACKEND_URL ||
   ''
 ).replace(/\/+$/, '');
-
-const chartColors = {
-  blue: '#2563eb',
-  blueSoft: 'rgba(37, 99, 235, 0.14)',
-  emerald: '#059669',
-  emeraldSoft: 'rgba(5, 150, 105, 0.16)',
-  amber: '#d97706',
-  amberSoft: 'rgba(217, 119, 6, 0.18)',
-  violet: '#7c3aed',
-  rose: '#e11d48',
-  cyan: '#0891b2',
-  slate: '#0f172a',
-};
 
 const tabs: Array<{ key: TabKey; label: string; icon: typeof LayoutDashboard }> = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -532,6 +521,8 @@ function getRecordIcon(type: RecordType) {
 }
 
 function DashboardPage() {
+  const { resolvedTheme } = useTheme();
+  const chartPalette = useMemo(() => getChartPalette(resolvedTheme), [resolvedTheme]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
@@ -722,8 +713,8 @@ function DashboardPage() {
         {
           label: 'Events',
           data: monthlyStats.map((row) => row.events),
-          borderColor: chartColors.emerald,
-          backgroundColor: chartColors.emeraldSoft,
+          borderColor: chartPalette.series.emerald.line,
+          backgroundColor: chartPalette.series.emerald.fill,
           borderWidth: 3,
           fill: true,
           tension: 0.42,
@@ -732,8 +723,8 @@ function DashboardPage() {
         {
           label: 'Attendees',
           data: monthlyStats.map((row) => row.attendees),
-          borderColor: chartColors.blue,
-          backgroundColor: chartColors.blueSoft,
+          borderColor: chartPalette.series.blue.line,
+          backgroundColor: chartPalette.series.blue.fill,
           borderWidth: 3,
           fill: true,
           tension: 0.42,
@@ -741,7 +732,7 @@ function DashboardPage() {
         },
       ],
     }),
-    [monthlyStats]
+    [monthlyStats, chartPalette]
   );
 
   const categoryChartData = useMemo(
@@ -750,14 +741,14 @@ function DashboardPage() {
       datasets: [
         {
           data: Object.values(eventsByCategory),
-          backgroundColor: [chartColors.blue, chartColors.emerald, chartColors.amber, chartColors.violet, chartColors.rose, chartColors.cyan],
-          borderColor: '#ffffff',
+          backgroundColor: chartPalette.categorical,
+          borderColor: chartPalette.surface,
           borderWidth: 4,
           hoverOffset: 8,
         },
       ],
     }),
-    [eventsByCategory]
+    [eventsByCategory, chartPalette]
   );
 
   const submissionsChartData = useMemo(
@@ -767,14 +758,14 @@ function DashboardPage() {
         {
           label: 'Submissions',
           data: submissionsTrend.values,
-          backgroundColor: chartColors.amberSoft,
-          borderColor: chartColors.amber,
+          backgroundColor: chartPalette.series.amber.fill,
+          borderColor: chartPalette.series.amber.line,
           borderWidth: 2,
           borderRadius: 12,
         },
       ],
     }),
-    [submissionsTrend]
+    [submissionsTrend, chartPalette]
   );
 
   const workforceChartData = useMemo(
@@ -784,14 +775,14 @@ function DashboardPage() {
         {
           label: 'Workers',
           data: workforceDepartments.map(([, count]) => count),
-          backgroundColor: chartColors.blueSoft,
-          borderColor: chartColors.blue,
+          backgroundColor: chartPalette.series.blue.fill,
+          borderColor: chartPalette.series.blue.line,
           borderWidth: 2,
           borderRadius: 10,
         },
       ],
     }),
-    [workforceDepartments]
+    [workforceDepartments, chartPalette]
   );
 
   const totalEvents = numberValue((snapshot.analytics as RawRecord | null)?.totalEvents);

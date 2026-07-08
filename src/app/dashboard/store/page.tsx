@@ -28,7 +28,7 @@ import type {
   StoreProductAdmin,
   UpsertStoreProductRequest,
 } from '@/lib/types';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
 

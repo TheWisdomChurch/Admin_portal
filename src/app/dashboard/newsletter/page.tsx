@@ -10,7 +10,7 @@ import { getServerErrorMessage } from '@/lib/serverValidation';
 import type { EventData, Subscriber, SubscriberSummary } from '@/lib/types';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 
 function formatDate(value?: string): string {
   if (!value) return '—';

@@ -8,7 +8,7 @@ import { Plus, Trash2, Copy, Save, Globe, Mail, MailCheck, Send } from 'lucide-r
 
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { PageHeader } from '@/layouts';
 import { AlertModal } from '@/ui/AlertModal';
 import FormFieldOrderBuilder from '../../FormFieldOrderBuilder';

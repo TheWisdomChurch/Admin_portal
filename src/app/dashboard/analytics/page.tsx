@@ -22,8 +22,10 @@ import { Card } from '@/ui/Card';
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
+import { getChartPalette } from '@/lib/charts/palette';
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
+import { useTheme } from '@/providers/ThemeProviders';
 
 ChartJS.register(
   CategoryScale,
@@ -53,6 +55,8 @@ interface AnalyticsData {
 
 function AnalyticsPage() {
   const { isInitialized, isLoading } = useAuthContext();
+  const { resolvedTheme } = useTheme();
+  const chartPalette = useMemo(() => getChartPalette(resolvedTheme), [resolvedTheme]);
 
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>('month');
@@ -103,12 +107,12 @@ function AnalyticsPage() {
       datasets: [
         {
           data: Object.values(byCategory),
-          backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'],
+          backgroundColor: chartPalette.categorical,
           borderWidth: 1,
         },
       ],
     };
-  }, [analytics]);
+  }, [analytics, chartPalette]);
 
   const monthlyEventsData = useMemo(() => {
     const stats = analytics?.monthlyStats ?? [];
@@ -118,18 +122,18 @@ function AnalyticsPage() {
         {
           label: 'Events',
           data: stats.map((stat) => stat.events),
-          backgroundColor: '#3b82f6',
+          backgroundColor: chartPalette.series.blue.line,
           borderRadius: 4,
         },
         {
           label: 'Attendees',
           data: stats.map((stat) => stat.attendees / 100),
-          backgroundColor: '#10b981',
+          backgroundColor: chartPalette.series.emerald.line,
           borderRadius: 4,
         },
       ],
     };
-  }, [analytics]);
+  }, [analytics, chartPalette]);
 
   const handleExport = () => {
     toast.success('Export feature coming soon!');
