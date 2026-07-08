@@ -15,7 +15,7 @@ import {
 
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
 import { useDashboardSearch } from '@/hooks/useDashboardSearch';

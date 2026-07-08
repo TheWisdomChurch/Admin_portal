@@ -16,7 +16,7 @@ import toast from 'react-hot-toast';
 import { PageHeader } from '@/layouts';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { apiClient } from '@/lib/api';
 import type { NewMemberDashboardResponse, NewMemberSubmission } from '@/lib/types';
 

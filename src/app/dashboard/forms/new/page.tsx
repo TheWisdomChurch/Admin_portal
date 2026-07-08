@@ -25,7 +25,7 @@ import {
 
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/layouts';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { AlertModal } from '@/ui/AlertModal';
 
 import { apiClient } from '@/lib/api';

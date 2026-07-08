@@ -13,7 +13,7 @@ import toast from 'react-hot-toast';
 import { Footer } from '@/components/Footer';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
-import { Input } from '@/ui/input';
+import { Input } from '@/ui/Input';
 import { PasswordStrengthMeter } from '@/ui/PasswordStrengthMeter';
 import { apiClient } from '@/lib/api';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
