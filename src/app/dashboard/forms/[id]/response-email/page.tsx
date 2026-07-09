@@ -323,7 +323,7 @@ function ResponseEmailEditorPage() {
   if (loading) {
     return (
       <div className="flex min-h-[300px] w-full items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent" />
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-[var(--color-accent-primary)] border-r-transparent" />
       </div>
     );
   }
