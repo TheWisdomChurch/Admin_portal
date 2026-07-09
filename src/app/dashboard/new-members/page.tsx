@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BarElement,
   CategoryScale,
@@ -17,7 +17,12 @@ import { PageHeader } from '@/layouts';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
+import { Panel } from '@/ui/Panel';
+import { StatCard } from '@/ui/StatCard';
 import { apiClient } from '@/lib/api';
+import { getChartPalette } from '@/lib/charts/palette';
+import { useTheme } from '@/providers/ThemeProviders';
+import { withAuth } from '@/providers/withAuth';
 import type { NewMemberDashboardResponse, NewMemberSubmission } from '@/lib/types';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
@@ -66,15 +71,9 @@ function shortPeriod(period: string, prefix?: string): string {
   return period.slice(0, 10);
 }
 
-function ShellCard({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm ${className}`}>{children}</section>;
-}
-
-function StatCard({ label, value, hint }: { label: string; value: number; hint: string }) {
-  return <ShellCard className="p-5"><p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</p><p className="mt-3 text-3xl font-black text-[var(--color-text-primary)]">{value}</p><p className="mt-2 text-sm text-[var(--color-text-secondary)]">{hint}</p></ShellCard>;
-}
-
-export default function NewMembersPage() {
+function NewMembersPage() {
+  const { resolvedTheme } = useTheme();
+  const chartPalette = useMemo(() => getChartPalette(resolvedTheme), [resolvedTheme]);
   const [dashboard, setDashboard] = useState<NewMemberDashboardResponse | null>(null);
   const [submissions, setSubmissions] = useState<NewMemberSubmission[]>([]);
   const [query, setQuery] = useState('');
@@ -118,8 +117,8 @@ export default function NewMembersPage() {
   const activeGrowth = growthSets[section] as GrowthPoint[];
   const chartData = useMemo(() => ({
     labels: activeGrowth.map((item) => shortPeriod(item.period, section === 'yearly' ? 'Year' : section === 'quarterly' ? 'Quarter' : undefined)),
-    datasets: [{ label: 'New members', data: activeGrowth.map((item) => item.count), backgroundColor: '#2563eb', borderRadius: 10, maxBarThickness: 36 }],
-  }), [activeGrowth, section]);
+    datasets: [{ label: 'New members', data: activeGrowth.map((item) => item.count), backgroundColor: chartPalette.series.blue.line, borderRadius: 10, maxBarThickness: 36 }],
+  }), [activeGrowth, section, chartPalette]);
 
   return (
     <div className="space-y-6">
@@ -130,15 +129,15 @@ export default function NewMembersPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard label="Total" value={Number(dashboard?.totalSubmissions || 0)} hint="All intake submissions" />
-        <StatCard label="This week" value={Number(dashboard?.thisWeek || 0)} hint="Current week intake" />
-        <StatCard label="This month" value={Number(dashboard?.thisMonth || 0)} hint="Current month intake" />
-        <StatCard label="This quarter" value={Number(dashboard?.thisQuarter || 0)} hint="Quarterly movement" />
-        <StatCard label="This year" value={Number(dashboard?.thisYear || 0)} hint="Annual growth" />
+        <StatCard label="Total" value={Number(dashboard?.totalSubmissions || 0)} trend="All intake submissions" />
+        <StatCard label="This week" value={Number(dashboard?.thisWeek || 0)} trend="Current week intake" />
+        <StatCard label="This month" value={Number(dashboard?.thisMonth || 0)} trend="Current month intake" />
+        <StatCard label="This quarter" value={Number(dashboard?.thisQuarter || 0)} trend="Quarterly movement" />
+        <StatCard label="This year" value={Number(dashboard?.thisYear || 0)} trend="Annual growth" />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <ShellCard className="p-5">
+        <Panel>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-lg font-black text-[var(--color-text-primary)]">New-member growth</h2>
@@ -151,9 +150,9 @@ export default function NewMembersPage() {
           <div className="mt-5 h-80">
             {activeGrowth.length === 0 ? <p className="text-sm text-[var(--color-text-tertiary)]">No growth data yet.</p> : <Bar data={chartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } } }} />}
           </div>
-        </ShellCard>
+        </Panel>
 
-        <ShellCard className="p-5">
+        <Panel>
           <h2 className="text-lg font-black text-[var(--color-text-primary)]">Add New Member forms</h2>
           <div className="mt-4 space-y-3">
             {(dashboard?.forms || []).length === 0 ? <p className="text-sm text-[var(--color-text-tertiary)]">No Add New Member form detected.</p> : dashboard?.forms.map((form) => (
@@ -166,10 +165,10 @@ export default function NewMembersPage() {
               </article>
             ))}
           </div>
-        </ShellCard>
+        </Panel>
       </div>
 
-      <ShellCard className="p-5">
+      <Panel>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div><h2 className="text-lg font-black text-[var(--color-text-primary)]">Period summaries</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Compact accordions prevent dashboard overcrowding.</p></div>
           <TrendingUp className="h-5 w-5 text-[var(--color-text-tertiary)]" />
@@ -180,9 +179,9 @@ export default function NewMembersPage() {
           <GrowthAccordion title="Quarterly" data={growthSets.quarterly} />
           <GrowthAccordion title="Yearly" data={growthSets.yearly} />
         </div>
-      </ShellCard>
+      </Panel>
 
-      <ShellCard className="p-5">
+      <Panel>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div><h2 className="text-lg font-black text-[var(--color-text-primary)]">Add New Member submissions</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Latest form-driven intake records.</p></div>
           <div className="relative w-full sm:w-80"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" /><Input className="pl-9" placeholder="Search submissions" value={query} onChange={(event) => setQuery(event.target.value)} /></div>
@@ -205,10 +204,12 @@ export default function NewMembersPage() {
             ))}
           </div>
         </div>
-      </ShellCard>
+      </Panel>
     </div>
   );
 }
+
+export default withAuth(NewMembersPage, { requiredRole: 'admin' });
 
 function GrowthAccordion({ title, data, open }: { title: string; data: GrowthPoint[]; open?: boolean }) {
   const total = data.reduce((sum, item) => sum + item.count, 0);

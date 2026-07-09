@@ -64,7 +64,7 @@ export function RichTextEditor({
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
-          class: 'text-primary-600 underline hover:text-primary-700',
+          class: 'text-[var(--color-accent-primary)] underline hover:text-[var(--color-accent-primaryhover)]',
         },
       }),
       Placeholder.configure({
@@ -108,9 +108,9 @@ export function RichTextEditor({
   return (
     <div className={cn('space-y-2', className)}>
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-1 p-2 bg-white border border-secondary-300 rounded-t-lg">
+      <div className="flex flex-wrap items-center gap-1 p-2 bg-[var(--color-background-primary)] border border-[var(--color-border-primary)] rounded-t-lg">
         {/* Text Formatting */}
-        <div className="flex items-center border-r border-secondary-200 pr-2 mr-2">
+        <div className="flex items-center border-r border-[var(--color-border-secondary)] pr-2 mr-2">
           <Button
             type="button"
             variant="ghost"
@@ -118,7 +118,7 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().toggleBold().run()}
             className={cn(
               'h-8 w-8 p-0',
-              editor.isActive('bold') && 'bg-primary-50 text-primary-700'
+              editor.isActive('bold') && 'bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]'
             )}
             title="Bold"
           >
@@ -131,7 +131,7 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().toggleItalic().run()}
             className={cn(
               'h-8 w-8 p-0',
-              editor.isActive('italic') && 'bg-primary-50 text-primary-700'
+              editor.isActive('italic') && 'bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]'
             )}
             title="Italic"
           >
@@ -144,7 +144,7 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().toggleUnderline().run()}
             className={cn(
               'h-8 w-8 p-0',
-              editor.isActive('underline') && 'bg-primary-50 text-primary-700'
+              editor.isActive('underline') && 'bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]'
             )}
             title="Underline"
           >
@@ -153,7 +153,7 @@ export function RichTextEditor({
         </div>
 
         {/* Headings */}
-        <div className="flex items-center border-r border-secondary-200 pr-2 mr-2">
+        <div className="flex items-center border-r border-[var(--color-border-secondary)] pr-2 mr-2">
           <Button
             type="button"
             variant="ghost"
@@ -161,7 +161,7 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
             className={cn(
               'h-8 w-8 p-0',
-              editor.isActive('heading', { level: 1 }) && 'bg-primary-50 text-primary-700'
+              editor.isActive('heading', { level: 1 }) && 'bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]'
             )}
             title="Heading 1"
           >
@@ -174,7 +174,7 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
             className={cn(
               'h-8 w-8 p-0',
-              editor.isActive('heading', { level: 2 }) && 'bg-primary-50 text-primary-700'
+              editor.isActive('heading', { level: 2 }) && 'bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]'
             )}
             title="Heading 2"
           >
@@ -187,7 +187,7 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
             className={cn(
               'h-8 w-8 p-0',
-              editor.isActive('heading', { level: 3 }) && 'bg-primary-50 text-primary-700'
+              editor.isActive('heading', { level: 3 }) && 'bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]'
             )}
             title="Heading 3"
           >
@@ -200,7 +200,7 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().setParagraph().run()}
             className={cn(
               'h-8 w-8 p-0',
-              editor.isActive('paragraph') && 'bg-primary-50 text-primary-700'
+              editor.isActive('paragraph') && 'bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]'
             )}
             title="Paragraph"
           >
@@ -209,7 +209,7 @@ export function RichTextEditor({
         </div>
 
         {/* Lists */}
-        <div className="flex items-center border-r border-secondary-200 pr-2 mr-2">
+        <div className="flex items-center border-r border-[var(--color-border-secondary)] pr-2 mr-2">
           <Button
             type="button"
             variant="ghost"
@@ -217,7 +217,7 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().toggleBulletList().run()}
             className={cn(
               'h-8 w-8 p-0',
-              editor.isActive('bulletList') && 'bg-primary-50 text-primary-700'
+              editor.isActive('bulletList') && 'bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]'
             )}
             title="Bullet List"
           >
@@ -230,7 +230,7 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().toggleOrderedList().run()}
             className={cn(
               'h-8 w-8 p-0',
-              editor.isActive('orderedList') && 'bg-primary-50 text-primary-700'
+              editor.isActive('orderedList') && 'bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]'
             )}
             title="Numbered List"
           >
@@ -247,7 +247,7 @@ export function RichTextEditor({
             onClick={addLink}
             className={cn(
               'h-8 w-8 p-0',
-              editor.isActive('link') && 'bg-primary-50 text-primary-700'
+              editor.isActive('link') && 'bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]'
             )}
             title="Add Link"
           >
@@ -259,7 +259,7 @@ export function RichTextEditor({
               variant="ghost"
               size="sm"
               onClick={removeLink}
-              className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+              className="h-8 w-8 p-0 text-[var(--color-danger-text)] hover:opacity-80"
               title="Remove Link"
             >
               <RemoveFormatting className="h-4 w-4" />
@@ -272,17 +272,17 @@ export function RichTextEditor({
       <div
         className={cn(
           'border rounded-b-lg overflow-hidden',
-          error ? 'border-red-500' : 'border-secondary-300',
-          editor.isActive('link') && 'ring-2 ring-primary-500'
+          error ? 'border-[var(--color-danger-border)]' : 'border-[var(--color-border-primary)]',
+          editor.isActive('link') && 'ring-2 ring-[var(--color-accent-primary)]'
         )}
       >
         <EditorContent editor={editor} />
       </div>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="text-sm text-[var(--color-danger-text)]">{error}</p>}
 
       {/* Character Count */}
-      <div className="flex justify-between items-center text-xs text-secondary-500">
+      <div className="flex justify-between items-center text-xs text-[var(--color-text-tertiary)]">
         <span>
           {editor.storage.characterCount?.characters() || 0} characters
         </span>

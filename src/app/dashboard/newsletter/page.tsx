@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Mail, RefreshCw, Search, Send, Users, UserCheck, UserX, Clock3 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -91,7 +91,7 @@ function NewsletterPage() {
 
   return (
     <div className="space-y-6">
-      <ShellCard className="overflow-hidden">
+      <Panel className="overflow-hidden" padded={false}>
         <div className="flex flex-col gap-4 p-6 sm:p-7 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">
@@ -102,17 +102,17 @@ function NewsletterPage() {
           </div>
           <Button variant="outline" onClick={() => void load()} disabled={loading} loading={loading} icon={<RefreshCw className="h-4 w-4" />}>Refresh</Button>
         </div>
-      </ShellCard>
+      </Panel>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Total subscribers" value={summary?.total ?? 0} icon={Users} hint="All newsletter records" />
-        <Metric label="Active" value={summary?.active ?? 0} icon={UserCheck} hint="Can receive newsletter sends" />
-        <Metric label="Unsubscribed" value={summary?.unsubscribed ?? 0} icon={UserX} hint="Opted out from email" />
-        <Metric label="Last send" value={formatDate(summary?.lastNotifiedAt).split(',')[0]} icon={Clock3} hint="Most recent newsletter delivery" />
+        <StatCard label="Total subscribers" value={summary?.total ?? 0} icon={<Users className="h-5 w-5" />} trend="All newsletter records" tone="info" />
+        <StatCard label="Active" value={summary?.active ?? 0} icon={<UserCheck className="h-5 w-5" />} trend="Can receive newsletter sends" tone="success" />
+        <StatCard label="Unsubscribed" value={summary?.unsubscribed ?? 0} icon={<UserX className="h-5 w-5" />} trend="Opted out from email" tone="danger" />
+        <StatCard label="Last send" value={formatDate(summary?.lastNotifiedAt).split(',')[0]} icon={<Clock3 className="h-5 w-5" />} trend="Most recent newsletter delivery" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,520px)]">
-        <ShellCard className="p-5">
+        <Panel>
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-black text-[var(--color-text-primary)]">Compose newsletter</h2>
@@ -150,9 +150,9 @@ function NewsletterPage() {
             <p className="text-xs text-[var(--color-text-tertiary)]">Internal operational messages are blocked from this channel.</p>
             <Button onClick={handleSend} loading={sending} disabled={sending} icon={<Send className="h-4 w-4" />}>Send Newsletter</Button>
           </div>
-        </ShellCard>
+        </Panel>
 
-        <ShellCard className="p-5">
+        <Panel>
           <h2 className="text-lg font-black text-[var(--color-text-primary)]">Subscribers</h2>
           <div className="mt-4 grid gap-2 sm:grid-cols-[160px_minmax(0,1fr)]">
             <select className="h-11 rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 text-sm text-[var(--color-text-primary)]" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as 'all' | 'active' | 'unsubscribed'); setPage(1); }}>
@@ -193,7 +193,7 @@ function NewsletterPage() {
               <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)}>Next</Button>
             </div>
           </div>
-        </ShellCard>
+        </Panel>
       </div>
     </div>
   );
