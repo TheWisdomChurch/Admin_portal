@@ -142,7 +142,7 @@ function ActionModal({
   const isReject = action === 'reject';
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 px-4 py-8 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[var(--color-text-primary)]/50 px-4 py-8 backdrop-blur-sm">
       <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-[var(--color-border-secondary)] p-5">
           <div>
@@ -352,15 +352,15 @@ function RequestsPage() {
         </Card>
         <Card>
           <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending</p>
-          <p className="mt-2 text-3xl font-bold text-amber-600">{counts.pending || 0}</p>
+          <p className="mt-2 text-3xl font-bold text-[var(--color-warning-text)]">{counts.pending || 0}</p>
         </Card>
         <Card>
           <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Approved</p>
-          <p className="mt-2 text-3xl font-bold text-emerald-600">{counts.approved || 0}</p>
+          <p className="mt-2 text-3xl font-bold text-[var(--color-success-text)]">{counts.approved || 0}</p>
         </Card>
         <Card>
           <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Rejected / Deleted</p>
-          <p className="mt-2 text-3xl font-bold text-red-600">{(counts.rejected || 0) + (counts.deleted || 0)}</p>
+          <p className="mt-2 text-3xl font-bold text-[var(--color-danger-text)]">{(counts.rejected || 0) + (counts.deleted || 0)}</p>
         </Card>
       </div>
 
@@ -376,8 +376,8 @@ function RequestsPage() {
                 <div key={point.day} className="rounded-2xl border border-[var(--color-border-secondary)] p-3">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">{point.day.slice(5)}</p>
                   <div className="mt-2 flex h-20 items-end gap-2">
-                    <div className="w-3 rounded-t bg-amber-400" style={{ height: `${createdHeight}px` }} />
-                    <div className="w-3 rounded-t bg-emerald-500" style={{ height: `${approvedHeight}px` }} />
+                    <div className="w-3 rounded-t bg-[var(--color-warning-text)]" style={{ height: `${createdHeight}px` }} />
+                    <div className="w-3 rounded-t bg-[var(--color-success-text)]" style={{ height: `${approvedHeight}px` }} />
                   </div>
                   <p className="mt-2 text-[10px] text-[var(--color-text-tertiary)]">C:{point.created} · A:{point.approved}</p>
                 </div>
