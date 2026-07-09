@@ -7,6 +7,9 @@ import { Film, Plus, Play, RefreshCw, Search, Trash2, UploadCloud, X } from 'luc
 
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
+import { Panel } from '@/ui/Panel';
+import { StatCard } from '@/ui/StatCard';
+import { EmptyState } from '@/ui/EmptyState';
 import { VerifyActionModal } from '@/ui/VerifyActionModal';
 import { apiClient } from '@/lib/api';
 import { uploadAsset } from '@/lib/uploads';
@@ -33,20 +36,6 @@ function formatDate(value?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' });
-}
-
-function ShellCard({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm ${className}`}>{children}</section>;
-}
-
-function EmptyState() {
-  return (
-    <div className="rounded-3xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-8 text-center">
-      <Film className="mx-auto h-8 w-8 text-[var(--color-text-tertiary)]" />
-      <p className="mt-3 text-sm font-black text-[var(--color-text-primary)]">No reels uploaded</p>
-      <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Upload a reel and thumbnail to start publishing media highlights.</p>
-    </div>
-  );
 }
 
 function ReelsPage() {
@@ -201,12 +190,12 @@ function ReelsPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Metric label="Total reels" value={total} />
-        <Metric label="Loaded page" value={reels.length} />
-        <Metric label="Page" value={`${page} / ${totalPages}`} />
+        <StatCard label="Total reels" value={total} />
+        <StatCard label="Loaded page" value={reels.length} />
+        <StatCard label="Page" value={`${page} / ${totalPages}`} />
       </div>
 
-      <ShellCard className="p-5">
+      <Panel>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-black text-[var(--color-text-primary)]">Reel library</h2>
@@ -237,7 +226,11 @@ function ReelsPage() {
               </div>
             </article>
           ))}
-          {!loading && filteredReels.length === 0 ? <div className="sm:col-span-2 xl:col-span-3 2xl:col-span-4"><EmptyState /></div> : null}
+          {!loading && filteredReels.length === 0 ? (
+            <div className="sm:col-span-2 xl:col-span-3 2xl:col-span-4">
+              <EmptyState icon={<Film className="h-6 w-6" />} title="No reels uploaded" description="Upload a reel and thumbnail to start publishing media highlights." />
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -250,11 +243,11 @@ function ReelsPage() {
             <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>Next</Button>
           </div>
         </div>
-      </ShellCard>
+      </Panel>
 
       {showUploadModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <ShellCard className="max-h-[92vh] w-full max-w-2xl overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-text-primary)]/50 p-4 backdrop-blur-sm">
+          <Panel className="max-h-[92vh] w-full max-w-2xl overflow-y-auto" padded={false}>
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-5 py-4">
               <div><h2 className="text-lg font-black text-[var(--color-text-primary)]">Upload New Reel</h2><p className="text-sm text-[var(--color-text-tertiary)]">Add video and thumbnail media.</p></div>
               <button className="rounded-2xl p-2 text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-secondary)]" onClick={() => { setShowUploadModal(false); resetUploadState(); }}><X className="h-5 w-5" /></button>
@@ -271,17 +264,13 @@ function ReelsPage() {
                 <Button onClick={handleUpload} loading={uploading} disabled={uploading} icon={<UploadCloud className="h-4 w-4" />}>Upload Reel</Button>
               </div>
             </div>
-          </ShellCard>
+          </Panel>
         </div>
       ) : null}
 
       <VerifyActionModal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={confirmDelete} title="Delete Reel" description="This action permanently removes the reel and its media references." confirmText="Delete Reel" cancelText="Cancel" variant="danger" loading={deleteLoading} verifyText={deleteTarget ? `DELETE ${deleteTarget.title || deleteTarget.id}` : 'DELETE'} />
     </div>
   );
-}
-
-function Metric({ label, value }: { label: string; value: number | string }) {
-  return <ShellCard className="p-5"><p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</p><p className="mt-3 text-3xl font-black text-[var(--color-text-primary)]">{value}</p></ShellCard>;
 }
 
 function UploadBox({ label, hint, accept, onChange, icon }: { label: string; hint: string; accept: string; onChange: (file?: File) => void; icon: ReactNode }) {
