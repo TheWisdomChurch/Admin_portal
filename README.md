@@ -42,10 +42,67 @@ as long as `API_INTERNAL_URL`/`NEXT_PUBLIC_API_URL` point at a reachable backend
 - **TanStack Query** for data fetching/caching
 - Custom component library in `src/ui/` (no third-party UI kit)
 
-## Contributing
+## Design System
 
-- Reuse `src/ui/` primitives (`Button`, `Card`, `Input`, `Badge`, `Modal`, `Table`,
-  `StatCard`, `EmptyState`, etc.) instead of hand-rolling page-local versions — this is
-  enforced by lint rules, not just convention.
+`src/app/dashboard/design-system` is the living reference for every color token, type
+scale, spacing/radius/shadow value, and shared component in light and dark mode. Check
+it before adding a new color or hand-rolling a component — the answer is almost always
+already there.
+
+## Testing
+
+- **Component tests** — [Vitest](https://vitest.dev) + React Testing Library, covering
+  the `src/ui/` primitives (highest leverage: every page depends on these).
+  ```bash
+  npm run test        # run once
+  npm run test:watch  # watch mode
+  ```
+  Test files live next to the component they cover (`src/ui/Button.test.tsx`).
+- **End-to-end tests** — [Playwright](https://playwright.dev), covering the critical
+  paths: login (incl. remember-me), MFA/TOTP setup + challenge, cross-tab session
+  takeover, core CRUD on members/events/forms, and role-gating. Specs live in `e2e/`.
+  ```bash
+  npm run test:e2e
+  ```
+  This repo has **no mock backend** — there's no DB or business logic here to fake, so
+  e2e specs run against a real `wisdom_api` instance. Anything beyond the login-page
+  smoke checks needs live credentials, supplied via env vars and skipped automatically
+  when absent (see `e2e/fixtures.ts`):
+  - `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` — a regular admin account
+  - `E2E_SUPER_ADMIN_EMAIL` / `E2E_SUPER_ADMIN_PASSWORD` — a super-admin account
+  - `E2E_LOGIN_OTP_CODE` — a fixed test-only OTP code, if the test accounts have
+    email-OTP MFA enabled
+  - `E2E_BASE_URL` — target a deployed staging environment instead of a local dev
+    server (also gates whether CI's `e2e` job runs at all — see `.github/workflows/ci.yml`)
+- CI (`.github/workflows/ci.yml`) runs lint, typecheck, Vitest, and a production build on
+  every pull request; the Playwright job only runs when `E2E_BASE_URL` is configured as
+  a repo variable, so forks and contributors without staging access still get a green
+  required-checks build.
+- Deliberately **not** covered: page-level unit tests for all ~40 routes. TypeScript
+  strict mode, the ESLint drift rules, and the e2e critical paths are the intended
+  safety net there — see the Phase 6 notes in project history for the reasoning.
+
+## Adding a New Page
+
+1. **Reuse `src/ui/` primitives** (`Button`, `Card`, `Panel`, `SectionCard`, `StatCard`,
+   `EmptyState`, `Input`, `Badge`, `Modal`, `Table`, `Pagination`, etc.) instead of
+   hand-rolling page-local versions — this is enforced by an ESLint rule
+   (`no-restricted-syntax` in `eslint.config.mjs`), not just convention. A local
+   component named `Panel`/`StatCard`/`EmptyState`/`Badge`/`Modal`, or a raw `<input>`
+   outside `src/ui/Input.tsx`, fails lint.
+2. **Colors and spacing come from tokens**, not raw Tailwind color classes — use
+   `var(--color-*)` (see `src/app/globals.css` and the design-system page above).
+   `border-primary-600`, `text-secondary-900`, etc. reference color scales that don't
+   exist in this project's Tailwind v4 config and render as invisible/broken styles.
+3. **Charts** pull colors from `getChartPalette(resolvedTheme)`
+   (`src/lib/charts/palette.ts`) instead of hardcoded hex — this keeps chart colors
+   correct in both themes and consistent with the rest of the app.
+4. **Data fetching** goes through a React Query hook against the relevant `src/lib/api`
+   domain module — not a hand-rolled `useState`/`useEffect`/`useCallback` fetch loop.
+5. **Auth gating**: wrap the default export in `withAuth(Component, { requiredRole })`
+   (`src/providers/withAuth.tsx`) unless the route is intentionally public. Role/path
+   rules live once in `src/lib/access.ts` — don't re-derive them locally.
+6. **Add a component test** if you added a new `src/ui/` primitive, and an e2e spec in
+   `e2e/` if you added a new critical user-facing flow (see Testing above).
 - A pre-commit hook (`.githooks/pre-commit`, wired up via the `prepare` npm script) runs
-  lint + typecheck before every commit.
+  lint + typecheck + the Vitest suite before every commit.
