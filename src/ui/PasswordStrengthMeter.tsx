@@ -15,12 +15,12 @@ export function PasswordStrengthMeter({
 
   const barClass =
     score <= 1
-      ? 'bg-red-500'
+      ? 'bg-[var(--color-accent-danger)]'
       : score === 2
-        ? 'bg-amber-500'
+        ? 'bg-[var(--color-accent-warning)]'
         : score === 3
-          ? 'bg-emerald-500'
-          : 'bg-green-600';
+          ? 'bg-[var(--color-accent-success)]'
+          : 'bg-[var(--color-success-text)]';
 
   return (
     <div className={cn('mt-2 space-y-2', className)}>

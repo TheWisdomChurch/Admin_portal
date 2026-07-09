@@ -4,3 +4,4 @@ set -e
 echo "Running pre-commit checks..."
 npm run lint
 npm run typecheck
+npm run test
