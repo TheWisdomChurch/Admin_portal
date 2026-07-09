@@ -16,6 +16,7 @@ import {
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
+import { Panel } from '@/ui/Panel';
 import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
 import { useDashboardSearch } from '@/hooks/useDashboardSearch';
@@ -24,10 +25,6 @@ import { useSuperQueues, type ApprovalItem } from '@/hooks/useSuperQueues';
 type TypeFilter = 'all' | 'testimonial' | 'event' | 'admin_user';
 type StatusFilter = 'all' | 'pending' | 'approved' | 'deleted';
 type SortKey = 'recent' | 'oldest' | 'name';
-
-function ShellCard({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm ${className}`}>{children}</section>;
-}
 
 function FilterButton({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
   return (
@@ -123,7 +120,7 @@ function ApprovalsPage() {
         }
       />
 
-      <ShellCard className="overflow-hidden">
+      <Panel className="overflow-hidden" padded={false}>
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="p-6 md:p-7">
             <div className="flex items-start gap-4">
@@ -150,9 +147,9 @@ function ApprovalsPage() {
             </div>
           </div>
         </div>
-      </ShellCard>
+      </Panel>
 
-      <ShellCard className="p-5">
+      <Panel>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap gap-2">
             <FilterButton active={typeFilter === 'all'} onClick={() => setTypeFilter('all')}><span className="inline-flex items-center gap-1"><Filter className="h-3.5 w-3.5" /> All</span></FilterButton>
@@ -212,10 +209,10 @@ function ApprovalsPage() {
             ))}
           </div>
         </div>
-      </ShellCard>
+      </Panel>
 
       {activeItem ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-text-primary)]/45 p-4 backdrop-blur-sm">
           <div className="w-full max-w-2xl rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import {
@@ -31,6 +31,10 @@ import type {
 import { Input } from '@/ui/Input';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
+import { Panel } from '@/ui/Panel';
+import { StatCard } from '@/ui/StatCard';
+import { EmptyState } from '@/ui/EmptyState';
+import { withAuth } from '@/providers/withAuth';
 
 const PAGE_SIZE = 10;
 const ORDER_STATUSES: StoreOrderStatus[] = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
@@ -74,38 +78,6 @@ function titleCase(value: string): string {
   return value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function ShellCard({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return (
-    <section className={`rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm ${className}`}>
-      {children}
-    </section>
-  );
-}
-
-function EmptyState({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="rounded-3xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-8 text-center">
-      <p className="text-sm font-black text-[var(--color-text-primary)]">{title}</p>
-      <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">{description}</p>
-    </div>
-  );
-}
-
-function StatCard({ label, value, hint, icon, tone }: { label: string; value: number | string; hint: string; icon: ReactNode; tone: string }) {
-  return (
-    <ShellCard className="p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</p>
-          <p className="mt-3 text-3xl font-black text-[var(--color-text-primary)]">{value}</p>
-          <p className="mt-2 line-clamp-2 text-sm text-[var(--color-text-secondary)]">{hint}</p>
-        </div>
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${tone}`}>{icon}</div>
-      </div>
-    </ShellCard>
-  );
-}
-
 function ProductImage({ src, alt }: { src: string; alt: string }) {
   if (!src) {
     return (
@@ -124,7 +96,7 @@ function ProductImage({ src, alt }: { src: string; alt: string }) {
 
 function ProductDrawer({ product, onClose, onEdit }: { product: StoreProductAdmin; onClose: () => void; onEdit: (item: StoreProductAdmin) => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/50 p-0 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex justify-end bg-[var(--color-text-primary)]/50 p-0 backdrop-blur-sm">
       <button type="button" className="absolute inset-0 cursor-default" aria-label="Close product drawer" onClick={onClose} />
       <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-2xl">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-5 py-4">
@@ -182,7 +154,7 @@ function InfoTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function StoreDashboardPage() {
+function StoreDashboardPage() {
   const [products, setProducts] = useState<StoreProductAdmin[]>([]);
   const [orders, setOrders] = useState<StoreOrderAdmin[]>([]);
   const [loading, setLoading] = useState(true);
@@ -402,7 +374,7 @@ export default function StoreDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <ShellCard className="overflow-hidden">
+      <Panel className="overflow-hidden" padded={false}>
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="p-6 sm:p-7">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -429,17 +401,17 @@ export default function StoreDashboardPage() {
             </div>
           </div>
         </div>
-      </ShellCard>
+      </Panel>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Products" value={products.length} hint={`${activeProducts.length} active product${activeProducts.length === 1 ? '' : 's'}`} icon={<Boxes className="h-5 w-5" />} tone="bg-blue-500/10 text-blue-700" />
-        <StatCard label="Low stock" value={lowStockProducts.length} hint="Active items at 5 units or lower" icon={<AlertTriangle className="h-5 w-5" />} tone="bg-amber-500/10 text-amber-700" />
-        <StatCard label="Orders loaded" value={orders.length} hint="Current order page" icon={<ClipboardList className="h-5 w-5" />} tone="bg-indigo-500/10 text-indigo-700" />
-        <StatCard label="Delivered" value={orders.filter((order) => order.status === 'delivered').length} hint="Completed orders in current view" icon={<CheckCircle2 className="h-5 w-5" />} tone="bg-emerald-500/10 text-emerald-700" />
+        <StatCard label="Products" value={products.length} trend={`${activeProducts.length} active product${activeProducts.length === 1 ? '' : 's'}`} icon={<Boxes className="h-5 w-5" />} tone="info" />
+        <StatCard label="Low stock" value={lowStockProducts.length} trend="Active items at 5 units or lower" icon={<AlertTriangle className="h-5 w-5" />} tone="warning" />
+        <StatCard label="Orders loaded" value={orders.length} trend="Current order page" icon={<ClipboardList className="h-5 w-5" />} tone="default" />
+        <StatCard label="Delivered" value={orders.filter((order) => order.status === 'delivered').length} trend="Completed orders in current view" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(360px,440px)_minmax(0,1fr)]">
-        <ShellCard className="p-5">
+        <Panel>
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-black text-[var(--color-text-primary)]">{editingProductId ? 'Edit product' : 'Create product'}</h2>
@@ -491,9 +463,9 @@ export default function StoreDashboardPage() {
               <Button variant="outline" onClick={resetForm}>Reset</Button>
             </div>
           </div>
-        </ShellCard>
+        </Panel>
 
-        <ShellCard className="p-5">
+        <Panel>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-lg font-black text-[var(--color-text-primary)]">Product inventory</h2>
@@ -576,10 +548,10 @@ export default function StoreDashboardPage() {
               <Button size="sm" variant="outline" disabled={productPage >= productTotalPages} onClick={() => setProductPage((prev) => Math.min(productTotalPages, prev + 1))}>Next</Button>
             </div>
           </div>
-        </ShellCard>
+        </Panel>
       </div>
 
-      <ShellCard className="p-5">
+      <Panel>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-lg font-black text-[var(--color-text-primary)]">Order workflow</h2>
@@ -629,9 +601,11 @@ export default function StoreDashboardPage() {
 
           {orders.length === 0 ? <div className="xl:col-span-2"><EmptyState title="No orders found" description="Orders will appear here when customers place them." /></div> : null}
         </div>
-      </ShellCard>
+      </Panel>
 
       {selectedProduct ? <ProductDrawer product={selectedProduct} onClose={() => setSelectedProduct(null)} onEdit={onEditProduct} /> : null}
     </div>
   );
 }
+
+export default withAuth(StoreDashboardPage, { requiredRole: 'admin' });
