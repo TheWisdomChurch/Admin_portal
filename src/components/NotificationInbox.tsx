@@ -20,6 +20,9 @@ import { useAuthContext } from '@/providers/AuthProviders';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
 import { Input } from '@/ui/Input';
+import { Panel } from '@/ui/Panel';
+import { StatCard } from '@/ui/StatCard';
+import { EmptyState } from '@/ui/EmptyState';
 import { PageHeader } from '@/layouts';
 
 type Props = {
@@ -54,24 +57,6 @@ function classifyNotification(item: AdminNotification): Exclude<NotificationFilt
   return 'system';
 }
 
-function ShellCard({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return (
-    <section className={`rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm ${className}`}>
-      {children}
-    </section>
-  );
-}
-
-function SummaryTile({ label, value, hint }: { label: string; value: number; hint: string }) {
-  return (
-    <ShellCard className="p-4">
-      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[var(--color-text-primary)]">{value}</p>
-      <p className="mt-1 text-xs leading-5 text-[var(--color-text-secondary)]">{hint}</p>
-    </ShellCard>
-  );
-}
-
 function FilterButton({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
   return (
     <button
@@ -85,16 +70,6 @@ function FilterButton({ active, children, onClick }: { active: boolean; children
     >
       {children}
     </button>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="rounded-3xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-8 text-center">
-      <Inbox className="mx-auto h-8 w-8 text-[var(--color-text-tertiary)]" />
-      <p className="mt-3 text-sm font-black text-[var(--color-text-primary)]">No notifications found</p>
-      <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Try another filter or refresh the inbox.</p>
-    </div>
   );
 }
 
@@ -183,7 +158,7 @@ export function NotificationInbox({ title, subtitle }: Props) {
         return { href: '/dashboard/testimonials', label: 'Review testimonials' };
       }
       if (entityType === 'event' || type.includes('event')) {
-        return { href: '/dashboard/events', label: 'Review events' };
+        return { href: '/dashboard/event', label: 'Review events' };
       }
       if (entityType === 'leadership' || type.includes('leadership')) {
         return { href: '/dashboard/leadership', label: 'Open leadership' };
@@ -237,13 +212,13 @@ export function NotificationInbox({ title, subtitle }: Props) {
       />
 
       <div className="grid gap-4 md:grid-cols-4">
-        <SummaryTile label="Total inbox" value={items.length} hint="All super-admin notifications loaded." />
-        <SummaryTile label="Unread" value={unread} hint="Items requiring attention." />
-        <SummaryTile label="Approval signals" value={approvalCount} hint="Tickets, requests, and actions." />
-        <SummaryTile label="Content signals" value={contentCount} hint="Events, forms, testimonials, and records." />
+        <StatCard label="Total inbox" value={items.length} trend="All super-admin notifications loaded." />
+        <StatCard label="Unread" value={unread} trend="Items requiring attention." tone="warning" />
+        <StatCard label="Approval signals" value={approvalCount} trend="Tickets, requests, and actions." tone="info" />
+        <StatCard label="Content signals" value={contentCount} trend="Events, forms, testimonials, and records." />
       </div>
 
-      <ShellCard className="p-5">
+      <Panel>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
@@ -273,7 +248,7 @@ export function NotificationInbox({ title, subtitle }: Props) {
 
         <div className="mt-5 space-y-3">
           {loading ? <p className="text-sm text-[var(--color-text-tertiary)]">Loading notifications...</p> : null}
-          {!loading && visibleItems.length === 0 ? <EmptyState /> : null}
+          {!loading && visibleItems.length === 0 ? <EmptyState icon={<Inbox className="h-5 w-5" />} title="No notifications found" description="Try another filter or refresh the inbox." /> : null}
           {!loading &&
             visibleItems.map((item) => {
               const route = resolveNotificationRoute(item);
@@ -284,7 +259,7 @@ export function NotificationInbox({ title, subtitle }: Props) {
                   className={`rounded-3xl border p-4 transition hover:shadow-sm ${
                     item.isRead
                       ? 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]'
-                      : 'border-amber-300/80 bg-amber-50/50'
+                      : 'border-[var(--color-warning-border)] bg-[var(--color-warning-surface)]'
                   }`}
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -294,7 +269,7 @@ export function NotificationInbox({ title, subtitle }: Props) {
                         <Badge variant={category === 'approval' ? 'warning' : category === 'content' ? 'info' : 'secondary'} size="sm">
                           {itemTypeLabel(item.type || category)}
                         </Badge>
-                        {!item.isRead ? <span className="h-2 w-2 rounded-full bg-amber-500" aria-label="Unread" /> : null}
+                        {!item.isRead ? <span className="h-2 w-2 rounded-full bg-[var(--color-accent-warning)]" aria-label="Unread" /> : null}
                       </div>
                       <p className="break-words text-sm leading-6 text-[var(--color-text-secondary)]">{item.message}</p>
                       <p className="text-xs text-[var(--color-text-tertiary)]">{formatDateTime(item.createdAt)}</p>
@@ -317,19 +292,19 @@ export function NotificationInbox({ title, subtitle }: Props) {
               );
             })}
         </div>
-      </ShellCard>
+      </Panel>
 
       {activeItem ? (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-sm">
           <button className="absolute inset-0 cursor-default" aria-label="Close notification detail" onClick={() => setActiveItem(null)} />
           <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-2xl">
-            <div className="bg-slate-950 px-5 py-6 text-white">
+            <div className="bg-[var(--color-text-primary)] px-5 py-6 text-[var(--color-text-inverse)]">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-white/55">Notification detail</p>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/55">Notification detail</p>
                   <h3 className="mt-2 break-words text-2xl font-black">{activeItem.title}</h3>
                 </div>
-                <button className="rounded-2xl p-2 text-white/70 hover:bg-white/10 hover:text-white" onClick={() => setActiveItem(null)} aria-label="Close">
+                <button className="rounded-2xl p-2 text-[var(--color-text-inverse)]/70 hover:bg-[var(--color-text-inverse)]/10 hover:text-[var(--color-text-inverse)]" onClick={() => setActiveItem(null)} aria-label="Close">
                   <X className="h-5 w-5" />
                 </button>
               </div>

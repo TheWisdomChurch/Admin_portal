@@ -13,6 +13,7 @@ import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { useAuthContext } from '@/providers/AuthProviders';
+import { withAuth } from '@/providers/withAuth';
 import type { AdminForm, Testimonial } from '@/lib/types';
 
 function normalizeRole(role?: string | null): string {
@@ -103,7 +104,7 @@ function TestimonialCard({
   );
 }
 
-export default function TestimonialsPage() {
+function TestimonialsPage() {
   const auth = useAuthContext();
   const canApprove = normalizeRole(auth.user?.role) === 'super_admin';
 
@@ -229,11 +230,11 @@ export default function TestimonialsPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending review</p>
-          <p className="mt-2 text-3xl font-bold text-amber-600">{pending.length}</p>
+          <p className="mt-2 text-3xl font-bold text-[var(--color-warning-text)]">{pending.length}</p>
         </Card>
         <Card>
           <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Live</p>
-          <p className="mt-2 text-3xl font-bold text-emerald-600">{approved.length}</p>
+          <p className="mt-2 text-3xl font-bold text-[var(--color-success-text)]">{approved.length}</p>
         </Card>
         <Card>
           <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">This month</p>
@@ -346,3 +347,5 @@ export default function TestimonialsPage() {
     </div>
   );
 }
+
+export default withAuth(TestimonialsPage, { requiredRole: 'admin' });

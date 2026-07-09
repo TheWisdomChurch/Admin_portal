@@ -46,16 +46,16 @@ function SuperAnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="overflow-hidden rounded-[28px] border border-[var(--color-border-primary)] bg-gradient-to-br from-slate-950 via-slate-900 to-black p-6 text-white shadow-2xl md:p-8">
+      <div className="overflow-hidden rounded-[28px] border border-[var(--color-border-primary)] bg-[var(--color-text-primary)] p-6 text-[var(--color-text-inverse)] shadow-2xl md:p-8">
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
             <Badge variant="warning" className="mb-4">Super Admin Intelligence</Badge>
             <h1 className="text-2xl font-bold tracking-tight md:text-4xl">Analytics command center</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/70 md:text-base">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-inverse)]/70 md:text-base">
               Review church-wide performance, approvals impact, event pipeline and growth indicators from one authority view.
             </p>
           </div>
-          <Button type="button" variant="outline" onClick={() => void load()} loading={loading} className="border-white/20 text-white hover:bg-white/10">
+          <Button type="button" variant="outline" onClick={() => void load()} loading={loading} className="border-[var(--color-text-inverse)]/20 text-[var(--color-text-inverse)] hover:bg-[var(--color-text-inverse)]/10">
             <RefreshCcw className="h-4 w-4" />
             <span className="ml-2">Refresh</span>
           </Button>
@@ -70,7 +70,7 @@ function SuperAnalyticsPage() {
               <p className="mt-2 text-3xl font-bold text-[var(--color-text-primary)]">{numberValue(data?.totalEvents)}</p>
               <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">All events in the catalogue</p>
             </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-warning-surface)] text-[var(--color-warning-text)]">
               <Calendar className="h-5 w-5" />
             </div>
           </div>
@@ -83,7 +83,7 @@ function SuperAnalyticsPage() {
               <p className="mt-2 text-3xl font-bold text-[var(--color-text-primary)]">{numberValue(data?.upcomingEvents)}</p>
               <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">Scheduled programs still ahead</p>
             </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-success-surface)] text-[var(--color-success-text)]">
               <Activity className="h-5 w-5" />
             </div>
           </div>
@@ -96,7 +96,7 @@ function SuperAnalyticsPage() {
               <p className="mt-2 text-3xl font-bold text-[var(--color-text-primary)]">{numberValue(data?.totalAttendees)}</p>
               <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">Registered attendance signal</p>
             </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-blue-700">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-info-surface)] text-[var(--color-info-text)]">
               <Users className="h-5 w-5" />
             </div>
           </div>

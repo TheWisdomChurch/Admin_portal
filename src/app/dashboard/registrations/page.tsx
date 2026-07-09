@@ -15,12 +15,16 @@ import { Bar } from 'react-chartjs-2';
 
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
+import { Panel } from '@/ui/Panel';
+import { StatCard } from '@/ui/StatCard';
 import { DataTable } from '@/components/DateTable';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
+import { getChartPalette } from '@/lib/charts/palette';
 import type { AdminForm, FormSubmission, FormSubmissionDailyStat } from '@/lib/types';
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
+import { useTheme } from '@/providers/ThemeProviders';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
@@ -67,28 +71,11 @@ function resolveEmail(submission: FormSubmission, fallback = '—'): string {
   return readValue(values, 'email') || readValue(values, 'email_address') || readValue(values, 'emailAddress') || fallback;
 }
 
-function ShellCard({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm ${className}`}>{children}</section>;
-}
-
-function Metric({ label, value, hint, icon: Icon }: { label: string; value: number | string; hint: string; icon: React.ElementType }) {
-  return (
-    <ShellCard className="p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</p>
-          <p className="mt-3 text-3xl font-black text-[var(--color-text-primary)]">{value}</p>
-          <p className="mt-2 line-clamp-2 text-sm text-[var(--color-text-secondary)]">{hint}</p>
-        </div>
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]"><Icon className="h-5 w-5" /></div>
-      </div>
-    </ShellCard>
-  );
-}
-
 function RegistrationsPage() {
   const auth = useAuthContext();
   const authBlocked = !auth.isInitialized || auth.isLoading;
+  const { resolvedTheme } = useTheme();
+  const chartPalette = useMemo(() => getChartPalette(resolvedTheme), [resolvedTheme]);
 
   const [forms, setForms] = useState<AdminForm[]>([]);
   const [formsLoading, setFormsLoading] = useState(false);
@@ -215,8 +202,8 @@ function RegistrationsPage() {
 
   const trendChartData = useMemo(() => ({
     labels: filteredDailyStats.map((entry) => formatShortDate(entry.date)),
-    datasets: [{ label: 'Registrations', data: filteredDailyStats.map((entry) => entry.count), backgroundColor: '#2563eb', borderRadius: 10, maxBarThickness: 34 }],
-  }), [filteredDailyStats]);
+    datasets: [{ label: 'Registrations', data: filteredDailyStats.map((entry) => entry.count), backgroundColor: chartPalette.series.blue.line, borderRadius: 10, maxBarThickness: 34 }],
+  }), [filteredDailyStats, chartPalette]);
 
   const columns = useMemo<Column<FormSubmission>[]>(() => [
     { key: 'name' as keyof FormSubmission, header: 'Full Name', cell: (item) => <span className="text-sm font-black text-[var(--color-text-primary)]">{resolveName(item)}</span> },
@@ -244,13 +231,13 @@ function RegistrationsPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Registration links" value={forms.length} hint="Available live forms" icon={Link2} />
-        <Metric label="Selected total" value={submissionsTotal} hint="All records for selected link" icon={Users} />
-        <Metric label="Current view" value={filteredSubmissions.length} hint={hasFilters ? 'After local filters' : 'Loaded page records'} icon={Search} />
-        <Metric label="Last updated" value={lastUpdatedAt ? formatDateTime(lastUpdatedAt).split(',')[0] : '—'} hint="Latest successful refresh" icon={CalendarDays} />
+        <StatCard label="Registration links" value={forms.length} trend="Available live forms" icon={<Link2 className="h-5 w-5" />} />
+        <StatCard label="Selected total" value={submissionsTotal} trend="All records for selected link" icon={<Users className="h-5 w-5" />} tone="info" />
+        <StatCard label="Current view" value={filteredSubmissions.length} trend={hasFilters ? 'After local filters' : 'Loaded page records'} icon={<Search className="h-5 w-5" />} />
+        <StatCard label="Last updated" value={lastUpdatedAt ? formatDateTime(lastUpdatedAt).split(',')[0] : '—'} trend="Latest successful refresh" icon={<CalendarDays className="h-5 w-5" />} />
       </div>
 
-      <ShellCard className="p-5">
+      <Panel>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="grid flex-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(240px,1.4fr)_minmax(220px,1fr)_160px_160px]">
             <div>
@@ -273,10 +260,10 @@ function RegistrationsPage() {
           </div>
           <Button variant="outline" onClick={clearFilters} disabled={!hasFilters} icon={<FilterX className="h-4 w-4" />}>Clear</Button>
         </div>
-      </ShellCard>
+      </Panel>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <ShellCard className="p-5">
+        <Panel>
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-black text-[var(--color-text-primary)]">Daily registrations</h2>
@@ -286,9 +273,9 @@ function RegistrationsPage() {
           <div className="mt-5 h-72">
             {!selectedFormId ? <div className="p-6 text-sm text-[var(--color-text-tertiary)]">Select a registration link to view daily stats.</div> : statsLoading ? <div className="p-6 text-sm text-[var(--color-text-tertiary)]">Loading daily stats...</div> : filteredDailyStats.length > 0 ? <Bar data={trendChartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0 } } } }} /> : <div className="p-6 text-sm text-[var(--color-text-tertiary)]">No daily stats yet.</div>}
           </div>
-        </ShellCard>
+        </Panel>
 
-        <ShellCard className="p-5">
+        <Panel>
           <h2 className="text-lg font-black text-[var(--color-text-primary)]">Summary</h2>
           <div className="mt-5 space-y-4">
             <Info label="Selected link" value={selectedForm?.title || '—'} />
@@ -296,10 +283,10 @@ function RegistrationsPage() {
             <Info label="Filtered results" value={hasFilters ? String(filteredSubmissions.length) : 'No filter'} />
             <Info label="Last updated" value={lastUpdatedAt ? formatDateTime(lastUpdatedAt) : '—'} />
           </div>
-        </ShellCard>
+        </Panel>
       </div>
 
-      <ShellCard className="p-5">
+      <Panel>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-black text-[var(--color-text-primary)]">Registered People</h2>
@@ -309,7 +296,7 @@ function RegistrationsPage() {
         {forms.length === 0 ? <p className="text-sm text-[var(--color-text-tertiary)]">Create a registration link first to see sign-ups.</p> : !selectedFormId ? <p className="text-sm text-[var(--color-text-tertiary)]">Select a registration link to view registrations.</p> : (
           <DataTable data={filteredSubmissions} columns={columns} total={filteredTotal} page={page} limit={limit} onPageChange={setPage} onLimitChange={(next) => { setLimit(next); setPage(1); }} isLoading={submissionsLoading} />
         )}
-      </ShellCard>
+      </Panel>
     </div>
   );
 }

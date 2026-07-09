@@ -33,8 +33,14 @@ import { PageHeader } from '@/layouts';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
+import { Panel } from '@/ui/Panel';
+import { StatCard } from '@/ui/StatCard';
+import { EmptyState } from '@/ui/EmptyState';
 import { apiClient } from '@/lib/api';
 import { buildPublicFormUrl } from '@/lib/utils';
+import { getChartPalette } from '@/lib/charts/palette';
+import { useTheme } from '@/providers/ThemeProviders';
+import { withAuth } from '@/providers/withAuth';
 import type {
   AdminForm,
   CreateFormRequest,
@@ -177,47 +183,6 @@ function initials(worker: WorkforceMember): string {
   return `${worker.firstName?.[0] || 'W'}${worker.lastName?.[0] || ''}`.toUpperCase();
 }
 
-function ShellCard({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return (
-    <div
-      className={`rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm ${className}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  caption,
-  icon,
-  tone,
-}: {
-  label: string;
-  value: number;
-  caption: string;
-  icon: ReactNode;
-  tone: string;
-}) {
-  return (
-    <ShellCard className="p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
-      <div className="flex min-w-0 items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">
-            {label}
-          </p>
-          <p className="mt-3 text-3xl font-black text-[var(--color-text-primary)]">{value}</p>
-          <p className="mt-2 line-clamp-2 text-sm text-[var(--color-text-secondary)]">{caption}</p>
-        </div>
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${tone}`}>
-          {icon}
-        </div>
-      </div>
-    </ShellCard>
-  );
-}
-
 function SectionButton({
   active,
   children,
@@ -242,14 +207,6 @@ function SectionButton({
   );
 }
 
-function EmptyState({ label }: { label: string }) {
-  return (
-    <div className="rounded-3xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-8 text-center text-sm text-[var(--color-text-tertiary)]">
-      {label}
-    </div>
-  );
-}
-
 function Drawer({
   worker,
   onClose,
@@ -267,28 +224,28 @@ function Drawer({
       : 'Not provided';
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex justify-end bg-[var(--color-text-primary)]/50 backdrop-blur-sm">
       <button className="absolute inset-0 cursor-default" aria-label="Close profile drawer" onClick={onClose} />
       <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-2xl">
-        <div className="bg-slate-950 px-5 py-6 text-white">
+        <div className="bg-[var(--color-text-primary)] px-5 py-6 text-[var(--color-text-inverse)]">
           <div className="flex items-start justify-between gap-4">
             <div className="flex min-w-0 items-center gap-4">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white text-xl font-black text-slate-950">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-inverse)] text-xl font-black text-[var(--color-text-primary)]">
                 {initials(worker)}
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-white/55">Workforce Profile</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/55">Workforce Profile</p>
                 <h2 className="mt-2 truncate text-2xl font-black">{workerName(worker)}</h2>
-                <p className="mt-1 truncate text-sm text-white/70">{worker.department || 'Unassigned department'}</p>
+                <p className="mt-1 truncate text-sm text-[var(--color-text-inverse)]/70">{worker.department || 'Unassigned department'}</p>
               </div>
             </div>
-            <button className="rounded-2xl p-2 text-white/70 hover:bg-white/10 hover:text-white" onClick={onClose} aria-label="Close profile drawer">
+            <button className="rounded-2xl p-2 text-[var(--color-text-inverse)]/70 hover:bg-[var(--color-text-inverse)]/10 hover:text-[var(--color-text-inverse)]" onClick={onClose} aria-label="Close profile drawer">
               <X className="h-5 w-5" />
             </button>
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <Badge variant={statusVariant(worker.status)}>{statusLabels[worker.status] || worker.status}</Badge>
-            <span className="rounded-full border border-white/15 px-3 py-1 text-xs font-bold text-white/70">
+            <span className="rounded-full border border-[var(--color-text-inverse)]/15 px-3 py-1 text-xs font-bold text-[var(--color-text-inverse)]/70">
               ID {worker.id.slice(0, 8).toUpperCase()}
             </span>
           </div>
@@ -329,7 +286,9 @@ function ProfileTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function WorkforcePage() {
+function WorkforcePage() {
+  const { resolvedTheme } = useTheme();
+  const chartPalette = useMemo(() => getChartPalette(resolvedTheme), [resolvedTheme]);
   const [workforce, setWorkforce] = useState<WorkforceMember[]>([]);
   const [stats, setStats] = useState<WorkforceStatsResponse | null>(null);
   const [forms, setForms] = useState<AdminForm[]>([]);
@@ -450,19 +409,19 @@ export default function WorkforcePage() {
     .sort((a, b) => getCount(byDepartment[b]) - getCount(byDepartment[a]))
     .slice(0, 10);
 
-  const departmentChart = {
+  const departmentChart = useMemo(() => ({
     labels: deptLabels,
     datasets: [
       {
         label: 'Workers',
         data: deptLabels.map((department) => byDepartment[department]),
-        backgroundColor: '#2563eb',
+        backgroundColor: chartPalette.series.blue.line,
         borderRadius: 10,
       },
     ],
-  };
+  }), [deptLabels, byDepartment, chartPalette]);
 
-  const statusChart = {
+  const statusChart = useMemo(() => ({
     labels: ['Serving', 'New/Pending', 'Not serving'],
     datasets: [
       {
@@ -471,11 +430,11 @@ export default function WorkforcePage() {
           getCount(byStatus.new) + getCount(byStatus.pending),
           getCount(byStatus.not_serving),
         ],
-        backgroundColor: ['#059669', '#2563eb', '#d97706'],
+        backgroundColor: [chartPalette.series.emerald.line, chartPalette.series.blue.line, chartPalette.series.amber.line],
         borderWidth: 0,
       },
     ],
-  };
+  }), [byStatus, chartPalette]);
 
   const createWorkforceForm = async () => {
     setCreatingForm(true);
@@ -562,7 +521,7 @@ export default function WorkforcePage() {
         }
       />
 
-      <ShellCard className="overflow-hidden">
+      <Panel className="overflow-hidden" padded={false}>
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="p-6">
             <div className="flex items-start gap-4">
@@ -599,17 +558,17 @@ export default function WorkforcePage() {
             </div>
           </div>
         </div>
-      </ShellCard>
+      </Panel>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total workforce" value={stats?.total ?? workforce.length} caption="All workforce profiles" icon={<Users className="h-5 w-5" />} tone="bg-blue-500/10 text-blue-700" />
-        <StatCard label="Currently serving" value={getCount(byStatus.serving)} caption="Active service records" icon={<CheckCircle2 className="h-5 w-5" />} tone="bg-emerald-500/10 text-emerald-700" />
-        <StatCard label="New / pending" value={getCount(byStatus.new) + getCount(byStatus.pending)} caption="Incoming workers" icon={<ClipboardList className="h-5 w-5" />} tone="bg-indigo-500/10 text-indigo-700" />
-        <StatCard label="No longer serving" value={getCount(byStatus.not_serving)} caption="Inactive records" icon={<Shield className="h-5 w-5" />} tone="bg-amber-500/10 text-amber-700" />
+        <StatCard label="Total workforce" value={stats?.total ?? workforce.length} trend="All workforce profiles" icon={<Users className="h-5 w-5" />} tone="info" />
+        <StatCard label="Currently serving" value={getCount(byStatus.serving)} trend="Active service records" icon={<CheckCircle2 className="h-5 w-5" />} tone="success" />
+        <StatCard label="New / pending" value={getCount(byStatus.new) + getCount(byStatus.pending)} trend="Incoming workers" icon={<ClipboardList className="h-5 w-5" />} tone="warning" />
+        <StatCard label="No longer serving" value={getCount(byStatus.not_serving)} trend="Inactive records" icon={<Shield className="h-5 w-5" />} tone="danger" />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <ShellCard className="p-5">
+        <Panel>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-lg font-black text-[var(--color-text-primary)]">Workers by department</h2>
@@ -619,7 +578,7 @@ export default function WorkforcePage() {
           </div>
           <div className="mt-6 h-[320px]">
             {deptLabels.length === 0 ? (
-              <EmptyState label={loading ? 'Loading chart...' : 'No department data yet.'} />
+              <EmptyState title={loading ? 'Loading chart...' : 'No department data yet.'} />
             ) : (
               <Bar
                 data={departmentChart}
@@ -635,9 +594,9 @@ export default function WorkforcePage() {
               />
             )}
           </div>
-        </ShellCard>
+        </Panel>
 
-        <ShellCard className="p-5">
+        <Panel>
           <h2 className="text-lg font-black text-[var(--color-text-primary)]">Service status</h2>
           <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Current distribution by service state.</p>
           <div className="mx-auto mt-6 h-[260px] max-w-[280px]">
@@ -651,10 +610,10 @@ export default function WorkforcePage() {
               }}
             />
           </div>
-        </ShellCard>
+        </Panel>
       </div>
 
-      <ShellCard className="p-5">
+      <Panel>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
             <h2 className="text-lg font-black text-[var(--color-text-primary)]">Department accordions</h2>
@@ -691,13 +650,13 @@ export default function WorkforcePage() {
             })}
           {Object.keys(groupedByDepartment).length === 0 ? (
             <div className="md:col-span-2 xl:col-span-3">
-              <EmptyState label="No department records available yet." />
+              <EmptyState title="No department records available yet." />
             </div>
           ) : null}
         </div>
-      </ShellCard>
+      </Panel>
 
-      <ShellCard className="p-5">
+      <Panel>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
             <h2 className="text-lg font-black text-[var(--color-text-primary)]">Workforce profiles</h2>
@@ -747,7 +706,7 @@ export default function WorkforcePage() {
             {loading ? <div className="p-6 text-sm text-[var(--color-text-tertiary)]">Loading workforce records...</div> : null}
             {!loading && paginated.length === 0 ? (
               <div className="p-4">
-                <EmptyState label="No workforce records in this section." />
+                <EmptyState title="No workforce records in this section." />
               </div>
             ) : null}
             {!loading &&
@@ -802,7 +761,7 @@ export default function WorkforcePage() {
             </Button>
           </div>
         </div>
-      </ShellCard>
+      </Panel>
 
       {selectedWorker ? (
         <Drawer
@@ -824,3 +783,5 @@ function MiniCount({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
+
+export default withAuth(WorkforcePage, { requiredRole: 'admin' });

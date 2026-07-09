@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Copy, Download, Send, ArrowLeft, RefreshCw, Users, CalendarDays } from 'lucide-react';
 import {
@@ -18,8 +18,11 @@ import toast from 'react-hot-toast';
 
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/layouts';
+import { Panel } from '@/ui/Panel';
+import { StatCard } from '@/ui/StatCard';
 import { DataTable } from '@/components/DateTable';
 import { apiClient } from '@/lib/api';
+import { getChartPalette } from '@/lib/charts/palette';
 import {
   copyFormSubmissionsReportLink,
   exportFormSubmissionsCsv,
@@ -30,6 +33,7 @@ import {
   resolveFormSubmissionName,
 } from '@/lib/formSubmissions';
 import type { AdminForm, FormSubmission, FormSubmissionDailyStat } from '@/lib/types';
+import { useTheme } from '@/providers/ThemeProviders';
 import { withAuth } from '@/providers/withAuth';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler);
@@ -67,15 +71,9 @@ function fillDailySeries(range: RangeOption, raw: FormSubmissionDailyStat[]) {
   return { labels, values };
 }
 
-function ShellCard({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm ${className}`}>{children}</section>;
-}
-
-function Metric({ label, value, icon: Icon }: { label: string; value: number | string; icon: React.ElementType }) {
-  return <ShellCard className="p-5"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</p><p className="mt-3 text-3xl font-black text-[var(--color-text-primary)]">{value}</p></div><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]"><Icon className="h-5 w-5" /></div></div></ShellCard>;
-}
-
 function SubmissionsPage() {
+  const { resolvedTheme } = useTheme();
+  const chartPalette = useMemo(() => getChartPalette(resolvedTheme), [resolvedTheme]);
   const router = useRouter();
   const params = useParams();
   const formId = useMemo(() => {
@@ -119,8 +117,8 @@ function SubmissionsPage() {
   const chartSeries = useMemo(() => fillDailySeries(range, stats), [range, stats]);
   const chartData = useMemo(() => ({
     labels: chartSeries.labels,
-    datasets: [{ label: 'Registrations', data: chartSeries.values, borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.14)', fill: true, tension: 0.35, pointRadius: 2 }],
-  }), [chartSeries]);
+    datasets: [{ label: 'Registrations', data: chartSeries.values, borderColor: chartPalette.series.amber.line, backgroundColor: chartPalette.series.amber.fill, fill: true, tension: 0.35, pointRadius: 2 }],
+  }), [chartSeries, chartPalette]);
 
   const sortedSubmissions = useMemo(() => submissions.slice().sort((left, right) => {
     const leftTime = new Date(left.createdAt).getTime();
@@ -189,13 +187,13 @@ function SubmissionsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Metric label="Total registrations" value={total} icon={Users} />
-        <Metric label="Showing page" value={submissions.length} icon={CalendarDays} />
-        <Metric label="Range" value={`${range} days`} icon={CalendarDays} />
+        <StatCard label="Total registrations" value={total} icon={<Users className="h-5 w-5" />} tone="info" />
+        <StatCard label="Showing page" value={submissions.length} icon={<CalendarDays className="h-5 w-5" />} />
+        <StatCard label="Range" value={`${range} days`} icon={<CalendarDays className="h-5 w-5" />} />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <ShellCard className="p-5">
+        <Panel>
           <h2 className="text-lg font-black text-[var(--color-text-primary)]">Latest registrations</h2>
           <div className="mt-4 space-y-3">
             {latestSubmissions.length > 0 ? latestSubmissions.map((submission) => (
@@ -206,21 +204,21 @@ function SubmissionsPage() {
               </article>
             )) : <p className="text-sm text-[var(--color-text-tertiary)]">No registrations yet.</p>}
           </div>
-        </ShellCard>
+        </Panel>
 
-        <ShellCard className="p-5">
+        <Panel>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div><h2 className="text-lg font-black text-[var(--color-text-primary)]">Registrations over time</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Daily series for the selected form.</p></div>
             <div className="flex gap-2"><Button variant={range === 7 ? 'primary' : 'outline'} size="sm" onClick={() => setRange(7)}>7 days</Button><Button variant={range === 30 ? 'primary' : 'outline'} size="sm" onClick={() => setRange(30)}>30 days</Button></div>
           </div>
           <div className="mt-5 h-[300px]"><Line data={chartData} options={{ maintainAspectRatio: false, responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } } }} /></div>
-        </ShellCard>
+        </Panel>
       </div>
 
-      <ShellCard className="p-5">
+      <Panel>
         <h2 className="mb-4 text-lg font-black text-[var(--color-text-primary)]">All submissions</h2>
         <DataTable data={sortedSubmissions} columns={columns} total={total} page={page} limit={limit} onPageChange={setPage} onLimitChange={setLimit} isLoading={false} />
-      </ShellCard>
+      </Panel>
     </div>
   );
 }

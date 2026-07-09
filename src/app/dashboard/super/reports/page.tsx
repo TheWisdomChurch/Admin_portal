@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BarChart2,
   Calendar,
@@ -15,6 +15,8 @@ import toast from 'react-hot-toast';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
+import { Panel } from '@/ui/Panel';
+import { StatCard } from '@/ui/StatCard';
 import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
 import { apiClient } from '@/lib/api';
@@ -26,31 +28,6 @@ const numberFormatter = new Intl.NumberFormat('en-US');
 function formatNumber(value?: number | null): string {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '0';
   return numberFormatter.format(value);
-}
-
-function ShellCard({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return (
-    <section className={`rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm ${className}`}>
-      {children}
-    </section>
-  );
-}
-
-function ReportMetric({ label, value, icon, hint }: { label: string; value: string; icon: ReactNode; hint: string }) {
-  return (
-    <ShellCard className="p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</p>
-          <p className="mt-3 text-2xl font-black text-[var(--color-text-primary)]">{value}</p>
-          <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">{hint}</p>
-        </div>
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]">
-          {icon}
-        </div>
-      </div>
-    </ShellCard>
-  );
 }
 
 function escapeCsv(value: unknown): string {
@@ -171,7 +148,7 @@ function ReportsPage() {
         }
       />
 
-      <ShellCard className="overflow-hidden">
+      <Panel className="overflow-hidden" padded={false}>
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="p-6 md:p-7">
             <div className="flex items-start gap-4">
@@ -210,13 +187,13 @@ function ReportsPage() {
             </div>
           </div>
         </div>
-      </ShellCard>
+      </Panel>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <ReportMetric label="Events" value={formatNumber(analytics?.totalEvents)} icon={<Calendar className="h-5 w-5" />} hint="Total tracked events." />
-        <ReportMetric label="Registrations" value={formatNumber(analytics?.totalAttendees)} icon={<CheckCircle className="h-5 w-5" />} hint="Attendance/registration volume." />
-        <ReportMetric label="Pending requests" value={formatNumber(pendingRequests)} icon={<ShieldCheck className="h-5 w-5" />} hint="Approval tickets awaiting decision." />
-        <ReportMetric label="Approved requests" value={formatNumber(approvedRequests)} icon={<BarChart2 className="h-5 w-5" />} hint="Completed approval decisions." />
+        <StatCard label="Events" value={formatNumber(analytics?.totalEvents)} icon={<Calendar className="h-5 w-5" />} trend="Total tracked events." />
+        <StatCard label="Registrations" value={formatNumber(analytics?.totalAttendees)} icon={<CheckCircle className="h-5 w-5" />} trend="Attendance/registration volume." tone="info" />
+        <StatCard label="Pending requests" value={formatNumber(pendingRequests)} icon={<ShieldCheck className="h-5 w-5" />} trend="Approval tickets awaiting decision." tone="warning" />
+        <StatCard label="Approved requests" value={formatNumber(approvedRequests)} icon={<BarChart2 className="h-5 w-5" />} trend="Completed approval decisions." tone="success" />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">

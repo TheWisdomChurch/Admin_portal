@@ -19,7 +19,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       primary:
         'bg-[var(--color-accent-primary)] text-[var(--color-text-onprimary)] hover:bg-[var(--color-accent-primaryhover)] focus-visible:ring-[var(--color-accent-primary)] shadow-sm ring-1 ring-black/5',
       secondary: 'bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)] hover:bg-[var(--color-background-hover)] focus-visible:ring-[var(--color-border-focus)]',
-      warning: 'bg-amber-500 text-white hover:bg-amber-600 focus-visible:ring-amber-500',
+      warning: 'bg-[var(--color-accent-warning)] text-white hover:opacity-90 focus-visible:ring-[var(--color-accent-warning)]',
       danger: 'bg-[var(--color-accent-danger)] text-white hover:opacity-90 focus-visible:ring-[var(--color-accent-danger)]',
       ghost: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)] focus-visible:ring-[var(--color-border-focus)]',
       outline: 'border border-[var(--color-border-primary)] bg-transparent text-[var(--color-text-primary)] hover:bg-[var(--color-background-hover)] focus-visible:ring-[var(--color-border-focus)]',

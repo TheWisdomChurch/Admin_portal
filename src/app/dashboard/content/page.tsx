@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import {
   Activity,
@@ -20,9 +20,14 @@ import toast from 'react-hot-toast';
 
 import { PageHeader } from '@/layouts';
 import { Button } from '@/ui/Button';
+import { Input } from '@/ui/Input';
+import { SectionCard } from '@/ui/SectionCard';
+import { StatCard } from '@/ui/StatCard';
+import { EmptyState } from '@/ui/EmptyState';
 import apiClient from '@/lib/api';
 import MediaUploadField from '@/components/MediaUploadField';
 import { uploadAsset } from '@/lib/uploads';
+import { withAuth } from '@/providers/withAuth';
 import type {
   ConfessionPopupContent,
   EmailTemplate,
@@ -143,64 +148,20 @@ async function fetchTemplateStatusMap(): Promise<Record<string, TemplateStatus>>
   }, {});
 }
 
-function Panel({ title, subtitle, icon: Icon, actions, children }: { title: string; subtitle?: string; icon?: ComponentType<{ className?: string }>; actions?: ReactNode; children: ReactNode }) {
-  return (
-    <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:shadow-md">
-      <div className="flex flex-col gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-3">
-          {Icon ? <div className="rounded-2xl bg-slate-950 p-3 text-white shadow-sm"><Icon className="h-5 w-5" /></div> : null}
-          <div>
-            <h2 className="text-lg font-black tracking-tight text-slate-950">{title}</h2>
-            {subtitle ? <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">{subtitle}</p> : null}
-          </div>
-        </div>
-        {actions ? <div className="shrink-0">{actions}</div> : null}
-      </div>
-      <div className="mt-5">{children}</div>
-    </section>
-  );
-}
-
-function StatCard({ label, value, hint, icon: Icon }: { label: string; value: number | string; hint: string; icon: ComponentType<{ className?: string }> }) {
-  return (
-    <article className="overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{label}</p>
-          <strong className="mt-3 block text-3xl font-black tracking-tight text-slate-950">{value}</strong>
-        </div>
-        <div className="rounded-2xl bg-slate-950 p-3 text-white"><Icon className="h-5 w-5" /></div>
-      </div>
-      <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">{hint}</p>
-    </article>
-  );
-}
-
 function Field({ label, value, onChange, placeholder, type = 'text' }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string }) {
-  return (
-    <label className="grid gap-1.5">
-      <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">{label}</span>
-      <input
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-      />
-    </label>
-  );
+  return <Input label={label} type={type} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />;
 }
 
 function TextArea({ label, value, onChange, rows = 4, placeholder }: { label: string; value: string; onChange: (value: string) => void; rows?: number; placeholder?: string }) {
   return (
     <label className="grid gap-1.5">
-      <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">{label}</span>
+      <span className="text-xs font-black uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">{label}</span>
       <textarea
         value={value}
         rows={rows}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold leading-7 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+        className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-semibold leading-7 text-[var(--color-text-primary)] outline-none transition placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--color-border-focus)] focus:ring-4 focus:ring-[var(--color-background-tertiary)]"
       />
     </label>
   );
@@ -208,7 +169,7 @@ function TextArea({ label, value, onChange, rows = 4, placeholder }: { label: st
 
 function TabButton({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={`rounded-2xl px-4 py-2 text-sm font-black transition ${active ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'}`}>
+    <button type="button" onClick={onClick} className={`rounded-2xl px-4 py-2 text-sm font-black transition ${active ? 'bg-[var(--color-text-primary)] text-[var(--color-text-inverse)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]'}`}>
       {children}
     </button>
   );
@@ -216,13 +177,13 @@ function TabButton({ active, children, onClick }: { active: boolean; children: R
 
 function StatusPill({ active }: { active: boolean }) {
   return (
-    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ring-1 ${active ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-amber-200'}`}>
+    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ring-1 ${active ? 'bg-[var(--color-success-surface)] text-[var(--color-success-text)] ring-[var(--color-success-border)]' : 'bg-[var(--color-warning-surface)] text-[var(--color-warning-text)] ring-[var(--color-warning-border)]'}`}>
       {active ? 'Active' : 'Missing / inactive'}
     </span>
   );
 }
 
-export default function ContentPage() {
+function ContentPage() {
   const [homepageAd, setHomepageAd] = useState<HomepageAdContent>(defaultHomepageAd);
   const [confession, setConfession] = useState<ConfessionPopupContent>(defaultConfession);
   const [pastoralRequests, setPastoralRequests] = useState<PastoralCareRequestAdmin[]>([]);
@@ -364,37 +325,37 @@ export default function ContentPage() {
         actions={<Button variant="outline" icon={<RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />} onClick={() => void loadContent()} loading={loading}>Refresh</Button>}
       />
 
-      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 shadow-xl">
-        <div className="relative grid gap-6 p-6 text-white lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)] lg:items-end">
-          <div className="absolute right-0 top-0 h-56 w-56 rounded-full bg-amber-400/10 blur-3xl" />
+      <section className="overflow-hidden rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] shadow-xl">
+        <div className="relative grid gap-6 p-6 text-[var(--color-text-inverse)] lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)] lg:items-end">
+          <div className="absolute right-0 top-0 h-56 w-56 rounded-full bg-[var(--color-accent-primary)]/10 blur-3xl" />
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white/65"><ShieldCheck className="h-4 w-4" /> Website content operations</div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/65"><ShieldCheck className="h-4 w-4" /> Website content operations</div>
             <h1 className="mt-4 max-w-3xl text-3xl font-black tracking-tight sm:text-4xl xl:text-5xl">Publish consistent content across homepage, popups, and automated follow-up.</h1>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-white/65">This workspace keeps public-facing messaging and automation templates aligned.</p>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--color-text-inverse)]/65">This workspace keeps public-facing messaging and automation templates aligned.</p>
           </div>
           <div className="relative grid gap-3 sm:grid-cols-2">
-            <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-white/50">Homepage ad</p>
+            <div className="rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-4 backdrop-blur">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-inverse)]/50">Homepage ad</p>
               <p className="mt-2 text-2xl font-black">{stats.adState}</p>
-              <p className="mt-1 text-xs font-semibold text-white/55">{formatDate(homepageAd.startAt)} — {formatDate(homepageAd.endAt)}</p>
+              <p className="mt-1 text-xs font-semibold text-[var(--color-text-inverse)]/55">{formatDate(homepageAd.startAt)} — {formatDate(homepageAd.endAt)}</p>
             </div>
-            <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-white/50">Templates</p>
+            <div className="rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-4 backdrop-blur">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-inverse)]/50">Templates</p>
               <p className="mt-2 text-2xl font-black">{stats.templates}</p>
-              <p className="mt-1 text-xs font-semibold text-white/55">required automations active</p>
+              <p className="mt-1 text-xs font-semibold text-[var(--color-text-inverse)]/55">required automations active</p>
             </div>
           </div>
         </div>
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={HeartHandshake} label="Pastoral requests" value={stats.pastoral} hint="Latest pastoral care requests." />
-        <StatCard icon={HandCoins} label="Giving intents" value={stats.giving} hint="Recent giving expressions and follow-up opportunities." />
-        <StatCard icon={MailCheck} label="Automation templates" value={stats.templates} hint="Confirmation templates needed by service workflows." />
-        <StatCard icon={Activity} label="Content status" value={stats.adState} hint="Homepage campaign status based on active date range." />
+        <StatCard icon={<HeartHandshake className="h-5 w-5" />} label="Pastoral requests" value={stats.pastoral} trend="Latest pastoral care requests." />
+        <StatCard icon={<HandCoins className="h-5 w-5" />} label="Giving intents" value={stats.giving} trend="Recent giving expressions and follow-up opportunities." tone="success" />
+        <StatCard icon={<MailCheck className="h-5 w-5" />} label="Automation templates" value={stats.templates} trend="Confirmation templates needed by service workflows." tone="info" />
+        <StatCard icon={<Activity className="h-5 w-5" />} label="Content status" value={stats.adState} trend="Homepage campaign status based on active date range." tone="warning" />
       </section>
 
-      <section className="sticky top-2 z-20 rounded-3xl border border-slate-200 bg-white/85 p-2 shadow-sm backdrop-blur">
+      <section className="sticky top-2 z-20 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/85 p-2 shadow-sm backdrop-blur">
         <div className="flex gap-2 overflow-x-auto">
           <TabButton active={activeTab === 'homepage'} onClick={() => setActiveTab('homepage')}>Homepage ad</TabButton>
           <TabButton active={activeTab === 'confession'} onClick={() => setActiveTab('confession')}>Confession popup</TabButton>
@@ -403,11 +364,11 @@ export default function ContentPage() {
         </div>
       </section>
 
-      {loading ? <section className="rounded-[2rem] border border-slate-200 bg-white p-10 shadow-sm"><div className="flex items-center justify-center gap-3 text-sm font-bold text-slate-500"><Loader2 className="h-5 w-5 animate-spin" /> Loading content dashboard...</div></section> : null}
+      {loading ? <section className="rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-10 shadow-sm"><div className="flex items-center justify-center gap-3 text-sm font-bold text-[var(--color-text-tertiary)]"><Loader2 className="h-5 w-5 animate-spin" /> Loading content dashboard...</div></section> : null}
 
       {activeTab === 'homepage' ? (
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_420px]">
-          <Panel title="Homepage campaign ad" subtitle="Edit the popup/hero promotion used to drive registration or announcements." icon={Sparkles} actions={<Button icon={<Save className="h-4 w-4" />} onClick={() => void saveHomepageAd()} loading={savingAd}>Save Ad</Button>}>
+          <SectionCard title="Homepage campaign ad" subtitle="Edit the popup/hero promotion used to drive registration or announcements." icon={<Sparkles className="h-5 w-5" />} actions={<Button icon={<Save className="h-4 w-4" />} onClick={() => void saveHomepageAd()} loading={savingAd}>Save Ad</Button>}>
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="ID" value={homepageAd.id || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, id: value }))} />
               <Field label="CTA Label" value={homepageAd.ctaLabel || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, ctaLabel: value }))} />
@@ -423,27 +384,27 @@ export default function ContentPage() {
               <div className="md:col-span-2"><TextArea label="Description" value={homepageAd.description || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, description: value }))} /></div>
               <div className="md:col-span-2"><TextArea label="Note" value={homepageAd.note || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, note: value }))} rows={3} /></div>
             </div>
-          </Panel>
+          </SectionCard>
 
-          <Panel title="Live website preview" subtitle="Review the visitor-facing campaign before saving." icon={ImageIcon}>
-            <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-slate-50">
-              <div className="relative h-60 bg-slate-100">
-                {homepagePreviewImage ? <Image src={homepagePreviewImage} alt="Homepage ad image preview" fill className="object-cover" unoptimized /> : <div className="flex h-full items-center justify-center text-slate-400"><ImageIcon className="h-8 w-8" /></div>}
+          <SectionCard title="Live website preview" subtitle="Review the visitor-facing campaign before saving." icon={<ImageIcon className="h-5 w-5" />}>
+            <div className="overflow-hidden rounded-[1.5rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
+              <div className="relative h-60 bg-[var(--color-background-tertiary)]">
+                {homepagePreviewImage ? <Image src={homepagePreviewImage} alt="Homepage ad image preview" fill className="object-cover" unoptimized /> : <div className="flex h-full items-center justify-center text-[var(--color-text-tertiary)]"><ImageIcon className="h-8 w-8" /></div>}
               </div>
-              <div className="space-y-3 bg-white p-5">
-                <span className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700 ring-1 ring-amber-200">{homepageAd.title || 'Campaign title'}</span>
-                <h3 className="text-2xl font-black tracking-tight text-slate-950">{homepageAd.headline || 'Campaign headline'}</h3>
-                <p className="text-sm leading-7 text-slate-600">{homepageAd.description || 'Campaign description appears here.'}</p>
-                <div className="rounded-2xl bg-slate-50 p-3 text-xs font-bold text-slate-500">{homepageAd.time || 'Time'} · {homepageAd.location || 'Location'}</div>
-                <div className="inline-flex rounded-2xl bg-slate-950 px-4 py-2 text-sm font-black text-white">{homepageAd.ctaLabel || 'Register now'}</div>
+              <div className="space-y-3 bg-[var(--color-background-primary)] p-5">
+                <span className="inline-flex rounded-full bg-[var(--color-warning-surface)] px-3 py-1 text-xs font-black text-[var(--color-warning-text)] ring-1 ring-[var(--color-warning-border)]">{homepageAd.title || 'Campaign title'}</span>
+                <h3 className="text-2xl font-black tracking-tight text-[var(--color-text-primary)]">{homepageAd.headline || 'Campaign headline'}</h3>
+                <p className="text-sm leading-7 text-[var(--color-text-secondary)]">{homepageAd.description || 'Campaign description appears here.'}</p>
+                <div className="rounded-2xl bg-[var(--color-background-secondary)] p-3 text-xs font-bold text-[var(--color-text-tertiary)]">{homepageAd.time || 'Time'} · {homepageAd.location || 'Location'}</div>
+                <div className="inline-flex rounded-2xl bg-[var(--color-text-primary)] px-4 py-2 text-sm font-black text-[var(--color-text-inverse)]">{homepageAd.ctaLabel || 'Register now'}</div>
               </div>
             </div>
-          </Panel>
+          </SectionCard>
         </section>
       ) : null}
 
       {activeTab === 'confession' ? (
-        <Panel title="Confession popup" subtitle="Edit the welcome modal and confession text." icon={Wand2} actions={<Button icon={<Sparkles className="h-4 w-4" />} onClick={() => void saveConfession()} loading={savingConfession}>Save Confession</Button>}>
+        <SectionCard title="Confession popup" subtitle="Edit the welcome modal and confession text." icon={<Wand2 className="h-5 w-5" />} actions={<Button icon={<Sparkles className="h-4 w-4" />} onClick={() => void saveConfession()} loading={savingConfession}>Save Confession</Button>}>
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
             <div className="space-y-4">
               <Field label="Welcome title" value={confession.welcomeTitle || ''} onChange={(value) => setConfession((state) => ({ ...state, welcomeTitle: value }))} />
@@ -451,20 +412,20 @@ export default function ContentPage() {
               <TextArea label="Motto" value={confession.motto || ''} onChange={(value) => setConfession((state) => ({ ...state, motto: value }))} rows={3} />
               <TextArea label="Confession text" value={confession.confessionText || ''} onChange={(value) => setConfession((state) => ({ ...state, confessionText: value }))} rows={5} />
             </div>
-            <div className="rounded-[1.7rem] border border-slate-200 bg-slate-950 p-5 text-white shadow-sm">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-300">Popup preview</p>
+            <div className="rounded-[1.7rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] p-5 text-[var(--color-text-inverse)] shadow-sm">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">Popup preview</p>
               <h3 className="mt-4 text-3xl font-black tracking-tight">{confession.welcomeTitle || 'Welcome Home'}</h3>
-              <p className="mt-4 text-sm leading-7 text-white/65">{confession.welcomeMessage}</p>
-              <div className="mt-5 rounded-3xl border border-white/10 bg-white/10 p-4"><p className="text-sm font-bold leading-7 text-white">{confession.confessionText}</p></div>
-              <p className="mt-4 text-xs font-semibold leading-6 text-white/45">{confession.motto}</p>
+              <p className="mt-4 text-sm leading-7 text-[var(--color-text-inverse)]/65">{confession.welcomeMessage}</p>
+              <div className="mt-5 rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-4"><p className="text-sm font-bold leading-7 text-[var(--color-text-inverse)]">{confession.confessionText}</p></div>
+              <p className="mt-4 text-xs font-semibold leading-6 text-[var(--color-text-inverse)]/45">{confession.motto}</p>
             </div>
           </div>
-        </Panel>
+        </SectionCard>
       ) : null}
 
       {activeTab === 'requests' ? (
         <section className="grid gap-6 xl:grid-cols-2">
-          <Panel title="Recent pastoral requests" subtitle="Latest care records submitted from public forms." icon={HeartHandshake}>
+          <SectionCard title="Recent pastoral requests" subtitle="Latest care records submitted from public forms." icon={<HeartHandshake className="h-5 w-5" />}>
             <RequestList
               empty="No pastoral requests yet."
               items={pastoralRequests.map((item) => ({
@@ -474,8 +435,8 @@ export default function ContentPage() {
                 detail: `${item.eventType} • ${item.eventDate || 'No date recorded'}`,
               }))}
             />
-          </Panel>
-          <Panel title="Recent giving intents" subtitle="Latest giving submissions and areas of interest." icon={HandCoins}>
+          </SectionCard>
+          <SectionCard title="Recent giving intents" subtitle="Latest giving submissions and areas of interest." icon={<HandCoins className="h-5 w-5" />}>
             <RequestList
               empty="No giving intents yet."
               items={givingIntents.map((item) => ({
@@ -485,23 +446,23 @@ export default function ContentPage() {
                 detail: 'Giving intent',
               }))}
             />
-          </Panel>
+          </SectionCard>
         </section>
       ) : null}
 
       {activeTab === 'automation' ? (
-        <Panel title="Automation email templates" subtitle="Keep required confirmation templates active for workflows." icon={ShieldCheck} actions={<Button icon={<ShieldCheck className="h-4 w-4" />} onClick={() => void ensureAllTemplates()} loading={syncingTemplates}>Activate Required Templates</Button>}>
+        <SectionCard title="Automation email templates" subtitle="Keep required confirmation templates active for workflows." icon={<ShieldCheck className="h-5 w-5" />} actions={<Button icon={<ShieldCheck className="h-4 w-4" />} onClick={() => void ensureAllTemplates()} loading={syncingTemplates}>Activate Required Templates</Button>}>
           <div className="grid gap-4 lg:grid-cols-2">
             {AUTOMATION_TEMPLATE_DEFS.map((def) => {
               const state = templateStatus[def.key];
               const isActive = Boolean(state?.active);
               return (
-                <article key={def.key} className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 transition hover:bg-white hover:shadow-sm">
+                <article key={def.key} className="rounded-[1.5rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 transition hover:bg-[var(--color-background-primary)] hover:shadow-sm">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-black text-slate-950">{def.title}</h3><StatusPill active={isActive} /></div>
-                      <p className="mt-2 break-all text-xs font-semibold text-slate-500">{def.key}</p>
-                      <p className="mt-1 text-xs font-semibold text-slate-400">{state?.version ? `Version ${state.version}` : 'No version detected'}</p>
+                      <div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-black text-[var(--color-text-primary)]">{def.title}</h3><StatusPill active={isActive} /></div>
+                      <p className="mt-2 break-all text-xs font-semibold text-[var(--color-text-tertiary)]">{def.key}</p>
+                      <p className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">{state?.version ? `Version ${state.version}` : 'No version detected'}</p>
                     </div>
                     <Button size="sm" variant={isActive ? 'outline' : 'primary'} onClick={() => void ensureTemplate(def.key)} loading={templateBusyKey === def.key}>{isActive ? 'Re-check' : 'Activate'}</Button>
                   </div>
@@ -509,28 +470,26 @@ export default function ContentPage() {
               );
             })}
           </div>
-        </Panel>
+        </SectionCard>
       ) : null}
     </main>
   );
 }
 
 function RequestList({ items, empty }: { items: Array<{ id: string; title: string; meta: string; detail: string }>; empty: string }) {
-  if (items.length === 0) return <EmptyState label={empty} />;
+  if (items.length === 0) return <EmptyState title={empty} />;
 
   return (
     <div className="space-y-3">
       {items.map((item) => (
-        <article key={item.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4 transition hover:bg-white hover:shadow-sm">
-          <p className="text-sm font-black text-slate-950">{item.title}</p>
-          <p className="mt-1 text-xs font-semibold text-slate-500">{item.meta}</p>
-          <p className="mt-3 text-xs font-semibold text-slate-400">{item.detail}</p>
+        <article key={item.id} className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 transition hover:bg-[var(--color-background-primary)] hover:shadow-sm">
+          <p className="text-sm font-black text-[var(--color-text-primary)]">{item.title}</p>
+          <p className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">{item.meta}</p>
+          <p className="mt-3 text-xs font-semibold text-[var(--color-text-tertiary)]">{item.detail}</p>
         </article>
       ))}
     </div>
   );
 }
 
-function EmptyState({ label }: { label: string }) {
-  return <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center"><p className="text-sm font-bold text-slate-500">{label}</p></div>;
-}
+export default withAuth(ContentPage, { requiredRole: 'admin' });

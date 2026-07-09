@@ -28,6 +28,7 @@ import {
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
+import { StatCard } from '@/ui/StatCard';
 import { PageHeader } from '@/layouts';
 import { useSuperQueues, type ApprovalItem } from '@/hooks/useSuperQueues';
 import { apiClient } from '@/lib/api';
@@ -282,53 +283,10 @@ export default function SuperDashboard() {
       />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <article className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
-            Pending Approvals
-          </p>
-          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">
-            {stats.total}
-          </p>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            Items requiring super-admin decision
-          </p>
-        </article>
-
-        <article className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
-            Testimonial Queue
-          </p>
-          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">
-            {stats.testimonials}
-          </p>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            Content moderation inflow
-          </p>
-        </article>
-
-        <article className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
-            Event Queue
-          </p>
-          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">
-            {stats.events}
-          </p>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            Event oversight approvals
-          </p>
-        </article>
-
-        <article className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
-            Live Operations
-          </p>
-          <p className="mt-2 text-3xl font-semibold text-[var(--color-text-primary)]">
-            {analytics?.upcomingEvents ?? 0}
-          </p>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            Upcoming events under oversight
-          </p>
-        </article>
+        <StatCard label="Pending Approvals" value={stats.total} trend="Items requiring super-admin decision" tone="warning" />
+        <StatCard label="Testimonial Queue" value={stats.testimonials} trend="Content moderation inflow" />
+        <StatCard label="Event Queue" value={stats.events} trend="Event oversight approvals" tone="info" />
+        <StatCard label="Live Operations" value={analytics?.upcomingEvents ?? 0} trend="Upcoming events under oversight" tone="success" />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-3">
