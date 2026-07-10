@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useWatch, type SubmitHandler } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -14,6 +14,7 @@ import { Footer } from '@/components/Footer';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Input } from '@/ui/Input';
+import { OtpInput, type OtpInputHandle } from '@/ui/OtpInput';
 import { PasswordStrengthMeter } from '@/ui/PasswordStrengthMeter';
 import { apiClient } from '@/lib/api';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
@@ -43,6 +44,7 @@ function PasswordResetInner() {
   const [step, setStep] = useState<'verify' | 'reset' | 'success'>('verify');
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const codeInputRef = useRef<OtpInputHandle>(null);
   const [serverError, setServerError] = useState('');
 
   const {
@@ -75,9 +77,9 @@ function PasswordResetInner() {
     setStep(queryEmail && queryCode ? 'reset' : 'verify');
   }, [searchParams]);
 
-  const handleVerifyOtp = async () => {
+  const handleVerifyOtp = async (codeOverride?: string) => {
     const trimmedEmail = email.trim().toLowerCase();
-    const trimmedCode = code.trim();
+    const trimmedCode = (codeOverride ?? code).trim();
 
     if (!trimmedEmail) {
       toast.error('Enter your email address.');
@@ -107,12 +109,16 @@ function PasswordResetInner() {
       const fieldErrors = extractServerFieldErrors(err);
       if (Object.keys(fieldErrors).length > 0) {
         toast.error(getFirstServerFieldError(fieldErrors) || 'Check the code and try again.');
+        setCode('');
+        codeInputRef.current?.focus();
         return;
       }
 
       const message = getServerErrorMessage(err, 'Failed to verify code.');
       setServerError(message);
       toast.error(message);
+      setCode('');
+      codeInputRef.current?.focus();
     } finally {
       setVerifyLoading(false);
     }
@@ -271,21 +277,25 @@ function PasswordResetInner() {
                 </div>
               </div>
 
-              <Input
-                label="Verification code"
-                type="text"
-                placeholder="Enter 6-digit code"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                disabled={verifyLoading}
-                inputMode="numeric"
-              />
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[var(--color-text-secondary)]">Verification code</label>
+                <OtpInput
+                  ref={codeInputRef}
+                  value={code}
+                  onChange={setCode}
+                  onComplete={(value) => {
+                    if (verifyLoading) return;
+                    void handleVerifyOtp(value);
+                  }}
+                  disabled={verifyLoading}
+                />
+              </div>
 
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <Button variant="outline" onClick={handleResendOtp} disabled={verifyLoading}>
                   Resend code
                 </Button>
-                <Button onClick={handleVerifyOtp} loading={verifyLoading} disabled={verifyLoading}>
+                <Button onClick={() => void handleVerifyOtp()} loading={verifyLoading} disabled={verifyLoading}>
                   Verify code
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>

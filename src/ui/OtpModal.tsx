@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { X, ShieldCheck, Mail, KeyRound } from 'lucide-react';
+import { X, ShieldCheck, Mail } from 'lucide-react';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
 import { Modal } from '@/ui/Modal';
+import { OtpInput, type OtpInputHandle } from '@/ui/OtpInput';
 
 type Step = 'email' | 'otp';
 
@@ -53,7 +54,7 @@ export function OtpModal({
 }: OtpModalProps) {
   const isEmailStep = step === 'email';
   const emailInputRef = useRef<HTMLInputElement>(null);
-  const otpInputRef = useRef<HTMLInputElement>(null);
+  const otpInputRef = useRef<OtpInputHandle>(null);
 
   // Modal only autofocuses once on open; this step switches in place (no
   // remount), so refocus the newly-shown field whenever the step changes —
@@ -63,6 +64,11 @@ export function OtpModal({
     const target = isEmailStep ? emailInputRef.current : otpInputRef.current;
     target?.focus();
   }, [open, isEmailStep]);
+
+  const handleOtpComplete = () => {
+    if (loading) return;
+    void onVerifyOtp();
+  };
 
   return (
     <Modal open={open} onClose={onClose} labelledBy="otp-modal-title">
@@ -103,22 +109,15 @@ export function OtpModal({
               />
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">{otpLabel}</label>
-              <div className="relative">
-                <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
-                <Input
-                  ref={otpInputRef}
-                  value={code}
-                  onChange={(e) => onCodeChange(e.target.value)}
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={6}
-                  className="pl-10 text-center tracking-[0.4em]"
-                  placeholder="••••••"
-                  disabled={loading}
-                />
-              </div>
+              <OtpInput
+                ref={otpInputRef}
+                value={code}
+                onChange={onCodeChange}
+                onComplete={handleOtpComplete}
+                disabled={loading}
+              />
               <p className="text-xs text-[var(--color-text-tertiary)]">{otpHint}</p>
             </div>
           )}
