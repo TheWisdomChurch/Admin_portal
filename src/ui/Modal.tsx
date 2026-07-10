@@ -26,6 +26,7 @@ const sizes = {
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const FORM_FIELD_SELECTOR = 'input:not([disabled]), textarea:not([disabled]), select:not([disabled])';
 
 /**
  * Shared overlay/panel shell for every modal in the app — handles the
@@ -73,7 +74,14 @@ export function Modal({
     };
 
     document.addEventListener('keydown', handleKeyDown);
-    panelRef.current?.focus();
+
+    // Prefer the first actual form field (e.g. an OTP/code input) over a
+    // leading close button so opening a modal lets you start typing right
+    // away instead of requiring a click into the field first.
+    const firstField = panelRef.current?.querySelector<HTMLElement>(FORM_FIELD_SELECTOR);
+    const firstFocusable = panelRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+    const autofocusTarget = firstField || firstFocusable || panelRef.current;
+    autofocusTarget?.focus();
 
     return () => {
       document.body.style.overflow = previousOverflow;
@@ -87,7 +95,7 @@ export function Modal({
   return (
     <div
       className={cn(
-        'fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6 backdrop-blur-sm',
+        'fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-text-primary)]/50 px-4 py-6 backdrop-blur-sm',
         overlayClassName
       )}
       onClick={closeOnBackdrop ? onClose : undefined}
