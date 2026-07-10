@@ -1,7 +1,7 @@
 // src/app/(auth)/mfa/setup/page.tsx
 'use client';
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import QRCode from 'qrcode';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, ArrowRight, CheckCircle2, Copy, KeyRound, Loader2, ShieldCheck, Smartphone } from 'lucide-react';
@@ -113,6 +113,7 @@ export default function MfaSetupPage() {
   const [secret, setSecret] = useState('');
   const [otpauthUrl, setOtpauthUrl] = useState('');
   const [qrBuildError, setQrBuildError] = useState('');
+  const codeInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isInitialized || !bootstrapped) return;
@@ -205,6 +206,10 @@ export default function MfaSetupPage() {
 
   const hasSetup = Boolean(qrCodeDataUrl || qrCodeSvg || secret || otpauthUrl);
 
+  useEffect(() => {
+    if (hasSetup) codeInputRef.current?.focus();
+  }, [hasSetup]);
+
   return (
     <div className="min-h-screen bg-[var(--color-background-primary)]">
       <main className="mx-auto grid w-full max-w-7xl gap-6 px-4 pb-12 pt-10 sm:px-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] lg:px-8">
@@ -282,6 +287,7 @@ export default function MfaSetupPage() {
 
           <form onSubmit={handleEnable} className="mt-6 space-y-4">
             <Input
+              ref={codeInputRef}
               label="Authenticator code"
               type="text"
               inputMode="numeric"

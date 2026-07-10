@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { X, ShieldCheck, Mail, KeyRound } from 'lucide-react';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
@@ -51,6 +52,17 @@ export function OtpModal({
   onSecondaryAction,
 }: OtpModalProps) {
   const isEmailStep = step === 'email';
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const otpInputRef = useRef<HTMLInputElement>(null);
+
+  // Modal only autofocuses once on open; this step switches in place (no
+  // remount), so refocus the newly-shown field whenever the step changes —
+  // otherwise the code input appears without focus and requires a click.
+  useEffect(() => {
+    if (!open) return;
+    const target = isEmailStep ? emailInputRef.current : otpInputRef.current;
+    target?.focus();
+  }, [open, isEmailStep]);
 
   return (
     <Modal open={open} onClose={onClose} labelledBy="otp-modal-title">
@@ -79,6 +91,7 @@ export function OtpModal({
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">{emailLabel}</label>
               <Input
+                ref={emailInputRef}
                 value={email}
                 onChange={(e) => onEmailChange(e.target.value)}
                 type="email"
@@ -95,6 +108,7 @@ export function OtpModal({
               <div className="relative">
                 <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                 <Input
+                  ref={otpInputRef}
                   value={code}
                   onChange={(e) => onCodeChange(e.target.value)}
                   inputMode="numeric"
