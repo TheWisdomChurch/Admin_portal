@@ -12,7 +12,7 @@ import type { AuthSecurityProfile, TOTPSetupResponse } from '@/lib/types';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
-import { Input } from '@/ui/Input';
+import { OtpInput, type OtpInputHandle } from '@/ui/OtpInput';
 
 type LooseRecord = Record<string, unknown>;
 
@@ -113,7 +113,7 @@ export default function MfaSetupPage() {
   const [secret, setSecret] = useState('');
   const [otpauthUrl, setOtpauthUrl] = useState('');
   const [qrBuildError, setQrBuildError] = useState('');
-  const codeInputRef = useRef<HTMLInputElement>(null);
+  const codeInputRef = useRef<OtpInputHandle>(null);
 
   useEffect(() => {
     if (!isInitialized || !bootstrapped) return;
@@ -125,6 +125,11 @@ export default function MfaSetupPage() {
   }, [accessStatus, bootstrapped, isInitialized, router]);
 
   const alreadyEnabled = useMemo(() => isMfaEnabled(mfaProfile), [mfaProfile]);
+  const hasSetup = Boolean(qrCodeDataUrl || qrCodeSvg || secret || otpauthUrl);
+
+  useEffect(() => {
+    if (hasSetup) codeInputRef.current?.focus();
+  }, [hasSetup]);
 
   useEffect(() => {
     let cancelled = false;
@@ -170,9 +175,8 @@ export default function MfaSetupPage() {
     window.setTimeout(() => setSuccessMessage(''), 1800);
   };
 
-  const handleEnable = async (event: FormEvent) => {
-    event.preventDefault();
-    const normalizedCode = code.replace(/\D/g, '').slice(0, 6);
+  const submitCode = async (rawCode: string) => {
+    const normalizedCode = rawCode.replace(/\D/g, '').slice(0, 6);
     if (normalizedCode.length !== 6) {
       setVerifyError('Enter the 6-digit code from your authenticator app.');
       return;
@@ -186,9 +190,16 @@ export default function MfaSetupPage() {
       window.setTimeout(() => router.replace('/dashboard'), 900);
     } catch (error) {
       setVerifyError(getServerErrorMessage(error, 'Failed to verify MFA code.'));
+      setCode('');
+      codeInputRef.current?.focus();
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleEnable = (event: FormEvent) => {
+    event.preventDefault();
+    void submitCode(code);
   };
 
   if (!isInitialized || !bootstrapped || accessStatus === 'loading') {
@@ -203,12 +214,6 @@ export default function MfaSetupPage() {
   }
 
   if (accessStatus === 'login_required' || accessStatus === 'ready') return null;
-
-  const hasSetup = Boolean(qrCodeDataUrl || qrCodeSvg || secret || otpauthUrl);
-
-  useEffect(() => {
-    if (hasSetup) codeInputRef.current?.focus();
-  }, [hasSetup]);
 
   return (
     <div className="min-h-screen bg-[var(--color-background-primary)]">
@@ -286,19 +291,20 @@ export default function MfaSetupPage() {
           </div>
 
           <form onSubmit={handleEnable} className="mt-6 space-y-4">
-            <Input
-              ref={codeInputRef}
-              label="Authenticator code"
-              type="text"
-              inputMode="numeric"
-              placeholder="Enter 6-digit code"
-              value={code}
-              onChange={(e) => {
-                setCode(e.target.value.replace(/\D/g, '').slice(0, 6));
-                setVerifyError('');
-              }}
-              disabled={submitting}
-            />
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[var(--color-text-secondary)]">Authenticator code</label>
+              <OtpInput
+                ref={codeInputRef}
+                value={code}
+                onChange={(value) => {
+                  setCode(value);
+                  setVerifyError('');
+                }}
+                onComplete={(value) => void submitCode(value)}
+                disabled={submitting}
+                error={Boolean(verifyError)}
+              />
+            </div>
             {verifyError ? <Notice type="error">{verifyError}</Notice> : null}
             <Button type="submit" className="w-full" loading={submitting} disabled={submitting || !hasSetup}>Enable MFA</Button>
           </form>
