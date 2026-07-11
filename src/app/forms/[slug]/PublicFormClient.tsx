@@ -27,6 +27,11 @@ type ContentSectionView = { title: string; subtitle: string; items: string[]; it
 
 type PublicFormClientProps = { slug: string };
 
+const fieldInputClass =
+  'w-full rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3.5 py-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-accent-primary)] focus:ring-4 focus:ring-[var(--color-accent-primary)]/15';
+const choiceRowClass =
+  'flex items-start gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3 text-sm text-[var(--color-text-secondary)]';
+
 const MB = 1024 * 1024;
 const FETCH_TIMEOUT_MS = 12_000;
 const RETRY_BASE_MS = 1_200;
@@ -371,12 +376,12 @@ function PhoneNumberInput({ label, required, value, onChange }: { label: string;
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[180px_1fr]">
-        <select className="form-select" value={currentDial} onChange={(e) => onChange(`${e.target.value}${onlyDigits(currentNational)}`)} aria-label={`${label} country code`}>
+        <select className={fieldInputClass} value={currentDial} onChange={(e) => onChange(`${e.target.value}${onlyDigits(currentNational)}`)} aria-label={`${label} country code`}>
           {COUNTRY_PHONE_CODES.map((c) => <option key={c.iso} value={c.dial}>{c.name} ({c.dial})</option>)}
         </select>
-        <input className="form-input" inputMode="tel" placeholder="Phone number" value={currentNational} onChange={(e) => onChange(`${currentDial}${onlyDigits(e.target.value)}`)} required={required} />
+        <input className={fieldInputClass} inputMode="tel" placeholder="Phone number" value={currentNational} onChange={(e) => onChange(`${currentDial}${onlyDigits(e.target.value)}`)} required={required} />
       </div>
-      <p className="text-xs text-gray-500">Stored as international format, e.g. +2348012345678</p>
+      <p className="text-xs text-[var(--color-text-tertiary)]">Stored as international format, e.g. +2348012345678</p>
     </div>
   );
 }
@@ -386,31 +391,31 @@ function FieldInput({ field, value, onChange }: { field: FormField; value: Field
   const type = normalizeFieldType(field.type);
   const showAsPhone = isPhoneType(type) || (isPhoneLikeField(field) && !isTextareaType(type) && !isSelectType(type) && !isRadioType(type) && !isCheckboxType(type) && !isUploadType(type));
 
-  if (isTextareaType(type)) return <textarea className="form-input min-h-32 resize-y" value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} placeholder={field.label} required={field.required} />;
-  if (isSelectType(type)) return <select className="form-select" value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} required={field.required}><option value="">Select...</option>{options.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>;
-  if (isRadioType(type)) return <div className="grid gap-2">{options.map((opt) => <label key={opt.value} className="choice-row"><input type="radio" name={field.key} value={opt.value} checked={value === opt.value} onChange={(e) => onChange(e.target.value)} className="accent-yellow-600" /><span>{opt.label}</span></label>)}</div>;
+  if (isTextareaType(type)) return <textarea className={`${fieldInputClass} min-h-32 resize-y`} value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} placeholder={field.label} required={field.required} />;
+  if (isSelectType(type)) return <select className={fieldInputClass} value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} required={field.required}><option value="">Select...</option>{options.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>;
+  if (isRadioType(type)) return <div className="grid gap-2">{options.map((opt) => <label key={opt.value} className={choiceRowClass}><input type="radio" name={field.key} value={opt.value} checked={value === opt.value} onChange={(e) => onChange(e.target.value)} className="accent-[var(--color-accent-primary)]" /><span>{opt.label}</span></label>)}</div>;
   if (isCheckboxType(type) && options.length > 0) {
     const selected = Array.isArray(value) ? value : [];
-    return <div className="grid gap-2">{options.map((opt) => <label key={opt.value} className="choice-row"><input type="checkbox" checked={selected.includes(opt.value)} onChange={(e) => onChange(e.target.checked ? [...selected, opt.value] : selected.filter((v) => v !== opt.value))} className="accent-yellow-600" /><span>{opt.label}</span></label>)}</div>;
+    return <div className="grid gap-2">{options.map((opt) => <label key={opt.value} className={choiceRowClass}><input type="checkbox" checked={selected.includes(opt.value)} onChange={(e) => onChange(e.target.checked ? [...selected, opt.value] : selected.filter((v) => v !== opt.value))} className="accent-[var(--color-accent-primary)]" /><span>{opt.label}</span></label>)}</div>;
   }
-  if (isCheckboxType(type)) return <label className="choice-row"><input type="checkbox" checked={Boolean(value)} onChange={(e) => onChange(e.target.checked)} className="accent-yellow-600" /><span>{field.label}</span></label>;
+  if (isCheckboxType(type)) return <label className={choiceRowClass}><input type="checkbox" checked={Boolean(value)} onChange={(e) => onChange(e.target.checked)} className="accent-[var(--color-accent-primary)]" /><span>{field.label}</span></label>;
   if (isUploadType(type)) {
     const selected = isFileValue(value) ? value : null;
     const kind = selected ? inferUploadKindFromFile(selected, field) : inferUploadKindFromField(field);
     const maxMb = getUploadLimitMb(field, kind);
     return (
       <div className="space-y-3">
-        <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center transition hover:border-yellow-500 hover:bg-yellow-50">
-          <FileUp className="h-7 w-7 text-gray-500" />
-          <span className="mt-2 text-sm font-bold text-gray-900">{selected ? selected.name : `Upload ${field.label}`}</span>
-          <span className="mt-1 text-xs text-gray-500">{getUploadFormatLabel(kind)} · max {maxMb}MB</span>
+        <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-6 text-center transition hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-background-tertiary)]">
+          <FileUp className="h-7 w-7 text-[var(--color-text-tertiary)]" />
+          <span className="mt-2 text-sm font-bold text-[var(--color-text-primary)]">{selected ? selected.name : `Upload ${field.label}`}</span>
+          <span className="mt-1 text-xs text-[var(--color-text-tertiary)]">{getUploadFormatLabel(kind)} · max {maxMb}MB</span>
           <input type="file" accept={getUploadAccept(kind)} className="sr-only" onChange={(e) => onChange(e.target.files?.[0] || null)} required={field.required} />
         </label>
       </div>
     );
   }
   if (showAsPhone) return <PhoneNumberInput label={field.label || 'Phone'} required={field.required} value={typeof value === 'string' ? value : ''} onChange={onChange} />;
-  if (type === 'date' && isAnniversaryField(field)) return <input type="date" className="form-input" value={toHtmlDateInputValue(typeof value === 'string' ? value : '')} onChange={(e) => onChange(fromHtmlDateInputValue(e.target.value))} required={field.required} />;
+  if (type === 'date' && isAnniversaryField(field)) return <input type="date" className={fieldInputClass} value={toHtmlDateInputValue(typeof value === 'string' ? value : '')} onChange={(e) => onChange(fromHtmlDateInputValue(e.target.value))} required={field.required} />;
   if (type === 'date') {
     const parsed = parseDDMMPartial(typeof value === 'string' ? value : '');
     const selectedMonth = parsed?.month && parsed.month !== '00' ? parsed.month : '';
@@ -419,13 +424,13 @@ function FieldInput({ field, value, onChange }: { field: FormField; value: Field
     const dayOptions = Array.from({ length: maxDay }, (_, index) => pad2(index + 1));
     return (
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <select className="form-select" value={selectedDay} disabled={!selectedMonth} onChange={(e) => onChange(toDDMM(e.target.value, selectedMonth))} required={field.required}><option value="">Select day</option>{dayOptions.map((day) => <option key={day} value={day}>{day}</option>)}</select>
-        <select className="form-select" value={selectedMonth} onChange={(e) => { const nextMonth = e.target.value; const nextMax = daysInMonth(Number(nextMonth || '1')); const nextDay = selectedDay && Number(selectedDay) > nextMax ? pad2(nextMax) : selectedDay; onChange(toDDMM(nextDay, nextMonth)); }} required={field.required}><option value="">Select month</option>{MONTH_OPTIONS.map((month) => <option key={month.value} value={month.value}>{month.label}</option>)}</select>
+        <select className={fieldInputClass} value={selectedDay} disabled={!selectedMonth} onChange={(e) => onChange(toDDMM(e.target.value, selectedMonth))} required={field.required}><option value="">Select day</option>{dayOptions.map((day) => <option key={day} value={day}>{day}</option>)}</select>
+        <select className={fieldInputClass} value={selectedMonth} onChange={(e) => { const nextMonth = e.target.value; const nextMax = daysInMonth(Number(nextMonth || '1')); const nextDay = selectedDay && Number(selectedDay) > nextMax ? pad2(nextMax) : selectedDay; onChange(toDDMM(nextDay, nextMonth)); }} required={field.required}><option value="">Select month</option>{MONTH_OPTIONS.map((month) => <option key={month.value} value={month.value}>{month.label}</option>)}</select>
       </div>
     );
   }
   const inputType = type === 'email' ? 'email' : type === 'number' ? 'number' : 'text';
-  return <input type={inputType} className="form-input" value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} placeholder={field.label} required={field.required} />;
+  return <input type={inputType} className={fieldInputClass} value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} placeholder={field.label} required={field.required} />;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -635,8 +640,8 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const showDetailsColumn = contentSections.length > 0;
   const submitButtonLabel = settings?.submitButtonText?.trim() || settings?.design?.ctaButtonLabel?.trim() || 'Submit Registration';
   const privacyCopy = settings?.design?.privacyCopy ?? 'By submitting, you confirm your details are accurate.';
-  const siteName = process.env.NEXT_PUBLIC_SITE_NAME?.trim() || 'Registration Portal';
-  const siteSubtitle = process.env.NEXT_PUBLIC_SITE_SUBTITLE?.trim() || 'Online registration';
+  const siteName = process.env.NEXT_PUBLIC_SITE_NAME?.trim() || 'The Wisdom Church';
+  const siteSubtitle = process.env.NEXT_PUBLIC_SITE_SUBTITLE?.trim() || 'Online Registration';
   const siteHomeUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || process.env.NEXT_PUBLIC_PUBLIC_URL?.trim() || (typeof window !== 'undefined' && window.location.origin ? window.location.origin : '/');
   const siteLogoSrc = process.env.NEXT_PUBLIC_SITE_LOGO_PATH?.trim() || '/OIP.webp';
 
@@ -720,41 +725,35 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const successDescription = applyTemplate(settings?.successMessage || 'We would love to see you.', tokenSource);
 
   return (
-    <div className="min-h-screen bg-white text-black">
-      <style jsx global>{`
-        .form-input, .form-select { width: 100%; border-radius: 1rem; border: 1px solid #d1d5db; background: #fff; padding: 0.75rem 0.9rem; font-size: 0.875rem; color: #111827; outline: none; }
-        .form-input:focus, .form-select:focus { border-color: #eab308; box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.18); }
-        .choice-row { display: flex; align-items: flex-start; gap: 0.65rem; border: 1px solid #e5e7eb; border-radius: 1rem; background: #fff; padding: 0.75rem; color: #374151; font-size: 0.875rem; }
-      `}</style>
-
-      <header className="border-b border-gray-200 bg-white/90 backdrop-blur">
+    <div className="min-h-screen bg-[var(--color-background-secondary)] text-[var(--color-text-primary)]">
+      <header className="border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <Link href={siteHomeUrl} className="flex min-w-0 items-center gap-3" prefetch={false}>
-            <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-white"><Image src={siteLogoSrc} alt={`${siteName} logo`} fill className="object-cover" sizes="44px" /></span>
-            <span className="min-w-0 leading-tight"><span className="block truncate text-sm font-black text-black">{siteName}</span><span className="block truncate text-xs text-gray-500">{siteSubtitle}</span></span>
+            <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]"><Image src={siteLogoSrc} alt={`${siteName} logo`} fill className="object-cover" sizes="44px" /></span>
+            <span className="min-w-0 leading-tight"><span className="block truncate text-sm font-black text-[var(--color-text-primary)]">{siteName}</span><span className="block truncate text-xs text-[var(--color-text-tertiary)]">{siteSubtitle}</span></span>
           </Link>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
-            <Link href={siteHomeUrl} className="rounded-full px-3 py-1 transition hover:bg-gray-50 hover:text-black" prefetch={false}>Home</Link>
-            <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1 shadow-sm"><ShieldCheck className="h-3.5 w-3.5" /> Secure form</span>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+            <Link href={siteHomeUrl} className="rounded-full px-3 py-1 transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)]" prefetch={false}>Home</Link>
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1 shadow-sm"><ShieldCheck className="h-3.5 w-3.5" /> Secure form</span>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <section className="overflow-hidden rounded-[2rem] border border-gray-200 bg-white shadow-sm">
+        <section className="overflow-hidden rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
           {bannerUrl ? <div className="relative h-52 sm:h-72 lg:h-80"><Image src={bannerUrl} alt={eventTitle} fill className="object-cover" sizes="100vw" priority /></div> : null}
           <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="p-6 sm:p-8">
-              <span className="inline-flex rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-black tracking-[0.18em] text-gray-600">{formTypeLabel}</span>
-              <h1 className="mt-4 break-words text-3xl font-black uppercase tracking-tight text-black sm:text-4xl">{formTitle}</h1>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-gray-600">{payload.form.description?.trim() || payload.event?.shortDescription?.trim() || 'Complete the form with accurate details so your registration can be processed correctly.'}</p>
-              {isClosed ? <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Registration is closed for this form.</div> : null}
+              <span className="inline-flex rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1 text-xs font-black tracking-[0.18em] text-[var(--color-text-secondary)]">{formTypeLabel}</span>
+              <h1 className="mt-4 break-words text-3xl font-black uppercase tracking-tight text-[var(--color-text-primary)] sm:text-4xl">{formTitle}</h1>
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--color-text-secondary)]">{payload.form.description?.trim() || payload.event?.shortDescription?.trim() || 'Complete the form with accurate details so your registration can be processed correctly.'}</p>
+              {isClosed ? <div className="mt-5 rounded-2xl border border-[var(--color-danger-border)] bg-[var(--color-danger-surface)] px-4 py-3 text-sm text-[var(--color-danger-text)]">Registration is closed for this form.</div> : null}
             </div>
-            <div className="border-t border-gray-200 bg-gray-50 p-6 lg:border-l lg:border-t-0">
-              <div className="rounded-3xl bg-white p-5 shadow-sm">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-500">Form status</p>
-                <p className="mt-3 text-2xl font-black text-gray-950">{isClosed ? 'Closed' : 'Open'}</p>
-                <p className="mt-2 text-sm text-gray-600">{isClosed ? 'Submissions are no longer being accepted.' : 'Submissions are currently being accepted.'}</p>
+            <div className="border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-6 lg:border-l lg:border-t-0">
+              <div className="rounded-3xl bg-[var(--color-background-primary)] p-5 shadow-sm">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Form status</p>
+                <p className="mt-3 text-2xl font-black text-[var(--color-text-primary)]">{isClosed ? 'Closed' : 'Open'}</p>
+                <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{isClosed ? 'Submissions are no longer being accepted.' : 'Submissions are currently being accepted.'}</p>
               </div>
             </div>
           </div>
@@ -762,25 +761,25 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
 
         <div className={showDetailsColumn && layoutMode === 'split' ? 'mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]' : 'mt-8 space-y-8'}>
           <div>
-            <Card className="rounded-[2rem] border-gray-200 bg-white p-5 shadow-sm sm:p-7">
-              {settings?.formHeaderNote ? <p className="mb-5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">{settings.formHeaderNote}</p> : null}
+            <Card className="rounded-[2rem] border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm sm:p-7">
+              {settings?.formHeaderNote ? <p className="mb-5 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">{settings.formHeaderNote}</p> : null}
               <div className="space-y-5">
                 {visibleFields.map((field) => {
                   const type = normalizeFieldType(field.type);
                   const showLabel = !isCheckboxType(type) || (Array.isArray(field.options) && field.options.length > 0);
                   return (
-                    <div key={field.key} className="rounded-3xl border border-gray-100 bg-gray-50/60 p-4 transition focus-within:border-yellow-400 focus-within:bg-white">
-                      {showLabel ? <label className="mb-2 block text-sm font-black text-gray-900">{field.label} {field.required ? <span className="text-red-500">*</span> : null}</label> : null}
+                    <div key={field.key} className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]/60 p-4 transition focus-within:border-[var(--color-accent-primary)] focus-within:bg-[var(--color-background-primary)]">
+                      {showLabel ? <label className="mb-2 block text-sm font-black text-[var(--color-text-primary)]">{field.label} {field.required ? <span className="text-[var(--color-danger-text)]">*</span> : null}</label> : null}
                       <FieldInput field={field} value={values[field.key]} onChange={(next) => updateFieldValue(field, next)} />
-                      {fieldErrors[field.key] && touchedFields[field.key] ? <p className="mt-2 text-xs font-semibold text-red-600">{fieldErrors[field.key]}</p> : null}
+                      {fieldErrors[field.key] && touchedFields[field.key] ? <p className="mt-2 text-xs font-semibold text-[var(--color-danger-text)]">{fieldErrors[field.key]}</p> : null}
                     </div>
                   );
                 })}
               </div>
               <div className="mt-6">
-                {formError ? <div className="mb-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{formError}</div> : null}
+                {formError ? <div className="mb-3 rounded-2xl border border-[var(--color-danger-border)] bg-[var(--color-danger-surface)] px-4 py-3 text-sm text-[var(--color-danger-text)]">{formError}</div> : null}
                 <Button className="w-full" loading={submitting} disabled={submitting || isClosed} onClick={submit} icon={submitting ? undefined : submitButtonIcon}>{submitting ? 'Submitting securely...' : submitButtonLabel}</Button>
-                <p className="mt-3 text-center text-xs leading-5 text-gray-500">{privacyCopy}</p>
+                <p className="mt-3 text-center text-xs leading-5 text-[var(--color-text-tertiary)]">{privacyCopy}</p>
               </div>
             </Card>
           </div>
@@ -788,10 +787,10 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
           {showDetailsColumn ? (
             <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
               {contentSections.map((section, index) => (
-                <Card key={`${section.title || 'section'}-${index}`} className="rounded-[2rem] border-gray-200 bg-white p-5 shadow-sm">
-                  {section.title ? <h2 className="break-words text-lg font-black text-black">{section.title}</h2> : null}
-                  {section.subtitle ? <p className="mt-2 break-words text-sm leading-6 text-gray-600">{section.subtitle}</p> : null}
-                  {section.items.length > 0 ? <ul className="mt-5 space-y-3">{section.items.map((item, idx) => <li key={`${item}-${idx}`} className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3"><span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-yellow-500 text-xs font-black text-black">{idx + 1}</span><span className="min-w-0"><span className="block break-words text-sm font-bold text-black">{item}</span>{section.itemSubtexts[idx] ? <span className="mt-1 block break-words text-xs leading-5 text-gray-500">{section.itemSubtexts[idx]}</span> : null}</span></li>)}</ul> : null}
+                <Card key={`${section.title || 'section'}-${index}`} className="rounded-[2rem] border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+                  {section.title ? <h2 className="break-words text-lg font-black text-[var(--color-text-primary)]">{section.title}</h2> : null}
+                  {section.subtitle ? <p className="mt-2 break-words text-sm leading-6 text-[var(--color-text-secondary)]">{section.subtitle}</p> : null}
+                  {section.items.length > 0 ? <ul className="mt-5 space-y-3">{section.items.map((item, idx) => <li key={`${item}-${idx}`} className="flex items-start gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3"><span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-primary)] text-xs font-black text-[var(--color-text-onprimary)]">{idx + 1}</span><span className="min-w-0"><span className="block break-words text-sm font-bold text-[var(--color-text-primary)]">{item}</span>{section.itemSubtexts[idx] ? <span className="mt-1 block break-words text-xs leading-5 text-[var(--color-text-tertiary)]">{section.itemSubtexts[idx]}</span> : null}</span></li>)}</ul> : null}
                 </Card>
               ))}
             </aside>
@@ -799,7 +798,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
         </div>
       </main>
 
-      <footer className="mx-auto max-w-7xl border-t border-gray-200 px-4 py-8 text-xs text-gray-500 sm:px-6 lg:px-8">
+      <footer className="mx-auto max-w-7xl border-t border-[var(--color-border-secondary)] px-4 py-8 text-xs text-[var(--color-text-tertiary)] sm:px-6 lg:px-8">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><span>{siteName}</span><span>© {new Date().getFullYear()} {siteName}. All rights reserved.</span></div>
       </footer>
 
@@ -819,11 +818,11 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
 
 function StateScreen({ title, description, action, loading }: { title: string; description: string; action?: React.ReactNode; loading?: boolean }) {
   return (
-    <div className="flex min-h-[70vh] items-center justify-center bg-white p-6 text-center">
-      <div className="w-full max-w-md rounded-[2rem] border border-gray-200 bg-white p-8 shadow-sm">
-        {loading ? <Loader2 className="mx-auto h-10 w-10 animate-spin text-yellow-600" /> : <ShieldCheck className="mx-auto h-10 w-10 text-gray-400" />}
-        <h1 className="mt-4 text-xl font-black text-gray-950">{title}</h1>
-        <p className="mt-2 text-sm leading-6 text-gray-600">{description}</p>
+    <div className="flex min-h-[70vh] items-center justify-center bg-[var(--color-background-secondary)] p-6 text-center">
+      <div className="w-full max-w-md rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-8 shadow-sm">
+        {loading ? <Loader2 className="mx-auto h-10 w-10 animate-spin text-[var(--color-accent-primary)]" /> : <ShieldCheck className="mx-auto h-10 w-10 text-[var(--color-text-tertiary)]" />}
+        <h1 className="mt-4 text-xl font-black text-[var(--color-text-primary)]">{title}</h1>
+        <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">{description}</p>
         {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
       </div>
     </div>
