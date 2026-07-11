@@ -43,13 +43,29 @@ import { StatCard } from '@/ui/StatCard';
 import { EmptyState } from '@/ui/EmptyState';
 import { apiClient } from '@/lib/api';
 import { getChartPalette } from '@/lib/charts/palette';
+import { buildPublicFormUrl } from '@/lib/utils';
 import { useTheme } from '@/providers/ThemeProviders';
 import { withAuth } from '@/providers/withAuth';
-import type { LeadershipMember, LeadershipRole, LeadershipStatus, UpdateLeadershipRequest } from '@/lib/types';
+import type { AdminForm, LeadershipMember, LeadershipRole, LeadershipStatus, UpdateLeadershipRequest } from '@/lib/types';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
-const LEADERSHIP_FORM_URL = 'https://wisdomchurchhq.org/forms/leadership-biodata';
+const LEADERSHIP_FORM_SLUG = 'leadership-application';
+
+function isLeadershipForm(form: AdminForm): boolean {
+  const settings = form.settings || {};
+  const target = String(settings.submissionTarget || '').trim().toLowerCase();
+  const formType = String(settings.formType || '').trim().toLowerCase();
+  const slug = String(form.slug || '').trim().toLowerCase();
+  const title = String(form.title || '').trim().toLowerCase();
+
+  return (
+    target === 'leadership' ||
+    formType === 'leadership' ||
+    slug.includes('leadership') ||
+    title.includes('leadership')
+  );
+}
 
 const roleLabels: Record<LeadershipRole, string> = {
   senior_pastor: 'Senior Pastor',
@@ -107,6 +123,7 @@ function LeadershipPage() {
   const { resolvedTheme } = useTheme();
   const chartPalette = useMemo(() => getChartPalette(resolvedTheme), [resolvedTheme]);
   const [leaders, setLeaders] = useState<LeadershipMember[]>([]);
+  const [forms, setForms] = useState<AdminForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
@@ -119,11 +136,22 @@ function LeadershipPage() {
   const loadData = useCallback(async (showLoader = true) => {
     if (showLoader) setLoading(true);
     try {
-      const res = await apiClient.listLeadership({ page: 1, limit: 500 });
-      const nextLeaders = Array.isArray(res.data) ? res.data : [];
-      setLeaders(nextLeaders);
-      setSelectedLeader((prev) => (prev ? nextLeaders.find((item) => item.id === prev.id) || null : prev));
-      setEditingLeader((prev) => (prev ? nextLeaders.find((item) => item.id === prev.id) || prev : prev));
+      const [leadershipRes, formsRes] = await Promise.allSettled([
+        apiClient.listLeadership({ page: 1, limit: 500 }),
+        apiClient.getAdminForms({ page: 1, limit: 100 }),
+      ]);
+
+      if (leadershipRes.status === 'fulfilled') {
+        const nextLeaders = Array.isArray(leadershipRes.value.data) ? leadershipRes.value.data : [];
+        setLeaders(nextLeaders);
+        setSelectedLeader((prev) => (prev ? nextLeaders.find((item) => item.id === prev.id) || null : prev));
+        setEditingLeader((prev) => (prev ? nextLeaders.find((item) => item.id === prev.id) || prev : prev));
+      } else if (showLoader) {
+        toast.error('Unable to load leadership profiles');
+        setLeaders([]);
+      }
+
+      setForms(formsRes.status === 'fulfilled' && Array.isArray(formsRes.value.data) ? formsRes.value.data : []);
     } catch (error) {
       console.error('Failed to load leadership:', error);
       if (showLoader) {
@@ -156,6 +184,12 @@ function LeadershipPage() {
   const approved = byStatus.approved || 0;
   const pendingReview = (byStatus.pending || 0) + (byStatus.awaiting_super_admin_approval || 0);
   const anniversariesCaptured = leaders.filter((item) => item.anniversaryMonth && item.anniversaryDay).length;
+
+  const leadershipForms = useMemo(() => forms.filter(isLeadershipForm), [forms]);
+  const primaryForm = leadershipForms.find((form) => form.slug === LEADERSHIP_FORM_SLUG) || leadershipForms[0] || null;
+  // buildPublicFormUrl can return null (e.g. unpublished form) — keep this a safe
+  // string so clipboard/window.open never receive null.
+  const publicFormUrl = primaryForm ? buildPublicFormUrl(primaryForm.slug, primaryForm.publicUrl) ?? '' : '';
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -198,8 +232,20 @@ function LeadershipPage() {
   };
 
   const copyFormLink = async () => {
-    await navigator.clipboard.writeText(LEADERSHIP_FORM_URL);
+    if (!publicFormUrl) {
+      toast.error('Publish a leadership form before copying its link.');
+      return;
+    }
+    await navigator.clipboard.writeText(publicFormUrl);
     toast.success('Leadership form link copied');
+  };
+
+  const openPublicForm = () => {
+    if (!publicFormUrl) {
+      toast.error('Publish a leadership form before opening its link.');
+      return;
+    }
+    window.open(publicFormUrl, '_blank', 'noopener,noreferrer');
   };
 
   const upsertLeader = useCallback((updated: LeadershipMember) => {
@@ -274,10 +320,12 @@ function LeadershipPage() {
           </div>
           <div className="rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-4 backdrop-blur">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-inverse)]/50">Biodata intake form</p>
-            <p className="mt-2 break-all text-sm font-semibold text-[var(--color-text-inverse)]/70">{LEADERSHIP_FORM_URL}</p>
+            <p className="mt-2 break-all text-sm font-semibold text-[var(--color-text-inverse)]/70">
+              {publicFormUrl || 'Create and publish the leadership form to generate an intake link.'}
+            </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" icon={<Clipboard className="h-4 w-4" />} onClick={() => void copyFormLink()}>Copy Link</Button>
-              <Button size="sm" variant="outline" icon={<ExternalLink className="h-4 w-4" />} onClick={() => window.open(LEADERSHIP_FORM_URL, '_blank', 'noopener,noreferrer')}>Open Form</Button>
+              <Button size="sm" variant="outline" icon={<Clipboard className="h-4 w-4" />} disabled={!publicFormUrl} onClick={() => void copyFormLink()}>Copy Link</Button>
+              <Button size="sm" variant="outline" icon={<ExternalLink className="h-4 w-4" />} disabled={!publicFormUrl} onClick={openPublicForm}>Open Form</Button>
             </div>
           </div>
         </div>
