@@ -446,25 +446,9 @@ export const adminWorkflowApi = {
     }
   },
 
-  async deleteRequest(requestItem: ApprovalRequest): Promise<unknown> {
-    const configuredAction = requestByConfiguredAction(requestItem.deleteAction ?? requestItem.actions?.delete, 'DELETE');
-    if (configuredAction) return configuredAction;
-    return request(`/admin/requests/${encodeURIComponent(requestItem.id)}`, { method: 'DELETE' });
-  },
-
-  async deleteFormSubmission(formId: string, submissionId: string): Promise<unknown> {
-    const cleanFormId = String(formId || '').trim();
+  async deleteFormSubmission(submissionId: string): Promise<unknown> {
     const cleanSubmissionId = String(submissionId || '').trim();
-
     if (!cleanSubmissionId) throw new AdminWorkflowApiError('Submission id is required', 400);
-
-    if (cleanFormId) {
-      return request(
-        `/admin/forms/${encodeURIComponent(cleanFormId)}/submissions/${encodeURIComponent(cleanSubmissionId)}`,
-        { method: 'DELETE' }
-      );
-    }
-
-    return request(`/admin/forms/submissions/${encodeURIComponent(cleanSubmissionId)}`, { method: 'DELETE' });
+    return request(`/admin/form-submissions/${encodeURIComponent(cleanSubmissionId)}`, { method: 'DELETE' });
   },
 };
