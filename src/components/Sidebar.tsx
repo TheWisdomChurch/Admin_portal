@@ -62,7 +62,7 @@ const superConsole: NavGroup = {
 const operations: NavGroup = {
   title: 'Operations',
   items: [
-    { href: '/dashboard', label: 'Dashboard', description: 'Admin overview', icon: LayoutDashboard, roles: ['admin'] },
+    { href: '/dashboard', label: 'Dashboard', description: 'Admin overview', icon: LayoutDashboard },
     { href: '/dashboard/administration', label: 'Administration', description: 'People intelligence', icon: Shield },
     { href: '/dashboard/leadership', label: 'Leadership', description: 'Leadership profiles', icon: IdCard },
     { href: '/dashboard/workforce', label: 'Workforce', description: 'Serving teams', icon: ClipboardList },
@@ -126,9 +126,10 @@ export function Sidebar() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const groups = useMemo(() => {
-    // Role separation is intentional. The super-admin is the approval authority,
-    // not an operational admin. Admin modules stay hidden from this console.
-    const source = isSuperAdmin ? [superConsole] : [operations, ministries, communication];
+    // super_admin is a strict superset of admin: they get the Authority
+    // Console plus every operational section an admin sees. admin never
+    // gets the Authority Console.
+    const source = isSuperAdmin ? [superConsole, operations, ministries, communication] : [operations, ministries, communication];
 
     return source
       .map((group) => ({

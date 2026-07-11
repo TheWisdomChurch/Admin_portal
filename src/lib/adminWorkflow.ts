@@ -434,38 +434,21 @@ export const adminWorkflowApi = {
         const entityId = requireEntityId(requestItem, 'Admin user');
         return request(`/admin/users/${encodeURIComponent(entityId)}/reject`, { method: 'POST', body });
       }
-      case 'leadership_delete': {
-        const entityId = requestEntityId(requestItem) || requestItem.id;
-        return request(`/admin/leadership/${encodeURIComponent(entityId)}/decline`, { method: 'POST', body });
-      }
-      case 'workforce_delete': {
-        const entityId = requestEntityId(requestItem) || requestItem.id;
-        return request(`/admin/workforce/${encodeURIComponent(entityId)}/decline`, { method: 'POST', body });
-      }
+      // leadership_delete / workforce_delete intentionally fall through to the
+      // generic approval-request reject below (not a type-specific "decline"
+      // endpoint): rejecting a delete request should only dismiss the pending
+      // request and leave the member/worker record untouched. The leadership
+      // "/decline" endpoint instead flips the member's own status to
+      // declined — the right action for rejecting a leadership *application*,
+      // not for rejecting a request to delete an existing record.
       default:
         return request(`/admin/requests/${encodeURIComponent(requestItem.id)}/reject`, { method: 'POST', body });
     }
   },
 
-  async deleteRequest(requestItem: ApprovalRequest): Promise<unknown> {
-    const configuredAction = requestByConfiguredAction(requestItem.deleteAction ?? requestItem.actions?.delete, 'DELETE');
-    if (configuredAction) return configuredAction;
-    return request(`/admin/requests/${encodeURIComponent(requestItem.id)}`, { method: 'DELETE' });
-  },
-
-  async deleteFormSubmission(formId: string, submissionId: string): Promise<unknown> {
-    const cleanFormId = String(formId || '').trim();
+  async deleteFormSubmission(submissionId: string): Promise<unknown> {
     const cleanSubmissionId = String(submissionId || '').trim();
-
     if (!cleanSubmissionId) throw new AdminWorkflowApiError('Submission id is required', 400);
-
-    if (cleanFormId) {
-      return request(
-        `/admin/forms/${encodeURIComponent(cleanFormId)}/submissions/${encodeURIComponent(cleanSubmissionId)}`,
-        { method: 'DELETE' }
-      );
-    }
-
-    return request(`/admin/forms/submissions/${encodeURIComponent(cleanSubmissionId)}`, { method: 'DELETE' });
+    return request(`/admin/form-submissions/${encodeURIComponent(cleanSubmissionId)}`, { method: 'DELETE' });
   },
 };
