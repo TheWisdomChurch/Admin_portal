@@ -742,8 +742,22 @@ export default withAuth(function NewFormPage() {
             <div className="grid gap-5 md:grid-cols-2">
               <Input label="Title *" value={title} onChange={(event) => { clearFieldError('title'); setTitle(event.target.value); }} placeholder="e.g., Youth Summit Registration" error={fieldErrors.title} />
               <div className="space-y-2">
-                <Input label="Form Link Name *" value={slug} onChange={(event) => { clearFieldError('slug'); setSlug(event.target.value); }} onBlur={() => setSlug((current) => normalizeSlug(current))} placeholder="e.g., wpc" error={fieldErrors.slug} />
-                <p className="text-xs font-semibold text-[var(--color-text-tertiary)]">Public link preview: <span className="text-[var(--color-text-secondary)]">/forms/{normalizeSlug(slug || title || 'your-link')}</span></p>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Public Link Slug *</label>
+                <div className={`flex items-center rounded-[var(--radius-button)] border bg-[var(--color-background-secondary)] pl-3 text-sm transition focus-within:ring-2 focus-within:ring-[var(--color-border-focus)] ${fieldErrors.slug ? 'border-[var(--color-border-error)] focus-within:ring-[var(--color-border-error)]' : 'border-[var(--color-border-primary)]'}`}>
+                  <span className="shrink-0 select-none font-mono text-[var(--color-text-tertiary)]">/forms/</span>
+                  <input
+                    value={slug}
+                    onChange={(event) => { clearFieldError('slug'); setSlug(event.target.value); }}
+                    onBlur={() => setSlug((current) => normalizeSlug(current))}
+                    placeholder="wpc"
+                    className="h-10 w-full min-w-0 rounded-r-[var(--radius-button)] bg-transparent py-2 pr-3 font-mono text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
+                  />
+                </div>
+                {fieldErrors.slug ? (
+                  <p className="text-sm text-[var(--color-danger-text)]">{fieldErrors.slug}</p>
+                ) : (
+                  <p className="text-xs font-semibold text-[var(--color-text-tertiary)]">This becomes the public link visitors use to open the form.</p>
+                )}
               </div>
 
               <div className="md:col-span-2">

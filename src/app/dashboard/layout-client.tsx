@@ -8,7 +8,7 @@ import { Navbar } from '@/components/Navbar';
 import { SessionTimeout } from '@/components/SessionTimeout';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { getUserRole } from '@/lib/authRole';
-import { isAdminOnlyPath, isSuperAdminPath } from '@/lib/access';
+import { isSuperAdminPath } from '@/lib/access';
 
 type DashboardLayoutClientProps = Readonly<{
   children: ReactNode;
@@ -56,15 +56,10 @@ export default function DashboardLayoutClient({ children }: DashboardLayoutClien
       return;
     }
 
-    // Role separation is intentional:
-    // - super_admin owns the authority console only.
-    // - admin owns the operational dashboard only.
-    // This prevents the super-admin from becoming an operational admin user.
-    if (isSuperAdmin && isAdminOnlyPath(pathname)) {
-      router.replace('/dashboard/super');
-      return;
-    }
-
+    // super_admin is a strict superset of admin — it can reach every
+    // operational admin page in addition to the Authority Console, so there
+    // is nothing to bounce it away from. admin, however, never gets the
+    // Authority Console.
     if (isAdmin && isSuperAdminPath(pathname)) {
       router.replace('/dashboard');
     }
@@ -75,7 +70,6 @@ export default function DashboardLayoutClient({ children }: DashboardLayoutClien
     auth.status,
     isAdmin,
     isRoleAllowed,
-    isSuperAdmin,
     pathname,
     router,
   ]);
