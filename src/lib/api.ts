@@ -725,7 +725,14 @@ export async function apiFetch<T>(
     let usedUrl = proxyUrl;
     let { response, payload } = await execute(proxyUrl, headers);
 
-    if (response.status === 404 && USE_API_PROXY && directUrl) {
+    // Only fall back to a direct cross-origin request for safe, idempotent
+    // reads. Retrying a mutating call (POST/PUT/PATCH/DELETE) against a
+    // second origin risks double-firing the mutation (e.g. a delete
+    // succeeding once but reporting a confusing error from a second attempt)
+    // or failing silently on cookie/CORS mismatches unrelated to the actual
+    // request — surfacing as "it says it worked but nothing changed" or
+    // "it just fails" for CRUD actions.
+    if (response.status === 404 && method === 'GET' && USE_API_PROXY && directUrl) {
       usedUrl = directUrl;
       ({ response, payload } = await execute(directUrl, headers));
     }
@@ -804,7 +811,10 @@ async function uploadFetch<T>(
     let usedUrl = isFormData && directUrl ? directUrl : proxyUrl;
     let { response, payload } = await execute(usedUrl, headers);
 
-    if (response.status === 404 && USE_API_PROXY && directUrl && usedUrl !== directUrl) {
+    // Uploads are POST (non-idempotent) — never retry against a second origin
+    // on 404, since that risks a duplicate upload or a confusing cookie/CORS
+    // failure unrelated to whether the first attempt actually succeeded.
+    if (response.status === 404 && method === 'GET' && USE_API_PROXY && directUrl && usedUrl !== directUrl) {
       usedUrl = directUrl;
       ({ response, payload } = await execute(directUrl, headers));
     }

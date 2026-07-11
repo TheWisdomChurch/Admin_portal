@@ -36,6 +36,7 @@ import type {
   SendAdminComposeEmailResponse,
 } from '@/lib/types';
 import { Button } from '@/ui/Button';
+import { withAuth } from '@/providers/withAuth';
 
 import styles from './email-marketing.module.scss';
 
@@ -140,7 +141,7 @@ function StatusChip({ status }: { status: string }) {
   return <span className={styles.statusChip} data-status={status.toLowerCase()}>{status}</span>;
 }
 
-export default function EmailMarketingPage() {
+function EmailMarketingPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -356,3 +357,5 @@ export default function EmailMarketingPage() {
     </main>
   );
 }
+
+export default withAuth(EmailMarketingPage, { requiredRole: 'admin' });
