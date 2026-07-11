@@ -13,6 +13,7 @@ import {
   ClipboardList,
   Crown,
   FileText,
+  HandHeart,
   IdCard,
   LayoutDashboard,
   LogOut,
@@ -89,6 +90,7 @@ const communication: NavGroup = {
     { href: '/dashboard/email-marketing', label: 'Email Marketing', description: 'Targeted campaigns', icon: Mail },
     { href: '/dashboard/newsletter', label: 'Newsletter', description: 'Subscribers and sends', icon: Mail },
     { href: '/dashboard/notifications', label: 'Notifications', description: 'Inbox and alerts', icon: BellRing },
+    { href: '/dashboard/prayer-requests', label: 'Prayer Requests', description: 'Pastoral triage and follow-up', icon: HandHeart },
     { href: '/dashboard/settings', label: 'Settings', description: 'Portal preferences', icon: Settings },
   ],
 };
