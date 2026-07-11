@@ -1,7 +1,7 @@
 // src/app/dashboard/workforce/page.tsx
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
   ArcElement,
   BarElement,
@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   Clipboard,
   ClipboardList,
+  Edit3,
   ExternalLink,
   IdCard,
   LayoutGrid,
@@ -44,6 +45,7 @@ import { withAuth } from '@/providers/withAuth';
 import type {
   AdminForm,
   CreateFormRequest,
+  UpdateWorkforceRequest,
   WorkforceMember,
   WorkforceStatsResponse,
   WorkforceStatus,
@@ -183,6 +185,16 @@ function initials(worker: WorkforceMember): string {
   return `${worker.firstName?.[0] || 'W'}${worker.lastName?.[0] || ''}`.toUpperCase();
 }
 
+function formatDayMonth(day?: number, month?: number): string {
+  if (!day || !month) return 'Not provided';
+  return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`;
+}
+
+function toDayMonthInput(day?: number, month?: number): string {
+  if (!day || !month) return '';
+  return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`;
+}
+
 function SectionButton({
   active,
   children,
@@ -210,18 +222,17 @@ function SectionButton({
 function Drawer({
   worker,
   onClose,
+  onEdit,
   onDelete,
   deleting,
 }: {
   worker: WorkforceMember;
   onClose: () => void;
+  onEdit: (worker: WorkforceMember) => void;
   onDelete: (worker: WorkforceMember) => void;
   deleting: boolean;
 }) {
-  const birthday =
-    worker.birthdayMonth && worker.birthdayDay
-      ? `${String(worker.birthdayDay).padStart(2, '0')}/${String(worker.birthdayMonth).padStart(2, '0')}`
-      : 'Not provided';
+  const birthday = formatDayMonth(worker.birthdayDay, worker.birthdayMonth);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-[var(--color-text-primary)]/50 backdrop-blur-sm">
@@ -266,7 +277,10 @@ function Drawer({
             </div>
           ) : null}
 
-          <div className="flex justify-end border-t border-[var(--color-border-secondary)] pt-5">
+          <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--color-border-secondary)] pt-5">
+            <Button variant="outline" icon={<Edit3 className="h-4 w-4" />} onClick={() => onEdit(worker)}>
+              Edit
+            </Button>
             <Button variant="danger" icon={<Trash2 className="h-4 w-4" />} loading={deleting} onClick={() => onDelete(worker)}>
               Request Delete Approval
             </Button>
@@ -286,6 +300,105 @@ function ProfileTile({ label, value }: { label: string; value: string }) {
   );
 }
 
+function WorkforceEditModal({
+  worker,
+  saving,
+  onClose,
+  onSave,
+}: {
+  worker: WorkforceMember;
+  saving: boolean;
+  onClose: () => void;
+  onSave: (payload: UpdateWorkforceRequest) => void;
+}) {
+  const [draft, setDraft] = useState({
+    firstName: worker.firstName || '',
+    lastName: worker.lastName || '',
+    email: worker.email || '',
+    phone: worker.phone || '',
+    department: worker.department || DEPARTMENTS[0],
+    status: worker.status,
+    notes: worker.notes || '',
+    birthday: toDayMonthInput(worker.birthdayDay, worker.birthdayMonth),
+  });
+
+  const updateDraft = (updates: Partial<typeof draft>) => {
+    setDraft((prev) => ({ ...prev, ...updates }));
+  };
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const firstName = draft.firstName.trim();
+    const lastName = draft.lastName.trim();
+
+    if (!firstName || !lastName) {
+      toast.error('First name and last name are required');
+      return;
+    }
+
+    onSave({
+      firstName,
+      lastName,
+      email: draft.email.trim(),
+      phone: draft.phone.trim(),
+      department: draft.department.trim() || 'Unassigned',
+      status: draft.status,
+      notes: draft.notes.trim(),
+      birthday: draft.birthday.trim(),
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--color-text-primary)]/50 p-4 backdrop-blur-sm">
+      <button type="button" aria-label="Close workforce editor" className="absolute inset-0 cursor-default" onClick={onClose} />
+      <form onSubmit={submit} className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-2xl">
+        <div className="flex flex-col gap-3 border-b border-[var(--color-border-secondary)] pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Edit workforce profile</p>
+            <h2 className="mt-1 text-xl font-black text-[var(--color-text-primary)]">{workerName(worker)}</h2>
+          </div>
+          <button type="button" className="self-start rounded-2xl border border-[var(--color-border-secondary)] p-2 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)]" onClick={onClose} aria-label="Close workforce editor"><X className="h-5 w-5" /></button>
+        </div>
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <Input label="First name" value={draft.firstName} onChange={(event) => updateDraft({ firstName: event.target.value })} />
+          <Input label="Last name" value={draft.lastName} onChange={(event) => updateDraft({ lastName: event.target.value })} />
+          <Input label="Email" value={draft.email} onChange={(event) => updateDraft({ email: event.target.value })} />
+          <Input label="Phone" value={draft.phone} onChange={(event) => updateDraft({ phone: event.target.value })} />
+          <label className="space-y-2 text-sm font-semibold text-[var(--color-text-secondary)]">
+            <span>Department</span>
+            <select value={draft.department} onChange={(event) => updateDraft({ department: event.target.value })} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-bold text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]">
+              {DEPARTMENTS.map((department) => <option key={department} value={department}>{department}</option>)}
+            </select>
+          </label>
+          <label className="space-y-2 text-sm font-semibold text-[var(--color-text-secondary)]">
+            <span>Status</span>
+            <select value={draft.status} onChange={(event) => updateDraft({ status: event.target.value as WorkforceStatus })} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-bold text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]">
+              {(Object.keys(statusLabels) as WorkforceStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
+            </select>
+          </label>
+          <Input label="Birthday (DD/MM)" value={draft.birthday} onChange={(event) => updateDraft({ birthday: event.target.value })} />
+          <label className="space-y-2 text-sm font-semibold text-[var(--color-text-secondary)] sm:col-span-2">
+            <span>Service notes</span>
+            <textarea
+              value={draft.notes}
+              onChange={(event) => updateDraft({ notes: event.target.value })}
+              rows={5}
+              className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]"
+            />
+          </label>
+        </div>
+
+        <div className="mt-5 flex flex-wrap justify-end gap-2 border-t border-[var(--color-border-secondary)] pt-4">
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" loading={saving} icon={<CheckCircle2 className="h-4 w-4" />}>Save Changes</Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function WorkforcePage() {
   const { resolvedTheme } = useTheme();
   const chartPalette = useMemo(() => getChartPalette(resolvedTheme), [resolvedTheme]);
@@ -299,6 +412,8 @@ function WorkforcePage() {
   const [sort, setSort] = useState<SortKey>('name');
   const [page, setPage] = useState(1);
   const [selectedWorker, setSelectedWorker] = useState<WorkforceMember | null>(null);
+  const [editingWorker, setEditingWorker] = useState<WorkforceMember | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
@@ -484,6 +599,22 @@ function WorkforcePage() {
   const openPublicForm = () => {
     if (!publicFormUrl) return;
     window.open(publicFormUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const saveWorkerEdits = async (id: string, payload: UpdateWorkforceRequest) => {
+    setSavingId(id);
+    try {
+      const updated = await apiClient.updateWorkforce(id, payload);
+      setWorkforce((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      setSelectedWorker((prev) => (prev?.id === updated.id ? updated : prev));
+      setEditingWorker(null);
+      toast.success('Workforce profile updated');
+    } catch (error) {
+      console.error('Failed to update workforce profile:', error);
+      toast.error(error instanceof Error ? error.message : 'Unable to update workforce profile');
+    } finally {
+      setSavingId(null);
+    }
   };
 
   const requestDelete = async (item: WorkforceMember) => {
@@ -732,9 +863,12 @@ function WorkforcePage() {
                     <p className="truncate">{item.email || 'No email'}</p>
                     <p className="truncate text-xs text-[var(--color-text-tertiary)]">{item.phone || 'No phone'}</p>
                   </div>
-                  <div className="flex justify-start gap-2 lg:justify-end">
+                  <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
                     <Button size="sm" variant="outline" onClick={() => setSelectedWorker(item)}>
                       View
+                    </Button>
+                    <Button size="sm" variant="outline" icon={<Edit3 className="h-4 w-4" />} onClick={() => setEditingWorker(item)}>
+                      Edit
                     </Button>
                     <Button size="sm" variant="outline" icon={<Trash2 className="h-4 w-4" />} loading={deletingId === item.id} onClick={() => void requestDelete(item)}>
                       Delete
@@ -767,8 +901,18 @@ function WorkforcePage() {
         <Drawer
           worker={selectedWorker}
           onClose={() => setSelectedWorker(null)}
+          onEdit={(worker) => setEditingWorker(worker)}
           onDelete={(worker) => void requestDelete(worker)}
           deleting={deletingId === selectedWorker.id}
+        />
+      ) : null}
+      {editingWorker ? (
+        <WorkforceEditModal
+          key={editingWorker.id}
+          worker={editingWorker}
+          saving={savingId === editingWorker.id}
+          onClose={() => setEditingWorker(null)}
+          onSave={(payload) => void saveWorkerEdits(editingWorker.id, payload)}
         />
       ) : null}
     </div>
