@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Copy, Save, Globe, Mail, MailCheck, Send } from 'lucide-react';
+import { Plus, Trash2, Copy, Save, Globe, Mail, MailCheck, Send, ExternalLink } from 'lucide-react';
 
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
@@ -1749,15 +1749,30 @@ function EditFormPage() {
       </Card>
 
       <Card title="Preview Link">
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm text-[var(--color-text-secondary)]">
-            {buildPublicFormUrl(form.slug, form.publicUrl) || 'Publish to generate link'}
-          </p>
-
-          <Button variant="outline" size="sm" onClick={copyLink} icon={<Copy className="h-4 w-4" />}>
-            Copy
-          </Button>
-        </div>
+        {(() => {
+          const publicUrl = buildPublicFormUrl(form.slug, form.publicUrl);
+          return (
+            <div className="flex flex-col gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="min-w-0 break-all font-mono text-sm text-[var(--color-text-primary)]">
+                {publicUrl || 'Publish this form to generate its public link.'}
+              </p>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <Button variant="outline" size="sm" disabled={!publicUrl} onClick={copyLink} icon={<Copy className="h-4 w-4" />}>
+                  Copy
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!publicUrl}
+                  onClick={() => publicUrl && window.open(publicUrl, '_blank', 'noopener,noreferrer')}
+                  icon={<ExternalLink className="h-4 w-4" />}
+                >
+                  Open
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
       </Card>
 
       <AlertModal
