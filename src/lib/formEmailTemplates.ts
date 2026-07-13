@@ -1,8 +1,25 @@
 export const MAX_EMAIL_IMAGE_MB = 5;
 export const MAX_EMAIL_IMAGE_BYTES = MAX_EMAIL_IMAGE_MB * 1024 * 1024;
 export const ACCEPTED_EMAIL_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-export const DEFAULT_EMAIL_ACCENT_COLOR = '#92400e';
-export const DEFAULT_EMAIL_SURFACE_COLOR = '#fff7ed';
+// Defaults mirror internal/email/theme.go's colorAccent — the single brass
+// accent used across every other rebuilt email in this system. A form can
+// still override accentColor/surfaceColor per-event; this is just the
+// starting point so an untouched form gets the current design, not the old
+// amber one.
+export const DEFAULT_EMAIL_ACCENT_COLOR = '#8a6d2f';
+export const DEFAULT_EMAIL_SURFACE_COLOR = '#f7f5f0';
+
+// Design tokens shared with the header/card chrome below — mirrors
+// internal/email/theme.go on the backend and the email-marketing compose
+// page's EMAIL_COLOR_* constants. Keep all three in sync.
+const INK = '#0e1420';
+const PAPER = '#ffffff';
+const GROUND = '#eef0f3';
+const LINE = '#dadfe6';
+const MUTED = '#5b6472';
+const FAINT = '#8a93a3';
+const BODY_COLOR = '#3a414d';
+const FONT_STACK = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
 
 const META_PREFIX = '<!--WH_FORM_TEMPLATE_META:';
 const META_SUFFIX = '-->';
@@ -349,19 +366,6 @@ function socialLabel(platform: FormEmailSocialPlatform) {
   }
 }
 
-function socialGlyph(platform: FormEmailSocialPlatform) {
-  switch (platform) {
-    case 'facebook':
-      return 'f';
-    case 'youtube':
-      return '▶';
-    case 'instagram':
-      return '◎';
-    default:
-      return '𝕏';
-  }
-}
-
 function prepareSocialLinks(socialLinks?: FormEmailSocialLink[]) {
   const source = socialLinks && socialLinks.length > 0 ? socialLinks : DEFAULT_SOCIAL_LINKS;
   return source
@@ -372,10 +376,9 @@ function prepareSocialLinks(socialLinks?: FormEmailSocialLink[]) {
         platform: item.platform,
         url,
         label: socialLabel(item.platform),
-        glyph: socialGlyph(item.platform),
       };
     })
-    .filter((item): item is { platform: FormEmailSocialPlatform; url: string; label: string; glyph: string } => Boolean(item));
+    .filter((item): item is { platform: FormEmailSocialPlatform; url: string; label: string } => Boolean(item));
 }
 
 function applyInlineStyle(markup: string, tagName: string, inlineStyle: string) {
@@ -393,13 +396,13 @@ function plainTextToHtmlParagraphs(value: string) {
     .filter(Boolean);
 
   if (paragraphs.length === 0) {
-    return '<p style="margin:0 0 16px 0;font-size:16px;line-height:1.8;color:#334155;">Thank you for registering.</p>';
+    return `<p style="margin:0 0 16px 0;font-size:15px;line-height:1.7;color:${BODY_COLOR};">Thank you for registering.</p>`;
   }
 
   return paragraphs
     .map(
       (paragraph) =>
-        `<p style="margin:0 0 16px 0;font-size:16px;line-height:1.8;color:#334155;">${escapeTemplateHtml(paragraph).replace(/\n/g, '<br />')}</p>`
+        `<p style="margin:0 0 16px 0;font-size:15px;line-height:1.7;color:${BODY_COLOR};">${escapeTemplateHtml(paragraph).replace(/\n/g, '<br />')}</p>`
     )
     .join('');
 }
@@ -411,41 +414,41 @@ function styleRichEmailMarkup(markup: string, accentColor: string) {
   styled = applyInlineStyle(
     styled,
     'p',
-    'margin:0 0 16px 0;font-size:16px;line-height:1.8;color:#334155;'
+    `margin:0 0 16px 0;font-size:15px;line-height:1.7;color:${BODY_COLOR};`
   );
   styled = applyInlineStyle(
     styled,
     'h1',
-    'margin:0 0 16px 0;font-size:28px;line-height:1.2;color:#0f172a;font-weight:800;'
+    `margin:0 0 16px 0;font-size:24px;line-height:1.3;color:${INK};font-weight:800;`
   );
   styled = applyInlineStyle(
     styled,
     'h2',
-    'margin:6px 0 14px 0;font-size:22px;line-height:1.3;color:#0f172a;font-weight:800;'
+    `margin:6px 0 14px 0;font-size:20px;line-height:1.3;color:${INK};font-weight:800;`
   );
   styled = applyInlineStyle(
     styled,
     'h3',
-    'margin:6px 0 12px 0;font-size:18px;line-height:1.4;color:#0f172a;font-weight:700;'
+    `margin:6px 0 12px 0;font-size:17px;line-height:1.4;color:${INK};font-weight:700;`
   );
   styled = applyInlineStyle(
     styled,
     'ul',
-    'margin:0 0 16px 0;padding-left:22px;color:#334155;font-size:16px;line-height:1.8;'
+    `margin:0 0 16px 0;padding-left:22px;color:${BODY_COLOR};font-size:15px;line-height:1.7;`
   );
   styled = applyInlineStyle(
     styled,
     'ol',
-    'margin:0 0 16px 0;padding-left:22px;color:#334155;font-size:16px;line-height:1.8;'
+    `margin:0 0 16px 0;padding-left:22px;color:${BODY_COLOR};font-size:15px;line-height:1.7;`
   );
   styled = applyInlineStyle(styled, 'li', 'margin:0 0 8px 0;');
   styled = applyInlineStyle(
     styled,
     'blockquote',
-    `margin:20px 0;padding:18px 20px;border-left:4px solid ${accentColor};background:#fffaf0;border-radius:14px;font-size:17px;line-height:1.8;color:#1f2937;font-family:Georgia,'Times New Roman',serif;`
+    `margin:20px 0;padding:16px 20px;border-left:3px solid ${accentColor};background:${GROUND};font-size:16px;line-height:1.7;color:${BODY_COLOR};font-family:Georgia,'Times New Roman',serif;`
   );
-  styled = applyInlineStyle(styled, 'strong', 'color:#0f172a;font-weight:800;');
-  styled = applyInlineStyle(styled, 'em', 'color:#475569;font-style:italic;');
+  styled = applyInlineStyle(styled, 'strong', `color:${INK};font-weight:800;`);
+  styled = applyInlineStyle(styled, 'em', `color:${MUTED};font-style:italic;`);
   styled = applyInlineStyle(styled, 'u', `text-decoration-color:${accentColor};`);
   styled = applyInlineStyle(
     styled,
@@ -558,151 +561,123 @@ export function buildFormEmailHTML(opts: {
     ? styleRichEmailMarkup(opts.messageHtml, accentColor)
     : plainTextToHtmlParagraphs(opts.message || 'Thank you for registering.');
   const messageBlock = formattedMessageHtml || plainTextToHtmlParagraphs(opts.message || 'Thank you for registering.');
+
+  // Mirrors internal/email/theme.go's renderHeaderBlock: logo, a vertical
+  // hairline divider, then "The" / "Wisdom Church" stacked with a tagline —
+  // on the card's paper background, not a dark filled block.
   const brandHeader = `
-    <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-      <tr>
-        <td style="vertical-align:middle;padding:0 18px 0 0;">
-          ${safeLogoUrl
-            ? `<img src="${safeLogoUrl}" alt="The Wisdom Church logo" width="54" height="54" style="display:block;width:54px;height:54px;object-fit:cover;border-radius:16px;border:1px solid #e5e7eb;background:#ffffff;" />`
-            : `<div style="width:54px;height:54px;border-radius:16px;background:#ffffff;color:#111827;font-size:20px;line-height:54px;text-align:center;font-weight:900;">W</div>`}
-        </td>
-        <td style="width:1px;background:#f8fafc;padding:0;"></td>
-        <td style="vertical-align:middle;padding:0 0 0 18px;">
-          <div style="font-size:11px;line-height:1.05;font-weight:900;letter-spacing:.18em;color:#ffffff;text-transform:uppercase;">
-            <div>THE</div>
-            <div style="margin-top:3px;">WISDOM</div>
-            <div style="margin-top:3px;">CHURCH</div>
-          </div>
-        </td>
-      </tr>
-    </table>`;
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+      <td style="width:56px;vertical-align:middle;">
+        ${safeLogoUrl
+          ? `<img src="${safeLogoUrl}" alt="The Wisdom Church" width="56" height="56" style="display:block;width:56px;height:56px;border-radius:14px;object-fit:cover;" />`
+          : `<div style="width:56px;height:56px;background:${INK};font-size:22px;font-weight:800;line-height:56px;text-align:center;color:${accentColor};">W</div>`}
+      </td>
+      <td style="width:1px;padding:0 10px;">
+        <table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="1" height="52" style="width:1px;font-size:0;line-height:0;background:${LINE};">&nbsp;</td></tr></table>
+      </td>
+      <td style="vertical-align:middle;">
+        <div style="font-size:13px;font-weight:400;color:${MUTED};line-height:1.3;">The</div>
+        <div style="font-size:18px;font-weight:800;letter-spacing:-.01em;color:${INK};line-height:1.25;">Wisdom Church</div>
+        <div style="font-size:10.5px;font-style:italic;font-weight:500;color:${accentColor};letter-spacing:.01em;margin-top:5px;">Equipped. Empowered for Greatness</div>
+      </td>
+    </tr></table>`;
+
+  // A bordered, hairline-separated box — the shared "highlight block" used
+  // for the calendar summary, spotlight, and resources sections below,
+  // replacing the old solid-color filled panels. Tinted with the form's
+  // configured surfaceColor (subtle, not a bold fill) so that control still
+  // does something now that the old filled-panel look is gone.
+  const highlightBox = (label: string, innerHTML: string) => `
+    <div style="margin:0 0 24px 0;border:1px solid ${LINE};background:${surfaceColor};padding:18px 20px;">
+      <p style="margin:0 0 14px 0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:${accentColor};font-weight:700;">${label}</p>
+      ${innerHTML}
+    </div>`;
 
   return `
 <!doctype html>
 <html>
-  <body style="margin:0;padding:0;background:#eef2f7;font-family:'Segoe UI',Arial,sans-serif;color:#111827;">
+  <body style="margin:0;padding:0;background:${GROUND};font-family:${FONT_STACK};color:${INK};">
     <div style="display:none;overflow:hidden;max-height:0;max-width:0;opacity:0;color:transparent;font-size:1px;line-height:1px;">
       ${safePreheader || safeHeading}
     </div>
-    <table width="100%" cellpadding="0" cellspacing="0" style="padding:22px 10px;background:#eef2f7;">
-      <tr>
-        <td align="center">
-          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:760px;background:#ffffff;overflow:hidden;">
-            <tr>
-              <td style="padding:0;background:#111827;">
-                <table width="100%" cellpadding="0" cellspacing="0">
-                  <tr>
-                    <td style="padding:22px 30px;">
-                      ${brandHeader}
-                    </td>
-                    <td align="right" style="padding:22px 30px;vertical-align:top;">
-                      {{if .SubscribeURL}}<a href="{{.SubscribeURL}}" style="font-size:12px;color:#f8fafc;text-decoration:underline;font-weight:700;">subscribe</a>{{end}}
-                      {{if .UnsubscribeURL}}&nbsp;|&nbsp;<a href="{{.UnsubscribeURL}}" style="font-size:12px;color:#f8fafc;text-decoration:underline;font-weight:700;">unsubscribe</a>{{end}}
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:34px 34px 14px 34px;">
-                <p style="margin:0 0 12px 0;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;font-weight:800;">${safeTitle}</p>
-                ${safeEyebrow ? `<p style="margin:0 0 12px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:${accentColor};font-weight:800;">${safeEyebrow}</p>` : ''}
-                <h2 style="margin:0;font-size:36px;line-height:1.1;color:#0f172a;font-weight:900;">${safeHeading}</h2>
-              </td>
-            </tr>
-            ${safeImageUrl ? `<tr><td style="padding:8px 34px 0 34px;"><img src="${safeImageUrl}" alt="${safeTitle}" style="display:block;width:100%;height:auto;" /></td></tr>` : ''}
-            <tr>
-              <td style="padding:24px 34px 34px 34px;">
-                <p style="margin:0 0 20px 0;font-size:18px;line-height:1.7;color:#0f172a;font-weight:600;">${safeGreeting}</p>
-                ${calendarSummaryRows.length > 0 ? `
-                <div style="margin:0 0 24px 0;padding:18px;background:${surfaceColor};border-left:5px solid ${accentColor};">
-                  <p style="margin:0 0 14px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:${accentColor};font-weight:800;">Event Reminder</p>
-                  ${calendarSummaryRows
-                    .map(
-                      (row) => `
-                  <div style="margin:0 0 12px 0;">
-                    <p style="margin:0 0 4px 0;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;font-weight:800;">${escapeTemplateHtml(row.label)}</p>
-                    <p style="margin:0;font-size:15px;line-height:1.6;color:#0f172a;font-weight:700;">${escapeTemplateHtml(row.value)}</p>
-                  </div>`
-                    )
-                    .join('')}
-                </div>` : ''}
-                ${safeSpotlightText ? `
-                <div style="margin:0 0 24px 0;padding:18px;background:${surfaceColor};border-left:5px solid ${accentColor};">
-                  ${safeSpotlightLabel ? `<p style="margin:0 0 10px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:${accentColor};font-weight:800;">${safeSpotlightLabel}</p>` : ''}
-                  <p style="margin:0;font-size:19px;line-height:1.8;color:#1f2937;font-family:Georgia,'Times New Roman',serif;">${safeSpotlightText}</p>
-                </div>` : ''}
-                <div style="margin:0;">${messageBlock}</div>
-                ${resourceLinks.length > 0 ? `
-                <div style="margin:26px 0 0;padding:20px;background:#f8fafc;border-left:5px solid ${accentColor};">
-                  <p style="margin:0 0 14px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:${accentColor};font-weight:800;">Event Resources</p>
-                  ${resourceLinks
-                    .map((resource) => {
-                      const kindLabel = escapeTemplateHtml(formatResourceKindLabel(resource.kind));
-                      const actionLabel = escapeTemplateHtml(buildResourceActionLabel(resource.kind));
-                      return `
-                  <div style="margin:0 0 14px 0;padding:14px;background:${surfaceColor};">
-                    <p style="margin:0 0 8px 0;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;font-weight:800;">${kindLabel}</p>
-                    <p style="margin:0 0 8px 0;font-size:17px;line-height:1.5;color:#0f172a;font-weight:800;">${escapeTemplateHtml(resource.label)}</p>
-                    ${resource.description ? `<p style="margin:0 0 12px 0;font-size:14px;line-height:1.7;color:#475569;">${escapeTemplateHtml(resource.description)}</p>` : ''}
-                    <a href="${escapeTemplateHtml(resource.url)}" style="display:inline-block;padding:11px 16px;background:#ffffff;color:${accentColor};font-size:14px;font-weight:800;text-decoration:none;border:1px solid ${accentColor}33;">
-                      ${actionLabel}
-                    </a>
-                  </div>`;
-                    })
-                    .join('')}
-                </div>` : ''}
-                ${safeCtaLabel && safeCtaUrl ? `
-                <p style="margin:24px 0 0;">
-                  <a href="${safeCtaUrl}" style="display:inline-block;padding:14px 22px;background:${accentColor};color:#ffffff;font-size:15px;font-weight:800;text-decoration:none;">
-                    ${safeCtaLabel}
-                  </a>
-                </p>` : ''}
-                ${includeRegistrationCode ? `
-                {{if .RegistrationCode}}
-                <div style="margin-top:20px;display:inline-block;padding:12px 16px;background:${surfaceColor};border-left:4px solid ${accentColor};font-size:13px;color:#111827;">
-                  Registration Number: <strong>{{.RegistrationCode}}</strong>
-                </div>
-                {{end}}` : ''}
-                ${includeCalendarOptIn ? `
-                ${safeCalendarUrl ? '' : '{{if .CalendarOptInURL}}'}
-                <div style="margin-top:26px;padding:20px;background:#0f172a;color:#ffffff;">
-                  <p style="margin:0 0 8px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#fcd34d;font-weight:800;">
-                    Save the date
-                  </p>
-                  <p style="margin:0 0 14px 0;font-size:15px;line-height:1.7;color:#ffffff;">
-                    Open your calendar now and lock this event into your schedule before the email gets buried.
-                  </p>
-                  <a href="${safeCalendarUrl || '{{.CalendarOptInURL}}'}" style="display:inline-block;padding:12px 18px;background:#ffffff;color:#0f172a;font-size:14px;font-weight:800;text-decoration:none;">
-                    ${safeCalendarLabel}
-                  </a>
-                </div>
-                ${safeCalendarUrl ? '' : '{{end}}'}` : ''}
-                ${socialLinks.length > 0 ? `
-                <div style="margin-top:28px;padding-top:18px;border-top:1px solid #e2e8f0;">
-                  <p style="margin:0 0 12px 0;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#475569;font-weight:800;">Follow us on</p>
-                  <table cellpadding="0" cellspacing="0">
-                    <tr>
-                      ${socialLinks
-                        .map(
-                          (social) => `
-                      <td style="padding-right:8px;">
-                        <a href="${escapeTemplateHtml(social.url)}" title="${escapeTemplateHtml(social.label)}" aria-label="${escapeTemplateHtml(social.label)}" style="display:inline-block;width:34px;height:34px;line-height:34px;text-align:center;background:#111827;color:#ffffff;text-decoration:none;font-size:16px;font-weight:800;">
-                          ${escapeTemplateHtml(social.glyph)}
-                        </a>
-                      </td>`
-                        )
-                        .join('')}
-                    </tr>
-                  </table>
-                </div>` : ''}
-                ${safeFooterNote ? `<p style="margin:22px 0 0;font-size:13px;line-height:1.7;color:#64748b;">${safeFooterNote}</p>` : ''}
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:${GROUND};"><tr><td align="center" style="padding:40px 16px;">
+      <table width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background:${PAPER};border:1px solid ${LINE};">
+        <tr><td style="height:3px;line-height:3px;font-size:0;background:${accentColor};">&nbsp;</td></tr>
+        <tr><td style="padding:36px 40px 28px;">${brandHeader}</td></tr>
+        <tr><td style="padding:0 40px;"><div style="border-top:1px solid ${LINE};"></div></td></tr>
+        <tr>
+          <td style="padding:32px 40px 8px;">
+            <p style="margin:0 0 10px 0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:${FAINT};font-weight:700;">${safeTitle}</p>
+            ${safeEyebrow ? `<p style="margin:0 0 10px 0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:${accentColor};font-weight:700;">${safeEyebrow}</p>` : ''}
+            <h1 style="margin:0 0 4px;font-size:24px;line-height:1.3;font-weight:800;letter-spacing:-.01em;color:${INK};">${safeHeading}</h1>
+          </td>
+        </tr>
+        ${safeImageUrl ? `<tr><td style="padding:20px 40px 0;"><img src="${safeImageUrl}" alt="${safeTitle}" style="display:block;width:100%;height:auto;border:1px solid ${LINE};" /></td></tr>` : ''}
+        <tr>
+          <td style="padding:24px 40px 8px;font-size:15px;line-height:1.7;color:${BODY_COLOR};">
+            <p style="margin:0 0 20px 0;font-size:16px;line-height:1.7;color:${INK};font-weight:600;">${safeGreeting}</p>
+            ${calendarSummaryRows.length > 0 ? highlightBox('Event reminder', calendarSummaryRows
+              .map(
+                (row) => `
+              <div style="margin:0 0 12px 0;">
+                <p style="margin:0 0 4px 0;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:${FAINT};font-weight:700;">${escapeTemplateHtml(row.label)}</p>
+                <p style="margin:0;font-size:15px;line-height:1.6;color:${INK};font-weight:700;">${escapeTemplateHtml(row.value)}</p>
+              </div>`
+              )
+              .join('')) : ''}
+            ${safeSpotlightText ? highlightBox(safeSpotlightLabel || 'Highlight', `<p style="margin:0;font-size:16px;line-height:1.75;color:${BODY_COLOR};font-family:Georgia,'Times New Roman',serif;">${safeSpotlightText}</p>`) : ''}
+            <div style="margin:0;">${messageBlock}</div>
+            ${resourceLinks.length > 0 ? highlightBox('Resources', resourceLinks
+              .map((resource) => {
+                const kindLabel = escapeTemplateHtml(formatResourceKindLabel(resource.kind));
+                const actionLabel = escapeTemplateHtml(buildResourceActionLabel(resource.kind));
+                return `
+              <div style="margin:0 0 16px 0;">
+                <p style="margin:0 0 6px 0;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:${FAINT};font-weight:700;">${kindLabel}</p>
+                <p style="margin:0 0 6px 0;font-size:16px;line-height:1.5;color:${INK};font-weight:700;">${escapeTemplateHtml(resource.label)}</p>
+                ${resource.description ? `<p style="margin:0 0 10px 0;font-size:14px;line-height:1.7;color:${MUTED};">${escapeTemplateHtml(resource.description)}</p>` : ''}
+                <a href="${escapeTemplateHtml(resource.url)}" style="color:${accentColor};font-size:14px;font-weight:700;text-decoration:underline;">${actionLabel}</a>
+              </div>`;
+              })
+              .join('')) : ''}
+            ${safeCtaLabel && safeCtaUrl ? `
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 24px;"><tr>
+              <td style="background:${accentColor};"><a href="${safeCtaUrl}" style="display:block;padding:14px 26px;font-size:14px;font-weight:600;letter-spacing:.01em;color:${PAPER};text-decoration:none;">${safeCtaLabel}</a></td>
+            </tr></table>` : ''}
+            ${includeRegistrationCode ? `
+            {{if .RegistrationCode}}
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;"><tr><td style="border:1px solid ${LINE};padding:16px 20px;">
+              <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${FAINT};margin-bottom:6px;">Registration Number</div>
+              <div style="font-size:22px;font-weight:700;letter-spacing:.06em;color:${INK};">{{.RegistrationCode}}</div>
+            </td></tr></table>
+            {{end}}` : ''}
+            ${includeCalendarOptIn ? `
+            ${safeCalendarUrl ? '' : '{{if .CalendarOptInURL}}'}
+            <div style="margin:0 0 24px;border:1px solid ${LINE};padding:20px;">
+              <p style="margin:0 0 8px 0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:${accentColor};font-weight:700;">Save the date</p>
+              <p style="margin:0 0 16px 0;font-size:15px;line-height:1.7;color:${BODY_COLOR};">Open your calendar now and lock this event into your schedule before the email gets buried.</p>
+              <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+                <td style="border:1px solid ${LINE};"><a href="${safeCalendarUrl || '{{.CalendarOptInURL}}'}" style="display:block;padding:13px 24px;font-size:14px;font-weight:600;color:${INK};text-decoration:none;">${safeCalendarLabel}</a></td>
+              </tr></table>
+            </div>
+            ${safeCalendarUrl ? '' : '{{end}}'}` : ''}
+          </td>
+        </tr>
+        <tr><td style="padding:0 40px;"><div style="border-top:1px solid ${LINE};"></div></td></tr>
+        <tr><td style="padding:24px 40px 32px;">
+          <p style="margin:0 0 4px;font-size:12px;color:${FAINT};">The Wisdom Church</p>
+          ${safeFooterNote ? `<p style="margin:0 0 10px;font-size:12px;line-height:1.6;color:${FAINT};">${safeFooterNote}</p>` : ''}
+          <p style="margin:0 0 10px;font-size:12px;color:${FAINT};">
+            {{if .SubscribeURL}}<a href="{{.SubscribeURL}}" style="color:${accentColor};text-decoration:none;">Subscribe</a>{{end}}
+            {{if .SubscribeURL}}{{if .UnsubscribeURL}}&nbsp;&middot;&nbsp;{{end}}{{end}}
+            {{if .UnsubscribeURL}}<a href="{{.UnsubscribeURL}}" style="color:${accentColor};text-decoration:none;">Unsubscribe</a>{{end}}
+          </p>
+          ${socialLinks.length > 0 ? `<p style="margin:0;font-size:12px;">${socialLinks
+            .map((social) => `<a href="${escapeTemplateHtml(social.url)}" style="color:${MUTED};text-decoration:none;">${escapeTemplateHtml(social.label)}</a>`)
+            .join('&nbsp;&nbsp;&middot;&nbsp;&nbsp;')}</p>` : ''}
+        </td></tr>
+      </table>
+    </td></tr></table>
   </body>
 </html>
 `.trim();

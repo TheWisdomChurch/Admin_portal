@@ -892,6 +892,24 @@ export interface PastoralCareRequestAdmin {
   updatedAt: string;
 }
 
+export type PrayerRequestStatus = 'pending' | 'praying' | 'answered' | 'closed';
+
+export interface PrayerRequestAdmin {
+  id: string;
+  memberId?: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  request: string;
+  category?: string;
+  isAnonymous: boolean;
+  status: PrayerRequestStatus;
+  assignedTo?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface GivingIntentAdmin {
   id: string;
   title: string;
