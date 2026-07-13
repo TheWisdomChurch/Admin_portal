@@ -75,6 +75,8 @@ import type {
   HomepageAdContent,
   ConfessionPopupContent,
   PastoralCareRequestAdmin,
+  PrayerRequestAdmin,
+  PrayerRequestStatus,
   GivingIntentAdmin,
   StoreProductAdmin,
   UpsertStoreProductRequest,
@@ -1041,6 +1043,30 @@ function parseApprovalStatus(
     return value;
   }
   return 'pending';
+}
+
+function normalizePrayerRequest(value: Record<string, unknown>): PrayerRequestAdmin {
+  const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+  const optionalStr = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? v : undefined);
+  const status = str(value.status);
+
+  return {
+    id: str(value.id),
+    memberId: optionalStr(value.member_id ?? value.memberId),
+    firstName: str(value.first_name ?? value.firstName),
+    lastName: str(value.last_name ?? value.lastName),
+    email: optionalStr(value.email),
+    request: str(value.request),
+    category: optionalStr(value.category),
+    isAnonymous: Boolean(value.is_anonymous ?? value.isAnonymous),
+    status: (['pending', 'praying', 'answered', 'closed'] as const).includes(status as PrayerRequestStatus)
+      ? (status as PrayerRequestStatus)
+      : 'pending',
+    assignedTo: optionalStr(value.assigned_to ?? value.assignedTo),
+    notes: optionalStr(value.notes),
+    createdAt: str(value.created_at ?? value.createdAt),
+    updatedAt: str(value.updated_at ?? value.updatedAt),
+  };
 }
 
 function normalizeApprovalRequest(value: unknown): ApprovalRequest | null {
@@ -2014,12 +2040,6 @@ export const apiClient = {
     );
   },
 
-  async deleteFormSubmission(id: string): Promise<MessageResponse> {
-    return apiFetch(`/admin/form-submissions/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-    });
-  },
-
   async getFormSubmissionStats(id: string): Promise<FormSubmissionDailyStat[]> {
     const res = await apiFetch<unknown>(
       `/admin/forms/${encodeURIComponent(id)}/submissions/stats`,
@@ -2340,6 +2360,50 @@ export const apiClient = {
       res,
       'Invalid pastoral care requests payload'
     );
+  },
+
+  async listPrayerRequests(
+    params?: { status?: string; category?: string; page?: number; limit?: number }
+  ): Promise<SimplePaginatedResponse<PrayerRequestAdmin>> {
+    const qs = toQueryString(params as Record<string, unknown> | undefined);
+    const res = await apiFetch(`/admin/prayer-requests${qs}`, { method: 'GET' });
+    const paginated = unwrapSimplePaginated<Record<string, unknown>>(res, 'Invalid prayer requests payload');
+    return { ...paginated, data: paginated.data.map(normalizePrayerRequest) };
+  },
+
+  async getPrayerRequest(id: string): Promise<PrayerRequestAdmin> {
+    const res = await apiFetch<ApiResponse<Record<string, unknown>>>(
+      `/admin/prayer-requests/${encodeURIComponent(id)}`,
+      { method: 'GET' }
+    );
+    return normalizePrayerRequest(unwrapData<Record<string, unknown>>(res, 'Invalid prayer request payload'));
+  },
+
+  async updatePrayerRequestStatus(id: string, status: PrayerRequestStatus): Promise<MessageResponse> {
+    return apiFetch(`/admin/prayer-requests/${encodeURIComponent(id)}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  },
+
+  async assignPrayerRequest(id: string, userId: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/prayer-requests/${encodeURIComponent(id)}/assign`, {
+      method: 'PATCH',
+      body: JSON.stringify({ user_id: userId }),
+    });
+  },
+
+  async addPrayerRequestNotes(id: string, notes: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/prayer-requests/${encodeURIComponent(id)}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    });
+  },
+
+  async deletePrayerRequest(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/prayer-requests/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
   },
 
   async listGivingIntents(

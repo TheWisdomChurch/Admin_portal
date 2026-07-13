@@ -370,12 +370,6 @@ export const adminWorkflowApi = {
     return normalizeArray<ApprovalRequest>(await request<unknown>(path));
   },
 
-  async getApprovalRequest(id: string): Promise<ApprovalRequestDetail> {
-    const cleanId = String(id || '').trim();
-    if (!cleanId) throw new AdminWorkflowApiError('Approval request id is required', 400);
-    return request<ApprovalRequestDetail>(`/admin/requests/${encodeURIComponent(cleanId)}`);
-  },
-
   async getApprovalTimeline(days = 14): Promise<ApprovalRequestsTimeline> {
     return request<ApprovalRequestsTimeline>(`/admin/requests/timeline?days=${encodeURIComponent(String(days))}`);
   },
@@ -429,26 +423,13 @@ export const adminWorkflowApi = {
 
     if (configuredAction) return configuredAction;
 
-    switch (requestItem.type) {
-      case 'admin_user': {
-        const entityId = requireEntityId(requestItem, 'Admin user');
-        return request(`/admin/users/${encodeURIComponent(entityId)}/reject`, { method: 'POST', body });
-      }
-      // leadership_delete / workforce_delete intentionally fall through to the
-      // generic approval-request reject below (not a type-specific "decline"
-      // endpoint): rejecting a delete request should only dismiss the pending
-      // request and leave the member/worker record untouched. The leadership
-      // "/decline" endpoint instead flips the member's own status to
-      // declined — the right action for rejecting a leadership *application*,
-      // not for rejecting a request to delete an existing record.
-      default:
-        return request(`/admin/requests/${encodeURIComponent(requestItem.id)}/reject`, { method: 'POST', body });
-    }
-  },
-
-  async deleteFormSubmission(submissionId: string): Promise<unknown> {
-    const cleanSubmissionId = String(submissionId || '').trim();
-    if (!cleanSubmissionId) throw new AdminWorkflowApiError('Submission id is required', 400);
-    return request(`/admin/form-submissions/${encodeURIComponent(cleanSubmissionId)}`, { method: 'DELETE' });
+    // The backend has no type-specific "reject" endpoint for any request
+    // type — admin_user, leadership_delete, workforce_delete, etc. all
+    // resolve to the same generic approval-request reject below, which just
+    // dismisses the pending request and leaves the underlying record
+    // untouched. (Approve differs: several types have real side effects —
+    // e.g. leadership's "/decline" endpoint flips the member's own status —
+    // see approveRequest above.)
+    return request(`/admin/requests/${encodeURIComponent(requestItem.id)}/reject`, { method: 'POST', body });
   },
 };
