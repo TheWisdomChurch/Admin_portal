@@ -1,8 +1,25 @@
 export const MAX_EMAIL_IMAGE_MB = 5;
 export const MAX_EMAIL_IMAGE_BYTES = MAX_EMAIL_IMAGE_MB * 1024 * 1024;
 export const ACCEPTED_EMAIL_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-export const DEFAULT_EMAIL_ACCENT_COLOR = '#92400e';
-export const DEFAULT_EMAIL_SURFACE_COLOR = '#fff7ed';
+// Defaults mirror internal/email/theme.go's colorAccent — the single brass
+// accent used across every other rebuilt email in this system. A form can
+// still override accentColor/surfaceColor per-event; this is just the
+// starting point so an untouched form gets the current design, not the old
+// amber one.
+export const DEFAULT_EMAIL_ACCENT_COLOR = '#8a6d2f';
+export const DEFAULT_EMAIL_SURFACE_COLOR = '#f7f5f0';
+
+// Design tokens shared with the header/card chrome below — mirrors
+// internal/email/theme.go on the backend and the email-marketing compose
+// page's EMAIL_COLOR_* constants. Keep all three in sync.
+const INK = '#0e1420';
+const PAPER = '#ffffff';
+const GROUND = '#eef0f3';
+const LINE = '#dadfe6';
+const MUTED = '#5b6472';
+const FAINT = '#8a93a3';
+const BODY_COLOR = '#3a414d';
+const FONT_STACK = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
 
 const META_PREFIX = '<!--WH_FORM_TEMPLATE_META:';
 const META_SUFFIX = '-->';
@@ -393,13 +410,13 @@ function plainTextToHtmlParagraphs(value: string) {
     .filter(Boolean);
 
   if (paragraphs.length === 0) {
-    return '<p style="margin:0 0 16px 0;font-size:16px;line-height:1.8;color:#334155;">Thank you for registering.</p>';
+    return `<p style="margin:0 0 16px 0;font-size:15px;line-height:1.7;color:${BODY_COLOR};">Thank you for registering.</p>`;
   }
 
   return paragraphs
     .map(
       (paragraph) =>
-        `<p style="margin:0 0 16px 0;font-size:16px;line-height:1.8;color:#334155;">${escapeTemplateHtml(paragraph).replace(/\n/g, '<br />')}</p>`
+        `<p style="margin:0 0 16px 0;font-size:15px;line-height:1.7;color:${BODY_COLOR};">${escapeTemplateHtml(paragraph).replace(/\n/g, '<br />')}</p>`
     )
     .join('');
 }
@@ -411,41 +428,41 @@ function styleRichEmailMarkup(markup: string, accentColor: string) {
   styled = applyInlineStyle(
     styled,
     'p',
-    'margin:0 0 16px 0;font-size:16px;line-height:1.8;color:#334155;'
+    `margin:0 0 16px 0;font-size:15px;line-height:1.7;color:${BODY_COLOR};`
   );
   styled = applyInlineStyle(
     styled,
     'h1',
-    'margin:0 0 16px 0;font-size:28px;line-height:1.2;color:#0f172a;font-weight:800;'
+    `margin:0 0 16px 0;font-size:24px;line-height:1.3;color:${INK};font-weight:800;`
   );
   styled = applyInlineStyle(
     styled,
     'h2',
-    'margin:6px 0 14px 0;font-size:22px;line-height:1.3;color:#0f172a;font-weight:800;'
+    `margin:6px 0 14px 0;font-size:20px;line-height:1.3;color:${INK};font-weight:800;`
   );
   styled = applyInlineStyle(
     styled,
     'h3',
-    'margin:6px 0 12px 0;font-size:18px;line-height:1.4;color:#0f172a;font-weight:700;'
+    `margin:6px 0 12px 0;font-size:17px;line-height:1.4;color:${INK};font-weight:700;`
   );
   styled = applyInlineStyle(
     styled,
     'ul',
-    'margin:0 0 16px 0;padding-left:22px;color:#334155;font-size:16px;line-height:1.8;'
+    `margin:0 0 16px 0;padding-left:22px;color:${BODY_COLOR};font-size:15px;line-height:1.7;`
   );
   styled = applyInlineStyle(
     styled,
     'ol',
-    'margin:0 0 16px 0;padding-left:22px;color:#334155;font-size:16px;line-height:1.8;'
+    `margin:0 0 16px 0;padding-left:22px;color:${BODY_COLOR};font-size:15px;line-height:1.7;`
   );
   styled = applyInlineStyle(styled, 'li', 'margin:0 0 8px 0;');
   styled = applyInlineStyle(
     styled,
     'blockquote',
-    `margin:20px 0;padding:18px 20px;border-left:4px solid ${accentColor};background:#fffaf0;border-radius:14px;font-size:17px;line-height:1.8;color:#1f2937;font-family:Georgia,'Times New Roman',serif;`
+    `margin:20px 0;padding:16px 20px;border-left:3px solid ${accentColor};background:${GROUND};font-size:16px;line-height:1.7;color:${BODY_COLOR};font-family:Georgia,'Times New Roman',serif;`
   );
-  styled = applyInlineStyle(styled, 'strong', 'color:#0f172a;font-weight:800;');
-  styled = applyInlineStyle(styled, 'em', 'color:#475569;font-style:italic;');
+  styled = applyInlineStyle(styled, 'strong', `color:${INK};font-weight:800;`);
+  styled = applyInlineStyle(styled, 'em', `color:${MUTED};font-style:italic;`);
   styled = applyInlineStyle(styled, 'u', `text-decoration-color:${accentColor};`);
   styled = applyInlineStyle(
     styled,
