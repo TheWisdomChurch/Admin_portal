@@ -40,22 +40,68 @@ import { withAuth } from '@/providers/withAuth';
 
 import styles from './email-marketing.module.scss';
 
-const EMAIL_BRAND_HEADER = `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr><td style="vertical-align:middle;padding:0 18px 0 0;"><img src="https://admin.wisdomchurchhq.org/OIP.webp" alt="The Wisdom Church logo" width="54" height="54" style="display:block;width:54px;height:54px;object-fit:cover;border-radius:16px;border:1px solid #e5e7eb;background:#ffffff;" /></td><td style="width:1px;background:#f8fafc;padding:0;"></td><td style="vertical-align:middle;padding:0 0 0 18px;"><div style="font-size:11px;line-height:1.05;font-weight:900;letter-spacing:.18em;color:#ffffff;text-transform:uppercase;"><div>THE</div><div style="margin-top:3px;">WISDOM</div><div style="margin-top:3px;">CHURCH</div></div></td></tr></table>`;
+// Design tokens mirror internal/email/theme.go on the backend (the single
+// source of truth for what a Wisdom Church email looks like). Keep these in
+// sync if that palette ever changes.
+const EMAIL_COLOR_INK = '#0E1420';
+const EMAIL_COLOR_PAPER = '#FFFFFF';
+const EMAIL_COLOR_GROUND = '#EEF0F3';
+const EMAIL_COLOR_ACCENT = '#8A6D2F';
+const EMAIL_COLOR_LINE = '#DADFE6';
+const EMAIL_COLOR_MUTED = '#5B6472';
+const EMAIL_COLOR_FAINT = '#8A93A3';
+const EMAIL_COLOR_BODY = '#3A414D';
+const EMAIL_FONT_STACK = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
+// Served by the backend from an embedded asset — see internal/email/embedded.go
+// and the GET route for email.LogoAssetPath in cmd/api/router.go. This must
+// always be an absolute URL to the *backend's* own origin (never a relative
+// or same-origin-proxied path): email clients render this HTML standalone,
+// with no Next.js app context to resolve a relative path against. Not the
+// admin portal's own domain, and not the old pre-redesign /OIP.webp path.
+function resolveEmailLogoURL(): string {
+  const raw = process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL;
+  const origin = raw ? raw.trim().replace(/\/+$/, '').replace(/\/api\/v1$/, '') : '';
+  return `${origin || 'https://api.wisdomchurchhq.org'}/assets/logo.webp`;
+}
+const EMAIL_LOGO_URL = resolveEmailLogoURL();
 
-const DEFAULT_HTML_TEMPLATE = `<section style="font-family:Arial,sans-serif;color:#111827;line-height:1.7;background:#ffffff;">
-  <div style="max-width:620px;margin:0 auto;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;">
-    <div style="background:#111827;padding:26px 28px;">
-      ${EMAIL_BRAND_HEADER}
-      <h1 style="margin:22px 0 0;color:#ffffff;font-size:28px;line-height:1.25;">A timely update for you</h1>
-    </div>
-    <div style="padding:28px;">
-      <p style="margin:0 0 16px;">Hello {{ .FirstName }},</p>
-      <p style="margin:0 0 16px;">We are reaching out with a new update from The Wisdom Church. Thank you for staying connected with the house.</p>
-      <p style="margin:24px 0 0;">Grace and peace,<br /><strong>The Wisdom Church Team</strong></p>
-      <p style="margin:28px 0 0;font-size:12px;color:#6b7280;">Prefer not to receive these emails? <a href="{{ .UnsubscribeURL }}" style="color:#111827;font-weight:700;">Unsubscribe here</a>.</p>
-    </div>
-  </div>
-</section>`;
+const EMAIL_BRAND_HEADER = `<table role="presentation" cellpadding="0" cellspacing="0"><tr>
+<td style="width:56px;vertical-align:middle;"><img src="${EMAIL_LOGO_URL}" width="56" height="56" alt="The Wisdom Church" style="display:block;width:56px;height:56px;border-radius:14px;object-fit:cover;" /></td>
+<td style="width:1px;padding:0 10px;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="1" height="52" style="width:1px;font-size:0;line-height:0;background:${EMAIL_COLOR_LINE};">&nbsp;</td></tr></table></td>
+<td style="vertical-align:middle;font-family:${EMAIL_FONT_STACK};">
+<div style="font-size:13px;font-weight:400;color:${EMAIL_COLOR_MUTED};line-height:1.3;">The</div>
+<div style="font-size:18px;font-weight:800;letter-spacing:-.01em;color:${EMAIL_COLOR_INK};line-height:1.25;">Wisdom Church</div>
+<div style="font-size:10.5px;font-style:italic;font-weight:500;color:${EMAIL_COLOR_ACCENT};letter-spacing:.01em;margin-top:5px;">Equipped. Empowered for Greatness</div>
+</td>
+</tr></table>`;
+
+const EMAIL_FOOTER = `<tr><td style="padding:0 40px;"><div style="border-top:1px solid ${EMAIL_COLOR_LINE};"></div></td></tr>
+<tr><td style="padding:24px 40px 32px;font-family:${EMAIL_FONT_STACK};">
+<p style="margin:0 0 4px;font-size:12px;color:${EMAIL_COLOR_FAINT};">The Wisdom Church</p>
+<p style="margin:0;font-size:12px;color:${EMAIL_COLOR_FAINT};">Prefer not to receive these emails? <a href="{{ .UnsubscribeURL }}" style="color:${EMAIL_COLOR_ACCENT};text-decoration:none;">Unsubscribe here</a>.</p>
+</td></tr>`;
+
+function buildEmailHTML(heading: string, bodyHTML: string): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_COLOR_GROUND};"><tr><td align="center" style="padding:40px 16px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background:${EMAIL_COLOR_PAPER};border:1px solid ${EMAIL_COLOR_LINE};font-family:${EMAIL_FONT_STACK};">
+<tr><td style="height:3px;line-height:3px;font-size:0;background:${EMAIL_COLOR_ACCENT};">&nbsp;</td></tr>
+<tr><td style="padding:36px 40px 28px;">${EMAIL_BRAND_HEADER}</td></tr>
+<tr><td style="padding:0 40px;"><div style="border-top:1px solid ${EMAIL_COLOR_LINE};"></div></td></tr>
+<tr><td style="padding:32px 40px;font-family:${EMAIL_FONT_STACK};color:${EMAIL_COLOR_BODY};font-size:15px;line-height:1.7;">
+<h1 style="margin:0 0 20px;color:${EMAIL_COLOR_INK};font-size:24px;line-height:1.3;font-weight:800;">${heading}</h1>
+${bodyHTML}
+</td></tr>
+${EMAIL_FOOTER}
+</table>
+</td></tr></table>`;
+}
+
+const DEFAULT_HTML_TEMPLATE = buildEmailHTML(
+  'A timely update for you',
+  `<p style="margin:0 0 16px;">Hello {{ .FirstName }},</p>
+<p style="margin:0 0 16px;">We are reaching out with a new update from The Wisdom Church. Thank you for staying connected with the house.</p>
+<p style="margin:24px 0 0;">Grace and peace,<br /><strong>The Wisdom Church Team</strong></p>`
+);
 
 const DEFAULT_TEXT_TEMPLATE = `Hello {{ .FirstName }},
 
@@ -72,14 +118,20 @@ const TEMPLATE_PRESETS = [
     id: 'event-reminder',
     label: 'Event Reminder',
     subject: 'Reminder: Upcoming Church Activity',
-    html: `<section style="font-family:Arial,sans-serif;color:#111827;line-height:1.7;"><div style="max-width:620px;margin:0 auto;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;"><div style="background:#111827;padding:26px 28px;">${EMAIL_BRAND_HEADER}<h1 style="margin:22px 0 0;color:#ffffff;font-size:28px;line-height:1.25;">You are warmly invited</h1></div><div style="padding:28px;"><p>Hello {{ .FirstName }},</p><p>This is a kind reminder about an upcoming church activity. We would love to have you join us.</p><p>God bless you,<br /><strong>The Wisdom Church Team</strong></p><p style="font-size:12px;color:#6b7280;">Unsubscribe: <a href="{{ .UnsubscribeURL }}">link</a></p></div></div></section>`,
+    html: buildEmailHTML(
+      'You are warmly invited',
+      `<p style="margin:0 0 16px;">Hello {{ .FirstName }},</p><p style="margin:0 0 16px;">This is a kind reminder about an upcoming church activity. We would love to have you join us.</p><p style="margin:24px 0 0;">God bless you,<br /><strong>The Wisdom Church Team</strong></p>`
+    ),
     text: `Hello {{ .FirstName }},\n\nThis is a kind reminder about an upcoming church activity. We would love to have you join us.\n\nGod bless you,\nThe Wisdom Church Team\n\nUnsubscribe: {{ .UnsubscribeURL }}`,
   },
   {
     id: 'follow-up',
     label: 'Follow-up',
     subject: 'Thank You for Connecting with The Wisdom Church',
-    html: `<section style="font-family:Arial,sans-serif;color:#111827;line-height:1.7;"><div style="max-width:620px;margin:0 auto;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;"><div style="background:#111827;padding:26px 28px;">${EMAIL_BRAND_HEADER}<h1 style="margin:22px 0 0;color:#ffffff;font-size:28px;line-height:1.25;">Thank you for connecting with us</h1></div><div style="padding:28px;"><p>Hello {{ .FirstName }},</p><p>Thank you for recently connecting with The Wisdom Church. We look forward to staying in touch with you.</p><p>With love,<br /><strong>The Wisdom Church Team</strong></p><p style="font-size:12px;color:#6b7280;">Unsubscribe: <a href="{{ .UnsubscribeURL }}">link</a></p></div></div></section>`,
+    html: buildEmailHTML(
+      'Thank you for connecting with us',
+      `<p style="margin:0 0 16px;">Hello {{ .FirstName }},</p><p style="margin:0 0 16px;">Thank you for recently connecting with The Wisdom Church. We look forward to staying in touch with you.</p><p style="margin:24px 0 0;">With love,<br /><strong>The Wisdom Church Team</strong></p>`
+    ),
     text: `Hello {{ .FirstName }},\n\nThank you for recently connecting with The Wisdom Church. We look forward to staying in touch with you.\n\nWith love,\nThe Wisdom Church Team\n\nUnsubscribe: {{ .UnsubscribeURL }}`,
   },
 ];
