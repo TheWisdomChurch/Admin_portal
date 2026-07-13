@@ -675,7 +675,7 @@ export function buildFormEmailHTML(opts: {
           ${socialLinks.length > 0 ? `<p style="margin:0;font-size:12px;">${socialLinks
             .map((social) => `<a href="${escapeTemplateHtml(social.url)}" style="color:${MUTED};text-decoration:none;">${escapeTemplateHtml(social.label)}</a>`)
             .join('&nbsp;&nbsp;&middot;&nbsp;&nbsp;')}</p>` : ''}
-        </td></tr>`
+        </td></tr>
       </table>
     </td></tr></table>
   </body>
