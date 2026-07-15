@@ -15,6 +15,7 @@ import {
   Loader2,
   Mail,
   MailCheck,
+  Paperclip,
   RefreshCw,
   Search,
   Send,
@@ -27,6 +28,7 @@ import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api';
 import { getServerErrorMessage } from '@/lib/serverValidation';
 import type {
+  AdminEmailAttachmentInput,
   AdminEmailAudiencePreview,
   AdminEmailDeliveryHistoryItem,
   AdminEmailMarketingFormItem,
@@ -181,6 +183,25 @@ function getHistoryDate(item: AdminEmailDeliveryHistoryItem): string | undefined
   return withDates.createdAt ?? withDates.created_at ?? withDates.sentAt ?? withDates.sent_at;
 }
 
+// Mirrors internal/email.MaxAttachmentBytes / MaxTotalAttachmentBytes on the
+// backend — enforced client-side too so a rejected upload fails fast instead
+// of only surfacing at send time.
+const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+const MAX_TOTAL_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+const MAX_ATTACHMENTS = 10;
+
+interface ComposeAttachment {
+  url: string;
+  filename: string;
+  sizeBytes: number;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function SummaryCard({ label, value, hint, icon: Icon }: { label: string; value: number | string; hint: string; icon: React.ElementType }) {
   return <article className={styles.summaryCard}><div className={styles.summaryIcon}><Icon className="h-5 w-5" /></div><span>{label}</span><strong>{value}</strong><p>{hint}</p></article>;
 }
@@ -217,7 +238,10 @@ function EmailMarketingPage() {
   const [selectedPresetId, setSelectedPresetId] = useState('church-update');
   const [editorMode, setEditorMode] = useState<'html' | 'text'>('html');
   const [lastResult, setLastResult] = useState<SendAdminComposeEmailResponse | null>(null);
+  const [attachments, setAttachments] = useState<ComposeAttachment[]>([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const hasLoadedRef = useRef(false);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -313,6 +337,51 @@ function EmailMarketingPage() {
     try { await navigator.clipboard.writeText(htmlBody); toast.success('HTML body copied.'); } catch { toast.error('Could not copy HTML body.'); }
   }
 
+  const attachmentTotalBytes = attachments.reduce((sum, item) => sum + item.sizeBytes, 0);
+
+  async function handleAttachmentSelect(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (files.length === 0) return;
+
+    if (attachments.length + files.length > MAX_ATTACHMENTS) {
+      toast.error(`A campaign email may have at most ${MAX_ATTACHMENTS} attachments.`);
+      return;
+    }
+
+    setUploadingAttachment(true);
+    let runningTotal = attachmentTotalBytes;
+    try {
+      for (const file of files) {
+        if (file.size > MAX_ATTACHMENT_BYTES) {
+          toast.error(`${file.name} is larger than ${formatFileSize(MAX_ATTACHMENT_BYTES)} and was skipped.`);
+          continue;
+        }
+        if (runningTotal + file.size > MAX_TOTAL_ATTACHMENT_BYTES) {
+          toast.error(`Adding ${file.name} would exceed the combined ${formatFileSize(MAX_TOTAL_ATTACHMENT_BYTES)} attachment limit.`);
+          continue;
+        }
+        try {
+          const uploaded = await apiClient.uploadAsset(file, { kind: 'file', module: 'email-marketing' });
+          const url = uploaded.publicUrl || uploaded.public_url || uploaded.url;
+          runningTotal += file.size;
+          setAttachments((current) => [
+            ...current,
+            { url, filename: uploaded.originalName || file.name, sizeBytes: file.size },
+          ]);
+        } catch (error) {
+          toast.error(getServerErrorMessage(error, `Failed to upload ${file.name}.`));
+        }
+      }
+    } finally {
+      setUploadingAttachment(false);
+    }
+  }
+
+  function removeAttachment(url: string) {
+    setAttachments((current) => current.filter((item) => item.url !== url));
+  }
+
   async function handleSendCampaign() {
     if (selectedFormIds.length === 0 && parsedManualRecipients.length === 0) { toast.error('Select at least one form or add manual recipients.'); return; }
     if (!subject.trim()) { toast.error('Add a subject line before sending.'); return; }
@@ -320,15 +389,21 @@ function EmailMarketingPage() {
 
     setSending(true);
     try {
+      const attachmentPayload: AdminEmailAttachmentInput[] = attachments.map((item) => ({
+        url: item.url,
+        filename: item.filename,
+      }));
       const payload: SendAdminComposeEmailRequest = {
         subject: subject.trim(),
         htmlBody,
         textBody: textBody.trim() || undefined,
         manualRecipients: parsedManualRecipients.length > 0 ? parsedManualRecipients : undefined,
         formIds: selectedFormIds.length > 0 ? selectedFormIds : undefined,
+        attachments: attachmentPayload.length > 0 ? attachmentPayload : undefined,
       };
       const result = await apiClient.sendAdminComposeEmail(payload);
       setLastResult(result);
+      setAttachments([]);
       setRefreshKey((current) => current + 1);
       toast.success(`Campaign sent: ${result.sent} delivered, ${result.failed} failed.`);
     } catch (error) {
@@ -389,6 +464,45 @@ function EmailMarketingPage() {
             <div className={styles.composerRow}><label>To</label><div>{estimatedReach > 0 ? <strong>Estimated reach: {formatNumber(estimatedReach)}</strong> : <em>Select forms or add manual recipients.</em>}</div></div>
             <div className={styles.composerRow}><label htmlFor="campaign-subject">Subject</label><input id="campaign-subject" value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Add a clear subject line" /></div>
             <div className={styles.manualBlock}><label htmlFor="manual-recipients">Manual</label><textarea id="manual-recipients" value={manualRecipientsRaw} onChange={(event) => setManualRecipientsRaw(event.target.value)} placeholder={'person@example.com\nJane Doe <jane@example.com>'} /></div>
+            <div className={styles.attachmentBlock}>
+              <label>Attach</label>
+              <div className={styles.attachmentControls}>
+                <input
+                  ref={attachmentInputRef}
+                  type="file"
+                  multiple
+                  hidden
+                  onChange={handleAttachmentSelect}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={styles.attachmentPickButton}
+                  onClick={() => attachmentInputRef.current?.click()}
+                  loading={uploadingAttachment}
+                  disabled={attachments.length >= MAX_ATTACHMENTS}
+                  icon={<Paperclip className="h-4 w-4" />}
+                >
+                  {uploadingAttachment ? 'Uploading...' : 'Add images, files or documents'}
+                </Button>
+                {attachments.length > 0 && (
+                  <div className={styles.attachmentList}>
+                    {attachments.map((item) => (
+                      <span key={item.url} className={styles.attachmentChip}>
+                        <span title={item.filename}>{item.filename} ({formatFileSize(item.sizeBytes)})</span>
+                        <button type="button" onClick={() => removeAttachment(item.url)} aria-label={`Remove ${item.filename}`}>
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <span className={styles.attachmentHint}>
+                  Up to {MAX_ATTACHMENTS} files, {formatFileSize(MAX_ATTACHMENT_BYTES)} each, {formatFileSize(MAX_TOTAL_ATTACHMENT_BYTES)} combined.
+                </span>
+              </div>
+            </div>
             <div className={styles.templateBar}><div>{TEMPLATE_PRESETS.map((preset) => <button key={preset.id} type="button" data-active={selectedPresetId === preset.id} onClick={() => applyPreset(preset.id)}>{preset.label}</button>)}</div><div><button type="button" data-active={editorMode === 'html'} onClick={() => setEditorMode('html')}>HTML</button><button type="button" data-active={editorMode === 'text'} onClick={() => setEditorMode('text')}>Text</button></div></div>
             <div className={styles.tokenRow}>{['{{ .FirstName }}', '{{ .Email }}', '{{ .UnsubscribeURL }}'].map((token) => <button key={token} type="button" onClick={() => editorMode === 'html' ? setHtmlBody((current) => `${current}\n${token}`) : setTextBody((current) => `${current}\n${token}`)}>{token}</button>)}</div>
             <textarea className={styles.codeEditor} value={editorMode === 'html' ? htmlBody : textBody} onChange={(event) => editorMode === 'html' ? setHtmlBody(event.target.value) : setTextBody(event.target.value)} spellCheck={false} />
