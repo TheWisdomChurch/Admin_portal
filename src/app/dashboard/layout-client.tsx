@@ -120,7 +120,7 @@ export default function DashboardLayoutClient({ children }: DashboardLayoutClien
         <Navbar />
         <SessionTimeout />
         <main className="flex-1 overflow-auto">
-          <div className="w-full px-4 py-5 sm:px-6 sm:py-7 lg:px-8 xl:px-10">{children}</div>
+          <div className="mx-auto w-full max-w-[1800px] px-4 py-5 sm:px-6 sm:py-7 lg:px-8 xl:px-10">{children}</div>
         </main>
       </div>
     </div>
