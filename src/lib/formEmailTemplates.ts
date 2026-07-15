@@ -346,13 +346,6 @@ function prepareResourceLinks(resourceLinks?: FormEmailResourceLink[]) {
     .filter(isPreparedResourceLink);
 }
 
-const DEFAULT_SOCIAL_LINKS: FormEmailSocialLink[] = [
-  { platform: 'facebook', url: 'https://www.facebook.com/wisdomhousehq' },
-  { platform: 'youtube', url: 'https://www.youtube.com/@wisdomhousehq' },
-  { platform: 'instagram', url: 'https://www.instagram.com/wisdomhousehq' },
-  { platform: 'twitter', url: 'https://x.com/wisdomhousehq' },
-];
-
 function socialLabel(platform: FormEmailSocialPlatform) {
   switch (platform) {
     case 'facebook':
@@ -367,8 +360,8 @@ function socialLabel(platform: FormEmailSocialPlatform) {
 }
 
 function prepareSocialLinks(socialLinks?: FormEmailSocialLink[]) {
-  const source = socialLinks && socialLinks.length > 0 ? socialLinks : DEFAULT_SOCIAL_LINKS;
-  return source
+  if (!socialLinks || socialLinks.length === 0) return [];
+  return socialLinks
     .map((item) => {
       const url = normalizeAbsoluteHttpUrl(item.url || '');
       if (!url) return null;
