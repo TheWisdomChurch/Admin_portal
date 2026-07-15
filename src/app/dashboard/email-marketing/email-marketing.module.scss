@@ -406,6 +406,78 @@
   strong { font-size: 0.86rem; }
 }
 
+.attachmentBlock {
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+  border-bottom: 1px solid var(--color-border-secondary);
+  padding: 0.85rem 1rem;
+
+  label {
+    padding-top: 0.35rem;
+    color: var(--color-text-tertiary);
+    font-size: 0.76rem;
+    font-weight: 900;
+  }
+}
+
+.attachmentControls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.attachmentPickButton {
+  align-self: flex-start;
+}
+
+.attachmentList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.attachmentChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+  border: 1px solid var(--color-border-secondary);
+  border-radius: 999px;
+  background: var(--color-background-primary);
+  padding: 0.35rem 0.4rem 0.35rem 0.75rem;
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+
+  span {
+    overflow: hidden;
+    max-width: 14rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999px;
+    background: var(--color-background-secondary);
+    padding: 0.25rem;
+    color: var(--color-text-tertiary);
+
+    &:hover { color: var(--color-text-primary); }
+  }
+}
+
+.attachmentHint {
+  color: var(--color-text-tertiary);
+  font-size: 0.72rem;
+}
+
 .templateBar {
   display: flex;
   justify-content: space-between;
@@ -604,7 +676,8 @@
   .previewPanel { border-radius: 1.35rem; padding: 0.85rem; }
   .summaryGrid { grid-template-columns: 1fr; }
   .composerRow,
-  .manualBlock { grid-template-columns: 1fr; }
+  .manualBlock,
+  .attachmentBlock { grid-template-columns: 1fr; }
   .composeHeader { flex-direction: column; }
   .previewStats { grid-template-columns: 1fr; }
   .codeEditor { min-height: 300px; }
