@@ -84,6 +84,22 @@ import type {
   StoreOrderAdmin,
   StoreOrderStatus,
   MFAMethod,
+  ServiceTypeAdmin,
+  AttendanceSessionAdmin,
+  AttendanceRecordAdmin,
+  CreateSessionRequest,
+  CheckInRequest,
+  CellGroupAdmin,
+  CellGroupMemberAdmin,
+  CellGroupMeetingAdmin,
+  MinistryAdmin,
+  MinistryMemberAdmin,
+  GivingTransactionAdmin,
+  GivingMonthlySummaryRow,
+  ContactMessageAdmin,
+  AdminUserAdmin,
+  CreateAdminUserRequest,
+  UpdateAdminUserRequest,
 } from './types';
 
 /* ============================================================================
@@ -1634,11 +1650,6 @@ export const apiClient = {
     );
   },
 
-  getAllUsers(params?: Record<string, string>) {
-    const qs = params ? `?${new URLSearchParams(params)}` : '';
-    return apiFetch(`/admin/users${qs}`);
-  },
-
   approveAdminUser(id: string): Promise<MessageResponse> {
     return apiFetch(`/admin/users/${encodeURIComponent(id)}/approve`, {
       method: 'POST',
@@ -2406,6 +2417,251 @@ export const apiClient = {
     });
   },
 
+  /* -----------------------------
+     ATTENDANCE
+     ----------------------------- */
+
+  async listServiceTypes(): Promise<ServiceTypeAdmin[]> {
+    const res = await apiFetch<ApiResponse<ServiceTypeAdmin[]>>('/admin/attendance/service-types', { method: 'GET' });
+    return unwrapData<ServiceTypeAdmin[]>(res, 'Invalid service types payload');
+  },
+
+  async createServiceType(payload: { name: string; campus_id?: string }): Promise<ServiceTypeAdmin> {
+    const res = await apiFetch<ApiResponse<ServiceTypeAdmin>>('/admin/attendance/service-types', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<ServiceTypeAdmin>(res, 'Invalid service type payload');
+  },
+
+  async createAttendanceSession(payload: CreateSessionRequest): Promise<AttendanceSessionAdmin> {
+    const res = await apiFetch<ApiResponse<AttendanceSessionAdmin>>('/admin/attendance/sessions', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<AttendanceSessionAdmin>(res, 'Invalid attendance session payload');
+  },
+
+  async listAttendanceSessions(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<AttendanceSessionAdmin>> {
+    const qs = toQueryString(params);
+    const res = await apiFetch(`/admin/attendance/sessions${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<AttendanceSessionAdmin>(res, 'Invalid attendance sessions payload');
+  },
+
+  async getAttendanceSession(id: string): Promise<AttendanceSessionAdmin> {
+    const res = await apiFetch<ApiResponse<AttendanceSessionAdmin>>(`/admin/attendance/sessions/${encodeURIComponent(id)}`, { method: 'GET' });
+    return unwrapData<AttendanceSessionAdmin>(res, 'Invalid attendance session payload');
+  },
+
+  async updateAttendanceSession(id: string, updates: Record<string, unknown>): Promise<AttendanceSessionAdmin> {
+    const res = await apiFetch<ApiResponse<AttendanceSessionAdmin>>(`/admin/attendance/sessions/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+    return unwrapData<AttendanceSessionAdmin>(res, 'Invalid attendance session payload');
+  },
+
+  async listAttendanceRecords(sessionId: string): Promise<AttendanceRecordAdmin[]> {
+    const res = await apiFetch<ApiResponse<AttendanceRecordAdmin[]>>(`/admin/attendance/sessions/${encodeURIComponent(sessionId)}/records`, { method: 'GET' });
+    return unwrapData<AttendanceRecordAdmin[]>(res, 'Invalid attendance records payload');
+  },
+
+  async checkInAttendance(payload: CheckInRequest): Promise<AttendanceRecordAdmin> {
+    const res = await apiFetch<ApiResponse<AttendanceRecordAdmin>>('/admin/attendance/checkin', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<AttendanceRecordAdmin>(res, 'Invalid check-in payload');
+  },
+
+  async memberAttendanceHistory(memberId: string, params?: Record<string, unknown>): Promise<AttendanceRecordAdmin[]> {
+    const qs = toQueryString(params);
+    const res = await apiFetch<ApiResponse<AttendanceRecordAdmin[]>>(`/admin/attendance/members/${encodeURIComponent(memberId)}/history${qs}`, { method: 'GET' });
+    return unwrapData<AttendanceRecordAdmin[]>(res, 'Invalid attendance history payload');
+  },
+
+  /* -----------------------------
+     CELL GROUPS
+     ----------------------------- */
+
+  async listCellGroups(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<CellGroupAdmin>> {
+    const qs = toQueryString(params);
+    const res = await apiFetch(`/admin/cell-groups${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<CellGroupAdmin>(res, 'Invalid cell groups payload');
+  },
+
+  async getCellGroup(id: string): Promise<CellGroupAdmin> {
+    const res = await apiFetch<ApiResponse<CellGroupAdmin>>(`/admin/cell-groups/${encodeURIComponent(id)}`, { method: 'GET' });
+    return unwrapData<CellGroupAdmin>(res, 'Invalid cell group payload');
+  },
+
+  async createCellGroup(payload: Partial<CellGroupAdmin>): Promise<CellGroupAdmin> {
+    const res = await apiFetch<ApiResponse<CellGroupAdmin>>('/admin/cell-groups', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<CellGroupAdmin>(res, 'Invalid cell group payload');
+  },
+
+  async updateCellGroup(id: string, updates: Record<string, unknown>): Promise<CellGroupAdmin> {
+    const res = await apiFetch<ApiResponse<CellGroupAdmin>>(`/admin/cell-groups/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+    return unwrapData<CellGroupAdmin>(res, 'Invalid cell group payload');
+  },
+
+  async deleteCellGroup(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/cell-groups/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+
+  async listCellGroupMembers(groupId: string): Promise<CellGroupMemberAdmin[]> {
+    const res = await apiFetch<ApiResponse<CellGroupMemberAdmin[]>>(`/admin/cell-groups/${encodeURIComponent(groupId)}/members`, { method: 'GET' });
+    return unwrapData<CellGroupMemberAdmin[]>(res, 'Invalid cell group members payload');
+  },
+
+  async addCellGroupMember(groupId: string, memberId: string, role?: string): Promise<CellGroupMemberAdmin> {
+    const res = await apiFetch<ApiResponse<CellGroupMemberAdmin>>(`/admin/cell-groups/${encodeURIComponent(groupId)}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ member_id: memberId, role }),
+    });
+    return unwrapData<CellGroupMemberAdmin>(res, 'Invalid cell group member payload');
+  },
+
+  async removeCellGroupMember(groupId: string, memberId: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/cell-groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}`, { method: 'DELETE' });
+  },
+
+  async listCellGroupMeetings(groupId: string): Promise<CellGroupMeetingAdmin[]> {
+    const res = await apiFetch<ApiResponse<CellGroupMeetingAdmin[]>>(`/admin/cell-groups/${encodeURIComponent(groupId)}/meetings`, { method: 'GET' });
+    return unwrapData<CellGroupMeetingAdmin[]>(res, 'Invalid cell group meetings payload');
+  },
+
+  async logCellGroupMeeting(groupId: string, payload: { date: string; attendee_count?: number; notes?: string; led_by_id?: string }): Promise<CellGroupMeetingAdmin> {
+    const res = await apiFetch<ApiResponse<CellGroupMeetingAdmin>>(`/admin/cell-groups/${encodeURIComponent(groupId)}/meetings`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<CellGroupMeetingAdmin>(res, 'Invalid cell group meeting payload');
+  },
+
+  /* -----------------------------
+     MINISTRIES
+     ----------------------------- */
+
+  async listMinistries(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<MinistryAdmin>> {
+    const qs = toQueryString(params);
+    const res = await apiFetch(`/admin/ministries${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<MinistryAdmin>(res, 'Invalid ministries payload');
+  },
+
+  async getMinistry(id: string): Promise<MinistryAdmin> {
+    const res = await apiFetch<ApiResponse<MinistryAdmin>>(`/admin/ministries/${encodeURIComponent(id)}`, { method: 'GET' });
+    return unwrapData<MinistryAdmin>(res, 'Invalid ministry payload');
+  },
+
+  async createMinistry(payload: Partial<MinistryAdmin>): Promise<MinistryAdmin> {
+    const res = await apiFetch<ApiResponse<MinistryAdmin>>('/admin/ministries', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<MinistryAdmin>(res, 'Invalid ministry payload');
+  },
+
+  async updateMinistry(id: string, updates: Record<string, unknown>): Promise<MinistryAdmin> {
+    const res = await apiFetch<ApiResponse<MinistryAdmin>>(`/admin/ministries/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+    return unwrapData<MinistryAdmin>(res, 'Invalid ministry payload');
+  },
+
+  async deleteMinistry(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/ministries/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+
+  async listMinistryMembers(ministryId: string): Promise<MinistryMemberAdmin[]> {
+    const res = await apiFetch<ApiResponse<MinistryMemberAdmin[]>>(`/admin/ministries/${encodeURIComponent(ministryId)}/members`, { method: 'GET' });
+    return unwrapData<MinistryMemberAdmin[]>(res, 'Invalid ministry members payload');
+  },
+
+  async addMinistryMember(ministryId: string, memberId: string, role?: string): Promise<MinistryMemberAdmin> {
+    const res = await apiFetch<ApiResponse<MinistryMemberAdmin>>(`/admin/ministries/${encodeURIComponent(ministryId)}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ member_id: memberId, role }),
+    });
+    return unwrapData<MinistryMemberAdmin>(res, 'Invalid ministry member payload');
+  },
+
+  async removeMinistryMember(ministryId: string, memberId: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/ministries/${encodeURIComponent(ministryId)}/members/${encodeURIComponent(memberId)}`, { method: 'DELETE' });
+  },
+
+  /* -----------------------------
+     GIVING OVERVIEW (admin) — real transactions, distinct from giving intents
+     ----------------------------- */
+
+  async listGivingTransactions(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<GivingTransactionAdmin>> {
+    const qs = toQueryString(params);
+    const res = await apiFetch(`/admin/giving${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<GivingTransactionAdmin>(res, 'Invalid giving transactions payload');
+  },
+
+  async getGivingMonthlySummary(params?: { year?: number; month?: number; campus_id?: string }): Promise<GivingMonthlySummaryRow[]> {
+    const qs = toQueryString(params as Record<string, unknown> | undefined);
+    const res = await apiFetch<ApiResponse<GivingMonthlySummaryRow[]>>(`/admin/giving/summary${qs}`, { method: 'GET' });
+    return unwrapData<GivingMonthlySummaryRow[]>(res, 'Invalid giving summary payload');
+  },
+
+  /* -----------------------------
+     CONTACT MESSAGES (admin)
+     ----------------------------- */
+
+  async listContactMessages(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<ContactMessageAdmin>> {
+    const qs = toQueryString(params);
+    const res = await apiFetch<ApiResponse<{ data: ContactMessageAdmin[]; total: number; page: number; limit: number; totalPages: number }>>(`/admin/contact/messages${qs}`, { method: 'GET' });
+    const inner = unwrapData<{ data: ContactMessageAdmin[]; total: number; page: number; limit: number; totalPages: number }>(res, 'Invalid contact messages payload');
+    return { data: inner.data ?? [], total: inner.total ?? 0, page: inner.page ?? 1, limit: inner.limit ?? 20, totalPages: inner.totalPages ?? 0 };
+  },
+
+  /* -----------------------------
+     ADMIN USERS MANAGEMENT (super_admin only)
+     ----------------------------- */
+
+  async listAdminUsers(): Promise<AdminUserAdmin[]> {
+    const res = await apiFetch<ApiResponse<AdminUserAdmin[]>>('/admin/users', { method: 'GET' });
+    return unwrapData<AdminUserAdmin[]>(res, 'Invalid admin users payload');
+  },
+
+  async getAdminUser(id: string): Promise<AdminUserAdmin> {
+    const res = await apiFetch<ApiResponse<AdminUserAdmin>>(`/admin/users/${encodeURIComponent(id)}`, { method: 'GET' });
+    return unwrapData<AdminUserAdmin>(res, 'Invalid admin user payload');
+  },
+
+  async createAdminUser(payload: CreateAdminUserRequest): Promise<{ user: AdminUserAdmin; message: string }> {
+    const res = await apiFetch<ApiResponse<AdminUserAdmin>>('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    const user = unwrapData<AdminUserAdmin>(res, 'Invalid admin user payload');
+    const message = isRecord(res) && typeof (res as Record<string, unknown>).message === 'string' ? (res as Record<string, unknown>).message as string : 'User created';
+    return { user, message };
+  },
+
+  async updateAdminUser(id: string, updates: UpdateAdminUserRequest): Promise<AdminUserAdmin> {
+    const res = await apiFetch<ApiResponse<AdminUserAdmin>>(`/admin/users/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+    return unwrapData<AdminUserAdmin>(res, 'Invalid admin user payload');
+  },
+
+  async deleteAdminUser(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+  // approveAdminUser already exists above (near getAllUsers' old spot) —
+  // reused as-is by the admin-users page rather than duplicated here.
+
   async listGivingIntents(
     params?: Record<string, unknown>
   ): Promise<SimplePaginatedResponse<GivingIntentAdmin>> {
@@ -2511,21 +2767,8 @@ export const apiClient = {
     params?: Record<string, unknown>
   ): Promise<SimplePaginatedResponse<Member>> {
     const qs = toQueryString(params);
-
-    try {
-      const res = await apiFetch(`/admin/members${qs}`, { method: 'GET' });
-      return unwrapSimplePaginated<Member>(res, 'Invalid members payload');
-    } catch (error) {
-      console.error('[api] listMembers failed:', error);
-
-      return {
-        data: [],
-        total: 0,
-        page: Number(params?.page || 1),
-        limit: Number(params?.limit || 100),
-        totalPages: 1,
-      };
-    }
+    const res = await apiFetch(`/admin/members${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<Member>(res, 'Invalid members payload');
   },
 
   async getMemberStats(): Promise<MemberStatsResponse> {
@@ -2592,24 +2835,11 @@ export const apiClient = {
     params?: Record<string, unknown>
   ): Promise<SimplePaginatedResponse<LeadershipMember>> {
     const qs = toQueryString(params);
-
-    try {
-      const res = await apiFetch(`/admin/leadership${qs}`, { method: 'GET' });
-      return unwrapSimplePaginated<LeadershipMember>(
-        res,
-        'Invalid leadership payload'
-      );
-    } catch (error) {
-      console.error('[api] listLeadership failed:', error);
-
-      return {
-        data: [],
-        total: 0,
-        page: Number(params?.page || 1),
-        limit: Number(params?.limit || 100),
-        totalPages: 1,
-      };
-    }
+    const res = await apiFetch(`/admin/leadership${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<LeadershipMember>(
+      res,
+      'Invalid leadership payload'
+    );
   },
 
   async createLeadership(
