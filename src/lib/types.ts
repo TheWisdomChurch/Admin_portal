@@ -1310,3 +1310,218 @@ export interface HealthCheckResponse {
   uptime: string;
   database?: string;
 }
+
+/* =========================
+   ATTENDANCE
+========================= */
+
+export interface ServiceTypeAdmin {
+  id: string;
+  name: string;
+  campus_id?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AttendanceSessionAdmin {
+  id: string;
+  campus_id?: string;
+  service_type_id: string;
+  service_type?: ServiceTypeAdmin;
+  date: string;
+  head_count: number;
+  notes?: string;
+  created_by_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AttendanceRecordAdmin {
+  id: string;
+  session_id: string;
+  member_id?: string;
+  guest_name?: string;
+  checked_in_at: string;
+  checked_in_via: string;
+  created_at: string;
+}
+
+export interface CreateSessionRequest {
+  campus_id?: string;
+  service_type_id: string;
+  date: string;
+  head_count?: number;
+  notes?: string;
+}
+
+export interface CheckInRequest {
+  session_id: string;
+  member_id?: string;
+  guest_name?: string;
+  checked_in_via?: 'manual' | 'qr' | 'app';
+}
+
+/* =========================
+   CELL GROUPS
+========================= */
+
+export interface CellGroupAdmin {
+  id: string;
+  name: string;
+  campus_id?: string;
+  leader_id?: string;
+  zone?: string;
+  max_capacity?: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CellGroupMemberAdmin {
+  id: string;
+  group_id: string;
+  member_id: string;
+  role: string;
+  joined_at: string;
+  created_at: string;
+}
+
+export interface CellGroupMeetingAdmin {
+  id: string;
+  group_id: string;
+  date: string;
+  attendee_count: number;
+  notes?: string;
+  led_by_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/* =========================
+   MINISTRIES
+========================= */
+
+export interface MinistryAdmin {
+  id: string;
+  name: string;
+  description?: string;
+  campus_id?: string;
+  leader_id?: string;
+  category?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MinistryMemberAdmin {
+  id: string;
+  ministry_id: string;
+  member_id: string;
+  role: string;
+  joined_at: string;
+  created_at: string;
+}
+
+/* =========================
+   GIVING (admin overview — distinct from GivingIntentAdmin)
+========================= */
+
+export type GivingTransactionStatus = 'pending' | 'success' | 'failed' | 'reversed';
+export type GivingChannel = 'card' | 'transfer' | 'cash' | 'ussd';
+export type GivingProvider = 'paystack' | 'stripe' | 'manual';
+
+export interface GivingCategoryAdmin {
+  id: string;
+  name: string;
+  code: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GivingTransactionAdmin {
+  id: string;
+  category_id: string;
+  category?: GivingCategoryAdmin;
+  member_id?: string;
+  campus_id?: string;
+  amount_kobo: number; // smallest currency unit — divide by 100 for display
+  currency: string;
+  channel: GivingChannel;
+  payment_ref: string;
+  payment_provider: GivingProvider;
+  status: GivingTransactionStatus;
+  giver_name: string;
+  giver_email: string;
+  recorded_by_id?: string;
+  given_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GivingMonthlySummaryRow {
+  year: number;
+  month: number;
+  category_id: string;
+  total_kobo: number;
+  count: number;
+}
+
+/* =========================
+   CONTACT MESSAGES
+========================= */
+
+export interface ContactMessageAdmin {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  topic?: string;
+  message: string;
+  sourceChannel: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* =========================
+   ADMIN USERS MANAGEMENT
+========================= */
+
+export type AdminUserRole = 'admin' | 'super_admin';
+
+export interface AdminUserAdmin {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: AdminUserRole;
+  is_active: boolean;
+  admin_approved: boolean;
+  preferred_mfa_method?: string;
+  totp_enabled: boolean;
+  last_login_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateAdminUserRequest {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  role: AdminUserRole;
+}
+
+export interface UpdateAdminUserRequest {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  password?: string;
+  role?: AdminUserRole;
+  is_active?: boolean;
+  admin_approved?: boolean;
+  email_confirmed?: boolean;
+}
