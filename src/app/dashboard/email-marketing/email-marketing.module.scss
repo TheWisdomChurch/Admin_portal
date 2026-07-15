@@ -170,16 +170,237 @@
   color: var(--color-text-secondary);
 }
 
-.layout {
+.wizard {
+  border: 1px solid var(--color-border-secondary);
+  background: var(--color-background-primary);
+  border-radius: 2rem;
+  padding: 1.25rem;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.06);
+}
+
+.stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.stepButton {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex: 1 1 220px;
+  min-width: 0;
+  border: 1px solid var(--color-border-secondary);
+  background: var(--color-background-secondary);
+  border-radius: 1.25rem;
+  padding: 0.7rem 0.9rem;
+  text-align: left;
+  transition: 0.18s ease;
+
+  &[data-active='true'] {
+    border-color: var(--color-accent-primary);
+    background: color-mix(in srgb, var(--color-accent-primary) 12%, var(--color-background-primary));
+  }
+}
+
+.stepBadge {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(280px, 380px);
+  place-items: center;
+  flex-shrink: 0;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 999px;
+  background: var(--color-background-primary);
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 900;
+
+  .stepButton[data-active='true'] & {
+    background: var(--color-accent-primary);
+    color: var(--color-text-onprimary);
+  }
+
+  .stepButton[data-done='true'] & {
+    color: var(--color-success-text);
+  }
+}
+
+.stepText {
+  min-width: 0;
+  display: grid;
+
+  strong {
+    font-size: 0.86rem;
+    font-weight: 900;
+    color: var(--color-text-primary);
+  }
+
+  em {
+    margin-top: 0.15rem;
+    font-style: normal;
+    color: var(--color-text-tertiary);
+    font-size: 0.72rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.wizardSummary {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+
+  span {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    border: 1px solid var(--color-border-secondary);
+    background: var(--color-background-secondary);
+    border-radius: 999px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.76rem;
+  }
+
+  em {
+    font-style: normal;
+    color: var(--color-text-tertiary);
+    font-weight: 700;
+  }
+
+  strong {
+    max-width: 16rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-primary);
+    font-weight: 900;
+  }
+}
+
+.stepPanel {
+  margin-top: 1.25rem;
+}
+
+.stepNav {
+  margin-top: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.audienceGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
 }
 
-.sidePanel,
-.composePanel {
-  min-width: 0;
+.manualTextarea {
+  width: 100%;
+  min-height: 6.5rem;
+  margin-top: 1rem;
+  resize: vertical;
+  border: 1px solid var(--color-border-secondary);
+  background: var(--color-background-secondary);
+  border-radius: 1rem;
+  padding: 0.75rem 0.9rem;
+  color: var(--color-text-primary);
+  font-size: 0.86rem;
+}
+
+.eflierPreview {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid var(--color-border-secondary);
+  background: var(--color-background-primary);
+  border-radius: 1.1rem;
+  padding: 0.5rem;
+
+  img {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 0.75rem;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+
+  > div {
+    min-width: 0;
+    display: grid;
+    gap: 0.3rem;
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 14rem;
+      color: var(--color-text-secondary);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      justify-self: start;
+      color: var(--color-text-tertiary);
+      font-size: 0.74rem;
+      font-weight: 800;
+
+      &:hover { color: var(--color-accent-danger); }
+    }
+  }
+}
+
+.recapChips {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+
+  span {
+    border-radius: 999px;
+    border: 1px solid var(--color-border-secondary);
+    background: var(--color-background-secondary);
+    padding: 0.35rem 0.75rem;
+    color: var(--color-text-secondary);
+    font-size: 0.76rem;
+    font-weight: 800;
+  }
+}
+
+.historySection {
+  border: 1px solid var(--color-border-secondary);
+  background: var(--color-background-primary);
+  border-radius: 1.6rem;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+}
+
+.historyToggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 0.25rem;
+  color: var(--color-text-primary);
+  font-size: 0.86rem;
+  font-weight: 900;
+
+  span { flex: 1; text-align: left; }
+}
+
+.historyChevron {
+  width: 1rem;
+  height: 1rem;
+  transition: transform 0.18s ease;
+
+  &[data-open='true'] { transform: rotate(180deg); }
 }
 
 .panel,
@@ -190,11 +411,6 @@
   border-radius: 2rem;
   padding: 1rem;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
-}
-
-.sidePanel {
-  display: grid;
-  gap: 1rem;
 }
 
 .panelHeader,
@@ -370,8 +586,7 @@
   background: var(--color-background-secondary);
 }
 
-.composerRow,
-.manualBlock {
+.composerRow {
   display: grid;
   grid-template-columns: 5rem minmax(0, 1fr);
   gap: 0.75rem;
@@ -658,27 +873,28 @@
 }
 
 @media (max-width: 1280px) {
-  .layout { grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); }
-  .layout > .sidePanel:last-child { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .audienceGrid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 980px) {
   .hero { grid-template-columns: 1fr; }
-  .layout { grid-template-columns: 1fr; }
-  .layout > .sidePanel:last-child { grid-template-columns: 1fr; }
   .summaryGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stepButton { flex: 1 1 45%; }
 }
 
 @media (max-width: 640px) {
   .hero,
   .panel,
   .composePanel,
-  .previewPanel { border-radius: 1.35rem; padding: 0.85rem; }
+  .previewPanel,
+  .wizard { border-radius: 1.35rem; padding: 0.85rem; }
   .summaryGrid { grid-template-columns: 1fr; }
   .composerRow,
-  .manualBlock,
   .attachmentBlock { grid-template-columns: 1fr; }
   .composeHeader { flex-direction: column; }
   .previewStats { grid-template-columns: 1fr; }
   .codeEditor { min-height: 300px; }
+  .stepButton { flex: 1 1 100%; }
+  .stepNav { flex-direction: column-reverse; }
+  .stepNav > * { width: 100%; justify-content: center; }
 }
