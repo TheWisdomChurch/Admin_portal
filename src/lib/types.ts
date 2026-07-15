@@ -793,6 +793,11 @@ export interface AdminEmailRecipientInput {
   email: string;
 }
 
+export interface AdminEmailAttachmentInput {
+  url: string;
+  filename?: string;
+}
+
 export interface SendAdminComposeEmailRequest {
   subject?: string;
   htmlBody?: string;
@@ -801,6 +806,7 @@ export interface SendAdminComposeEmailRequest {
   templateKey?: string;
   manualRecipients?: AdminEmailRecipientInput[];
   formIds?: string[];
+  attachments?: AdminEmailAttachmentInput[];
 }
 
 export interface SendAdminComposeEmailResponse {
