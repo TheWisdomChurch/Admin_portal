@@ -531,6 +531,11 @@ export interface FormFieldValidation {
   pattern?: string;
   min?: number;
   max?: number;
+  // Controls how a `date`-type field is captured on the public form.
+  // 'full' (default when unset) renders a real date input and stores the
+  // complete date including year. 'day-month' renders day/month selects only
+  // (deliberately omitting year) for recurring-anniversary-style fields.
+  dateMode?: 'full' | 'day-month';
 }
 
 export interface FormField {

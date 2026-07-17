@@ -119,6 +119,20 @@ function isPrayerRequestField(field: FormField) {
 function isAnniversaryField(field: FormField) {
   return /(anniversary|wedding|marriage)/.test(`${field.key} ${field.label}`.toLowerCase());
 }
+// Whether a `date`-type field captures a full date (with year) or only
+// day+month. Prefers the explicit `field.validation.dateMode` config so this
+// is data-driven going forward. Falls back to the legacy label-text
+// heuristic only when no explicit mode is set, so forms created before this
+// field existed (mostly wedding/anniversary fields, which were always
+// intended to be day-month-only) keep rendering exactly as before. Any
+// `date` field that doesn't match that heuristic — including "Date of
+// Birth" — now defaults to a full date instead of silently dropping the
+// year.
+function resolveDateMode(field: FormField): 'full' | 'day-month' {
+  const explicit = field.validation?.dateMode;
+  if (explicit === 'full' || explicit === 'day-month') return explicit;
+  return isAnniversaryField(field) ? 'day-month' : 'full';
+}
 function isFileValue(value: unknown): value is File {
   return typeof File !== 'undefined' && value instanceof File;
 }
@@ -415,7 +429,7 @@ function FieldInput({ field, value, onChange }: { field: FormField; value: Field
     );
   }
   if (showAsPhone) return <PhoneNumberInput label={field.label || 'Phone'} required={field.required} value={typeof value === 'string' ? value : ''} onChange={onChange} />;
-  if (type === 'date' && isAnniversaryField(field)) return <input type="date" className={fieldInputClass} value={toHtmlDateInputValue(typeof value === 'string' ? value : '')} onChange={(e) => onChange(fromHtmlDateInputValue(e.target.value))} required={field.required} />;
+  if (type === 'date' && resolveDateMode(field) === 'full') return <input type="date" className={fieldInputClass} value={toHtmlDateInputValue(typeof value === 'string' ? value : '')} onChange={(e) => onChange(fromHtmlDateInputValue(e.target.value))} required={field.required} />;
   if (type === 'date') {
     const parsed = parseDDMMPartial(typeof value === 'string' ? value : '');
     const selectedMonth = parsed?.month && parsed.month !== '00' ? parsed.month : '';
@@ -608,7 +622,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     if (isPrayerRequestField(field) && countWords(raw) > PRAYER_REQUEST_WORD_LIMIT) return `Prayer request cannot exceed ${PRAYER_REQUEST_WORD_LIMIT} words.`;
     if (isPhoneField && !e164Re.test(raw)) return 'Please enter a valid phone number including country code, e.g. +2348012345678.';
     if (type === 'number' && Number.isNaN(Number(raw))) return 'Please enter a valid number.';
-    if (type === 'date') return isAnniversaryField(field) ? normalizeFullDate(raw) ? null : 'Please enter a valid anniversary date.' : parseDDMM(raw) ? null : 'Please enter a valid date in DD-MM format.';
+    if (type === 'date') return resolveDateMode(field) === 'full' ? normalizeFullDate(raw) ? null : 'Please enter a valid date.' : parseDDMM(raw) ? null : 'Please enter a valid date in DD-MM format.';
     return null;
   };
 

@@ -9,6 +9,7 @@ import {
   BellRing,
   Calendar,
   CalendarCheck,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -58,6 +59,7 @@ const superConsole: NavGroup = {
   title: 'Super admin',
   items: [
     { href: '/dashboard/super', label: 'Command Center', description: 'Authority overview', icon: Crown, roles: ['super_admin'] },
+    { href: '/dashboard/super/approvals', label: 'Approvals', description: 'Fast review queue', icon: CheckCircle2, roles: ['super_admin'] },
     { href: '/dashboard/super/requests', label: 'Requests', description: 'Approval queue', icon: BellRing, roles: ['super_admin'] },
     { href: '/dashboard/super/analytics', label: 'Analytics', description: 'Leadership metrics', icon: BarChart3, roles: ['super_admin'] },
     { href: '/dashboard/super/reports', label: 'Reports', description: 'Exports and summaries', icon: FileText, roles: ['super_admin'] },
@@ -80,6 +82,7 @@ const operations: NavGroup = {
     { href: '/dashboard/ministries', label: 'Ministries', description: 'Teams & leaders', icon: HeartHandshake },
     { href: '/dashboard/attendance', label: 'Attendance', description: 'Service check-ins', icon: CalendarCheck },
     { href: '/dashboard/giving', label: 'Giving', description: 'Transactions & totals', icon: HandCoins },
+    { href: '/dashboard/analytics', label: 'Analytics', description: 'Trends and engagement', icon: BarChart3 },
   ],
 };
 
@@ -90,6 +93,7 @@ const ministries: NavGroup = {
     { href: '/dashboard/reels', label: 'Reels', description: 'Video content', icon: Video },
     { href: '/dashboard/testimonials', label: 'Testimonials', description: 'Stories and approvals', icon: MessageSquare },
     { href: '/dashboard/forms', label: 'Forms', description: 'Registration workflows', icon: ClipboardList },
+    { href: '/dashboard/registrations', label: 'Registrations', description: 'Form & event sign-ups', icon: CheckCircle2 },
     { href: '/dashboard/store', label: 'Store', description: 'Products and orders', icon: ShoppingBag },
     { href: '/dashboard/content', label: 'Website Content', description: 'Public content blocks', icon: FileText },
   ],
