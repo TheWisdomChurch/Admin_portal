@@ -201,6 +201,11 @@
     border-color: var(--color-accent-primary);
     background: color-mix(in srgb, var(--color-accent-primary) 12%, var(--color-background-primary));
   }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
 }
 
 .stepBadge {
@@ -287,8 +292,14 @@
 .stepNav {
   margin-top: 1.25rem;
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.stepNavHint {
+  color: var(--color-text-tertiary);
+  font-size: 0.78rem;
 }
 
 .audienceGrid {
@@ -847,29 +858,6 @@
   overflow: auto;
   padding: 1rem;
   background: #fff;
-}
-
-.emptyState {
-  margin-top: 1rem;
-  border: 1px dashed var(--color-border-secondary);
-  border-radius: 1.25rem;
-  background: var(--color-background-secondary);
-  padding: 1.25rem;
-  text-align: center;
-
-  div {
-    margin: 0 auto 0.75rem;
-    display: grid;
-    place-items: center;
-    width: 2.4rem;
-    height: 2.4rem;
-    border-radius: 1rem;
-    background: var(--color-background-primary);
-    color: var(--color-text-tertiary);
-  }
-
-  strong { display: block; font-size: 0.9rem; font-weight: 950; }
-  p { margin-top: 0.3rem; color: var(--color-text-tertiary); font-size: 0.8rem; line-height: 1.5; }
 }
 
 @media (max-width: 1280px) {

@@ -29,6 +29,10 @@ export const ADMIN_ONLY_PREFIXES = [
   '/dashboard/analytics',
   '/dashboard/reports',
   '/dashboard/prayer-requests',
+  '/dashboard/cell-groups',
+  '/dashboard/ministries',
+  '/dashboard/attendance',
+  '/dashboard/giving',
 ] as const;
 
 export function isSuperAdminPath(pathname: string): boolean {

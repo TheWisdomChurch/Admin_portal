@@ -46,7 +46,7 @@ type FieldDraft = {
   type: FormFieldType;
   required: boolean;
   order: number;
-  validation?: { maxWords?: number };
+  validation?: { maxWords?: number; dateMode?: 'full' | 'day-month' };
   options?: { label: string; value: string }[];
 };
 
@@ -552,7 +552,9 @@ export default withAuth(function NewFormPage() {
         label: field.label.trim(),
         type: field.type,
         required: field.required,
-        validation: field.validation?.maxWords ? { maxWords: field.validation.maxWords } : undefined,
+        validation: field.validation?.maxWords || field.validation?.dateMode
+          ? { maxWords: field.validation?.maxWords, dateMode: field.validation?.dateMode }
+          : undefined,
         options: field.options,
         order: index + 1,
       })),
@@ -880,6 +882,20 @@ export default withAuth(function NewFormPage() {
                     <div className="mt-3 max-w-xs"><Input label="Max words (optional)" type="number" min={1} value={field.validation?.maxWords ?? ''} onChange={(event) => updateField(index, { validation: { ...(field.validation || {}), maxWords: event.target.value ? Number(event.target.value) : undefined } })} placeholder="e.g., 400" /></div>
                   ) : null}
 
+                  {field.type === 'date' ? (
+                    <div className="mt-3 max-w-xs">
+                      <label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Date captured</label>
+                      <select
+                        value={field.validation?.dateMode ?? 'full'}
+                        onChange={(event) => updateField(index, { validation: { ...(field.validation || {}), dateMode: event.target.value as 'full' | 'day-month' } })}
+                        className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] outline-none"
+                      >
+                        <option value="full">Full date (day, month, year)</option>
+                        <option value="day-month">Day and month only (e.g. recurring anniversary)</option>
+                      </select>
+                    </div>
+                  ) : null}
+
                   {isOptionFieldType(field.type) ? (
                     <div className="mt-4 space-y-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
                       <div className="flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Options</p><Button type="button" variant="outline" size="sm" onClick={() => addFieldOption(index)} icon={<Plus className="h-4 w-4" />}>Add option</Button></div>
@@ -1101,7 +1117,8 @@ function renderFieldPreview(field: FieldDraft, dateFormat: DateFormat) {
   if (field.type === 'checkbox') return (field.options?.length ? field.options : [{ label: field.label, value: field.key }]).map((option) => <label key={option.value} className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-secondary)]"><input type="checkbox" disabled className="h-4 w-4 rounded border-[var(--color-border-primary)]" />{option.label}</label>);
   if (field.type === 'radio') return <div className="space-y-1">{(field.options || []).map((option) => <label key={option.value} className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-secondary)]"><input type="radio" disabled className="h-4 w-4 rounded-full border-[var(--color-border-primary)]" />{option.label}</label>)}</div>;
   if (field.type === 'image') return <div className="space-y-1"><input disabled type="file" accept="image/jpeg,image/png,image/webp" className={inputClass} /><p className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">JPEG, PNG, WebP up to 5MB</p></div>;
-  if (field.type === 'date') return <div><div className="grid grid-cols-1 gap-2 sm:grid-cols-2"><select disabled className={inputClass}><option value="">Select day</option>{dayOptions.map((day) => <option key={day} value={day}>{day}</option>)}</select><select disabled className={inputClass}><option value="">Select month</option>{monthOptions.map((month) => <option key={month.value} value={month.value}>{month.label}</option>)}</select></div><p className="mt-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">Format: {dateFormat.toUpperCase()}</p></div>;
+  if (field.type === 'date' && field.validation?.dateMode === 'day-month') return <div><div className="grid grid-cols-1 gap-2 sm:grid-cols-2"><select disabled className={inputClass}><option value="">Select day</option>{dayOptions.map((day) => <option key={day} value={day}>{day}</option>)}</select><select disabled className={inputClass}><option value="">Select month</option>{monthOptions.map((month) => <option key={month.value} value={month.value}>{month.label}</option>)}</select></div><p className="mt-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">Format: {dateFormat.toUpperCase()}</p></div>;
+  if (field.type === 'date') return <input disabled type="date" className={inputClass} />;
 
   return <input disabled type={field.type} className={inputClass} placeholder={field.label} />;
 }
