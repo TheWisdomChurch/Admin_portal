@@ -13,7 +13,6 @@ import {
   Eye,
   FileText,
   Image as ImageIcon,
-  Inbox,
   Loader2,
   Mail,
   MailCheck,
@@ -39,6 +38,7 @@ import type {
   SendAdminComposeEmailResponse,
 } from '@/lib/types';
 import { Button } from '@/ui/Button';
+import { EmptyState } from '@/ui/EmptyState';
 import { withAuth } from '@/providers/withAuth';
 
 import styles from './email-marketing.module.scss';
@@ -237,10 +237,6 @@ function SummaryCard({ label, value, hint, icon: Icon }: { label: string; value:
   return <article className={styles.summaryCard}><div className={styles.summaryIcon}><Icon className="h-5 w-5" /></div><span>{label}</span><strong>{value}</strong><p>{hint}</p></article>;
 }
 
-function EmptyState({ icon: Icon = Inbox, title, description }: { icon?: React.ElementType; title: string; description: string }) {
-  return <div className={styles.emptyState}><div><Icon className="h-5 w-5" /></div><strong>{title}</strong><p>{description}</p></div>;
-}
-
 function StatusChip({ status }: { status: string }) {
   return <span className={styles.statusChip} data-status={status.toLowerCase()}>{status}</span>;
 }
@@ -334,6 +330,25 @@ function EmailMarketingPage() {
   const selectedCurrentPageCount = forms.filter((form) => selectedFormIds.includes(form.formId)).length;
   const currentPageAllSelected = forms.length > 0 && forms.every((form) => selectedFormIds.includes(form.formId));
   const estimatedReach = (preview?.uniqueRecipients ?? 0) + parsedManualRecipients.length;
+
+  // The wizard's step pills visually imply a linear, validated flow — make
+  // that real instead of cosmetic: a step can only be reached once every
+  // step before it actually has the minimum data `handleSendCampaign` will
+  // require at send time.
+  function isStepComplete(target: WizardStep): boolean {
+    if (target === 1) return selectedFormIds.length > 0 || parsedManualRecipients.length > 0;
+    if (target === 2) return subject.trim().length > 0 && htmlBody.trim().length > 0;
+    return true;
+  }
+  const maxReachableStep: WizardStep = !isStepComplete(1) ? 1 : !isStepComplete(2) ? 2 : 3;
+
+  function goToStep(target: WizardStep) {
+    if (target > maxReachableStep) {
+      toast.error(target === 3 ? 'Add a subject and message body before previewing.' : 'Select an audience before continuing.');
+      return;
+    }
+    setStep(target);
+  }
 
   function toggleForm(formId: string) {
     setSelectedFormIds((current) => current.includes(formId) ? current.filter((item) => item !== formId) : [...current, formId]);
@@ -517,7 +532,8 @@ function EmailMarketingPage() {
               className={styles.stepButton}
               data-active={step === item.id}
               data-done={step > item.id}
-              onClick={() => setStep(item.id)}
+              disabled={item.id > maxReachableStep}
+              onClick={() => goToStep(item.id)}
             >
               <span className={styles.stepBadge}>{step > item.id ? <CheckCircle2 className="h-3.5 w-3.5" /> : item.id}</span>
               <span className={styles.stepText}><strong>{item.label}</strong><em>{item.description}</em></span>
@@ -545,7 +561,7 @@ function EmailMarketingPage() {
                     const active = selectedFormIds.includes(form.formId);
                     return <button key={form.formId} type="button" className={styles.formCard} data-active={active} onClick={() => toggleForm(form.formId)}><div className={styles.formCardTop}><StatusChip status={form.isPublished ? 'live' : 'draft'} /><strong>{formatNumber(form.uniqueRecipients)}</strong></div><h3>{form.formTitle}</h3><p>{formatNumber(form.totalSubmissions)} submissions · {formatNumber(form.validRecipients)} valid emails</p><span>{form.lastSubmissionAt ? `Last response ${formatDate(form.lastSubmissionAt)}` : 'No responses yet'}</span></button>;
                   })}
-                  {filteredForms.length === 0 ? <EmptyState icon={FileText} title="No forms found" description="Try another search term or refresh the workspace." /> : null}
+                  {filteredForms.length === 0 ? <EmptyState icon={<FileText className="h-5 w-5" />} title="No forms found" description="Try another search term or refresh the workspace." /> : null}
                 </div>
                 <div className={styles.pagination}><Button type="button" variant="ghost" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}><ChevronLeft className="h-4 w-4" />Previous</Button><span>Page {page} of {formTotalPages}</span><Button type="button" variant="ghost" disabled={page >= formTotalPages} onClick={() => setPage((current) => Math.min(formTotalPages, current + 1))}>Next<ChevronRight className="h-4 w-4" /></Button></div>
               </section>
@@ -554,7 +570,7 @@ function EmailMarketingPage() {
                 <div className={styles.panelHeader}><div><p>Manual contacts</p><h2>Add recipients by hand</h2><span>One per line, or paste a comma separated list.</span></div>{previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}</div>
                 <textarea className={styles.manualTextarea} value={manualRecipientsRaw} onChange={(event) => setManualRecipientsRaw(event.target.value)} placeholder={'person@example.com\nJane Doe <jane@example.com>'} />
                 <div className={styles.previewStats}><article><span>Unique</span><strong>{formatNumber(preview?.uniqueRecipients ?? 0)}</strong></article><article><span>Valid</span><strong>{formatNumber(preview?.validRecipients ?? 0)}</strong></article><article><span>Skipped</span><strong>{formatNumber(preview?.skipped ?? 0)}</strong></article></div>
-                {previewLoading ? <div className={styles.loadingInline}><Loader2 className="h-4 w-4 animate-spin" /><span>Building audience preview...</span></div> : preview ? <div className={styles.recipientList}>{preview.recipients.map((recipient) => <article key={recipient.email}><strong>{recipient.name || recipient.email}</strong>{recipient.name ? <span>{recipient.email}</span> : null}</article>)}</div> : <EmptyState icon={Users} title="No audience selected" description="Select forms to preview the collated audience." />}
+                {previewLoading ? <div className={styles.loadingInline}><Loader2 className="h-4 w-4 animate-spin" /><span>Building audience preview...</span></div> : preview ? <div className={styles.recipientList}>{preview.recipients.map((recipient) => <article key={recipient.email}><strong>{recipient.name || recipient.email}</strong>{recipient.name ? <span>{recipient.email}</span> : null}</article>)}</div> : <EmptyState icon={<Users className="h-5 w-5" />} title="No audience selected" description="Select forms to preview the collated audience." />}
               </section>
             </div>
           </div>
@@ -659,8 +675,13 @@ function EmailMarketingPage() {
 
         <div className={styles.stepNav}>
           <Button type="button" variant="ghost" onClick={() => setStep((current) => (Math.max(1, current - 1) as WizardStep))} disabled={step === 1} icon={<ChevronLeft className="h-4 w-4" />}>Back</Button>
+          {!isStepComplete(step) ? (
+            <span className={styles.stepNavHint}>
+              {step === 1 ? 'Select a form audience or add a manual recipient to continue.' : 'Add a subject and message body to continue.'}
+            </span>
+          ) : null}
           {step < 3 ? (
-            <Button type="button" onClick={() => setStep((current) => (Math.min(3, current + 1) as WizardStep))} icon={<ChevronRight className="h-4 w-4" />}>Next</Button>
+            <Button type="button" onClick={() => goToStep((step + 1) as WizardStep)} disabled={!isStepComplete(step)} icon={<ChevronRight className="h-4 w-4" />}>Next</Button>
           ) : (
             <Button type="button" onClick={handleSendCampaign} loading={sending} icon={<Send className="h-4 w-4" />}>Send campaign</Button>
           )}
@@ -679,7 +700,7 @@ function EmailMarketingPage() {
               {history.map((item) => <article key={item.id}><div><strong>{item.subject}</strong><p>{formatNumber(item.targeted)} targeted · {formatNumber(item.sent)} sent · {formatNumber(item.failed)} failed</p><span>{formatDateTime(getHistoryDate(item))}</span></div><StatusChip status={item.status} /></article>)}
             </div>
           ) : (
-            <EmptyState icon={Mail} title="No campaigns yet" description="Sent campaigns appear here after delivery." />
+            <EmptyState icon={<Mail className="h-5 w-5" />} title="No campaigns yet" description="Sent campaigns appear here after delivery." />
           )
         ) : null}
       </section>
