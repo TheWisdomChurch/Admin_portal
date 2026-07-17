@@ -42,6 +42,7 @@ const fieldValidationSchema = z
     pattern: z.string().trim().min(1).optional(),
     min: z.number().optional(),
     max: z.number().optional(),
+    dateMode: z.enum(['full', 'day-month']).optional(),
   })
   .optional();
 

@@ -1564,6 +1564,26 @@ function EditFormPage() {
                   </div>
                 )}
 
+                {field.type === 'date' && (
+                  <div className="mt-4 max-w-xs">
+                    <label className="mb-1 block text-sm font-semibold text-[var(--color-text-primary)]">
+                      Date captured
+                    </label>
+                    <select
+                      value={field.validation?.dateMode ?? 'full'}
+                      onChange={(event) =>
+                        updateField(index, {
+                          validation: { ...(field.validation || {}), dateMode: event.target.value as 'full' | 'day-month' },
+                        })
+                      }
+                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+                    >
+                      <option value="full">Full date (day, month, year)</option>
+                      <option value="day-month">Day and month only (e.g. recurring anniversary)</option>
+                    </select>
+                  </div>
+                )}
+
                 <div className="mt-3 rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-3">
                   <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
                     <input
