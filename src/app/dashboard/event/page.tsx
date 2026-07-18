@@ -742,6 +742,28 @@ function EventPage() {
           <PreviewPanel event={selectedEvent} />
 
           {selectedEvent ? (
+            <section className="rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">Event image</p>
+              <h2 className="mt-1 text-lg font-black tracking-tight text-[var(--color-text-primary)]">
+                {selectedEvent.image ? 'Replace image' : 'Add missing image'}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">
+                {selectedEvent.image
+                  ? 'Upload a new image to replace the one currently live on the website.'
+                  : "This event has no image on the live website. Upload one below — it publishes immediately once uploaded."}
+              </p>
+              <div className="mt-4">
+                <MediaUploadField
+                  field={{ key: 'replaceImage', label: 'Event image', type: 'image', validation: { max: 10 } }}
+                  value={null}
+                  disabled={replacingImage}
+                  onChange={(file) => void replaceEventImage(file)}
+                />
+              </div>
+            </section>
+          ) : null}
+
+          {selectedEvent ? (
             <section className="rounded-[2rem] border border-[var(--color-danger-border,theme(colors.red.200))] bg-[var(--color-background-primary)] p-5 shadow-sm">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-red-500">Danger zone</p>
               <h2 className="mt-1 text-lg font-black tracking-tight text-[var(--color-text-primary)]">Remove this event</h2>
