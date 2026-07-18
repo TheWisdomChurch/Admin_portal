@@ -885,7 +885,7 @@ function EventPage() {
             Request deletion{selectedEvent ? `: ${selectedEvent.title}` : ''}
           </h2>
           <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">
-            A super admin will review this before the event comes off the site. Be specific — this ticket is what they'll base their decision on.
+            A super admin will review this before the event comes off the site. Be specific — this ticket is what they&apos;ll base their decision on.
           </p>
           <textarea
             value={deleteReason}
