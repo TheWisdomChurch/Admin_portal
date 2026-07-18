@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import Image from 'next/image';
 import {
+  AlertTriangle,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
@@ -879,25 +880,80 @@ function EventPage() {
         </section>
       ) : null}
 
-      <Modal open={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} size="sm" labelledBy="delete-event-title">
-        <div className="p-1">
-          <h2 id="delete-event-title" className="text-lg font-black text-[var(--color-text-primary)]">
-            Request deletion{selectedEvent ? `: ${selectedEvent.title}` : ''}
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">
-            A super admin will review this before the event comes off the site. Be specific — this ticket is what they&apos;ll base their decision on.
-          </p>
+      <Modal open={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} size="lg" labelledBy="delete-event-title">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/95 px-6 py-5 backdrop-blur">
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl bg-red-50 p-3 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 id="delete-event-title" className="text-lg font-black tracking-tight text-[var(--color-text-primary)]">
+                Request deletion
+              </h2>
+              <p className="mt-0.5 text-sm text-[var(--color-text-tertiary)]">
+                Sends a ticket for super admin review — nothing is removed yet.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDeleteModalOpen(false)}
+            disabled={requestingDelete}
+            className="rounded-2xl border border-[var(--color-border-primary)] p-2 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)] disabled:opacity-50"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="max-h-[75vh] overflow-y-auto px-6 py-5">
+          {selectedEvent ? (
+            <div className="flex items-center gap-4 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-[var(--color-background-tertiary,theme(colors.neutral.200))]">
+                {selectedEvent.image ? (
+                  <Image src={selectedEvent.image} alt="" fill sizes="56px" className="object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[var(--color-text-tertiary)]">
+                    <ImageIcon className="h-5 w-5" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-base font-black text-[var(--color-text-primary)]">{selectedEvent.title}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-[var(--color-text-tertiary)]">
+                  {selectedEvent.date ? (
+                    <span className="inline-flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" />{selectedEvent.date}</span>
+                  ) : null}
+                  {selectedEvent.location ? (
+                    <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{selectedEvent.location}</span>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+            The event stays live on the website until a super admin approves this ticket. Be specific — your stated reason is what they&apos;ll base their decision on.
+          </div>
+
+          <label htmlFor="delete-reason" className="mt-5 block text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
+            Reason for removal
+          </label>
           <textarea
+            id="delete-reason"
             value={deleteReason}
             onChange={(event) => setDeleteReason(event.target.value)}
-            rows={4}
-            placeholder="Why should this event be removed?"
-            className="mt-4 w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm font-semibold text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-border-focus)]"
+            rows={6}
+            placeholder="Why should this event be removed? e.g. duplicate listing, event was cancelled, wrong campus..."
+            className="mt-2 w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-border-focus)]"
           />
-          <div className="mt-5 flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setDeleteModalOpen(false)} disabled={requestingDelete}>Cancel</Button>
-            <Button variant="danger" loading={requestingDelete} onClick={() => void submitDeleteRequest()}>Send request</Button>
-          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-[var(--color-border-secondary)] px-6 py-4">
+          <Button variant="outline" onClick={() => setDeleteModalOpen(false)} disabled={requestingDelete}>Cancel</Button>
+          <Button variant="danger" loading={requestingDelete} icon={<Trash2 className="h-4 w-4" />} onClick={() => void submitDeleteRequest()}>
+            Send request
+          </Button>
         </div>
       </Modal>
     </main>
