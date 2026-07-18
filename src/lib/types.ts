@@ -1170,7 +1170,7 @@ export interface AdminNotificationInbox {
    APPROVAL REQUESTS
 ========================= */
 
-export type ApprovalRequestType = 'testimonial' | 'event' | 'admin_user' | 'leadership_delete' | 'workforce_delete';
+export type ApprovalRequestType = 'testimonial' | 'event' | 'event_delete' | 'admin_user' | 'leadership_delete' | 'workforce_delete';
 export type ApprovalRequestStatus = 'pending' | 'approved' | 'rejected' | 'deleted';
 
 export interface ApprovalRequest {
@@ -1180,6 +1180,7 @@ export interface ApprovalRequest {
   status: ApprovalRequestStatus;
   entityId?: string;
   entityLabel?: string;
+  reason?: string;
   requestedById?: string;
   requestedByName?: string;
   requestedByEmail?: string;
