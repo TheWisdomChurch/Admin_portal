@@ -350,6 +350,8 @@ function EventPage() {
   const [deleteReason, setDeleteReason] = useState('');
   const [requestingDelete, setRequestingDelete] = useState(false);
 
+  const [replacingImage, setReplacingImage] = useState(false);
+
   const filteredEvents = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -453,6 +455,32 @@ function EventPage() {
     }
   }, [selectedEvent, deleteReason]);
 
+  const replaceEventImage = useCallback(
+    async (file: File | null) => {
+      if (!file || !selectedEvent) return;
+      setReplacingImage(true);
+      try {
+        const uploaded = await uploadAsset(file, {
+          kind: 'image',
+          module: 'events',
+          ownerType: 'event',
+          ownerId: selectedEvent.id,
+          folder: `events/${selectedEvent.id}/images`,
+        });
+        const uploadedImageURL = uploaded.publicUrl || uploaded.url;
+        const updated = await apiClient.updateEvent(selectedEvent.id, toEventPayload(selectedEvent, { image: uploadedImageURL }));
+        setEvents((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+        toast.success('Event image updated.');
+      } catch (error) {
+        console.error('Failed to replace event image:', error);
+        toast.error(error instanceof Error ? error.message : 'Unable to upload image');
+      } finally {
+        setReplacingImage(false);
+      }
+    },
+    [selectedEvent]
+  );
+
   useEffect(() => {
     return () => {
       if (imagePreview) URL.revokeObjectURL(imagePreview);
@@ -527,13 +555,25 @@ function EventPage() {
       image: imageUrl || undefined,
     };
 
+    let created: EventData;
     try {
       setSaving(true);
+      created = await apiClient.createEvent(createPayload);
+    } catch (error) {
+      console.error('Failed to create event:', error);
+      toast.error('Failed to create event.');
+      setSaving(false);
+      return;
+    }
 
-      let created = await apiClient.createEvent(createPayload);
-      let uploadedImageURL = createPayload.image;
-
-      if (imageFile) {
+    // The event now exists — from here on, failures are image-upload
+    // failures, not creation failures. Reporting them as "failed to create"
+    // would be false: the event is already live, just without its image,
+    // and this page has no edit flow to add one afterward, so the admin
+    // needs to know exactly that so they can use "Replace image" below.
+    let finalEvent = created;
+    if (imageFile) {
+      try {
         const uploaded = await uploadAsset(imageFile, {
           kind: 'image',
           module: 'events',
@@ -541,27 +581,26 @@ function EventPage() {
           ownerId: created.id,
           folder: `events/${created.id}/images`,
         });
-
-        uploadedImageURL = uploaded.publicUrl || uploaded.url;
+        const uploadedImageURL = uploaded.publicUrl || uploaded.url;
+        if (uploadedImageURL && uploadedImageURL !== created.image) {
+          finalEvent = await apiClient.updateEvent(created.id, toEventPayload(created, { image: uploadedImageURL }));
+        }
+        toast.success('Event created successfully');
+      } catch (error) {
+        console.error('Event was created, but the image upload failed:', error);
+        toast.error('Event created, but the image failed to upload. Use "Replace image" on the event to add it.');
       }
-
-      if (uploadedImageURL && uploadedImageURL !== created.image) {
-        created = await apiClient.updateEvent(created.id, toEventPayload(created, { image: uploadedImageURL }));
-      }
-
+    } else {
       toast.success('Event created successfully');
-      setEvents((prev) => [created, ...prev.filter((item) => item.id !== created.id)]);
-      setSelectedEventId(created.id);
-      resetDraft();
-      setShowComposer(false);
-      setOpenBuckets((current) => ({ ...current, [normalizeStatus(created.status, created.date)]: true }));
-      void queryClient.invalidateQueries({ queryKey: ['dashboard', 'snapshot'] });
-    } catch (error) {
-      console.error('Failed to create event:', error);
-      toast.error('Failed to create event.');
-    } finally {
-      setSaving(false);
     }
+
+    setEvents((prev) => [finalEvent, ...prev.filter((item) => item.id !== finalEvent.id)]);
+    setSelectedEventId(finalEvent.id);
+    resetDraft();
+    setShowComposer(false);
+    setOpenBuckets((current) => ({ ...current, [normalizeStatus(finalEvent.status, finalEvent.date)]: true }));
+    void queryClient.invalidateQueries({ queryKey: ['dashboard', 'snapshot'] });
+    setSaving(false);
   };
 
   return (
