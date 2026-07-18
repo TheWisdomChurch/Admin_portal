@@ -1710,9 +1710,21 @@ export const apiClient = {
     return unwrapData<EventData>(res, 'Invalid event payload');
   },
 
-  async deleteEvent(id: string): Promise<MessageResponse> {
-    return apiFetch(`/admin/events/${encodeURIComponent(id)}`, {
+  // Does not delete the event directly — creates a pending event_delete
+  // approval request carrying the stated reason. A super admin must approve
+  // it (see approveDeleteEvent) before the event actually comes down.
+  async requestDeleteEvent(id: string, reason: string): Promise<ApprovalRequest> {
+    const res = await apiFetch<ApiResponse<ApprovalRequest>>(`/admin/events/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      body: JSON.stringify({ reason }),
+    });
+    return unwrapData<ApprovalRequest>(res, 'Invalid delete request payload');
+  },
+
+  async approveDeleteEvent(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/events/${encodeURIComponent(id)}/delete/approve`, {
+      method: 'POST',
+      body: '{}',
     });
   },
 
