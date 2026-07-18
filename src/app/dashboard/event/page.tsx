@@ -17,6 +17,7 @@ import {
   Search,
   Sparkles,
   Tag,
+  Trash2,
   UploadCloud,
   UsersRound,
   X,
@@ -29,6 +30,7 @@ import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
 import { StatCard } from '@/ui/StatCard';
 import { EmptyState } from '@/ui/EmptyState';
+import { Modal } from '@/ui/Modal';
 import { apiClient } from '@/lib/api';
 import MediaUploadField from '@/components/MediaUploadField';
 import { uploadAsset } from '@/lib/uploads';
@@ -343,6 +345,10 @@ function EventPage() {
   const [selectedEventId, setSelectedEventId] = useState<string>('');
   const [openBuckets, setOpenBuckets] = useState<OpenBuckets>({ upcoming: true, ongoing: true, completed: false });
 
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [requestingDelete, setRequestingDelete] = useState(false);
+
   const filteredEvents = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -419,6 +425,32 @@ function EventPage() {
   useEffect(() => {
     void loadEvents();
   }, [loadEvents]);
+
+  const openDeleteModal = useCallback(() => {
+    setDeleteReason('');
+    setDeleteModalOpen(true);
+  }, []);
+
+  const submitDeleteRequest = useCallback(async () => {
+    if (!selectedEvent) return;
+    const reason = deleteReason.trim();
+    if (!reason) {
+      toast.error('State a reason for the super admin to review.');
+      return;
+    }
+    setRequestingDelete(true);
+    try {
+      await apiClient.requestDeleteEvent(selectedEvent.id, reason);
+      toast.success('Delete request sent for super admin approval.');
+      setDeleteModalOpen(false);
+      setDeleteReason('');
+    } catch (error) {
+      console.error('Failed to request event deletion:', error);
+      toast.error(error instanceof Error ? error.message : 'Unable to send delete request');
+    } finally {
+      setRequestingDelete(false);
+    }
+  }, [selectedEvent, deleteReason]);
 
   useEffect(() => {
     return () => {
@@ -669,6 +701,19 @@ function EventPage() {
         <div className="space-y-5">
           <PreviewPanel event={selectedEvent} />
 
+          {selectedEvent ? (
+            <section className="rounded-[2rem] border border-[var(--color-danger-border,theme(colors.red.200))] bg-[var(--color-background-primary)] p-5 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-red-500">Danger zone</p>
+              <h2 className="mt-1 text-lg font-black tracking-tight text-[var(--color-text-primary)]">Remove this event</h2>
+              <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">
+                This does not delete the event immediately — it sends a ticket to a super admin with your stated reason. The event stays live until they approve it.
+              </p>
+              <Button variant="outline" className="mt-4 border-red-300 text-red-600 hover:bg-red-50" icon={<Trash2 className="h-4 w-4" />} onClick={openDeleteModal}>
+                Request deletion
+              </Button>
+            </section>
+          ) : null}
+
           <section className="rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">Publishing quality</p>
             <h2 className="mt-1 text-xl font-black tracking-tight text-[var(--color-text-primary)]">Frontend readiness</h2>
@@ -833,6 +878,28 @@ function EventPage() {
           </div>
         </section>
       ) : null}
+
+      <Modal open={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} size="sm" labelledBy="delete-event-title">
+        <div className="p-1">
+          <h2 id="delete-event-title" className="text-lg font-black text-[var(--color-text-primary)]">
+            Request deletion{selectedEvent ? `: ${selectedEvent.title}` : ''}
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">
+            A super admin will review this before the event comes off the site. Be specific — this ticket is what they&apos;ll base their decision on.
+          </p>
+          <textarea
+            value={deleteReason}
+            onChange={(event) => setDeleteReason(event.target.value)}
+            rows={4}
+            placeholder="Why should this event be removed?"
+            className="mt-4 w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm font-semibold text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-border-focus)]"
+          />
+          <div className="mt-5 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDeleteModalOpen(false)} disabled={requestingDelete}>Cancel</Button>
+            <Button variant="danger" loading={requestingDelete} onClick={() => void submitDeleteRequest()}>Send request</Button>
+          </div>
+        </div>
+      </Modal>
     </main>
   );
 }
