@@ -350,6 +350,8 @@ function EventPage() {
   const [deleteReason, setDeleteReason] = useState('');
   const [requestingDelete, setRequestingDelete] = useState(false);
 
+  const [replacingImage, setReplacingImage] = useState(false);
+
   const filteredEvents = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -452,6 +454,32 @@ function EventPage() {
       setRequestingDelete(false);
     }
   }, [selectedEvent, deleteReason]);
+
+  const replaceEventImage = useCallback(
+    async (file: File | null) => {
+      if (!file || !selectedEvent) return;
+      setReplacingImage(true);
+      try {
+        const uploaded = await uploadAsset(file, {
+          kind: 'image',
+          module: 'events',
+          ownerType: 'event',
+          ownerId: selectedEvent.id,
+          folder: `events/${selectedEvent.id}/images`,
+        });
+        const uploadedImageURL = uploaded.publicUrl || uploaded.url;
+        const updated = await apiClient.updateEvent(selectedEvent.id, toEventPayload(selectedEvent, { image: uploadedImageURL }));
+        setEvents((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+        toast.success('Event image updated.');
+      } catch (error) {
+        console.error('Failed to replace event image:', error);
+        toast.error(error instanceof Error ? error.message : 'Unable to upload image');
+      } finally {
+        setReplacingImage(false);
+      }
+    },
+    [selectedEvent]
+  );
 
   useEffect(() => {
     return () => {
