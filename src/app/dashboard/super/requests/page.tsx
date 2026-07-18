@@ -43,6 +43,7 @@ type TimelinePoint = { day: string; created: number; approved: number };
 const typeLabels: Record<string, string> = {
   testimonial: 'Testimonial',
   event: 'Event',
+  event_delete: 'Event Delete',
   admin_user: 'Admin Access',
   leadership_delete: 'Leadership Delete',
   workforce_delete: 'Workforce Delete',
@@ -53,6 +54,7 @@ const typeLabels: Record<string, string> = {
 const typeDescriptions: Record<string, string> = {
   testimonial: 'Publish or remove testimony requests.',
   event: 'Approve public event visibility.',
+  event_delete: 'Authorize taking a live event off the site.',
   admin_user: 'Approve or reject admin account access.',
   leadership_delete: 'Authorize leadership profile deletion.',
   workforce_delete: 'Authorize workforce record deletion.',
@@ -91,6 +93,7 @@ function openPathForRequest(request: ApprovalRequest): string {
     case 'testimonial':
       return '/dashboard/testimonials';
     case 'event':
+    case 'event_delete':
       return '/dashboard/event';
     case 'leadership_delete':
       return '/dashboard/leadership';
@@ -463,6 +466,12 @@ function RequestsPage() {
                       </div>
                       <h3 className="mt-3 text-base font-bold text-[var(--color-text-primary)]">{requestEntityLabel(request) || humanType(request.type)}</h3>
                       <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">{typeDescriptions[request.type] || 'Review this request and decide the next action.'}</p>
+                      {request.reason ? (
+                        <div className="mt-2 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2">
+                          <p className="text-xs font-black uppercase tracking-wide text-[var(--color-text-tertiary)]">Stated reason</p>
+                          <p className="mt-1 text-sm font-semibold text-[var(--color-text-primary)]">{request.reason}</p>
+                        </div>
+                      ) : null}
                       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--color-text-tertiary)]">
                         <span>Requester: <strong className="text-[var(--color-text-secondary)]">{requester}</strong></span>
                         <span>Created: <strong className="text-[var(--color-text-secondary)]">{formatDate(requestCreatedAt(request))}</strong></span>
