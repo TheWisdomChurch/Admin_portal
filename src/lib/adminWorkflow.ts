@@ -5,6 +5,7 @@ export type ApprovalRequestType =
   | 'admin_user'
   | 'leadership_delete'
   | 'workforce_delete'
+  | 'workforce_registration'
   | 'form_delete'
   | 'form_submission_delete'
   | string;
@@ -409,6 +410,10 @@ export const adminWorkflowApi = {
       case 'workforce_delete': {
         const entityId = requestEntityId(requestItem) || requestItem.id;
         return request(`/admin/workforce/${encodeURIComponent(entityId)}/delete/approve`, { method: 'POST', body: '{}' });
+      }
+      case 'workforce_registration': {
+        const entityId = requireEntityId(requestItem, 'Workforce applicant');
+        return request(`/admin/workforce/${encodeURIComponent(entityId)}/approve`, { method: 'POST', body: '{}' });
       }
       case 'form_delete':
       case 'form_submission_delete':
