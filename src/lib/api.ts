@@ -2725,10 +2725,12 @@ export const apiClient = {
     return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
   },
 
-  async deleteWorkforce(id: string): Promise<MessageResponse> {
-    return apiFetch(`/admin/workforce/${encodeURIComponent(id)}`, {
+  async deleteWorkforce(id: string, reason: string): Promise<ApprovalRequest> {
+    const res = await apiFetch<ApiResponse<ApprovalRequest>>(`/admin/workforce/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      body: JSON.stringify({ reason }),
     });
+    return unwrapData<ApprovalRequest>(res, 'Invalid delete request payload');
   },
 
   async approveWorkforce(
@@ -2881,10 +2883,12 @@ export const apiClient = {
     return unwrapData<LeadershipMember>(res, 'Invalid leadership payload');
   },
 
-  async deleteLeadership(id: string): Promise<MessageResponse> {
-    return apiFetch(`/admin/leadership/${encodeURIComponent(id)}`, {
+  async deleteLeadership(id: string, reason: string): Promise<ApprovalRequest> {
+    const res = await apiFetch<ApiResponse<ApprovalRequest>>(`/admin/leadership/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      body: JSON.stringify({ reason }),
     });
+    return unwrapData<ApprovalRequest>(res, 'Invalid delete request payload');
   },
 
   async approveLeadershipDelete(id: string): Promise<MessageResponse> {

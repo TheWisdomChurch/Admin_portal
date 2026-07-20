@@ -13,6 +13,7 @@ import {
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import {
+  AlertTriangle,
   CalendarHeart,
   CheckCircle2,
   Clipboard,
@@ -41,6 +42,7 @@ import { Input } from '@/ui/Input';
 import { SectionCard } from '@/ui/SectionCard';
 import { StatCard } from '@/ui/StatCard';
 import { EmptyState } from '@/ui/EmptyState';
+import { Modal } from '@/ui/Modal';
 import { apiClient } from '@/lib/api';
 import { getChartPalette } from '@/lib/charts/palette';
 import { buildPublicFormUrl } from '@/lib/utils';
@@ -131,6 +133,8 @@ function LeadershipPage() {
   const [selectedLeader, setSelectedLeader] = useState<LeadershipMember | null>(null);
   const [editingLeader, setEditingLeader] = useState<LeadershipMember | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<LeadershipMember | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
   const [actionId, setActionId] = useState<string | null>(null);
 
   const loadData = useCallback(async (showLoader = true) => {
@@ -283,12 +287,25 @@ function LeadershipPage() {
     }
   };
 
-  const requestDelete = async (item: LeadershipMember) => {
-    if (!window.confirm(`Send ${leaderName(item)} for super-admin delete approval?`)) return;
-    setDeletingId(item.id);
+  const openDeleteModal = (item: LeadershipMember) => {
+    setDeleteTarget(item);
+    setDeleteReason('');
+  };
+
+  const submitDeleteRequest = async () => {
+    if (!deleteTarget) return;
+    const reason = deleteReason.trim();
+    if (!reason) {
+      toast.error('State a reason for the super admin to review.');
+      return;
+    }
+
+    setDeletingId(deleteTarget.id);
     try {
-      await apiClient.deleteLeadership(item.id);
+      await apiClient.deleteLeadership(deleteTarget.id, reason);
       toast.success('Delete request sent to super admin');
+      setDeleteTarget(null);
+      setDeleteReason('');
       await loadData();
     } catch (error) {
       console.error('Failed to request leadership delete:', error);
@@ -389,7 +406,7 @@ function LeadershipPage() {
                       <Button size="sm" icon={<CheckCircle2 className="h-4 w-4" />} loading={actionId === `approve:${item.id}`} onClick={() => void approveLeader(item)}>Approve</Button>
                     ) : null}
                     <Button size="sm" variant="outline" icon={<Edit3 className="h-4 w-4" />} loading={actionId === `edit:${item.id}`} onClick={() => setEditingLeader(item)}>Edit</Button>
-                    <Button size="sm" variant="outline" icon={<Trash2 className="h-4 w-4" />} loading={deletingId === item.id} onClick={() => void requestDelete(item)}>Request Delete</Button>
+                    <Button size="sm" variant="outline" icon={<Trash2 className="h-4 w-4" />} loading={deletingId === item.id} onClick={() => openDeleteModal(item)}>Request Delete</Button>
                   </div>
                 </div>
               ))
@@ -416,6 +433,71 @@ function LeadershipPage() {
           onSave={(payload) => void saveLeaderEdits(editingLeader.id, payload)}
         />
       ) : null}
+
+      <Modal open={Boolean(deleteTarget)} onClose={() => setDeleteTarget(null)} size="lg" labelledBy="leadership-delete-title">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/95 px-6 py-5 backdrop-blur">
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl bg-red-50 p-3 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 id="leadership-delete-title" className="text-lg font-black tracking-tight text-[var(--color-text-primary)]">
+                Request deletion
+              </h2>
+              <p className="mt-0.5 text-sm text-[var(--color-text-tertiary)]">
+                Sends a ticket for super admin review — nothing is removed yet.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDeleteTarget(null)}
+            disabled={deletingId === deleteTarget?.id}
+            className="rounded-2xl border border-[var(--color-border-primary)] p-2 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)] disabled:opacity-50"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="max-h-[75vh] overflow-y-auto px-6 py-5">
+          {deleteTarget ? (
+            <div className="flex items-center gap-4 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+              <LeaderAvatar leader={deleteTarget} />
+              <div className="min-w-0">
+                <p className="truncate text-base font-black text-[var(--color-text-primary)]">{leaderName(deleteTarget)}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-[var(--color-text-tertiary)]">
+                  <span>{roleLabels[deleteTarget.role] || deleteTarget.role}</span>
+                  {deleteTarget.email ? <span>{deleteTarget.email}</span> : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+            This profile stays on record until a super admin approves this ticket. Be specific — your stated reason is what they&apos;ll base their decision on.
+          </div>
+
+          <label htmlFor="leadership-delete-reason" className="mt-5 block text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
+            Reason for removal
+          </label>
+          <textarea
+            id="leadership-delete-reason"
+            value={deleteReason}
+            onChange={(event) => setDeleteReason(event.target.value)}
+            rows={6}
+            placeholder="Why should this profile be removed? e.g. duplicate record, stepped down, entered in error..."
+            className="mt-2 w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-border-focus)]"
+          />
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-[var(--color-border-secondary)] px-6 py-4">
+          <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deletingId === deleteTarget?.id}>Cancel</Button>
+          <Button variant="danger" loading={deletingId === deleteTarget?.id} icon={<Trash2 className="h-4 w-4" />} onClick={() => void submitDeleteRequest()}>
+            Send request
+          </Button>
+        </div>
+      </Modal>
     </main>
   );
 }

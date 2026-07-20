@@ -47,6 +47,7 @@ const typeLabels: Record<string, string> = {
   admin_user: 'Admin Access',
   leadership_delete: 'Leadership Delete',
   workforce_delete: 'Workforce Delete',
+  workforce_registration: 'Workforce Registration',
   form_delete: 'Form Delete',
   form_submission_delete: 'Form Response Delete',
 };
@@ -58,6 +59,7 @@ const typeDescriptions: Record<string, string> = {
   admin_user: 'Approve or reject admin account access.',
   leadership_delete: 'Authorize leadership profile deletion.',
   workforce_delete: 'Authorize workforce record deletion.',
+  workforce_registration: 'Approve or reject a new workforce applicant.',
   form_delete: 'Authorize form deletion.',
   form_submission_delete: 'Authorize submitted form-response deletion.',
 };
@@ -98,6 +100,7 @@ function openPathForRequest(request: ApprovalRequest): string {
     case 'leadership_delete':
       return '/dashboard/leadership';
     case 'workforce_delete':
+    case 'workforce_registration':
       return '/dashboard/workforce';
     case 'form_delete':
     case 'form_submission_delete':
@@ -397,7 +400,7 @@ function RequestsPage() {
               <Filter className="h-4 w-4" />
               <span className="ml-2">All</span>
             </Button>
-            {['admin_user', 'event', 'testimonial', 'leadership_delete', 'workforce_delete', 'form_submission_delete'].map((type) => (
+            {['admin_user', 'event', 'testimonial', 'leadership_delete', 'workforce_delete', 'workforce_registration', 'form_submission_delete'].map((type) => (
               <Button
                 key={type}
                 type="button"

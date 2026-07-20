@@ -10,7 +10,7 @@ import {
   Tooltip,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import { ExternalLink, RefreshCw, Search, TrendingUp } from 'lucide-react';
+import { Clipboard, ExternalLink, RefreshCw, Search, TrendingUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { PageHeader } from '@/layouts';
@@ -20,10 +20,11 @@ import { Input } from '@/ui/Input';
 import { Panel } from '@/ui/Panel';
 import { StatCard } from '@/ui/StatCard';
 import { apiClient } from '@/lib/api';
+import { buildPublicFormUrl } from '@/lib/utils';
 import { getChartPalette } from '@/lib/charts/palette';
 import { useTheme } from '@/providers/ThemeProviders';
 import { withAuth } from '@/providers/withAuth';
-import type { NewMemberDashboardResponse, NewMemberSubmission } from '@/lib/types';
+import type { NewMemberDashboardResponse, NewMemberFormSummary, NewMemberSubmission } from '@/lib/types';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
@@ -69,6 +70,45 @@ function shortPeriod(period: string, prefix?: string): string {
     if (!Number.isNaN(date.getTime())) return `${date.getFullYear()} Q${Math.floor(date.getMonth() / 3) + 1}`;
   }
   return period.slice(0, 10);
+}
+
+function FormLinkRow({ form }: { form: NewMemberFormSummary }) {
+  const publicUrl = buildPublicFormUrl(form.slug);
+
+  const copy = async () => {
+    if (!publicUrl) return;
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      toast.success('Form link copied');
+    } catch {
+      toast.error('Unable to copy link');
+    }
+  };
+
+  return (
+    <article className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0"><p className="truncate text-sm font-black text-[var(--color-text-primary)]">{form.formTitle}</p></div>
+        <Badge variant={form.isPublished ? 'success' : 'secondary'}>{form.isPublished ? 'Live' : 'Draft'}</Badge>
+      </div>
+
+      {publicUrl ? (
+        <div className="mt-3 flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] py-1 pl-3 pr-1 text-xs">
+          <span className="truncate font-mono text-[var(--color-text-secondary)]">{publicUrl}</span>
+          <button type="button" onClick={() => void copy()} aria-label="Copy public form link" className="shrink-0 rounded-full p-1.5 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)]">
+            <Clipboard className="h-3.5 w-3.5" />
+          </button>
+          <a href={publicUrl} target="_blank" rel="noreferrer" aria-label="Open public form" className="shrink-0 rounded-full p-1.5 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)]">
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </div>
+      ) : (
+        <p className="mt-3 truncate text-xs text-[var(--color-text-tertiary)]">No slug configured for this form yet.</p>
+      )}
+
+      <p className="mt-3 text-sm font-semibold text-[var(--color-text-secondary)]">{form.submissionCount} submissions</p>
+    </article>
+  );
 }
 
 function NewMembersPage() {
@@ -155,15 +195,16 @@ function NewMembersPage() {
         <Panel>
           <h2 className="text-lg font-black text-[var(--color-text-primary)]">Add New Member forms</h2>
           <div className="mt-4 space-y-3">
-            {(dashboard?.forms || []).length === 0 ? <p className="text-sm text-[var(--color-text-tertiary)]">No Add New Member form detected.</p> : dashboard?.forms.map((form) => (
-              <article key={form.formId} className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0"><p className="truncate text-sm font-black text-[var(--color-text-primary)]">{form.formTitle}</p><p className="mt-1 truncate text-xs text-[var(--color-text-tertiary)]">{form.slug || form.formId}</p></div>
-                  <Badge variant={form.isPublished ? 'success' : 'secondary'}>{form.isPublished ? 'Live' : 'Draft'}</Badge>
-                </div>
-                <p className="mt-3 text-sm font-semibold text-[var(--color-text-secondary)]">{form.submissionCount} submissions</p>
-              </article>
-            ))}
+            {(dashboard?.forms || []).length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-[var(--color-border-secondary)] p-4 text-center">
+                <p className="text-sm text-[var(--color-text-tertiary)]">No Add New Member form detected.</p>
+                <Button size="sm" className="mt-3" icon={<ExternalLink className="h-4 w-4" />} onClick={() => window.location.assign('/dashboard/forms/new?preset=member')}>
+                  Prepare form
+                </Button>
+              </div>
+            ) : (
+              dashboard?.forms.map((form) => <FormLinkRow key={form.formId} form={form} />)
+            )}
           </div>
         </Panel>
       </div>
