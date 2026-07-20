@@ -392,24 +392,58 @@ function LeadershipPage() {
             ) : filtered.length === 0 ? (
               <div className="p-4"><EmptyState title="No leadership records found." /></div>
             ) : (
-              filtered.map((item) => (
-                <div key={item.id} className="grid gap-3 px-4 py-4 transition hover:bg-[var(--color-background-secondary)] xl:grid-cols-[1.4fr_1fr_1fr_1fr_260px] xl:items-center">
-                  <button type="button" className="flex min-w-0 items-center gap-3 text-left" onClick={() => setSelectedLeader(item)}>
-                    <LeaderAvatar leader={item} />
-                    <div className="min-w-0"><div className="truncate text-sm font-black text-[var(--color-text-primary)]">{leaderName(item)}</div><div className="truncate text-xs font-semibold text-[var(--color-text-tertiary)]">{item.email || item.phone || 'No contact recorded'}</div></div>
-                  </button>
-                  <div className="text-sm font-semibold text-[var(--color-text-secondary)]">{roleLabels[item.role] || item.role}</div>
-                  <div><Badge variant={statusVariant(item.status)}>{statusLabels[item.status] || item.status}</Badge></div>
-                  <div className="text-sm font-semibold text-[var(--color-text-secondary)]">{formatDayMonth(item.anniversaryDay, item.anniversaryMonth)}</div>
-                  <div className="flex flex-wrap justify-start gap-2 xl:justify-end">
+              filtered.map((item) => {
+                const rowActions = (
+                  <>
                     {item.status !== 'approved' ? (
                       <Button size="sm" icon={<CheckCircle2 className="h-4 w-4" />} loading={actionId === `approve:${item.id}`} onClick={() => void approveLeader(item)}>Approve</Button>
                     ) : null}
                     <Button size="sm" variant="outline" icon={<Edit3 className="h-4 w-4" />} loading={actionId === `edit:${item.id}`} onClick={() => setEditingLeader(item)}>Edit</Button>
                     <Button size="sm" variant="outline" icon={<Trash2 className="h-4 w-4" />} loading={deletingId === item.id} onClick={() => openDeleteModal(item)}>Request Delete</Button>
+                  </>
+                );
+
+                return (
+                  <div key={item.id} className="px-4 py-4 transition hover:bg-[var(--color-background-secondary)]">
+                    {/* Below xl: a labeled card — the desktop grid's column
+                        position is what conveys meaning (Role vs. Status vs.
+                        Anniversary), which is lost once columns stack, so
+                        this gets its own explicit labels instead. */}
+                    <div className="flex flex-col gap-3 xl:hidden">
+                      <div className="flex items-start justify-between gap-3">
+                        <button type="button" className="flex min-w-0 items-center gap-3 text-left" onClick={() => setSelectedLeader(item)}>
+                          <LeaderAvatar leader={item} />
+                          <div className="min-w-0"><div className="truncate text-sm font-black text-[var(--color-text-primary)]">{leaderName(item)}</div><div className="truncate text-xs font-semibold text-[var(--color-text-tertiary)]">{item.email || item.phone || 'No contact recorded'}</div></div>
+                        </button>
+                        <Badge variant={statusVariant(item.status)}>{statusLabels[item.status] || item.status}</Badge>
+                      </div>
+                      <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                        <div>
+                          <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Role</dt>
+                          <dd className="mt-0.5 font-semibold text-[var(--color-text-secondary)]">{roleLabels[item.role] || item.role}</dd>
+                        </div>
+                        <div>
+                          <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Anniversary</dt>
+                          <dd className="mt-0.5 font-semibold text-[var(--color-text-secondary)]">{formatDayMonth(item.anniversaryDay, item.anniversaryMonth)}</dd>
+                        </div>
+                      </dl>
+                      <div className="flex flex-wrap gap-2">{rowActions}</div>
+                    </div>
+
+                    {/* xl and up: the compact grid row. */}
+                    <div className="hidden xl:grid xl:grid-cols-[1.4fr_1fr_1fr_1fr_260px] xl:items-center xl:gap-3">
+                      <button type="button" className="flex min-w-0 items-center gap-3 text-left" onClick={() => setSelectedLeader(item)}>
+                        <LeaderAvatar leader={item} />
+                        <div className="min-w-0"><div className="truncate text-sm font-black text-[var(--color-text-primary)]">{leaderName(item)}</div><div className="truncate text-xs font-semibold text-[var(--color-text-tertiary)]">{item.email || item.phone || 'No contact recorded'}</div></div>
+                      </button>
+                      <div className="text-sm font-semibold text-[var(--color-text-secondary)]">{roleLabels[item.role] || item.role}</div>
+                      <div><Badge variant={statusVariant(item.status)}>{statusLabels[item.status] || item.status}</Badge></div>
+                      <div className="text-sm font-semibold text-[var(--color-text-secondary)]">{formatDayMonth(item.anniversaryDay, item.anniversaryMonth)}</div>
+                      <div className="flex justify-end gap-2">{rowActions}</div>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

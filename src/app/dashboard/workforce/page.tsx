@@ -857,29 +857,9 @@ function WorkforcePage() {
               </div>
             ) : null}
             {!loading &&
-              paginated.map((item) => (
-                <div
-                  key={item.id}
-                  className="grid gap-4 px-4 py-4 transition hover:bg-[var(--color-background-secondary)] lg:grid-cols-[minmax(220px,1fr)_180px_170px_minmax(200px,1fr)_180px] lg:items-center"
-                >
-                  <button className="flex min-w-0 items-center gap-3 text-left" onClick={() => setSelectedWorker(item)}>
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)] text-sm font-black text-[var(--color-text-primary)]">
-                      <IdCard className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-[var(--color-text-primary)]">{workerName(item)}</p>
-                      <p className="truncate text-xs text-[var(--color-text-tertiary)]">{item.id.slice(0, 8).toUpperCase()}</p>
-                    </div>
-                  </button>
-                  <div className="truncate text-sm font-semibold text-[var(--color-text-secondary)]">{item.department || 'Unassigned'}</div>
-                  <div>
-                    <Badge variant={statusVariant(item.status)}>{statusLabels[item.status] || item.status}</Badge>
-                  </div>
-                  <div className="min-w-0 text-sm text-[var(--color-text-secondary)]">
-                    <p className="truncate">{item.email || 'No email'}</p>
-                    <p className="truncate text-xs text-[var(--color-text-tertiary)]">{item.phone || 'No phone'}</p>
-                  </div>
-                  <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+              paginated.map((item) => {
+                const rowActions = (
+                  <>
                     <Button size="sm" variant="outline" onClick={() => setSelectedWorker(item)}>
                       View
                     </Button>
@@ -889,9 +869,65 @@ function WorkforcePage() {
                     <Button size="sm" variant="outline" icon={<Trash2 className="h-4 w-4" />} loading={deletingId === item.id} onClick={() => openDeleteModal(item)}>
                       Delete
                     </Button>
+                  </>
+                );
+
+                return (
+                  <div key={item.id} className="px-4 py-4 transition hover:bg-[var(--color-background-secondary)]">
+                    {/* Below lg: a labeled card — the desktop grid's column
+                        position is what conveys meaning (department vs.
+                        status vs. contact), which is lost once columns
+                        stack. */}
+                    <div className="flex flex-col gap-3 lg:hidden">
+                      <div className="flex items-start justify-between gap-3">
+                        <button className="flex min-w-0 items-center gap-3 text-left" onClick={() => setSelectedWorker(item)}>
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)] text-sm font-black text-[var(--color-text-primary)]">
+                            <IdCard className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-[var(--color-text-primary)]">{workerName(item)}</p>
+                            <p className="truncate text-xs text-[var(--color-text-tertiary)]">{item.id.slice(0, 8).toUpperCase()}</p>
+                          </div>
+                        </button>
+                        <Badge variant={statusVariant(item.status)}>{statusLabels[item.status] || item.status}</Badge>
+                      </div>
+                      <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                        <div>
+                          <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Department</dt>
+                          <dd className="mt-0.5 truncate font-semibold text-[var(--color-text-secondary)]">{item.department || 'Unassigned'}</dd>
+                        </div>
+                        <div>
+                          <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Contact</dt>
+                          <dd className="mt-0.5 truncate font-semibold text-[var(--color-text-secondary)]">{item.email || item.phone || 'Not provided'}</dd>
+                        </div>
+                      </dl>
+                      <div className="flex flex-wrap gap-2">{rowActions}</div>
+                    </div>
+
+                    {/* lg and up: the compact grid row. */}
+                    <div className="hidden lg:grid lg:grid-cols-[minmax(220px,1fr)_180px_170px_minmax(200px,1fr)_180px] lg:items-center lg:gap-4">
+                      <button className="flex min-w-0 items-center gap-3 text-left" onClick={() => setSelectedWorker(item)}>
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)] text-sm font-black text-[var(--color-text-primary)]">
+                          <IdCard className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-[var(--color-text-primary)]">{workerName(item)}</p>
+                          <p className="truncate text-xs text-[var(--color-text-tertiary)]">{item.id.slice(0, 8).toUpperCase()}</p>
+                        </div>
+                      </button>
+                      <div className="truncate text-sm font-semibold text-[var(--color-text-secondary)]">{item.department || 'Unassigned'}</div>
+                      <div>
+                        <Badge variant={statusVariant(item.status)}>{statusLabels[item.status] || item.status}</Badge>
+                      </div>
+                      <div className="min-w-0 text-sm text-[var(--color-text-secondary)]">
+                        <p className="truncate">{item.email || 'No email'}</p>
+                        <p className="truncate text-xs text-[var(--color-text-tertiary)]">{item.phone || 'No phone'}</p>
+                      </div>
+                      <div className="flex justify-end gap-2">{rowActions}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
           </div>
         </div>
 
