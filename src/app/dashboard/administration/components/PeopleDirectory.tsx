@@ -207,19 +207,52 @@ export function PeopleTable({ people, onOpen }: { people: PersonRecord[]; onOpen
 
         <div className="divide-y divide-[var(--color-border-secondary)] bg-[var(--color-background-primary)]">
           {paged.map((person) => (
-            <button key={`${person.segment}-${person.id}`} type="button" onClick={() => onOpen(person)} className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-[var(--color-background-hover)] xl:grid-cols-[1.4fr_1fr_1fr_1fr_120px_80px] xl:items-center">
-              <div className="flex min-w-0 items-center gap-3">
-                <Avatar person={person} size="sm" />
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{person.name}</div>
-                  <div className="truncate text-xs text-[var(--color-text-tertiary)]">{person.email || person.phone || 'No contact recorded'}</div>
+            <button key={`${person.segment}-${person.id}`} type="button" onClick={() => onOpen(person)} className="block w-full px-4 py-4 text-left transition hover:bg-[var(--color-background-hover)]">
+              {/* Below xl: a labeled card — the desktop grid's column
+                  position is what conveys meaning (birthday vs. anniversary
+                  vs. status), which is lost once columns stack. */}
+              <div className="flex flex-col gap-3 xl:hidden">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar person={person} size="sm" />
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{person.name}</div>
+                      <div className="truncate text-xs text-[var(--color-text-tertiary)]">{person.email || person.phone || 'No contact recorded'}</div>
+                    </div>
+                  </div>
+                  <Badge variant={segmentMeta[person.segment].badgeVariant}>{segmentMeta[person.segment].label}</Badge>
                 </div>
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                  <div>
+                    <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Status</dt>
+                    <dd className="mt-0.5"><Badge>{titleCase(person.status || 'Unknown')}</Badge></dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Birthday</dt>
+                    <dd className="mt-0.5 font-semibold text-[var(--color-text-secondary)]">{person.birthdayMonth && person.birthdayDay ? dateLabel(person.birthdayMonth, person.birthdayDay) : '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Anniversary</dt>
+                    <dd className="mt-0.5 font-semibold text-[var(--color-text-secondary)]">{person.anniversaryMonth && person.anniversaryDay ? dateLabel(person.anniversaryMonth, person.anniversaryDay) : '—'}</dd>
+                  </div>
+                </dl>
               </div>
-              <div><Badge variant={segmentMeta[person.segment].badgeVariant}>{segmentMeta[person.segment].label}</Badge></div>
-              <div className="text-sm font-semibold text-[var(--color-text-tertiary)]">{person.birthdayMonth && person.birthdayDay ? dateLabel(person.birthdayMonth, person.birthdayDay) : '—'}</div>
-              <div className="text-sm font-semibold text-[var(--color-text-tertiary)]">{person.anniversaryMonth && person.anniversaryDay ? dateLabel(person.anniversaryMonth, person.anniversaryDay) : '—'}</div>
-              <div className="xl:text-right"><Badge>{titleCase(person.status || 'Unknown')}</Badge></div>
-              <div className="hidden justify-end xl:flex"><Eye className="h-4 w-4 text-[var(--color-text-tertiary)]" /></div>
+
+              {/* xl and up: the compact grid row. */}
+              <div className="hidden xl:grid xl:grid-cols-[1.4fr_1fr_1fr_1fr_120px_80px] xl:items-center xl:gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <Avatar person={person} size="sm" />
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{person.name}</div>
+                    <div className="truncate text-xs text-[var(--color-text-tertiary)]">{person.email || person.phone || 'No contact recorded'}</div>
+                  </div>
+                </div>
+                <div><Badge variant={segmentMeta[person.segment].badgeVariant}>{segmentMeta[person.segment].label}</Badge></div>
+                <div className="text-sm font-semibold text-[var(--color-text-tertiary)]">{person.birthdayMonth && person.birthdayDay ? dateLabel(person.birthdayMonth, person.birthdayDay) : '—'}</div>
+                <div className="text-sm font-semibold text-[var(--color-text-tertiary)]">{person.anniversaryMonth && person.anniversaryDay ? dateLabel(person.anniversaryMonth, person.anniversaryDay) : '—'}</div>
+                <div className="text-right"><Badge>{titleCase(person.status || 'Unknown')}</Badge></div>
+                <div className="flex justify-end"><Eye className="h-4 w-4 text-[var(--color-text-tertiary)]" /></div>
+              </div>
             </button>
           ))}
           {paged.length === 0 ? <div className="p-4"><EmptyState title="No profiles match your filters." /></div> : null}
