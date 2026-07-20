@@ -191,14 +191,32 @@ function parseManualRecipients(raw: string): AdminEmailRecipientInput[] {
   return recipients;
 }
 
+// Mirrors the merge fields actually populated in
+// internal/service/admin_email_service.go's buildTemplateData — keep in
+// sync so the preview an admin sees matches what a real send renders.
+const PREVIEW_TOKEN_VALUES: Record<string, string> = {
+  FirstName: 'John',
+  RecipientName: 'John Doe',
+  FullName: 'John Doe',
+  Name: 'John Doe',
+  Email: 'john@example.com',
+  Subject: 'A New Update from The Wisdom Church',
+  Year: String(new Date().getFullYear()),
+  SubscribeURL: '#subscribe',
+  UnsubscribeURL: '#unsubscribe',
+  YouTubeLink: '#youtube',
+  InstagramLink: '#instagram',
+  XLink: '#x',
+  WhatsAppLink: '#whatsapp',
+  FacebookLink: '#facebook',
+  TikTokLink: '#tiktok',
+};
+
 function renderPreviewHtml(html: string): string {
-  return html
-    .replaceAll('{{ .FirstName }}', 'John')
-    .replaceAll('{{.FirstName}}', 'John')
-    .replaceAll('{{ .Email }}', 'john@example.com')
-    .replaceAll('{{.Email}}', 'john@example.com')
-    .replaceAll('{{ .UnsubscribeURL }}', '#unsubscribe')
-    .replaceAll('{{.UnsubscribeURL}}', '#unsubscribe');
+  return Object.entries(PREVIEW_TOKEN_VALUES).reduce(
+    (acc, [token, value]) => acc.replaceAll(`{{ .${token} }}`, value).replaceAll(`{{.${token}}}`, value),
+    html
+  );
 }
 
 function getHistoryDate(item: AdminEmailDeliveryHistoryItem): string | undefined {
@@ -650,7 +668,7 @@ function EmailMarketingPage() {
                 </div>
 
                 <div className={styles.templateBar}><div>{TEMPLATE_PRESETS.map((preset) => <button key={preset.id} type="button" data-active={selectedPresetId === preset.id} onClick={() => applyPreset(preset.id)}>{preset.label}</button>)}</div><div><button type="button" data-active={editorMode === 'html'} onClick={() => setEditorMode('html')}>HTML</button><button type="button" data-active={editorMode === 'text'} onClick={() => setEditorMode('text')}>Text</button></div></div>
-                <div className={styles.tokenRow}>{['{{ .FirstName }}', '{{ .Email }}', '{{ .UnsubscribeURL }}'].map((token) => <button key={token} type="button" onClick={() => editorMode === 'html' ? setHtmlBody((current) => `${current}\n${token}`) : setTextBody((current) => `${current}\n${token}`)}>{token}</button>)}</div>
+                <div className={styles.tokenRow}>{['{{ .FirstName }}', '{{ .RecipientName }}', '{{ .Email }}', '{{ .Subject }}', '{{ .Year }}', '{{ .UnsubscribeURL }}', '{{ .YouTubeLink }}', '{{ .InstagramLink }}', '{{ .FacebookLink }}', '{{ .WhatsAppLink }}', '{{ .TikTokLink }}', '{{ .XLink }}'].map((token) => <button key={token} type="button" onClick={() => editorMode === 'html' ? setHtmlBody((current) => `${current}\n${token}`) : setTextBody((current) => `${current}\n${token}`)}>{token}</button>)}</div>
                 <textarea className={styles.codeEditor} value={editorMode === 'html' ? htmlBody : textBody} onChange={(event) => editorMode === 'html' ? setHtmlBody(event.target.value) : setTextBody(event.target.value)} spellCheck={false} />
               </div>
             </section>
