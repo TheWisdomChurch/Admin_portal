@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState, type MouseEvent } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ChevronDown, Clipboard, Edit3, ExternalLink, FileText, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { ChevronDown, Edit3, FileText, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { PageHeader } from '@/layouts';
@@ -11,11 +11,9 @@ import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { EmptyState } from '@/ui/EmptyState';
 import { Input } from '@/ui/Input';
-import { Modal } from '@/ui/Modal';
 import { Panel } from '@/ui/Panel';
 import { StatCard } from '@/ui/StatCard';
 import { apiClient } from '@/lib/api';
-import { buildPublicFormUrl } from '@/lib/utils';
 import { withAuth } from '@/providers/withAuth';
 import type { AdminForm, FormField, FormStatus } from '@/lib/types';
 
@@ -52,124 +50,13 @@ function fieldOptionsLabel(field: FormField): string {
   return '—';
 }
 
-function SlugPill({ form }: { form: AdminForm }) {
-  const publicUrl = buildPublicFormUrl(form.slug, form.publicUrl);
-
-  const copy = async (event: MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!publicUrl) return;
-    try {
-      await navigator.clipboard.writeText(publicUrl);
-      toast.success('Link copied');
-    } catch {
-      toast.error('Unable to copy link');
-    }
-  };
-
-  if (!form.slug) {
-    return <span className="text-xs font-medium text-[var(--color-text-tertiary)]">No slug yet</span>;
-  }
-
-  return (
-    <div className="inline-flex max-w-full items-center gap-1 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] py-1 pl-3 pr-1 text-xs">
-      <span className="truncate font-mono text-[var(--color-text-secondary)]">/{form.slug}</span>
-      <button
-        type="button"
-        onClick={copy}
-        disabled={!publicUrl}
-        aria-label="Copy public form link"
-        className="rounded-full p-1.5 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)] disabled:opacity-40"
-      >
-        <Clipboard className="h-3.5 w-3.5" />
-      </button>
-      {publicUrl ? (
-        <a
-          href={publicUrl}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(event) => event.stopPropagation()}
-          aria-label="Open public form"
-          className="rounded-full p-1.5 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)]"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-        </a>
-      ) : null}
-    </div>
-  );
-}
-
 function FormAccordionRow({ form, deleting, onDelete }: { form: AdminForm; deleting: boolean; onDelete: (form: AdminForm) => void }) {
   const fields = [...(form.fields || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
   const editHref = `/dashboard/forms/${encodeURIComponent(form.id)}/edit`;
 
-  const actions = (
-    <div className="flex flex-wrap items-center gap-2">
-      <Link
-        href={editHref}
-        onClick={(event) => event.stopPropagation()}
-        className="inline-flex items-center gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-primary)] px-3 py-2 text-xs font-semibold text-[var(--color-text-primary)] hover:bg-[var(--color-background-hover)]"
-      >
-        <Edit3 className="h-3.5 w-3.5" />
-        Edit fields
-      </Link>
-      <button
-        type="button"
-        disabled={deleting}
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onDelete(form);
-        }}
-        className="inline-flex items-center gap-2 rounded-[var(--radius-button)] border border-[var(--color-danger-border)] px-3 py-2 text-xs font-semibold text-[var(--color-danger-text)] transition hover:bg-[var(--color-danger-surface)] disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-        {deleting ? 'Deleting...' : 'Delete'}
-      </button>
-    </div>
-  );
-
   return (
     <details className="group bg-[var(--color-background-primary)]">
-      {/* Mobile / tablet: a labeled stacked card — the desktop grid row below
-          relies on column position to convey meaning, which breaks down once
-          columns wrap, so this is a distinct layout, not a squeezed one. */}
-      <summary className="flex cursor-pointer list-none flex-col gap-3 px-4 py-4 transition hover:bg-[var(--color-background-hover)] lg:hidden">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <ChevronDown className="h-4 w-4 shrink-0 text-[var(--color-text-tertiary)] transition group-open:rotate-180" />
-              <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{form.title || 'Untitled form'}</p>
-            </div>
-            <p className="mt-1 line-clamp-2 pl-6 text-xs text-[var(--color-text-tertiary)]">{form.description || 'No description provided.'}</p>
-          </div>
-          <Badge variant={statusBadgeVariant[getFormStatus(form)]}>{getFormStatus(form)}</Badge>
-        </div>
-
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-2 pl-6 text-xs">
-          <div className="col-span-2">
-            <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Public link</dt>
-            <dd className="mt-1"><SlugPill form={form} /></dd>
-          </div>
-          <div>
-            <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Fields</dt>
-            <dd className="mt-0.5 font-semibold text-[var(--color-text-primary)]">{formatNumber(fields.length)}</dd>
-          </div>
-          <div>
-            <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Submissions</dt>
-            <dd className="mt-0.5 font-semibold text-[var(--color-text-primary)]">{formatNumber(getFormSubmissionCount(form))}</dd>
-          </div>
-          <div className="col-span-2">
-            <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Updated</dt>
-            <dd className="mt-0.5 text-[var(--color-text-secondary)]">{formatDate(form.updatedAt || form.createdAt)}</dd>
-          </div>
-        </dl>
-
-        <div className="pl-6">{actions}</div>
-      </summary>
-
-      {/* Desktop: the compact grid row. */}
-      <summary className="hidden cursor-pointer list-none grid-cols-[1.4fr_1fr_0.7fr_0.7fr_0.8fr_0.7fr] items-center gap-3 px-4 py-4 transition hover:bg-[var(--color-background-hover)] lg:grid">
+      <summary className="grid cursor-pointer list-none gap-3 px-4 py-4 transition hover:bg-[var(--color-background-hover)] lg:grid-cols-[1.4fr_1fr_0.7fr_0.7fr_0.8fr_0.7fr] lg:items-center">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <ChevronDown className="h-4 w-4 shrink-0 text-[var(--color-text-tertiary)] transition group-open:rotate-180" />
@@ -178,7 +65,9 @@ function FormAccordionRow({ form, deleting, onDelete }: { form: AdminForm; delet
           <p className="mt-1 line-clamp-1 pl-6 text-xs text-[var(--color-text-tertiary)]">{form.description || 'No description provided.'}</p>
         </div>
 
-        <div className="min-w-0"><SlugPill form={form} /></div>
+        <div className="text-xs text-[var(--color-text-secondary)]">
+          <p className="truncate font-medium">{form.slug || 'No slug'}</p>
+        </div>
 
         <Badge variant={statusBadgeVariant[getFormStatus(form)]}>{getFormStatus(form)}</Badge>
 
@@ -192,7 +81,29 @@ function FormAccordionRow({ form, deleting, onDelete }: { form: AdminForm; delet
           <p className="mt-1">{formatNumber(getFormSubmissionCount(form))} submissions</p>
         </div>
 
-        <div className="flex justify-end">{actions}</div>
+        <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+          <Link
+            href={editHref}
+            onClick={(event) => event.stopPropagation()}
+            className="inline-flex items-center gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-primary)] px-3 py-2 text-xs font-semibold text-[var(--color-text-primary)] hover:bg-[var(--color-background-hover)]"
+          >
+            <Edit3 className="h-3.5 w-3.5" />
+            Edit fields
+          </Link>
+          <button
+            type="button"
+            disabled={deleting}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onDelete(form);
+            }}
+            className="inline-flex items-center gap-2 rounded-[var(--radius-button)] border border-[var(--color-danger-border)] px-3 py-2 text-xs font-semibold text-[var(--color-danger-text)] transition hover:bg-[var(--color-danger-surface)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {deleting ? 'Deleting...' : 'Delete'}
+          </button>
+        </div>
       </summary>
 
       <div className="border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-4">
@@ -240,14 +151,11 @@ function FormsManagerPage() {
     queryFn: async () => (await apiClient.getAdminForms({ page: 1, limit: 100 })).data || [],
   });
 
-  const [deleteTarget, setDeleteTarget] = useState<AdminForm | null>(null);
-
   const deleteMutation = useMutation({
     mutationFn: (form: AdminForm) => apiClient.deleteAdminForm(form.id),
     onSuccess: (_result, form) => {
       toast.success('Form deleted');
       queryClient.setQueryData<AdminForm[]>(['forms', 'list'], (current) => (current || []).filter((item) => item.id !== form.id));
-      setDeleteTarget(null);
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to delete form');
@@ -255,12 +163,9 @@ function FormsManagerPage() {
   });
 
   const handleDelete = (form: AdminForm) => {
-    setDeleteTarget(form);
-  };
-
-  const confirmDelete = () => {
-    if (!deleteTarget) return;
-    deleteMutation.mutate(deleteTarget);
+    const confirmed = window.confirm(`Delete "${form.title || 'this form'}"? This removes the form and its saved fields.`);
+    if (!confirmed) return;
+    deleteMutation.mutate(form);
   };
 
   const filteredForms = useMemo(() => {
@@ -337,51 +242,6 @@ function FormsManagerPage() {
           </div>
         </div>
       </Panel>
-
-      <Modal open={Boolean(deleteTarget)} onClose={() => setDeleteTarget(null)} size="md" labelledBy="form-delete-title">
-        <div className="flex items-start justify-between gap-4 border-b border-[var(--color-border-secondary)] px-6 py-5">
-          <div className="flex items-start gap-3">
-            <div className="rounded-2xl bg-red-50 p-3 text-red-600">
-              <AlertTriangle className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 id="form-delete-title" className="text-lg font-black tracking-tight text-[var(--color-text-primary)]">
-                Delete form
-              </h2>
-              <p className="mt-0.5 text-sm text-[var(--color-text-tertiary)]">
-                This removes the form and its saved fields immediately — it cannot be undone.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setDeleteTarget(null)}
-            disabled={deleteMutation.isPending}
-            className="rounded-2xl border border-[var(--color-border-primary)] p-2 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)] disabled:opacity-50"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="px-6 py-5">
-          {deleteTarget ? (
-            <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-              <p className="truncate text-base font-black text-[var(--color-text-primary)]">{deleteTarget.title || 'Untitled form'}</p>
-              <p className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">
-                {formatNumber(deleteTarget.fields?.length || 0)} fields · {formatNumber(getFormSubmissionCount(deleteTarget))} submissions on record
-              </p>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="flex justify-end gap-2 border-t border-[var(--color-border-secondary)] px-6 py-4">
-          <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteMutation.isPending}>Cancel</Button>
-          <Button variant="danger" loading={deleteMutation.isPending} icon={<Trash2 className="h-4 w-4" />} onClick={confirmDelete}>
-            Delete form
-          </Button>
-        </div>
-      </Modal>
     </div>
   );
 }
