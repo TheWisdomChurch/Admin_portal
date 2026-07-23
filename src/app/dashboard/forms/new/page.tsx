@@ -19,7 +19,6 @@ import {
   Plus,
   Save,
   Settings2,
-  Trash2,
   Wand2,
 } from 'lucide-react';
 
@@ -31,24 +30,16 @@ import { SectionCard } from '@/ui/SectionCard';
 
 import { apiClient } from '@/lib/api';
 import FormFieldOrderBuilder from '../FormFieldOrderBuilder';
+import { FieldEditor, type FieldDraft } from '../_shared/FieldEditor';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { createFormSchema } from '@/lib/validation/forms';
-import type { CreateFormRequest, EventData, FormFieldType, FormSettings } from '@/lib/types';
+import { normalizeFieldOptions, sanitizeFieldVisibility } from '@/lib/formFields';
+import type { CreateFormRequest, EventData, FormSettings } from '@/lib/types';
 import { normalizeOrderedFields } from '@/lib/formFieldOrdering';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
-
-type FieldDraft = {
-  key: string;
-  label: string;
-  type: FormFieldType;
-  required: boolean;
-  order: number;
-  validation?: { maxWords?: number; dateMode?: 'full' | 'day-month' };
-  options?: { label: string; value: string }[];
-};
 
 type FormPreset = 'testimonial' | 'member' | 'leadership';
 type BuilderStep = 'setup' | 'fields' | 'preview' | 'style';
@@ -93,8 +84,6 @@ const ACCEPTED_BANNER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const META_PREFIX = '<!--WH_FORM_TEMPLATE_META:';
 const META_SUFFIX = '-->';
 
-const isOptionFieldType = (type: FormFieldType) => type === 'select' || type === 'radio' || type === 'checkbox';
-
 const normalizeSlug = (value: string) =>
   value
     .trim()
@@ -109,13 +98,6 @@ const makeSlugCandidate = (base: string, attempt: number) => {
   const stamp = `${now.getMonth() + 1}${now.getDate()}${now.getHours()}${now.getMinutes()}`;
   return `${base}-${stamp}-${attempt}`;
 };
-
-const toOptionValue = (label: string, index: number) =>
-  label
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '') || `option-${index + 1}`;
 
 function buildPresetFields(preset: FormPreset): FieldDraft[] {
   if (preset === 'testimonial') {
@@ -474,33 +456,9 @@ export default withAuth(function NewFormPage() {
     setFields((prev) => prev.map((field, currentIndex) => currentIndex === index ? { ...field, ...updates } : field));
   };
 
-  const addFieldOption = (fieldIndex: number) => {
-    setFields((prev) => prev.map((field, index) => {
-      if (index !== fieldIndex) return field;
-      const options = Array.isArray(field.options) ? field.options : [];
-      const nextIndex = options.length;
-      return { ...field, options: [...options, { label: '', value: `option-${nextIndex + 1}` }] };
-    }));
-  };
-
-  const updateFieldOptionLabel = (fieldIndex: number, optionIndex: number, label: string) => {
-    setFields((prev) => prev.map((field, index) => {
-      if (index !== fieldIndex) return field;
-      const options = Array.isArray(field.options) ? [...field.options] : [];
-      if (!options[optionIndex]) return field;
-      options[optionIndex] = { label, value: toOptionValue(label, optionIndex) };
-      return { ...field, options };
-    }));
-  };
-
-  const removeFieldOption = (fieldIndex: number, optionIndex: number) => {
-    setFields((prev) => prev.map((field, index) => {
-      if (index !== fieldIndex) return field;
-      const options = Array.isArray(field.options) ? [...field.options] : [];
-      options.splice(optionIndex, 1);
-      return { ...field, options };
-    }));
-  };
+  // Per-field option/visibility editing is owned by the shared <FieldEditor>
+  // (forms/_shared/FieldEditor.tsx) — updateField above is its single entry
+  // point for all field mutations.
 
   const save = async () => {
     setFieldErrors({});
@@ -548,14 +506,12 @@ export default withAuth(function NewFormPage() {
       slug: normalizedSlug,
       eventId: eventId || undefined,
       fields: normalizeOrderedFields(fields).map((field, index) => ({
+        ...field,
         key: (field.key || `field_${index + 1}`).trim(),
         label: field.label.trim(),
-        type: field.type,
         required: field.required,
-        validation: field.validation?.maxWords || field.validation?.dateMode
-          ? { maxWords: field.validation?.maxWords, dateMode: field.validation?.dateMode }
-          : undefined,
-        options: field.options,
+        options: normalizeFieldOptions(field),
+        visibility: sanitizeFieldVisibility(field.visibility),
         order: index + 1,
       })),
       settings: {
@@ -843,71 +799,14 @@ export default withAuth(function NewFormPage() {
 
             <div className="space-y-4">
               {orderedFields.map((field, index) => (
-                <div key={`${field.key}-${index}`} className="rounded-[1.5rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Field #{index + 1}</p>
-                      <p className="mt-1 text-sm font-semibold text-[var(--color-text-tertiary)]">{field.key || `field_${index + 1}`} • {field.type}</p>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => setRemoveFieldIndex(index)} icon={<Trash2 className="h-4 w-4" />}>Remove</Button>
-                  </div>
-
-                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_140px] lg:items-end">
-                    <Input label="Label" value={field.label} onChange={(event) => updateField(index, { label: event.target.value })} />
-                    <div>
-                      <label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Type</label>
-                      <select value={field.type} onChange={(event) => {
-                        const nextType = event.target.value as FormFieldType;
-                        const nextOptions = isOptionFieldType(nextType) && (!Array.isArray(field.options) || field.options.length === 0)
-                          ? [{ label: 'Option 1', value: 'option-1' }, { label: 'Option 2', value: 'option-2' }]
-                          : isOptionFieldType(nextType) ? field.options : undefined;
-                        updateField(index, { type: nextType, options: nextOptions });
-                      }} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] outline-none">
-                        <option value="text">Text</option>
-                        <option value="textarea">Textarea</option>
-                        <option value="email">Email</option>
-                        <option value="tel">Phone</option>
-                        <option value="number">Number</option>
-                        <option value="date">Date</option>
-                        <option value="select">Dropdown</option>
-                        <option value="checkbox">Checkbox</option>
-                        <option value="radio">Radio</option>
-                        <option value="image">Image Upload</option>
-                      </select>
-                    </div>
-                    <label className="flex items-center gap-2 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-black text-[var(--color-text-secondary)]"><input type="checkbox" checked={field.required} onChange={(event) => updateField(index, { required: event.target.checked })} />Required</label>
-                  </div>
-
-                  {field.type === 'textarea' ? (
-                    <div className="mt-3 max-w-xs"><Input label="Max words (optional)" type="number" min={1} value={field.validation?.maxWords ?? ''} onChange={(event) => updateField(index, { validation: { ...(field.validation || {}), maxWords: event.target.value ? Number(event.target.value) : undefined } })} placeholder="e.g., 400" /></div>
-                  ) : null}
-
-                  {field.type === 'date' ? (
-                    <div className="mt-3 max-w-xs">
-                      <label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Date captured</label>
-                      <select
-                        value={field.validation?.dateMode ?? 'full'}
-                        onChange={(event) => updateField(index, { validation: { ...(field.validation || {}), dateMode: event.target.value as 'full' | 'day-month' } })}
-                        className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] outline-none"
-                      >
-                        <option value="full">Full date (day, month, year)</option>
-                        <option value="day-month">Day and month only (e.g. recurring anniversary)</option>
-                      </select>
-                    </div>
-                  ) : null}
-
-                  {isOptionFieldType(field.type) ? (
-                    <div className="mt-4 space-y-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
-                      <div className="flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Options</p><Button type="button" variant="outline" size="sm" onClick={() => addFieldOption(index)} icon={<Plus className="h-4 w-4" />}>Add option</Button></div>
-                      {(field.options || []).map((option, optionIndex) => (
-                        <div key={`${option.value}-${optionIndex}`} className="flex items-center gap-2">
-                          <Input value={option.label} onChange={(event) => updateFieldOptionLabel(index, optionIndex, event.target.value)} placeholder={`Option ${optionIndex + 1}`} />
-                          <Button type="button" variant="outline" size="sm" onClick={() => removeFieldOption(index, optionIndex)} icon={<Trash2 className="h-4 w-4" />}>Remove</Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
+                <FieldEditor
+                  key={`${field.key}-${index}`}
+                  field={field}
+                  index={index}
+                  allFields={orderedFields}
+                  onChange={(updates) => updateField(index, updates)}
+                  onRemove={() => setRemoveFieldIndex(index)}
+                />
               ))}
             </div>
           </div>

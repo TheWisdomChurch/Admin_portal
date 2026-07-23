@@ -14,7 +14,7 @@ import { AlertModal } from '@/ui/AlertModal';
 import FormFieldOrderBuilder from '../../FormFieldOrderBuilder';
 import { FieldEditor, type FieldDraft } from '../../_shared/FieldEditor';
 import { apiClient } from '@/lib/api';
-import { isOptionFieldType, slugifyOptionValue } from '@/lib/formFields';
+import { ensureFieldOptions, isOptionFieldType, normalizeFieldOptions, sanitizeFieldVisibility } from '@/lib/formFields';
 
 import { normalizeOrderedFields } from '@/lib/formFieldOrdering';
 import {
@@ -33,7 +33,6 @@ import type {
   EventData,
   FormContentSection,
   FormField,
-  FormFieldCondition,
   FormFieldVisibility,
   FormSettings,
   UpdateFormRequest,
@@ -41,21 +40,9 @@ import type {
 
 import { withAuth } from '@/providers/withAuth';
 
-type VisibilityRuleDraft = FormFieldCondition;
-
 const MAX_BANNER_MB = 5;
 const MAX_BANNER_BYTES = MAX_BANNER_MB * 1024 * 1024;
 const ACCEPTED_BANNER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-
-const visibilityOperatorOptions: Array<{
-  value: VisibilityRuleDraft['operator'];
-  label: string;
-}> = [
-  { value: 'equals', label: 'Equals' },
-  { value: 'not_equals', label: 'Does not equal' },
-  { value: 'in', label: 'Matches any' },
-  { value: 'not_in', label: 'Matches none' },
-];
 
 const formTypeOptions: Array<{
   value: NonNullable<FormSettings['formType']>;
@@ -80,100 +67,6 @@ function normalizeFieldKey(value: string, fallback: string) {
       .replace(/_{2,}/g, '_')
       .replace(/^_+|_+$/g, '') || fallback
   );
-}
-
-function ensureOptions(field: FieldDraft): FieldDraft {
-  if (!isOptionFieldType(field.type)) {
-    return { ...field, options: undefined };
-  }
-
-  const options = Array.isArray(field.options) ? field.options : [];
-  if (options.length > 0) return { ...field, options };
-
-  return {
-    ...field,
-    options: [
-      { label: 'Option 1', value: 'option-1' },
-      { label: 'Option 2', value: 'option-2' },
-    ],
-  };
-}
-
-function normalizeFieldOptions(field: FieldDraft) {
-  if (!isOptionFieldType(field.type)) return undefined;
-
-  const normalized = (field.options || [])
-    .map((option, index) => {
-      const label = (option.label || '').trim();
-      if (!label) return null;
-
-      return {
-        label,
-        value: slugifyOptionValue(option.value || label, `option-${index + 1}`),
-      };
-    })
-    .filter((option): option is { label: string; value: string } => option !== null);
-
-  return normalized.length > 0 ? normalized : undefined;
-}
-
-function usesVisibilityList(operator: VisibilityRuleDraft['operator']) {
-  return operator === 'in' || operator === 'not_in';
-}
-
-function sanitizeVisibilityValue(value: unknown): string | number | boolean | undefined {
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    return trimmed ? trimmed : undefined;
-  }
-
-  if (typeof value === 'number' && !Number.isNaN(value)) return value;
-  if (typeof value === 'boolean') return value;
-
-  return undefined;
-}
-
-function sanitizeFieldVisibility(visibility?: FormFieldVisibility): FormFieldVisibility | undefined {
-  if (!visibility || !Array.isArray(visibility.rules) || visibility.rules.length === 0) {
-    return undefined;
-  }
-
-  const rules = visibility.rules.reduce<VisibilityRuleDraft[]>((acc, rule) => {
-    const fieldKey = typeof rule.fieldKey === 'string' ? rule.fieldKey.trim() : '';
-    if (!fieldKey) return acc;
-
-    const operator: VisibilityRuleDraft['operator'] = visibilityOperatorOptions.some(
-      (item) => item.value === rule.operator
-    )
-      ? rule.operator
-      : 'equals';
-
-    if (usesVisibilityList(operator)) {
-      const values = Array.isArray(rule.values)
-        ? rule.values
-            .map((value) => sanitizeVisibilityValue(value))
-            .filter((value): value is string | number | boolean => typeof value !== 'undefined')
-        : [];
-
-      if (values.length === 0) return acc;
-
-      acc.push({ fieldKey, operator, values });
-      return acc;
-    }
-
-    const value = sanitizeVisibilityValue(rule.value);
-    if (typeof value === 'undefined') return acc;
-
-    acc.push({ fieldKey, operator, value });
-    return acc;
-  }, []);
-
-  if (rules.length === 0) return undefined;
-
-  return {
-    match: visibility.match === 'any' ? 'any' : 'all',
-    rules,
-  };
 }
 
 function normalizeVisibilityToken(value: string) {
@@ -390,7 +283,7 @@ function EditFormPage() {
       try {
         const res = await apiClient.getAdminForm(formId);
         setForm(res);
-        setFields(normalizeOrderedFields(applyImplicitYesVisibilityDefaults(res.fields || []).map(ensureOptions)));
+        setFields(normalizeOrderedFields(applyImplicitYesVisibilityDefaults(res.fields || []).map(ensureFieldOptions)));
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Failed to load form');
         router.back();
@@ -426,7 +319,7 @@ function EditFormPage() {
         const next = { ...field, ...updates };
 
         if (updates.type) {
-          return ensureOptions(next);
+          return ensureFieldOptions(next);
         }
 
         return next;
@@ -573,7 +466,7 @@ function EditFormPage() {
       const updated = await apiClient.updateAdminForm(form.id, payload);
 
       setForm(updated);
-      setFields(normalizeOrderedFields(applyImplicitYesVisibilityDefaults(updated.fields || []).map(ensureOptions)));
+      setFields(normalizeOrderedFields(applyImplicitYesVisibilityDefaults(updated.fields || []).map(ensureFieldOptions)));
 
       toast.success('Form updated');
       router.push('/dashboard/forms');

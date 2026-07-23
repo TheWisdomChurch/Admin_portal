@@ -17,21 +17,17 @@ import { Input } from '@/ui/Input';
 import { Select } from '@/ui/Select';
 import { Checkbox } from '@/ui/Checkbox';
 
-import { ALL_FIELD_TYPES, FIELD_TYPE_LABELS, isOptionFieldType, slugifyOptionValue } from '@/lib/formFields';
+import {
+  ALL_FIELD_TYPES,
+  FIELD_TYPE_LABELS,
+  VISIBILITY_OPERATORS,
+  isOptionFieldType,
+  slugifyOptionValue,
+  usesVisibilityList,
+} from '@/lib/formFields';
 import type { FormField, FormFieldCondition, FormFieldOption, FormFieldType } from '@/lib/types';
 
 export type FieldDraft = Omit<FormField, 'id'>;
-
-const VISIBILITY_OPERATORS: Array<{ value: FormFieldCondition['operator']; label: string }> = [
-  { value: 'equals', label: 'Equals' },
-  { value: 'not_equals', label: 'Does not equal' },
-  { value: 'in', label: 'Matches any' },
-  { value: 'not_in', label: 'Matches none' },
-];
-
-function usesVisibilityList(operator: FormFieldCondition['operator']) {
-  return operator === 'in' || operator === 'not_in';
-}
 
 function defaultOptions(): FormFieldOption[] {
   return [
