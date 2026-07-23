@@ -12,7 +12,7 @@ import { Input } from '@/ui/Input';
 import { PageHeader } from '@/layouts';
 import { AlertModal } from '@/ui/AlertModal';
 import FormFieldOrderBuilder from '../../FormFieldOrderBuilder';
-import { FieldEditor } from '../../_shared/FieldEditor';
+import { FieldEditor, type FieldDraft } from '../../_shared/FieldEditor';
 import { apiClient } from '@/lib/api';
 import { isOptionFieldType, slugifyOptionValue } from '@/lib/formFields';
 
@@ -34,7 +34,6 @@ import type {
   FormContentSection,
   FormField,
   FormFieldCondition,
-  FormFieldType,
   FormFieldVisibility,
   FormSettings,
   UpdateFormRequest,
@@ -42,7 +41,6 @@ import type {
 
 import { withAuth } from '@/providers/withAuth';
 
-type FieldDraft = Omit<FormField, 'id'>;
 type VisibilityRuleDraft = FormFieldCondition;
 
 const MAX_BANNER_MB = 5;
