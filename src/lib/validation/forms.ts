@@ -1,19 +1,9 @@
 import { z } from 'zod';
 import type { FormFieldType } from '@/lib/types';
+import { ALL_FIELD_TYPES, isOptionFieldType } from '@/lib/formFields';
 import { normalizeFieldKey } from './helpers';
 
-const formFieldTypes: readonly FormFieldType[] = [
-  'text',
-  'email',
-  'tel',
-  'number',
-  'date',
-  'textarea',
-  'select',
-  'radio',
-  'checkbox',
-  'image',
-] as const;
+const formFieldTypes: readonly FormFieldType[] = ALL_FIELD_TYPES;
 
 const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -81,8 +71,7 @@ export const createFormSchema = z
     }
 
     data.fields.forEach((field, index) => {
-      const needsOptions = field.type === 'select' || field.type === 'radio' || field.type === 'checkbox';
-      if (needsOptions) {
+      if (isOptionFieldType(field.type)) {
         const opts = field.options ?? [];
         if (opts.length === 0) {
           ctx.addIssue({

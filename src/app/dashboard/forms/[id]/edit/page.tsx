@@ -12,7 +12,9 @@ import { Input } from '@/ui/Input';
 import { PageHeader } from '@/layouts';
 import { AlertModal } from '@/ui/AlertModal';
 import FormFieldOrderBuilder from '../../FormFieldOrderBuilder';
+import { FieldEditor } from '../../_shared/FieldEditor';
 import { apiClient } from '@/lib/api';
+import { isOptionFieldType, slugifyOptionValue } from '@/lib/formFields';
 
 import { normalizeOrderedFields } from '@/lib/formFieldOrdering';
 import {
@@ -71,20 +73,6 @@ const formTypeOptions: Array<{
   { value: 'general', label: 'General' },
 ];
 
-function isOptionField(type: FormFieldType) {
-  return type === 'select' || type === 'radio' || type === 'checkbox';
-}
-
-function slugifyOptionValue(label: string, fallback: string) {
-  return (
-    label
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '') || fallback
-  );
-}
-
 function normalizeFieldKey(value: string, fallback: string) {
   return (
     value
@@ -97,7 +85,7 @@ function normalizeFieldKey(value: string, fallback: string) {
 }
 
 function ensureOptions(field: FieldDraft): FieldDraft {
-  if (!isOptionField(field.type)) {
+  if (!isOptionFieldType(field.type)) {
     return { ...field, options: undefined };
   }
 
@@ -114,7 +102,7 @@ function ensureOptions(field: FieldDraft): FieldDraft {
 }
 
 function normalizeFieldOptions(field: FieldDraft) {
-  if (!isOptionField(field.type)) return undefined;
+  if (!isOptionFieldType(field.type)) return undefined;
 
   const normalized = (field.options || [])
     .map((option, index) => {
@@ -129,14 +117,6 @@ function normalizeFieldOptions(field: FieldDraft) {
     .filter((option): option is { label: string; value: string } => option !== null);
 
   return normalized.length > 0 ? normalized : undefined;
-}
-
-function createEmptyVisibilityRule(): VisibilityRuleDraft {
-  return {
-    fieldKey: '',
-    operator: 'equals',
-    value: '',
-  };
 }
 
 function usesVisibilityList(operator: VisibilityRuleDraft['operator']) {
@@ -456,203 +436,9 @@ function EditFormPage() {
     );
   };
 
-  const addFieldOption = (fieldIndex: number) => {
-    setFields((prev) =>
-      prev.map((field, index) => {
-        if (index !== fieldIndex) return field;
-
-        const current = ensureOptions(field);
-        const options = current.options || [];
-        const nextNumber = options.length + 1;
-
-        return {
-          ...current,
-          options: [
-            ...options,
-            {
-              label: `Option ${nextNumber}`,
-              value: `option-${nextNumber}`,
-            },
-          ],
-        };
-      })
-    );
-  };
-
-  const updateFieldOptionLabel = (fieldIndex: number, optionIndex: number, label: string) => {
-    setFields((prev) =>
-      prev.map((field, index) => {
-        if (index !== fieldIndex) return field;
-
-        const current = ensureOptions(field);
-        const options = [...(current.options || [])];
-
-        if (!options[optionIndex]) return current;
-
-        options[optionIndex] = {
-          label,
-          value: slugifyOptionValue(label, `option-${optionIndex + 1}`),
-        };
-
-        return {
-          ...current,
-          options,
-        };
-      })
-    );
-  };
-
-  const removeFieldOption = (fieldIndex: number, optionIndex: number) => {
-    setFields((prev) =>
-      prev.map((field, index) => {
-        if (index !== fieldIndex) return field;
-
-        const current = ensureOptions(field);
-        const options = [...(current.options || [])];
-
-        if (options.length <= 1) {
-          toast.error('An option field must keep at least one option.');
-          return current;
-        }
-
-        options.splice(optionIndex, 1);
-
-        return {
-          ...current,
-          options,
-        };
-      })
-    );
-  };
-
-  const setFieldVisibilityEnabled = (index: number, enabled: boolean) => {
-    setFields((prev) =>
-      prev.map((field, fieldIndex) => {
-        if (fieldIndex !== index) return field;
-
-        if (!enabled) {
-          return { ...field, visibility: undefined };
-        }
-
-        const nextVisibility =
-          sanitizeFieldVisibility(field.visibility) ||
-          buildImplicitYesVisibility(prev, index) || {
-            match: 'all' as const,
-            rules: [createEmptyVisibilityRule()],
-          };
-
-        return { ...field, visibility: nextVisibility };
-      })
-    );
-  };
-
-  const updateFieldVisibility = (index: number, updates: Partial<FormFieldVisibility>) => {
-    setFields((prev) =>
-      prev.map((field, fieldIndex) => {
-        if (fieldIndex !== index) return field;
-
-        const currentVisibility = field.visibility || {
-          match: 'all' as const,
-          rules: [createEmptyVisibilityRule()],
-        };
-
-        return {
-          ...field,
-          visibility: {
-            ...currentVisibility,
-            ...updates,
-          },
-        };
-      })
-    );
-  };
-
-  const updateFieldVisibilityRule = (
-    fieldIndex: number,
-    ruleIndex: number,
-    updates: Partial<VisibilityRuleDraft>
-  ) => {
-    setFields((prev) =>
-      prev.map((field, currentFieldIndex) => {
-        if (currentFieldIndex !== fieldIndex) return field;
-
-        const currentVisibility = field.visibility || {
-          match: 'all' as const,
-          rules: [createEmptyVisibilityRule()],
-        };
-
-        const rules = Array.isArray(currentVisibility.rules) ? [...currentVisibility.rules] : [];
-        if (!rules[ruleIndex]) return field;
-
-        rules[ruleIndex] = {
-          ...rules[ruleIndex],
-          ...updates,
-        };
-
-        return {
-          ...field,
-          visibility: {
-            ...currentVisibility,
-            rules,
-          },
-        };
-      })
-    );
-  };
-
-  const addFieldVisibilityRule = (fieldIndex: number) => {
-    setFields((prev) =>
-      prev.map((field, currentFieldIndex) => {
-        if (currentFieldIndex !== fieldIndex) return field;
-
-        const currentVisibility = field.visibility || { match: 'all' as const, rules: [] };
-
-        return {
-          ...field,
-          visibility: {
-            match: currentVisibility.match === 'any' ? 'any' : 'all',
-            rules: [...(currentVisibility.rules || []), createEmptyVisibilityRule()],
-          },
-        };
-      })
-    );
-  };
-
-  const removeFieldVisibilityRule = (fieldIndex: number, ruleIndex: number) => {
-    setFields((prev) =>
-      prev.map((field, currentFieldIndex) => {
-        if (currentFieldIndex !== fieldIndex) return field;
-
-        const currentVisibility = field.visibility;
-        if (!currentVisibility?.rules?.length) return field;
-
-        const rules = currentVisibility.rules.filter((_, index) => index !== ruleIndex);
-
-        if (rules.length === 0) {
-          return {
-            ...field,
-            visibility: undefined,
-          };
-        }
-
-        return {
-          ...field,
-          visibility: {
-            match: currentVisibility.match === 'any' ? 'any' : 'all',
-            rules,
-          },
-        };
-      })
-    );
-  };
-
-  const getVisibilityTargetFields = (currentIndex: number) =>
-    orderedFields.filter((field, index) => index !== currentIndex && Boolean(field.key?.trim()));
-
-  const getVisibilityTargetOptions = (fieldKey: string) => {
-    const target = orderedFields.find((field) => field.key === fieldKey);
-    return Array.isArray(target?.options) ? target.options : [];
-  };
+  // Per-field option/visibility editing is owned by the shared <FieldEditor>
+  // (forms/_shared/FieldEditor.tsx) — updateField below is its single entry
+  // point for all field mutations.
 
   const toLocalInput = (value?: string) => {
     if (!value) return '';
@@ -749,7 +535,7 @@ function EditFormPage() {
         return;
       }
 
-      if (isOptionField(field.type)) {
+      if (isOptionFieldType(field.type)) {
         const options = normalizeFieldOptions(field);
 
         if (!options || options.length === 0) {
@@ -1464,303 +1250,16 @@ function EditFormPage() {
               description="Drag fields into the exact order members should see on the public form. The saved form order will follow this arrangement."
           />
 
-          {orderedFields.map((field, index) => {
-            const visibilityRules = Array.isArray(field.visibility?.rules) ? field.visibility.rules : [];
-            const visibilityEnabled = visibilityRules.length > 0;
-            const targetFields = getVisibilityTargetFields(index);
-
-            return (
-              <div
-                key={`${field.key || 'field'}-${index}`}
-                className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Input
-                    label="Label"
-                    value={field.label}
-                    onChange={(event) => updateField(index, { label: event.target.value })}
-                  />
-
-                  <div className="flex flex-wrap gap-2">
-                    <select
-                      value={field.type}
-                      onChange={(event) => updateField(index, { type: event.target.value as FormFieldType })}
-                      className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-                    >
-                      <option value="text">Text</option>
-                      <option value="textarea">Textarea</option>
-                      <option value="email">Email</option>
-                      <option value="tel">Phone</option>
-                      <option value="number">Number</option>
-                      <option value="date">Date</option>
-                      <option value="select">Dropdown</option>
-                      <option value="checkbox">Checkbox</option>
-                      <option value="radio">Radio</option>
-                      <option value="image">Image Upload</option>
-                    </select>
-
-                    <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                      <input
-                        type="checkbox"
-                        checked={field.required}
-                        onChange={(event) => updateField(index, { required: event.target.checked })}
-                      />
-                      Required
-                    </label>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => requestRemoveField(index)}
-                      icon={<Trash2 className="h-4 w-4" />}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-
-                {isOptionField(field.type) && (
-                  <div className="mt-4 space-y-3 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-[var(--color-text-primary)]">Options</p>
-                        <p className="text-xs text-[var(--color-text-tertiary)]">
-                          Add each dropdown, radio, or checkbox option separately.
-                        </p>
-                      </div>
-
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addFieldOption(index)}
-                        icon={<Plus className="h-4 w-4" />}
-                      >
-                        Add option
-                      </Button>
-                    </div>
-
-                    <div className="space-y-2">
-                      {(field.options || []).map((option, optionIndex) => (
-                        <div key={`${field.key || index}-option-${optionIndex}`} className="flex items-center gap-2">
-                          <Input
-                            value={option.label}
-                            onChange={(event) => updateFieldOptionLabel(index, optionIndex, event.target.value)}
-                            placeholder={`Option ${optionIndex + 1}`}
-                          />
-
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeFieldOption(index, optionIndex)}
-                            disabled={(field.options || []).length <= 1}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {field.type === 'date' && (
-                  <div className="mt-4 max-w-xs">
-                    <label className="mb-1 block text-sm font-semibold text-[var(--color-text-primary)]">
-                      Date captured
-                    </label>
-                    <select
-                      value={field.validation?.dateMode ?? 'full'}
-                      onChange={(event) =>
-                        updateField(index, {
-                          validation: { ...(field.validation || {}), dateMode: event.target.value as 'full' | 'day-month' },
-                        })
-                      }
-                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-                    >
-                      <option value="full">Full date (day, month, year)</option>
-                      <option value="day-month">Day and month only (e.g. recurring anniversary)</option>
-                    </select>
-                  </div>
-                )}
-
-                <div className="mt-3 rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-3">
-                  <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                    <input
-                      type="checkbox"
-                      checked={visibilityEnabled}
-                      onChange={(event) => setFieldVisibilityEnabled(index, event.target.checked)}
-                    />
-                    Show this field conditionally
-                  </label>
-
-                  {visibilityEnabled && (
-                    <div className="mt-3 space-y-3">
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-1">
-                          <label className="block text-xs font-medium text-[var(--color-text-tertiary)]">
-                            Rule matching
-                          </label>
-
-                          <select
-                            className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-                            value={field.visibility?.match === 'any' ? 'any' : 'all'}
-                            onChange={(event) =>
-                              updateFieldVisibility(index, {
-                                match: event.target.value === 'any' ? 'any' : 'all',
-                              })
-                            }
-                          >
-                            <option value="all">All conditions must pass</option>
-                            <option value="any">Any condition can pass</option>
-                          </select>
-                        </div>
-
-                        <div className="flex items-end">
-                          <p className="text-xs text-[var(--color-text-tertiary)]">
-                            Use conditional fields when a follow-up question should only appear after a specific answer.
-                          </p>
-                        </div>
-                      </div>
-
-                      {visibilityRules.map((rule, ruleIndex) => {
-                        const targetOptions = getVisibilityTargetOptions(rule.fieldKey);
-                        const useListInput = usesVisibilityList(rule.operator);
-                        const scalarValue =
-                          typeof rule.value === 'string'
-                            ? rule.value
-                            : typeof rule.value === 'number' || typeof rule.value === 'boolean'
-                              ? String(rule.value)
-                              : '';
-                        const listValue = Array.isArray(rule.values)
-                          ? rule.values.map((value) => String(value)).join(', ')
-                          : '';
-                        const canUseOptionSelect = !useListInput && targetOptions.length > 0;
-
-                        return (
-                          <div
-                            key={`${field.key || index}-visibility-${ruleIndex}`}
-                            className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-3"
-                          >
-                            <div className="grid gap-3 lg:grid-cols-3">
-                              <div className="space-y-1">
-                                <label className="block text-xs font-medium text-[var(--color-text-tertiary)]">
-                                  When field
-                                </label>
-
-                                <select
-                                  className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-                                  value={rule.fieldKey}
-                                  onChange={(event) =>
-                                    updateFieldVisibilityRule(index, ruleIndex, {
-                                      fieldKey: event.target.value,
-                                    })
-                                  }
-                                >
-                                  <option value="">Select a field</option>
-                                  {targetFields.map((targetField) => (
-                                    <option key={targetField.key} value={targetField.key}>
-                                      {targetField.label || targetField.key}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              <div className="space-y-1">
-                                <label className="block text-xs font-medium text-[var(--color-text-tertiary)]">
-                                  Condition
-                                </label>
-
-                                <select
-                                  className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-                                  value={rule.operator}
-                                  onChange={(event) => {
-                                    const nextOperator = event.target.value as VisibilityRuleDraft['operator'];
-
-                                    updateFieldVisibilityRule(index, ruleIndex, {
-                                      operator: nextOperator,
-                                      value: usesVisibilityList(nextOperator) ? undefined : '',
-                                      values: usesVisibilityList(nextOperator) ? [] : undefined,
-                                    });
-                                  }}
-                                >
-                                  {visibilityOperatorOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                      {option.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              <div className="space-y-1">
-                                <label className="block text-xs font-medium text-[var(--color-text-tertiary)]">
-                                  Value
-                                </label>
-
-                                {canUseOptionSelect ? (
-                                  <select
-                                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-                                    value={scalarValue}
-                                    onChange={(event) =>
-                                      updateFieldVisibilityRule(index, ruleIndex, {
-                                        value: event.target.value,
-                                      })
-                                    }
-                                  >
-                                    <option value="">Select a value</option>
-                                    {targetOptions.map((option) => (
-                                      <option key={`${option.value}-${option.label}`} value={option.value}>
-                                        {option.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <Input
-                                    value={useListInput ? listValue : scalarValue}
-                                    onChange={(event) =>
-                                      updateFieldVisibilityRule(
-                                        index,
-                                        ruleIndex,
-                                        useListInput
-                                          ? {
-                                              values: event.target.value
-                                                .split(',')
-                                                .map((value) => value.trim())
-                                                .filter(Boolean),
-                                            }
-                                          : {
-                                              value: event.target.value,
-                                            }
-                                      )
-                                    }
-                                    placeholder={useListInput ? 'yes, maybe' : 'yes'}
-                                  />
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="mt-3 flex justify-end">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => removeFieldVisibilityRule(index, ruleIndex)}
-                              >
-                                Remove Condition
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })}
-
-                      <Button variant="outline" size="sm" onClick={() => addFieldVisibilityRule(index)}>
-                        Add Condition
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {orderedFields.map((field, index) => (
+            <FieldEditor
+              key={`${field.key || 'field'}-${index}`}
+              field={field}
+              index={index}
+              allFields={orderedFields}
+              onChange={(updates) => updateField(index, updates)}
+              onRemove={() => requestRemoveField(index)}
+            />
+          ))}
 
           <Button variant="outline" onClick={addField} icon={<Plus className="h-4 w-4" />}>
             Add Field
