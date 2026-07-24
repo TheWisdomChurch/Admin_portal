@@ -235,6 +235,7 @@ function Drawer({
   deleting: boolean;
 }) {
   const birthday = formatDayMonth(worker.birthdayDay, worker.birthdayMonth);
+  const anniversary = formatDayMonth(worker.anniversaryDay, worker.anniversaryMonth);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-[var(--color-text-primary)]/50 backdrop-blur-sm">
@@ -269,6 +270,7 @@ function Drawer({
             <ProfileTile label="Email" value={worker.email || 'Not provided'} />
             <ProfileTile label="Phone" value={worker.phone || 'Not provided'} />
             <ProfileTile label="Birthday" value={birthday} />
+            <ProfileTile label="Anniversary" value={anniversary} />
             <ProfileTile label="Department" value={worker.department || 'Unassigned'} />
           </div>
 
@@ -322,6 +324,7 @@ function WorkforceEditModal({
     status: worker.status,
     notes: worker.notes || '',
     birthday: toDayMonthInput(worker.birthdayDay, worker.birthdayMonth),
+    anniversary: toDayMonthInput(worker.anniversaryDay, worker.anniversaryMonth),
   });
 
   const updateDraft = (updates: Partial<typeof draft>) => {
@@ -348,6 +351,7 @@ function WorkforceEditModal({
       status: draft.status,
       notes: draft.notes.trim(),
       birthday: draft.birthday.trim(),
+      anniversary: draft.anniversary.trim(),
     });
   };
 
@@ -381,6 +385,7 @@ function WorkforceEditModal({
             </select>
           </label>
           <Input label="Birthday (DD/MM)" value={draft.birthday} onChange={(event) => updateDraft({ birthday: event.target.value })} />
+          <Input label="Anniversary (DD/MM)" value={draft.anniversary} onChange={(event) => updateDraft({ anniversary: event.target.value })} />
           <label className="space-y-2 text-sm font-semibold text-[var(--color-text-secondary)] sm:col-span-2">
             <span>Service notes</span>
             <textarea

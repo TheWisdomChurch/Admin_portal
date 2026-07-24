@@ -951,6 +951,8 @@ export interface WorkforceMember {
   notes?: string;
   birthdayMonth?: number;
   birthdayDay?: number;
+  anniversaryMonth?: number;
+  anniversaryDay?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -981,6 +983,9 @@ export interface UpdateWorkforceRequest {
   birthdayMonth?: number;
   birthdayDay?: number;
   birthday?: string;
+  anniversaryMonth?: number;
+  anniversaryDay?: number;
+  anniversary?: string;
 }
 
 /* =========================
