@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   inferUploadKindFromFile,
   inferUploadKindFromField,
   type UploadFieldDescriptor,
 } from '@/lib/prepareUploadPayload';
 import type { UploadKind } from '@/lib/uploads';
+import { ImageCropModal } from '@/components/ImageCropModal';
 
 type MediaUploadFieldProps = {
   field: UploadFieldDescriptor;
@@ -114,6 +115,20 @@ export default function MediaUploadField({
   onChange,
 }: MediaUploadFieldProps): React.ReactElement {
   const [localError, setLocalError] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // The file the admin originally picked, retained across a confirmed crop
+  // so "Adjust crop" can re-open against it instead of re-cropping the
+  // already-cropped output (which would compound quality loss each time).
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
+  const [cropObjectUrl, setCropObjectUrl] = useState<string | null>(null);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (cropObjectUrl) URL.revokeObjectURL(cropObjectUrl);
+    };
+  }, [cropObjectUrl]);
 
   const selected = value instanceof File ? value : null;
 
@@ -124,11 +139,19 @@ export default function MediaUploadField({
   const maxMb = getUploadLimitMb(field, kind);
   const visibleError = error || localError;
 
+  const startCrop = (file: File) => {
+    const url = URL.createObjectURL(file);
+    setOriginalFile(file);
+    setCropObjectUrl(url);
+    setCropModalOpen(true);
+  };
+
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0] ?? null;
 
     if (!file) {
       setLocalError('');
+      setOriginalFile(null);
       onChange(null);
       return;
     }
@@ -138,13 +161,57 @@ export default function MediaUploadField({
     if (validationError) {
       event.currentTarget.value = '';
       setLocalError(validationError);
+      setOriginalFile(null);
       onChange(null);
       return;
     }
 
     setLocalError('');
+
+    const fileKind = inferUploadKindFromFile(file, field);
+    if (fileKind === 'image' && field.aspectRatioKey) {
+      // Don't stage the raw file yet — the crop is mandatory for fields
+      // that declare a target ratio, so onChange only fires once a crop is
+      // confirmed. This guarantees the uncropped original never uploads.
+      startCrop(file);
+      return;
+    }
+
+    setOriginalFile(null);
     onChange(file);
   };
+
+  const handleCropConfirm = (blob: Blob) => {
+    if (!originalFile) return;
+
+    const croppedFile = new File([blob], originalFile.name, {
+      type: blob.type,
+      lastModified: Date.now(),
+    });
+
+    setCropModalOpen(false);
+    if (cropObjectUrl) URL.revokeObjectURL(cropObjectUrl);
+    setCropObjectUrl(null);
+    onChange(croppedFile);
+  };
+
+  const handleCropCancel = () => {
+    setCropModalOpen(false);
+    if (cropObjectUrl) URL.revokeObjectURL(cropObjectUrl);
+    setCropObjectUrl(null);
+    setOriginalFile(null);
+    if (inputRef.current) inputRef.current.value = '';
+    onChange(null);
+  };
+
+  const handleAdjustCrop = () => {
+    if (!originalFile) return;
+    startCrop(originalFile);
+  };
+
+  const showAdjustCrop = Boolean(
+    field.aspectRatioKey && selected && originalFile && !cropModalOpen
+  );
 
   return React.createElement(
     'div',
@@ -169,6 +236,7 @@ export default function MediaUploadField({
       : null,
 
     React.createElement('input', {
+      ref: inputRef,
       type: 'file',
       accept: getUploadAccept(kind),
       disabled,
@@ -186,8 +254,23 @@ export default function MediaUploadField({
     selected
       ? React.createElement(
           'div',
-          { className: 'text-xs text-[var(--color-text-secondary)]' },
-          `Selected: ${selected.name} (${Math.round(selected.size / 1024)} KB)`
+          {
+            className:
+              'flex items-center gap-2 text-xs text-[var(--color-text-secondary)]',
+          },
+          `Selected: ${selected.name} (${Math.round(selected.size / 1024)} KB)`,
+          showAdjustCrop
+            ? React.createElement(
+                'button',
+                {
+                  type: 'button',
+                  onClick: handleAdjustCrop,
+                  className:
+                    'font-medium text-[var(--color-accent-primary)] hover:underline',
+                },
+                'Adjust crop'
+              )
+            : null
         )
       : null,
 
@@ -197,6 +280,18 @@ export default function MediaUploadField({
           { className: 'text-xs text-red-600' },
           visibleError
         )
+      : null,
+
+    field.aspectRatioKey && cropModalOpen && cropObjectUrl
+      ? React.createElement(ImageCropModal, {
+          key: 'crop-modal',
+          open: cropModalOpen,
+          imageSrc: cropObjectUrl,
+          sourceType: originalFile?.type || 'image/jpeg',
+          aspectRatioKey: field.aspectRatioKey,
+          onCancel: handleCropCancel,
+          onConfirm: handleCropConfirm,
+        })
       : null
   );
 }
