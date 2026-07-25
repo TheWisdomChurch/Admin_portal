@@ -97,7 +97,7 @@ function AdminDashboardPage() {
     [refetch]
   );
 
-  const trackerItems = trackerMode === 'birthdays' ? data?.upcomingBirthdays ?? [] : data?.upcomingAnniversaries ?? [];
+  const trackerItems = trackerMode === 'birthdays' ? data?.allBirthdays ?? [] : data?.allAnniversaries ?? [];
   const auditEndpointAvailable = Boolean(data?.endpointHealth.find((item) => item.label === 'Audit logs')?.available);
 
   const kpis = useMemo(() => {
