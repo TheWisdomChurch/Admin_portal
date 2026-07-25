@@ -1,4 +1,5 @@
 import type { UploadedFormAssetValue } from '@/lib/types';
+import type { AspectRatioKey } from '@/lib/aspectRatios';
 
 export type UploadKind = 'image' | 'video' | 'audio' | 'document' | 'file';
 
@@ -8,6 +9,13 @@ export type UploadAssetOptions = {
   ownerType?: string;
   ownerId?: string;
   folder?: string;
+  /**
+   * Sitewide crop-target key (e.g. "16:9") the file was already cropped to
+   * client-side, if any. The backend re-checks and center-crops server-side
+   * if the uploaded bytes don't already match — see `AllowedAspectRatios`
+   * in Backend-dev's image_processor.go.
+   */
+  aspectRatio?: AspectRatioKey;
 };
 
 export type UploadedAssetResult = UploadedFormAssetValue & {

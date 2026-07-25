@@ -4,6 +4,7 @@ import {
   type UploadKind,
   type UploadedAssetResult,
 } from '@/lib/uploads';
+import type { AspectRatioKey } from '@/lib/aspectRatios';
 
 import type { SubmittedFormValue, UploadedFormAssetValue } from '@/lib/types';
 
@@ -12,6 +13,12 @@ export type UploadFieldDescriptor = {
   label?: string;
   type?: string;
   required?: boolean;
+  /**
+   * Set for image fields that must be cropped to a fixed frame before
+   * upload (see ImageCropModal / MediaUploadField). Unset means the field
+   * accepts whatever aspect ratio the source has, unchanged.
+   */
+  aspectRatioKey?: AspectRatioKey;
   validation?: {
     max?: number;
   };
@@ -285,6 +292,7 @@ export async function prepareUploadPayload({
         ownerType,
         ownerId,
         folder: folderForUpload(options, kind),
+        aspectRatio: field?.aspectRatioKey,
       });
 
       const url = uploaded.publicUrl || uploaded.url;
@@ -307,6 +315,7 @@ export async function prepareUploadPayload({
         ownerType,
         ownerId,
         folder: folderForUpload(options, kind),
+        aspectRatio: field?.aspectRatioKey,
       });
 
       const uploadedAsset = toUploadedFormAssetValue(uploaded);
