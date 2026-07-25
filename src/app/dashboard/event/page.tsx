@@ -466,6 +466,7 @@ function EventPage() {
           ownerType: 'event',
           ownerId: selectedEvent.id,
           folder: `events/${selectedEvent.id}/images`,
+          aspectRatio: '16:9',
         });
         const uploadedImageURL = uploaded.publicUrl || uploaded.url;
         const updated = await apiClient.updateEvent(selectedEvent.id, toEventPayload(selectedEvent, { image: uploadedImageURL }));
@@ -580,6 +581,7 @@ function EventPage() {
           ownerType: 'event',
           ownerId: created.id,
           folder: `events/${created.id}/images`,
+          aspectRatio: '16:9',
         });
         const uploadedImageURL = uploaded.publicUrl || uploaded.url;
         if (uploadedImageURL && uploadedImageURL !== created.image) {
@@ -754,7 +756,7 @@ function EventPage() {
               </p>
               <div className="mt-4">
                 <MediaUploadField
-                  field={{ key: 'replaceImage', label: 'Event image', type: 'image', validation: { max: 10 } }}
+                  field={{ key: 'replaceImage', label: 'Event image', type: 'image', aspectRatioKey: '16:9', validation: { max: 10 } }}
                   value={null}
                   disabled={replacingImage}
                   onChange={(file) => void replaceEventImage(file)}
@@ -876,7 +878,7 @@ function EventPage() {
                   />
 
                   <div className="md:col-span-2">
-                    <MediaUploadField field={{ key: 'image', label: 'Event image', type: 'image', validation: { max: 10 } }} value={imageFile} onChange={handleImageFile} />
+                    <MediaUploadField field={{ key: 'image', label: 'Event image', type: 'image', aspectRatioKey: '16:9', validation: { max: 10 } }} value={imageFile} onChange={handleImageFile} />
                   </div>
                 </div>
               </section>

@@ -247,7 +247,7 @@ function ContentPage() {
     try {
       let image = homepageAd.image.trim();
       if (homepageAdImageFile) {
-        const uploaded = await uploadAsset(homepageAdImageFile, { kind: 'image', module: 'content', ownerType: 'homepage-ad', ownerId: homepageAd.id, folder: `content/homepage-ads/${homepageAd.id}/images` });
+        const uploaded = await uploadAsset(homepageAdImageFile, { kind: 'image', module: 'content', ownerType: 'homepage-ad', ownerId: homepageAd.id, folder: `content/homepage-ads/${homepageAd.id}/images`, aspectRatio: '16:9' });
         image = uploaded.publicUrl || uploaded.url;
       }
       const saved = await apiClient.updateHomepageAdContent({ ...homepageAd, image });
@@ -380,7 +380,7 @@ function ContentPage() {
               <Field label="End ISO" value={homepageAd.endAt || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, endAt: value }))} />
               <Field label="Time" value={homepageAd.time || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, time: value }))} />
               <Field label="Location" value={homepageAd.location || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, location: value }))} />
-              <div className="md:col-span-2"><MediaUploadField field={{ key: 'image', label: 'Homepage ad image', type: 'image', validation: { max: 10 } }} value={homepageAdImageFile} onChange={handleHomepageAdImageFile} /></div>
+              <div className="md:col-span-2"><MediaUploadField field={{ key: 'image', label: 'Homepage ad image', type: 'image', aspectRatioKey: '16:9', validation: { max: 10 } }} value={homepageAdImageFile} onChange={handleHomepageAdImageFile} /></div>
               <div className="md:col-span-2"><TextArea label="Description" value={homepageAd.description || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, description: value }))} /></div>
               <div className="md:col-span-2"><TextArea label="Note" value={homepageAd.note || ''} onChange={(value) => setHomepageAd((state) => ({ ...state, note: value }))} rows={3} /></div>
             </div>

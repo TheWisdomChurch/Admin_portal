@@ -288,6 +288,7 @@ function StoreDashboardPage() {
           ownerType: 'store-product',
           ownerId,
           folder: `store/products/${ownerId}/images`,
+          aspectRatio: '1:1',
         });
         image = uploaded.publicUrl || uploaded.url;
       }
@@ -429,7 +430,7 @@ function StoreDashboardPage() {
             </div>
 
             <Input label="Image URL" value={productForm.image} onChange={(e) => setProductForm((p) => ({ ...p, image: e.target.value }))} />
-            <MediaUploadField field={{ key: 'image', label: 'Product image', type: 'image', validation: { max: 5 } }} value={productImageFile} onChange={handleProductImageFile} />
+            <MediaUploadField field={{ key: 'image', label: 'Product image', type: 'image', aspectRatioKey: '1:1', validation: { max: 5 } }} value={productImageFile} onChange={handleProductImageFile} />
 
             {(productImagePreview || productForm.image.trim()) ? (
               <div className="relative h-48 overflow-hidden rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
