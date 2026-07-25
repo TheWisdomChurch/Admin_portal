@@ -2747,6 +2747,17 @@ export const apiClient = {
     return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
   },
 
+  async rejectWorkforceRegistration(id: string, reason: string): Promise<WorkforceMember> {
+    const res = await apiFetch<ApiResponse<WorkforceMember>>(
+      `/admin/workforce/${encodeURIComponent(id)}/registration/reject`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      }
+    );
+    return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
+  },
+
   async approveWorkforceDelete(id: string): Promise<MessageResponse> {
     return apiFetch(`/admin/workforce/${encodeURIComponent(id)}/delete/approve`, {
       method: 'POST',
