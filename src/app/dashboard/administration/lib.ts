@@ -93,6 +93,8 @@ export type DashboardData = {
   anniversaryMonths: MonthCount[];
   upcomingBirthdays: TrackerItem[];
   upcomingAnniversaries: TrackerItem[];
+  allBirthdays: TrackerItem[];
+  allAnniversaries: TrackerItem[];
   todayBirthdays: TrackerItem[];
   todayAnniversaries: TrackerItem[];
   endpointHealth: Array<{ label: string; available: boolean; total: number; error?: string }>;
@@ -416,7 +418,7 @@ export function dateLabel(month: number, day: number): string {
   return `${label} ${String(day).padStart(2, '0')}`;
 }
 
-function buildTrackerItems(items: PersonRecord[], mode: TrackerMode, windowDays = TRACKING_WINDOW_DAYS): TrackerItem[] {
+export function buildTrackerItems(items: PersonRecord[], mode: TrackerMode, windowDays = TRACKING_WINDOW_DAYS): TrackerItem[] {
   const results: TrackerItem[] = [];
 
   for (const item of items) {
@@ -445,6 +447,30 @@ function buildTrackerItems(items: PersonRecord[], mode: TrackerMode, windowDays 
   }
 
   return results.sort((a, b) => a.daysUntil - b.daysUntil || a.name.localeCompare(b.name));
+}
+
+export type MonthGroup = {
+  month: number;
+  label: string;
+  items: TrackerItem[];
+};
+
+// Groups every matching record into its calendar month (all 12, even when
+// empty) sorted by day-of-month — a full-year reference table, as opposed
+// to buildTrackerItems' "what's coming up in the next N days" list.
+export function buildMonthGroups(items: TrackerItem[]): MonthGroup[] {
+  const groups: MonthGroup[] = MONTH_LABELS.map((label, index) => ({ month: index + 1, label, items: [] }));
+
+  for (const item of items) {
+    const group = groups[item.month - 1];
+    if (group) group.items.push(item);
+  }
+
+  for (const group of groups) {
+    group.items.sort((a, b) => a.day - b.day || a.name.localeCompare(b.name));
+  }
+
+  return groups;
 }
 
 function extractTodayItems(payload: unknown, mode: TrackerMode, segment: SegmentKey): TrackerItem[] {
@@ -719,15 +745,28 @@ export async function loadOverviewData(): Promise<DashboardData> {
     mergeRemoteMonthStats(emptyMonthCounts(), workforceBirthdayStats),
   ]);
 
-  const anniversaryMonths = mergeRemoteMonthStats(makeMonthCounts(leadership, 'anniversaries'), leadershipAnniversaryStats);
+  // Anniversary tracking exists for leadership and workforce only (members
+  // have no anniversary field on the backend) — combine both here so
+  // workforce anniversaries (added alongside their birthday support) don't
+  // silently drop out of this stat the way they used to.
+  const anniversaryPeople = [...leadership, ...workforce];
+  const anniversaryMonths = combineMonthCounts([
+    mergeRemoteMonthStats(makeMonthCounts(leadership, 'anniversaries'), leadershipAnniversaryStats),
+    makeMonthCounts(workforce, 'anniversaries'),
+  ]);
   const upcomingBirthdays = buildTrackerItems(allPeople, 'birthdays');
-  const upcomingAnniversaries = buildTrackerItems(leadership, 'anniversaries');
+  const upcomingAnniversaries = buildTrackerItems(anniversaryPeople, 'anniversaries');
+  const allBirthdays = buildTrackerItems(allPeople, 'birthdays', 366);
+  const allAnniversaries = buildTrackerItems(anniversaryPeople, 'anniversaries', 366);
   const todayBirthdays = [
     ...extractTodayItems(leadershipBirthdaysToday, 'birthdays', 'leadership'),
     ...extractTodayItems(memberBirthdaysToday, 'birthdays', 'members'),
     ...extractTodayItems(workforceBirthdaysToday, 'birthdays', 'workforce'),
   ];
-  const todayAnniversaries = extractTodayItems(leadershipAnniversariesToday, 'anniversaries', 'leadership');
+  const todayAnniversaries = [
+    ...extractTodayItems(leadershipAnniversariesToday, 'anniversaries', 'leadership'),
+    ...upcomingAnniversaries.filter((item) => item.segment === 'workforce' && item.daysUntil === 0),
+  ];
 
   const baseData = {
     leadership,
@@ -749,6 +788,8 @@ export async function loadOverviewData(): Promise<DashboardData> {
     anniversaryMonths,
     upcomingBirthdays,
     upcomingAnniversaries,
+    allBirthdays,
+    allAnniversaries,
     todayBirthdays: todayBirthdays.length > 0 ? todayBirthdays : upcomingBirthdays.filter((item) => item.daysUntil === 0),
     todayAnniversaries: todayAnniversaries.length > 0 ? todayAnniversaries : upcomingAnniversaries.filter((item) => item.daysUntil === 0),
     endpointHealth: [
