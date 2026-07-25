@@ -159,6 +159,117 @@ const TEMPLATE_PRESETS = [
     ),
     text: `Hello {{ .FirstName }},\n\nThank you for recently connecting with The Wisdom Church. We look forward to staying in touch with you.\n\nWith love,\nThe Wisdom Church Team\n\nUnsubscribe: {{ .UnsubscribeURL }}`,
   },
+  {
+    id: 'service-invite',
+    label: 'Service Invite',
+    subject: 'An Invitation for This Sunday',
+    html: `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_COLOR_GROUND};"><tr><td align="center" style="padding:40px 16px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background:${EMAIL_COLOR_PAPER};border:1px solid ${EMAIL_COLOR_LINE};font-family:${EMAIL_FONT_STACK};">
+<tr><td style="height:3px;line-height:3px;font-size:0;background:${EMAIL_COLOR_ACCENT};">&nbsp;</td></tr>
+<tr><td style="padding:36px 40px 28px;">${EMAIL_BRAND_HEADER}</td></tr>
+<tr><td style="padding:0 40px;"><div style="border-top:1px solid ${EMAIL_COLOR_LINE};"></div></td></tr>
+
+<!-- Greeting -->
+<tr><td style="padding:32px 40px 8px;font-family:${EMAIL_FONT_STACK};color:${EMAIL_COLOR_BODY};font-size:15px;line-height:1.7;">
+<p style="margin:0;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${EMAIL_COLOR_ACCENT};">An invitation for this Sunday</p>
+<h1 style="margin:8px 0 20px;color:${EMAIL_COLOR_INK};font-size:24px;line-height:1.3;font-weight:800;">Service Title Here</h1>
+<p style="margin:0 0 16px;">Dear {{ .FirstName }},</p>
+<p style="margin:0;">Write a short, warm invitation here — what this Sunday's service is about, and why it matters to come expectant.</p>
+</td></tr>
+
+<!-- Scripture pull quote -->
+<tr><td style="padding:22px 40px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7F5EF;border-left:3px solid ${EMAIL_COLOR_ACCENT};"><tr><td style="padding:18px 22px;font-family:${EMAIL_FONT_STACK};">
+<p style="margin:0;font-size:14.5px;font-style:italic;line-height:1.6;color:${EMAIL_COLOR_INK};">&ldquo;Scripture reference here.&rdquo;<br /><span style="font-style:normal;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:${EMAIL_COLOR_ACCENT};">Book Chapter:Verse</span></p>
+</td></tr></table>
+</td></tr>
+
+<tr><td style="padding:28px 40px 0;"><div style="border-top:1px solid ${EMAIL_COLOR_LINE};"></div></td></tr>
+
+<!-- Section label -->
+<tr><td style="padding:24px 40px 4px;font-family:${EMAIL_FONT_STACK};">
+<p style="margin:0;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${EMAIL_COLOR_ACCENT};">Quick preparation checklist</p>
+</td></tr>
+
+<!-- Checklist item 1 -->
+<tr><td style="padding:20px 40px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+<td width="40" valign="top"><div style="width:28px;height:28px;border-radius:50%;background:${EMAIL_COLOR_ACCENT};color:${EMAIL_COLOR_PAPER};font-family:${EMAIL_FONT_STACK};font-size:13px;font-weight:700;text-align:center;line-height:28px;">1</div></td>
+<td valign="top" style="font-family:${EMAIL_FONT_STACK};">
+<p style="margin:0 0 2px;font-size:14.5px;font-weight:700;color:${EMAIL_COLOR_INK};">Prepare your heart.</p>
+<p style="margin:0;font-size:14.5px;line-height:1.7;color:${EMAIL_COLOR_MUTED};">Pray with expectation and come ready to yield to the Holy Spirit.</p>
+</td></tr></table>
+</td></tr>
+
+<!-- Checklist item 2 -->
+<tr><td style="padding:18px 40px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+<td width="40" valign="top"><div style="width:28px;height:28px;border-radius:50%;background:${EMAIL_COLOR_ACCENT};color:${EMAIL_COLOR_PAPER};font-family:${EMAIL_FONT_STACK};font-size:13px;font-weight:700;text-align:center;line-height:28px;">2</div></td>
+<td valign="top" style="font-family:${EMAIL_FONT_STACK};">
+<p style="margin:0 0 2px;font-size:14.5px;font-weight:700;color:${EMAIL_COLOR_INK};">Come prepared to receive.</p>
+<p style="margin:0;font-size:14.5px;line-height:1.7;color:${EMAIL_COLOR_MUTED};">Bring your notebook, pen, and a heart open to divine instructions.</p>
+</td></tr></table>
+</td></tr>
+
+<!-- Checklist item 3 -->
+<tr><td style="padding:18px 40px 28px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+<td width="40" valign="top"><div style="width:28px;height:28px;border-radius:50%;background:${EMAIL_COLOR_ACCENT};color:${EMAIL_COLOR_PAPER};font-family:${EMAIL_FONT_STACK};font-size:13px;font-weight:700;text-align:center;line-height:28px;">3</div></td>
+<td valign="top" style="font-family:${EMAIL_FONT_STACK};">
+<p style="margin:0 0 2px;font-size:14.5px;font-weight:700;color:${EMAIL_COLOR_INK};">Bring someone along.</p>
+<p style="margin:0;font-size:14.5px;line-height:1.7;color:${EMAIL_COLOR_MUTED};">Don't come alone &mdash; share this invitation with someone who needs a divine turnaround.</p>
+</td></tr></table>
+</td></tr>
+
+<tr><td style="padding:0 40px;"><div style="border-top:1px solid ${EMAIL_COLOR_LINE};"></div></td></tr>
+
+<!-- Join us: event details -->
+<tr><td style="padding:24px 40px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_COLOR_INK};border-radius:8px;">
+<tr><td style="padding:24px 26px;">
+<p style="margin:0 0 14px;font-family:${EMAIL_FONT_STACK};font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#C9A24A;">Join us</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+<td valign="top" style="padding-bottom:12px;font-family:${EMAIL_FONT_STACK};">
+<p style="margin:0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:${EMAIL_COLOR_FAINT};">Time</p>
+<p style="margin:2px 0 0;font-size:17px;font-weight:800;color:${EMAIL_COLOR_PAPER};">9:00 AM &nbsp;&middot;&nbsp; This Sunday</p>
+</td>
+</tr>
+<tr><td style="padding-top:4px;font-family:${EMAIL_FONT_STACK};">
+<p style="margin:0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:${EMAIL_COLOR_FAINT};">Venue</p>
+<p style="margin:2px 0 0;font-size:15px;font-weight:600;line-height:1.5;color:${EMAIL_COLOR_PAPER};">Honour Gardens Event Center<br />Alasia, Lekki&ndash;Epe Expressway, Lagos</p>
+</td></tr>
+</table>
+</td></tr></table>
+</td></tr>
+
+<!-- Optional watch-live CTA — delete this block if there's no stream for this service. -->
+<tr><td style="padding:20px 40px 0;" align="center">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:8px;background:${EMAIL_COLOR_ACCENT};">
+<a href="{{ .YouTubeLink }}" style="display:inline-block;padding:16px 40px;font-family:${EMAIL_FONT_STACK};font-size:15px;font-weight:700;letter-spacing:.02em;color:${EMAIL_COLOR_PAPER};text-decoration:none;border-radius:8px;text-transform:uppercase;">&#9654; Join Us Live on YouTube</a>
+</td></tr></table>
+</td></tr>
+
+<!-- Sign-off -->
+<tr><td style="padding:28px 40px 32px;font-family:${EMAIL_FONT_STACK};color:${EMAIL_COLOR_BODY};font-size:15px;line-height:1.7;">
+<p style="margin:0;">We can't wait to fellowship with you and experience the power of God together.</p>
+<p style="margin:20px 0 0;">Blessings,<br /><strong>The Wisdom Church</strong></p>
+</td></tr>
+${EMAIL_FOOTER}
+</table>
+</td></tr></table>`,
+    text: `Dear {{ .FirstName }},
+
+You're invited to join us this Sunday at 9:00 AM at Honour Gardens Event Center, Alasia, Lekki-Epe Expressway, Lagos.
+
+Come expectant, bring a notebook, and bring someone along.
+
+Can't be there in person? Watch live: {{ .YouTubeLink }}
+
+Blessings,
+The Wisdom Church
+
+Unsubscribe: {{ .UnsubscribeURL }}`,
+  },
 ];
 
 const numberFormatter = new Intl.NumberFormat('en-US');
