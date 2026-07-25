@@ -226,13 +226,19 @@ function Drawer({
   onClose,
   onEdit,
   onDelete,
+  onApprove,
+  onReject,
   deleting,
+  approving,
 }: {
   worker: WorkforceMember;
   onClose: () => void;
   onEdit: (worker: WorkforceMember) => void;
   onDelete: (worker: WorkforceMember) => void;
+  onApprove: (worker: WorkforceMember) => void;
+  onReject: (worker: WorkforceMember) => void;
   deleting: boolean;
+  approving: boolean;
 }) {
   const birthday = formatDayMonth(worker.birthdayDay, worker.birthdayMonth);
   const anniversary = formatDayMonth(worker.anniversaryDay, worker.anniversaryMonth);
@@ -282,6 +288,16 @@ function Drawer({
           ) : null}
 
           <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--color-border-secondary)] pt-5">
+            {worker.status === 'pending' || worker.status === 'new' ? (
+              <>
+                <Button icon={<CheckCircle2 className="h-4 w-4" />} loading={approving} onClick={() => onApprove(worker)}>
+                  Approve
+                </Button>
+                <Button variant="outline" icon={<X className="h-4 w-4" />} loading={approving} onClick={() => onReject(worker)}>
+                  Reject
+                </Button>
+              </>
+            ) : null}
             <Button variant="outline" icon={<Edit3 className="h-4 w-4" />} onClick={() => onEdit(worker)}>
               Edit
             </Button>
@@ -380,9 +396,18 @@ function WorkforceEditModal({
           </label>
           <label className="space-y-2 text-sm font-semibold text-[var(--color-text-secondary)]">
             <span>Status</span>
-            <select value={draft.status} onChange={(event) => updateDraft({ status: event.target.value as WorkforceStatus })} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-bold text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]">
-              {(Object.keys(statusLabels) as WorkforceStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
-            </select>
+            {worker.status === 'pending' || worker.status === 'new' ? (
+              <>
+                <select disabled value={draft.status} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm font-bold text-[var(--color-text-tertiary)] outline-none">
+                  <option value={draft.status}>{statusLabels[draft.status]}</option>
+                </select>
+                <p className="text-xs font-normal text-[var(--color-text-tertiary)]">Use Approve or Reject to decide a pending registration — close this editor first.</p>
+              </>
+            ) : (
+              <select value={draft.status} onChange={(event) => updateDraft({ status: event.target.value as WorkforceStatus })} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-bold text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]">
+                {(['serving', 'not_serving'] as WorkforceStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
+              </select>
+            )}
           </label>
           <Input label="Birthday (DD/MM)" value={draft.birthday} onChange={(event) => updateDraft({ birthday: event.target.value })} />
           <Input label="Anniversary (DD/MM)" value={draft.anniversary} onChange={(event) => updateDraft({ anniversary: event.target.value })} />
@@ -424,6 +449,9 @@ function WorkforcePage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<WorkforceMember | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<WorkforceMember | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -623,6 +651,50 @@ function WorkforcePage() {
       toast.error(error instanceof Error ? error.message : 'Unable to update workforce profile');
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const approveWorker = async (item: WorkforceMember) => {
+    setApprovingId(item.id);
+    try {
+      const updated = await apiClient.approveWorkforce(item.id);
+      setWorkforce((prev) => prev.map((worker) => (worker.id === updated.id ? updated : worker)));
+      setSelectedWorker((prev) => (prev?.id === updated.id ? updated : prev));
+      toast.success(`${workerName(item)} is now serving`);
+    } catch (error) {
+      console.error('Failed to approve workforce registration:', error);
+      toast.error(error instanceof Error ? error.message : 'Unable to approve registration');
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const openRejectModal = (item: WorkforceMember) => {
+    setRejectTarget(item);
+    setRejectReason('');
+  };
+
+  const submitReject = async () => {
+    if (!rejectTarget) return;
+    const reason = rejectReason.trim();
+    if (!reason) {
+      toast.error('State a reason the applicant can see.');
+      return;
+    }
+
+    setApprovingId(rejectTarget.id);
+    try {
+      const updated = await apiClient.rejectWorkforceRegistration(rejectTarget.id, reason);
+      setWorkforce((prev) => prev.map((worker) => (worker.id === updated.id ? updated : worker)));
+      setSelectedWorker((prev) => (prev?.id === updated.id ? updated : prev));
+      setRejectTarget(null);
+      setRejectReason('');
+      toast.success('Registration rejected');
+    } catch (error) {
+      console.error('Failed to reject workforce registration:', error);
+      toast.error(error instanceof Error ? error.message : 'Unable to reject registration');
+    } finally {
+      setApprovingId(null);
     }
   };
 
@@ -863,8 +935,19 @@ function WorkforcePage() {
             ) : null}
             {!loading &&
               paginated.map((item) => {
+                const isPendingReview = item.status === 'pending' || item.status === 'new';
                 const rowActions = (
                   <>
+                    {isPendingReview ? (
+                      <>
+                        <Button size="sm" icon={<CheckCircle2 className="h-4 w-4" />} loading={approvingId === item.id} onClick={() => void approveWorker(item)}>
+                          Approve
+                        </Button>
+                        <Button size="sm" variant="outline" icon={<X className="h-4 w-4" />} loading={approvingId === item.id} onClick={() => openRejectModal(item)}>
+                          Reject
+                        </Button>
+                      </>
+                    ) : null}
                     <Button size="sm" variant="outline" onClick={() => setSelectedWorker(item)}>
                       View
                     </Button>
@@ -960,7 +1043,10 @@ function WorkforcePage() {
           onClose={() => setSelectedWorker(null)}
           onEdit={(worker) => setEditingWorker(worker)}
           onDelete={(worker) => openDeleteModal(worker)}
+          onApprove={(worker) => void approveWorker(worker)}
+          onReject={(worker) => openRejectModal(worker)}
           deleting={deletingId === selectedWorker.id}
+          approving={approvingId === selectedWorker.id}
         />
       ) : null}
       {editingWorker ? (
@@ -1036,6 +1122,69 @@ function WorkforcePage() {
           <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deletingId === deleteTarget?.id}>Cancel</Button>
           <Button variant="danger" loading={deletingId === deleteTarget?.id} icon={<Trash2 className="h-4 w-4" />} onClick={() => void submitDeleteRequest()}>
             Send request
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal open={Boolean(rejectTarget)} onClose={() => setRejectTarget(null)} size="lg" labelledBy="workforce-reject-title">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/95 px-6 py-5 backdrop-blur">
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl bg-amber-50 p-3 text-amber-600">
+              <X className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 id="workforce-reject-title" className="text-lg font-black tracking-tight text-[var(--color-text-primary)]">
+                Reject registration
+              </h2>
+              <p className="mt-0.5 text-sm text-[var(--color-text-tertiary)]">
+                The applicant is emailed this reason and their record is marked not serving.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setRejectTarget(null)}
+            disabled={approvingId === rejectTarget?.id}
+            className="rounded-2xl border border-[var(--color-border-primary)] p-2 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)] disabled:opacity-50"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="max-h-[75vh] overflow-y-auto px-6 py-5">
+          {rejectTarget ? (
+            <div className="flex items-center gap-4 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-primary)] text-base font-black text-[var(--color-background-primary)]">
+                {initials(rejectTarget)}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-base font-black text-[var(--color-text-primary)]">{workerName(rejectTarget)}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-[var(--color-text-tertiary)]">
+                  <span>{rejectTarget.department || 'Unassigned department'}</span>
+                  {rejectTarget.email ? <span>{rejectTarget.email}</span> : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <label htmlFor="workforce-reject-reason" className="mt-5 block text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
+            Reason for rejection
+          </label>
+          <textarea
+            id="workforce-reject-reason"
+            value={rejectReason}
+            onChange={(event) => setRejectReason(event.target.value)}
+            rows={6}
+            placeholder="Why isn't this application being approved right now? e.g. department is full, incomplete details, duplicate application..."
+            className="mt-2 w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-border-focus)]"
+          />
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-[var(--color-border-secondary)] px-6 py-4">
+          <Button variant="outline" onClick={() => setRejectTarget(null)} disabled={approvingId === rejectTarget?.id}>Cancel</Button>
+          <Button variant="danger" loading={approvingId === rejectTarget?.id} icon={<X className="h-4 w-4" />} onClick={() => void submitReject()}>
+            Reject registration
           </Button>
         </div>
       </Modal>

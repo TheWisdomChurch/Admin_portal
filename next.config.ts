@@ -31,6 +31,9 @@ function buildCsp() {
     connectSrc.push(CONNECT_ORIGIN);
   }
 
+  // The Cloudflare beacon script reports its own telemetry via fetch/XHR.
+  connectSrc.push('https://static.cloudflareinsights.com', 'https://cloudflareinsights.com');
+
   if (!isProd) {
     connectSrc.push('ws:', 'wss:');
   }
@@ -43,7 +46,11 @@ function buildCsp() {
     "img-src 'self' data: blob: https:",
     "font-src 'self' data: https:",
     "style-src 'self' 'unsafe-inline'",
-    `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"}`,
+    // static.cloudflareinsights.com is Cloudflare's own Web Analytics beacon,
+    // auto-injected at the edge since this site is proxied through
+    // Cloudflare — not something the app controls, so it needs an explicit
+    // allowance or every page load logs a CSP violation for it.
+    `script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com${isProd ? '' : " 'unsafe-eval'"}`,
     `connect-src ${connectSrc.join(' ')}`,
     ...(isProd ? ['upgrade-insecure-requests'] : []),
   ].join('; ');
