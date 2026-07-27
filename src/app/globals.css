@@ -219,6 +219,31 @@
   --color-info-text: var(--sky-400);
 }
 
+/* Public registration is intentionally light regardless of an administrator's
+   saved dashboard theme. This also keeps shared modals and buttons consistent
+   with the public form rather than inheriting the portal's dark tokens. */
+.public-form-light {
+  color-scheme: light;
+  --color-background-primary: #ffffff;
+  --color-background-secondary: var(--stone-50);
+  --color-background-tertiary: var(--stone-100);
+  --color-background-hover: var(--stone-100);
+  --color-background-active: var(--stone-200);
+  --color-text-primary: var(--stone-950);
+  --color-text-secondary: var(--stone-700);
+  --color-text-tertiary: var(--stone-500);
+  --color-text-inverse: #ffffff;
+  --color-text-onprimary: var(--stone-950);
+  --color-border-primary: var(--stone-200);
+  --color-border-secondary: var(--stone-300);
+  --color-border-focus: var(--brand-600);
+  --color-accent-primary: var(--brand-600);
+  --color-accent-primaryhover: var(--brand-700);
+  --color-accent-primaryactive: var(--brand-800);
+  --color-accent-success: var(--green-600);
+  --color-danger-text: var(--red-700);
+}
+
 body {
   margin: 0;
   padding: 0;

@@ -232,7 +232,7 @@ const renderStructuredLines = (value: string) => {
 
 function StepButton({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={`rounded-2xl px-4 py-2 text-sm font-black transition ${active ? 'bg-[var(--color-text-primary)] text-[var(--color-text-inverse)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]'}`}>
+    <button type="button" onClick={onClick} aria-current={active ? 'step' : undefined} className={`shrink-0 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition ${active ? 'bg-[var(--color-accent-primary)] text-[var(--color-text-onprimary)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]'}`}>
       {children}
     </button>
   );
@@ -670,17 +670,17 @@ export default withAuth(function NewFormPage() {
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] p-6 text-[var(--color-text-inverse)] shadow-xl">
+      <section className="overflow-hidden rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-[var(--color-background-primary)] to-[var(--color-background-secondary)] p-5 text-[var(--color-text-primary)] shadow-sm sm:p-7">
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px] xl:items-end">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/65"><LayoutTemplate className="h-4 w-4" />Form publishing studio</div>
-            <h1 className="mt-4 max-w-4xl text-3xl font-black tracking-tight sm:text-4xl">Design the form, route the submission, preview the public experience, then publish.</h1>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--color-text-inverse)]/65">The builder keeps advanced form settings intact while making the workflow clearer.</p>
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-100/70 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-amber-800"><LayoutTemplate className="h-4 w-4" />Form publishing studio</div>
+            <h1 className="mt-4 max-w-4xl text-2xl font-bold tracking-tight sm:text-3xl">Build, review, and publish your form.</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--color-text-secondary)]">Configure the essentials, add fields, check the public experience, and publish when everything is ready.</p>
           </div>
-          <div className="rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-4 backdrop-blur">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-inverse)]/50">Public link preview</p>
-            <p className="mt-2 break-all text-sm font-bold text-[var(--color-text-inverse)]/75">/forms/{normalizeSlug(slug || title || 'your-link')}</p>
-            <p className="mt-2 text-xs font-semibold text-[var(--color-text-inverse)]/45">{fields.length} fields configured · {responseEmailEnabled ? 'Response email on' : 'Response email off'}</p>
+          <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Public link preview</p>
+            <p className="mt-2 break-all font-mono text-sm font-semibold text-[var(--color-text-primary)]">/forms/{normalizeSlug(slug || title || 'your-link')}</p>
+            <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">{fields.length} fields configured · {responseEmailEnabled ? 'Response email on' : 'Response email off'}</p>
           </div>
         </div>
       </section>
@@ -837,7 +837,7 @@ export default withAuth(function NewFormPage() {
             <div className="space-y-4">
               <Input label="Header image URL" value={coverImageUrl} onChange={(event) => setCoverImageUrl(event.target.value)} placeholder="https://..." />
               <Input label="Or upload header image" type="file" accept="image/*" onChange={(event) => handleBannerFile(event.target.files?.[0])} />
-              {(bannerPreview || coverImageUrl.trim()) ? <Image src={bannerPreview || coverImageUrl.trim()} alt="Banner preview" width={1200} height={400} className="max-h-64 w-full rounded-3xl border border-[var(--color-border-secondary)] object-cover" unoptimized /> : <div className="rounded-3xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-8 text-center text-sm font-bold text-[var(--color-text-tertiary)]">No header image selected.</div>}
+              {(bannerPreview || coverImageUrl.trim()) ? <div className="flex aspect-[16/7] w-full items-center justify-center overflow-hidden rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3"><Image src={bannerPreview || coverImageUrl.trim()} alt="Header artwork preview" width={1200} height={525} className="h-full w-full object-contain" unoptimized /></div> : <div className="rounded-2xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-8 text-center text-sm font-semibold text-[var(--color-text-tertiary)]">No header image selected.</div>}
               <Input label="Success modal title" value={successTitle} onChange={(event) => setSuccessTitle(event.target.value)} placeholder="Thank you for registering" />
               <Input label="Success modal subtitle" value={successSubtitle} onChange={(event) => setSuccessSubtitle(event.target.value)} placeholder="for {{formTitle}}" />
               <label className="grid gap-1.5"><span className="text-sm font-bold text-[var(--color-text-secondary)]">Success modal message</span><textarea className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold leading-7 text-[var(--color-text-primary)] outline-none" rows={3} value={successMessage} onChange={(event) => setSuccessMessage(event.target.value)} /></label>

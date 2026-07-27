@@ -725,7 +725,7 @@ function EditFormPage() {
               alt="Banner preview"
               width={1200}
               height={400}
-              className="max-h-64 w-full rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] object-cover"
+              className="aspect-[16/7] h-auto w-full rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] object-contain p-3"
               unoptimized
             />
           )}

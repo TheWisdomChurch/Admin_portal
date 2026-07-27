@@ -220,7 +220,7 @@ export function FieldEditor({ field, index, allFields, onChange, onRemove }: Fie
           </div>
           <div className="space-y-2">
             {options.map((option, optionIndex) => (
-              <div key={`${field.key || index}-option-${optionIndex}`} className="flex items-center gap-2">
+              <div key={`${field.key || index}-option-${optionIndex}`} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                 <Input value={option.label} onChange={(event) => updateOptionLabel(optionIndex, event.target.value)} placeholder={`Option ${optionIndex + 1}`} />
                 <Button
                   type="button"
@@ -230,7 +230,7 @@ export function FieldEditor({ field, index, allFields, onChange, onRemove }: Fie
                   disabled={options.length <= 1}
                   icon={<Trash2 className="h-4 w-4" />}
                 >
-                  Remove
+                  Remove option
                 </Button>
               </div>
             ))}
