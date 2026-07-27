@@ -28,6 +28,7 @@ export type DashboardSnapshot = {
   storeProducts: StoreProductAdmin[];
   storeOrders: StoreOrdersPaginated | null;
   auditLogs: AuditLogRecord[];
+  failedSources: string[];
 };
 
 async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
@@ -57,6 +58,20 @@ async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
     apiClient.listAuditLogs({ page: 1, limit: 50 }),
   ]);
 
+  const results = [
+    ['analytics', analyticsResult],
+    ['decision insights', decisionInsightsResult],
+    ['events', eventsResult],
+    ['forms', formStatsResult],
+    ['email marketing', marketingResult],
+    ['members', memberStatsResult],
+    ['new members', newMembersResult],
+    ['workforce', workforceStatsResult],
+    ['store products', storeProductsResult],
+    ['store orders', storeOrdersResult],
+    ['audit log', auditLogsResult],
+  ] as const;
+
   return {
     analytics: analyticsResult.status === 'fulfilled' ? analyticsResult.value : null,
     decisionInsights: decisionInsightsResult.status === 'fulfilled' ? decisionInsightsResult.value : null,
@@ -70,6 +85,7 @@ async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
     storeProducts: storeProductsResult.status === 'fulfilled' ? storeProductsResult.value : [],
     storeOrders: storeOrdersResult.status === 'fulfilled' ? storeOrdersResult.value : null,
     auditLogs: auditLogsResult.status === 'fulfilled' && Array.isArray(auditLogsResult.value) ? auditLogsResult.value : [],
+    failedSources: results.filter(([, result]) => result.status === 'rejected').map(([source]) => source),
   };
 }
 

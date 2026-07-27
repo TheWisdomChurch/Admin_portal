@@ -43,8 +43,8 @@ export function buildExecutiveReportCsv({ period, analytics, requests }: Executi
     ['Event category', 'Events'],
     ...Object.entries(analytics?.eventsByCategory ?? {}).map(([category, count]) => [readable(category), count]),
     [],
-    ['Month', 'Events', 'Registrations'],
-    ...(analytics?.monthlyStats ?? []).map((row) => [row.month, row.events, row.attendees]),
+    ['Month', 'Events'],
+    ...(analytics?.monthlyStats ?? []).map((row) => [row.month, row.count]),
     [],
     ['Reference', 'Request type', 'Status', 'Subject', 'Requested by', 'Created'],
     ...requests.map((request) => [
@@ -154,9 +154,9 @@ export async function downloadExecutiveReportPdf({ period, analytics, requests }
   y += 34;
 
   heading('Monthly performance');
-  tableRow(['Month', 'Events', 'Registrations'], [80, 45, 49], true);
-  if ((analytics?.monthlyStats.length ?? 0) === 0) tableRow(['No monthly performance data available.', '', ''], [80, 45, 49]);
-  analytics?.monthlyStats.forEach((row) => tableRow([row.month, String(row.events), String(row.attendees)], [80, 45, 49]));
+  tableRow(['Month', 'Events'], [100, 74], true);
+  if ((analytics?.monthlyStats.length ?? 0) === 0) tableRow(['No monthly performance data available.', ''], [100, 74]);
+  analytics?.monthlyStats.forEach((row) => tableRow([row.month, String(row.count)], [100, 74]));
   y += 8;
 
   heading('Governance requests');

@@ -200,12 +200,12 @@ function DashboardPage() {
 
   const insights = useMemo(() => (data ? buildInsights(data) : []), [data]);
 
-  const totalMembers = numberValue((data?.memberStats as RawRecord | null)?.total);
-  const activeMembers = numberValue((data?.memberStats as RawRecord | null)?.active);
+  const totalMembers = numberValue((data?.memberStats as RawRecord | null)?.total ?? data?.analytics?.operations.totalMembers);
+  const activeMembers = numberValue((data?.memberStats as RawRecord | null)?.active ?? data?.analytics?.operations.activeMembers);
   const upcomingEventCount = numberValue((data?.analytics as RawRecord | null)?.upcomingEvents);
-  const totalSubmissions = numberValue((data?.formStats as RawRecord | null)?.totalSubmissions);
-  const workforceServing = numberValue(asRecord((data?.workforceStats as RawRecord | null)?.byStatus).serving);
-  const workforceTotal = numberValue((data?.workforceStats as RawRecord | null)?.total);
+  const totalSubmissions = numberValue((data?.formStats as RawRecord | null)?.totalSubmissions ?? data?.analytics?.operations.totalSubmissions);
+  const workforceServing = numberValue(asRecord((data?.workforceStats as RawRecord | null)?.byStatus).serving ?? data?.analytics?.operations.servingWorkforce);
+  const workforceTotal = numberValue((data?.workforceStats as RawRecord | null)?.total ?? data?.analytics?.operations.totalWorkforce);
 
   const kpis = [
     {
@@ -262,6 +262,12 @@ function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {data?.failedSources.length ? (
+        <Panel className="border-[var(--color-warning-border)] bg-[var(--color-warning-surface)]">
+          <p className="text-sm font-semibold text-[var(--color-warning-text)]">Some live data could not be loaded: {data.failedSources.join(', ')}. Available metrics are shown; refresh to retry.</p>
+        </Panel>
+      ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((kpi) => (

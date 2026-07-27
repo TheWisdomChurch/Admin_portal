@@ -105,7 +105,7 @@ const communication: NavGroup = {
     { href: '/dashboard/email-marketing', label: 'Email Marketing', description: 'Targeted campaigns', icon: Mail },
     { href: '/dashboard/newsletter', label: 'Newsletter', description: 'Subscribers and sends', icon: Mail },
     { href: '/dashboard/notifications', label: 'Notifications', description: 'Inbox and alerts', icon: BellRing },
-    { href: '/dashboard/prayer-requests', label: 'Prayer Requests', description: 'Pastoral triage and follow-up', icon: HandHeart },
+    { href: '/dashboard/prayer-requests', label: 'Prayer Requests', description: 'Pastoral triage and follow-up', icon: HandHeart, roles: ['super_admin'] },
     { href: '/dashboard/contact-messages', label: 'Contact Messages', description: 'Public contact form inbox', icon: MessageCircle },
     { href: '/dashboard/settings', label: 'Settings', description: 'Portal preferences', icon: Settings },
   ],

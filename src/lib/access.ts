@@ -28,15 +28,16 @@ export const ADMIN_ONLY_PREFIXES = [
   '/dashboard/members',
   '/dashboard/analytics',
   '/dashboard/reports',
-  '/dashboard/prayer-requests',
   '/dashboard/cell-groups',
   '/dashboard/ministries',
   '/dashboard/attendance',
   '/dashboard/giving',
 ] as const;
 
+const SUPER_ADMIN_ONLY_PREFIXES = ['/dashboard/super', '/dashboard/prayer-requests'] as const;
+
 export function isSuperAdminPath(pathname: string): boolean {
-  return pathname === '/dashboard/super' || pathname.startsWith('/dashboard/super/');
+  return SUPER_ADMIN_ONLY_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
 export function isAdminOnlyPath(pathname: string): boolean {

@@ -201,8 +201,7 @@ function ReportsPage() {
                 monthlyRows.map((row) => (
                   <div key={row.month} className="grid gap-2 px-4 py-4 text-sm md:grid-cols-3 md:items-center">
                     <div className="font-black text-[var(--color-text-primary)]">{row.month}</div>
-                    <div className="text-[var(--color-text-secondary)]">{formatNumber(row.events)}</div>
-                    <div className="text-[var(--color-text-secondary)]">{formatNumber(row.attendees)}</div>
+                    <div className="text-[var(--color-text-secondary)]">{formatNumber(row.count)}</div>
                   </div>
                 ))
               )}

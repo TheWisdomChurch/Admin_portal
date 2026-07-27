@@ -191,16 +191,9 @@ export default function SuperDashboard() {
       datasets: [
         {
           label: 'Events',
-          data: analytics?.monthlyStats?.map((row) => row.events) ?? [],
+          data: analytics?.monthlyStats?.map((row) => row.count) ?? [],
           backgroundColor: chartPalette.series.blue.fill,
           borderColor: chartPalette.series.blue.line,
-          borderWidth: 1,
-        },
-        {
-          label: 'Attendees',
-          data: analytics?.monthlyStats?.map((row) => row.attendees) ?? [],
-          backgroundColor: chartPalette.series.emerald.fill,
-          borderColor: chartPalette.series.emerald.line,
           borderWidth: 1,
         },
       ],
