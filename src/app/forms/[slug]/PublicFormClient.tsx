@@ -28,9 +28,9 @@ type ContentSectionView = { title: string; subtitle: string; items: string[]; it
 type PublicFormClientProps = { slug: string };
 
 const fieldInputClass =
-  'w-full rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3.5 py-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-accent-primary)] focus:ring-4 focus:ring-[var(--color-accent-primary)]/15';
+  'w-full min-h-12 rounded-xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-900 shadow-sm outline-none transition placeholder:text-stone-400 hover:border-stone-400 focus:border-amber-600 focus:ring-4 focus:ring-amber-100 disabled:cursor-not-allowed disabled:bg-stone-100 sm:text-sm';
 const choiceRowClass =
-  'flex items-start gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3 text-sm text-[var(--color-text-secondary)]';
+  'flex cursor-pointer items-start gap-3 rounded-xl border border-stone-200 bg-white p-3.5 text-sm text-stone-700 transition hover:border-amber-300 hover:bg-amber-50/50 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50';
 
 const MB = 1024 * 1024;
 const FETCH_TIMEOUT_MS = 12_000;
@@ -739,72 +739,73 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const successDescription = applyTemplate(settings?.successMessage || 'We would love to see you.', tokenSource);
 
   return (
-    <div className="min-h-screen bg-[var(--color-background-secondary)] text-[var(--color-text-primary)]">
-      <header className="border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-950 [color-scheme:light]">
+      <header className="border-b border-stone-200/80 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
           <Link href={siteHomeUrl} className="flex min-w-0 items-center gap-3" prefetch={false}>
-            <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]"><Image src={siteLogoSrc} alt={`${siteName} logo`} fill className="object-cover" sizes="44px" /></span>
-            <span className="min-w-0 leading-tight"><span className="block truncate text-sm font-black text-[var(--color-text-primary)]">{siteName}</span><span className="block truncate text-xs text-[var(--color-text-tertiary)]">{siteSubtitle}</span></span>
+            <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-stone-200 bg-white sm:h-11 sm:w-11"><Image src={siteLogoSrc} alt={`${siteName} logo`} fill className="object-cover" sizes="44px" /></span>
+            <span className="min-w-0 leading-tight"><span className="block truncate text-sm font-bold text-stone-950 sm:text-base">{siteName}</span><span className="hidden truncate text-xs text-stone-500 sm:block">{siteSubtitle}</span></span>
           </Link>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-secondary)]">
-            <Link href={siteHomeUrl} className="rounded-full px-3 py-1 transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)]" prefetch={false}>Home</Link>
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1 shadow-sm"><ShieldCheck className="h-3.5 w-3.5" /> Secure form</span>
+          <div className="flex items-center gap-1.5 text-xs text-stone-600 sm:gap-3">
+            <Link href={siteHomeUrl} className="hidden rounded-lg px-3 py-2 font-medium transition hover:bg-stone-100 hover:text-stone-950 sm:inline-flex" prefetch={false}>Home</Link>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 font-semibold text-emerald-800 sm:px-3"><ShieldCheck className="h-3.5 w-3.5" /> Secure form</span>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <section className="overflow-hidden rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
-          {bannerUrl ? <div className="relative h-52 sm:h-72 lg:h-80"><Image src={bannerUrl} alt={eventTitle} fill className="object-cover" sizes="100vw" priority /></div> : null}
-          <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="p-6 sm:p-8">
-              <span className="inline-flex rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1 text-xs font-black tracking-[0.18em] text-[var(--color-text-secondary)]">{formTypeLabel}</span>
-              <h1 className="mt-4 break-words text-3xl font-black uppercase tracking-tight text-[var(--color-text-primary)] sm:text-4xl">{formTitle}</h1>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--color-text-secondary)]">{payload.form.description?.trim() || payload.event?.shortDescription?.trim() || 'Complete the form with accurate details so your registration can be processed correctly.'}</p>
-              {isClosed ? <div className="mt-5 rounded-2xl border border-[var(--color-danger-border)] bg-[var(--color-danger-surface)] px-4 py-3 text-sm text-[var(--color-danger-text)]">Registration is closed for this form.</div> : null}
-            </div>
-            <div className="border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-6 lg:border-l lg:border-t-0">
-              <div className="rounded-3xl bg-[var(--color-background-primary)] p-5 shadow-sm">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Form status</p>
-                <p className="mt-3 text-2xl font-black text-[var(--color-text-primary)]">{isClosed ? 'Closed' : 'Open'}</p>
-                <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{isClosed ? 'Submissions are no longer being accepted.' : 'Submissions are currently being accepted.'}</p>
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8 lg:py-14">
+        <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_18px_50px_-36px_rgba(28,25,23,0.45)] sm:rounded-3xl">
+          {bannerUrl ? <div className="relative h-44 sm:h-64 lg:h-72"><Image src={bannerUrl} alt={eventTitle} fill className="object-cover" sizes="(max-width: 1152px) 100vw, 1152px" priority /><div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" /></div> : <div className="h-2 bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-600" />}
+          <div className="p-5 sm:p-8 lg:p-10">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+              <div className="max-w-3xl">
+                <span className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold tracking-[0.16em] text-amber-800 ring-1 ring-inset ring-amber-200">{formTypeLabel}</span>
+                <h1 className="mt-4 break-words text-3xl font-bold tracking-[-0.035em] text-stone-950 sm:text-4xl lg:text-5xl">{formTitle}</h1>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600 sm:text-base sm:leading-7">{payload.form.description?.trim() || payload.event?.shortDescription?.trim() || 'Complete the form with accurate details so your registration can be processed correctly.'}</p>
               </div>
+              <span className={`inline-flex w-fit shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold ${isClosed ? 'bg-red-50 text-red-700 ring-1 ring-red-200' : 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200'}`}><span className={`h-2 w-2 rounded-full ${isClosed ? 'bg-red-500' : 'bg-emerald-500'}`} />{isClosed ? 'Submissions closed' : 'Accepting responses'}</span>
             </div>
+            {isClosed ? <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Registration is closed for this form.</div> : null}
           </div>
         </section>
 
-        <div className={showDetailsColumn && layoutMode === 'split' ? 'mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]' : 'mt-8 space-y-8'}>
-          <div>
-            <Card className="rounded-[2rem] border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm sm:p-7">
-              {settings?.formHeaderNote ? <p className="mb-5 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">{settings.formHeaderNote}</p> : null}
-              <div className="space-y-5">
+        <div className={showDetailsColumn && layoutMode === 'split' ? 'mt-6 grid items-start gap-6 lg:mt-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-8' : 'mx-auto mt-6 max-w-3xl space-y-6 lg:mt-8'}>
+          <div className={showDetailsColumn && layoutMode === 'split' ? 'min-w-0' : ''}>
+            <Card className="rounded-2xl border-stone-200 bg-white p-5 shadow-[0_18px_50px_-40px_rgba(28,25,23,0.45)] sm:rounded-3xl sm:p-8" contentClassName="p-0">
+              <div className="mb-7 border-b border-stone-200 pb-5">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-700">Your information</p>
+                <h2 className="mt-2 text-xl font-bold text-stone-950 sm:text-2xl">Please complete the form below</h2>
+                <p className="mt-2 text-sm leading-6 text-stone-500"><span className="font-semibold text-red-600">*</span> indicates a required field.</p>
+              </div>
+              {settings?.formHeaderNote ? <p className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">{settings.formHeaderNote}</p> : null}
+              <div className="space-y-6">
                 {visibleFields.map((field) => {
                   const type = normalizeFieldType(field.type);
                   const showLabel = !isCheckboxType(type) || (Array.isArray(field.options) && field.options.length > 0);
                   return (
-                    <div key={field.key} className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]/60 p-4 transition focus-within:border-[var(--color-accent-primary)] focus-within:bg-[var(--color-background-primary)]">
-                      {showLabel ? <label className="mb-2 block text-sm font-black text-[var(--color-text-primary)]">{field.label} {field.required ? <span className="text-[var(--color-danger-text)]">*</span> : null}</label> : null}
+                    <div key={field.key}>
+                      {showLabel ? <label className="mb-2 block text-sm font-semibold text-stone-800">{field.label} {field.required ? <span className="text-red-600" aria-label="required">*</span> : <span className="font-normal text-stone-400">(optional)</span>}</label> : null}
                       <FieldInput field={field} value={values[field.key]} onChange={(next) => updateFieldValue(field, next)} />
-                      {fieldErrors[field.key] && touchedFields[field.key] ? <p className="mt-2 text-xs font-semibold text-[var(--color-danger-text)]">{fieldErrors[field.key]}</p> : null}
+                      {fieldErrors[field.key] && touchedFields[field.key] ? <p className="mt-2 text-xs font-semibold text-red-600" role="alert">{fieldErrors[field.key]}</p> : null}
                     </div>
                   );
                 })}
               </div>
-              <div className="mt-6">
-                {formError ? <div className="mb-3 rounded-2xl border border-[var(--color-danger-border)] bg-[var(--color-danger-surface)] px-4 py-3 text-sm text-[var(--color-danger-text)]">{formError}</div> : null}
-                <Button className="w-full" loading={submitting} disabled={submitting || isClosed} onClick={submit} icon={submitting ? undefined : submitButtonIcon}>{submitting ? 'Submitting securely...' : submitButtonLabel}</Button>
-                <p className="mt-3 text-center text-xs leading-5 text-[var(--color-text-tertiary)]">{privacyCopy}</p>
+              <div className="mt-8 border-t border-stone-200 pt-6">
+                {formError ? <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">{formError}</div> : null}
+                <Button className="min-h-12 w-full rounded-xl bg-amber-600 text-sm font-bold text-white shadow-sm hover:bg-amber-700 focus-visible:ring-amber-600 sm:w-auto sm:min-w-52" loading={submitting} disabled={submitting || isClosed} onClick={submit} icon={submitting ? undefined : submitButtonIcon}>{submitting ? 'Submitting securely...' : submitButtonLabel}</Button>
+                <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-stone-500"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />{privacyCopy}</p>
               </div>
             </Card>
           </div>
 
           {showDetailsColumn ? (
-            <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
+            <aside className="order-first space-y-4 lg:order-none lg:sticky lg:top-6 lg:self-start">
               {contentSections.map((section, index) => (
-                <Card key={`${section.title || 'section'}-${index}`} className="rounded-[2rem] border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
-                  {section.title ? <h2 className="break-words text-lg font-black text-[var(--color-text-primary)]">{section.title}</h2> : null}
-                  {section.subtitle ? <p className="mt-2 break-words text-sm leading-6 text-[var(--color-text-secondary)]">{section.subtitle}</p> : null}
-                  {section.items.length > 0 ? <ul className="mt-5 space-y-3">{section.items.map((item, idx) => <li key={`${item}-${idx}`} className="flex items-start gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3"><span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-primary)] text-xs font-black text-[var(--color-text-onprimary)]">{idx + 1}</span><span className="min-w-0"><span className="block break-words text-sm font-bold text-[var(--color-text-primary)]">{item}</span>{section.itemSubtexts[idx] ? <span className="mt-1 block break-words text-xs leading-5 text-[var(--color-text-tertiary)]">{section.itemSubtexts[idx]}</span> : null}</span></li>)}</ul> : null}
+                <Card key={`${section.title || 'section'}-${index}`} className="rounded-2xl border-stone-200 bg-white p-5 shadow-sm sm:p-6" contentClassName="p-0">
+                  {section.title ? <h2 className="break-words text-base font-bold text-stone-950">{section.title}</h2> : null}
+                  {section.subtitle ? <p className="mt-2 break-words text-sm leading-6 text-stone-600">{section.subtitle}</p> : null}
+                  {section.items.length > 0 ? <ul className="mt-5 space-y-4">{section.items.map((item, idx) => <li key={`${item}-${idx}`} className="flex items-start gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-800"><Check className="h-3.5 w-3.5" /></span><span className="min-w-0"><span className="block break-words text-sm font-semibold text-stone-800">{item}</span>{section.itemSubtexts[idx] ? <span className="mt-1 block break-words text-xs leading-5 text-stone-500">{section.itemSubtexts[idx]}</span> : null}</span></li>)}</ul> : null}
                 </Card>
               ))}
             </aside>
@@ -812,7 +813,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
         </div>
       </main>
 
-      <footer className="mx-auto max-w-7xl border-t border-[var(--color-border-secondary)] px-4 py-8 text-xs text-[var(--color-text-tertiary)] sm:px-6 lg:px-8">
+      <footer className="mx-auto max-w-6xl border-t border-stone-200 px-4 py-8 text-xs text-stone-500 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><span>{siteName}</span><span>© {new Date().getFullYear()} {siteName}. All rights reserved.</span></div>
       </footer>
 
