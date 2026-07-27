@@ -383,6 +383,45 @@ export interface DashboardAnalytics {
   monthlyStats: Array<{ month: string; events: number; attendees: number }>;
 }
 
+export interface DecisionInsights {
+  generatedAt: string;
+  window: {
+    currentStart: string;
+    currentEnd: string;
+    previousStart: string;
+    previousEnd: string;
+  };
+  core: {
+    totalEvents: number;
+    upcomingEvents: number;
+    totalMembers: number;
+    activeMembers: number;
+    totalWorkforce: number;
+    servingWorkforce: number;
+    submissionsCurrent30d: number;
+    submissionsPrevious30d: number;
+  };
+  signals: {
+    memberActivationRate: number;
+    volunteerCoverageRate: number;
+    upcomingEventLoadRate: number;
+    submissionDeltaPercent: number;
+    decisionReadinessScore: number;
+  };
+  recommendations: string[];
+}
+
+export interface AdminAuditLog {
+  id: string;
+  action?: string;
+  actor?: string;
+  resource?: string;
+  description?: string;
+  createdAt?: string;
+  created_at?: string;
+  status?: string;
+}
+
 export interface SecurityOverview {
   generatedAt: string;
   totalUsers: number;

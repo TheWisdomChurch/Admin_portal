@@ -73,26 +73,24 @@ export type ApprovalRequestsTimeline = {
 
 type JsonRecord = Record<string, unknown>;
 
-const RAW_API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
-const USE_API_PROXY = process.env.NEXT_PUBLIC_API_PROXY !== 'false';
 const DEFAULT_CSRF_HEADER = 'X-CSRF-Token';
 
 let csrfTokenCache: string | null = null;
 let csrfHeaderNameCache = DEFAULT_CSRF_HEADER;
 
-function normalizeOrigin(raw: string): string {
-  let base = raw.trim().replace(/\/+$/, '');
-  if (base.endsWith('/api/v1')) base = base.slice(0, -'/api/v1'.length);
-  return base;
-}
-
-const API_ORIGIN = RAW_API_ORIGIN ? normalizeOrigin(RAW_API_ORIGIN) : '';
-const API_V1_BASE_URL = USE_API_PROXY ? '/api/v1' : `${API_ORIGIN}/api/v1`;
+const API_V1_BASE_URL = '/api/v1';
 
 function apiUrl(path: string): string {
   const cleanPath = String(path || '').trim();
   if (!cleanPath) return API_V1_BASE_URL;
-  if (/^https?:\/\//i.test(cleanPath)) return cleanPath;
+  if (/^https?:\/\//i.test(cleanPath)) {
+    try {
+      const action = new URL(cleanPath);
+      return `${API_V1_BASE_URL}${action.pathname.replace(/^\/api\/v1/, '')}${action.search}`;
+    } catch {
+      return API_V1_BASE_URL;
+    }
+  }
 
   const normalized = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
   if (normalized === '/api/v1' || normalized.startsWith('/api/v1/')) return normalized;

@@ -40,6 +40,7 @@ services:
     environment:
       NODE_ENV: "production"
       PORT: "3000"
+      API_INTERNAL_URL: "${API_INTERNAL_URL:-http://wisdom_api:8080}"
     profiles:
       - prod
 

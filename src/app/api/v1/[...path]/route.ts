@@ -30,7 +30,10 @@ function getBackendBaseURL(): string {
     process.env.API_INTERNAL_URL ||
     process.env.BACKEND_INTERNAL_URL ||
     process.env.API_BASE_URL ||
+    process.env.API_PROXY_ORIGIN ||
     process.env.NEXT_PUBLIC_API_BASE_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
     'http://api:8080';
 
   return raw.trim().replace(/\/+$/, '').replace(/\/api\/v1$/i, '');
@@ -195,15 +198,12 @@ async function proxy(
     const responseHeaders = buildResponseHeaders(upstream.headers);
     const responseBody = await upstream.arrayBuffer();
 
-    if (upstream.status >= 400) {
-      const preview = new TextDecoder().decode(responseBody.slice(0, 2000));
-
+    if (upstream.status >= 500) {
       console.error('[admin-api-proxy] upstream returned error', {
         method,
-        targetURL,
+        path: request.nextUrl.pathname,
         status: upstream.status,
         statusText: upstream.statusText,
-        bodyPreview: preview,
       });
     }
 

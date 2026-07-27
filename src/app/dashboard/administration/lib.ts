@@ -100,7 +100,6 @@ export type DashboardData = {
   endpointHealth: Array<{ label: string; available: boolean; total: number; error?: string }>;
 };
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/+$/, '');
 export const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const TRACKING_WINDOW_DAYS = 45;
 export const PAGE_SIZE_OPTIONS = [8, 12, 20, 40];
@@ -129,7 +128,9 @@ export const segmentMeta: Record<SegmentKey, { label: string; description: strin
 
 function apiUrl(path: string): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return `${API_BASE}${normalizedPath}`;
+  return normalizedPath.startsWith('/api/v1/')
+    ? normalizedPath
+    : `/api/v1${normalizedPath}`;
 }
 
 async function readJson<T>(res: Response): Promise<T> {

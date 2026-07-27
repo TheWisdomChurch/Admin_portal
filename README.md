@@ -10,7 +10,9 @@ This repository is the **frontend only**. It's a Next.js (App Router) applicatio
 - Renders the entire admin UI (`src/app`, `src/components`, `src/ui`).
 - Acts as a thin proxy/BFF to a separate backend service — every request under
   `/api/v1/*` (`src/app/api/v1/[...path]/route.ts`) is forwarded to the real API
-  (`API_INTERNAL_URL` inside Docker, `NEXT_PUBLIC_API_URL` from the browser).
+  (`API_INTERNAL_URL` inside Docker). The backend origin remains server-side;
+  browser requests stay same-origin so HttpOnly cookies and CSRF protection work
+  consistently.
 
 There is **no database, ORM, or business logic in this repo**. Auth, sessions, and all
 domain data live in the backend service (`wisdom_api`). This app only holds session
@@ -32,7 +34,10 @@ Run `make help` to see every available target. See the top of the `Makefile` for
 environment variables the dev/prod profiles and production image build expect.
 
 Without Docker, the usual Next.js scripts also work directly (`npm install && npm run dev`),
-as long as `API_INTERNAL_URL`/`NEXT_PUBLIC_API_URL` point at a reachable backend.
+as long as `API_INTERNAL_URL` points at a reachable backend (for example,
+`http://localhost:8080`). Set `NEXT_PUBLIC_API_PROXY=false` only when intentionally
+running direct cross-origin API requests with the backend CORS and cookie domains
+configured for that topology.
 
 ## Stack
 

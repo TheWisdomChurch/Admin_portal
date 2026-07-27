@@ -14,8 +14,12 @@ function createQueryClient() {
         refetchOnWindowFocus: true,
         refetchOnReconnect: true,
         retry: (failureCount, error) => {
-          const status = typeof error === 'object' && error !== null && 'status' in error
-            ? Number((error as { status?: unknown }).status)
+          const status = typeof error === 'object' && error !== null
+            ? Number('statusCode' in error
+              ? (error as { statusCode?: unknown }).statusCode
+              : 'status' in error
+                ? (error as { status?: unknown }).status
+                : 0)
             : 0;
           if ([400, 401, 403, 404, 409, 422].includes(status)) return false;
           return failureCount < 2;
