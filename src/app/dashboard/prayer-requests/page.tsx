@@ -341,4 +341,4 @@ function PrayerRequestsPage() {
   );
 }
 
-export default withAuth(PrayerRequestsPage, { requiredRole: 'admin' });
+export default withAuth(PrayerRequestsPage, { requiredRole: 'super_admin' });
