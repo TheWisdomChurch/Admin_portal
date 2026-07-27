@@ -191,15 +191,15 @@ function ReportsPage() {
 
         <Card title="Monthly summary">
           <div className="overflow-hidden rounded-3xl border border-[var(--color-border-secondary)]">
-            <div className="hidden grid-cols-3 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] md:grid">
-              <div>Month</div><div>Events</div><div>Attendees</div>
+            <div className="hidden grid-cols-2 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] md:grid">
+              <div>Month</div><div>Events</div>
             </div>
             <div className="divide-y divide-[var(--color-border-secondary)]">
               {monthlyRows.length === 0 ? (
                 <div className="p-5 text-sm text-[var(--color-text-tertiary)]">No monthly stats available yet.</div>
               ) : (
                 monthlyRows.map((row) => (
-                  <div key={row.month} className="grid gap-2 px-4 py-4 text-sm md:grid-cols-3 md:items-center">
+                  <div key={row.month} className="grid gap-2 px-4 py-4 text-sm md:grid-cols-2 md:items-center">
                     <div className="font-black text-[var(--color-text-primary)]">{row.month}</div>
                     <div className="text-[var(--color-text-secondary)]">{formatNumber(row.count)}</div>
                   </div>
