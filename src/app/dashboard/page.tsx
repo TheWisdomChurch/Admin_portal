@@ -66,7 +66,41 @@ function buildInsights(snapshot: DashboardSnapshot): Insight[] {
     return stock > 0 && stock <= 5;
   }).length;
 
-  if (upcoming === 0) {
+  snapshot.decisionInsights?.recommendations.forEach((recommendation) => {
+    const normalized = recommendation.toLowerCase();
+    const workforceRecommendation = normalized.includes('volunteer') || normalized.includes('workforce');
+    const memberRecommendation = normalized.includes('member') || normalized.includes('retention');
+    const submissionRecommendation = normalized.includes('submission') || normalized.includes('campaign');
+    insights.push({
+      title: workforceRecommendation
+        ? 'Workforce action recommended'
+        : memberRecommendation
+          ? 'Member engagement action recommended'
+          : submissionRecommendation
+            ? 'Follow-up action recommended'
+            : 'Operations are on track',
+      description: recommendation,
+      tone: normalized.includes('healthy') ? 'success' : normalized.includes('low') || normalized.includes('dropping') ? 'danger' : 'info',
+      href: workforceRecommendation
+        ? '/dashboard/workforce'
+        : memberRecommendation
+          ? '/dashboard/members'
+          : submissionRecommendation
+            ? '/dashboard/forms'
+            : '/dashboard/analytics',
+      actionLabel: workforceRecommendation
+        ? 'Open workforce'
+        : memberRecommendation
+          ? 'Open members'
+          : submissionRecommendation
+            ? 'Open forms'
+            : 'View analytics',
+    });
+  });
+
+  // Preserve useful fallback guidance if the backend decision engine is
+  // temporarily unavailable; the backend remains the primary source.
+  if (!snapshot.decisionInsights && upcoming === 0) {
     insights.push({
       title: 'No upcoming events scheduled',
       description: 'Add upcoming services, outreach, or programs to keep the calendar visible to your team.',
@@ -76,7 +110,7 @@ function buildInsights(snapshot: DashboardSnapshot): Insight[] {
     });
   }
 
-  if (totalMembers > 0 && newThisMonth === 0) {
+  if (!snapshot.decisionInsights && totalMembers > 0 && newThisMonth === 0) {
     insights.push({
       title: 'No new members recorded this month',
       description: 'Review intake forms and follow-up workflows to see why acquisition has stalled.',
@@ -86,7 +120,7 @@ function buildInsights(snapshot: DashboardSnapshot): Insight[] {
     });
   }
 
-  if (totalWorkforce > 0 && serving / Math.max(totalWorkforce, 1) < 0.5) {
+  if (!snapshot.decisionInsights && totalWorkforce > 0 && serving / Math.max(totalWorkforce, 1) < 0.5) {
     insights.push({
       title: 'Workforce engagement is below target',
       description: 'Less than half of workforce profiles are currently marked as serving.',
@@ -239,6 +273,11 @@ function DashboardPage() {
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-[var(--color-accent-primary)]" />
           <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Needs your attention</h2>
+          {data?.decisionInsights ? (
+            <span className="ml-auto rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1 text-xs font-semibold text-[var(--color-text-secondary)]">
+              Readiness {Math.round(data.decisionInsights.signals.decisionReadinessScore)}%
+            </span>
+          ) : null}
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {insights.map((insight) => (
