@@ -383,6 +383,17 @@ function applyTemplate(template: string, tokens: Record<string, string>) {
   return template.replace(/{{\s*([\w.-]+)\s*}}/g, (_, key: string) => tokens[key] ?? '').replace(/\s{2,}/g, ' ').trim();
 }
 
+function resolveSafeReturnUrl(rawValue: string): string {
+  const raw = rawValue.trim();
+  if (!raw || typeof window === 'undefined') return '';
+  try {
+    const target = new URL(raw, window.location.origin);
+    return target.origin === window.location.origin ? target.toString() : '';
+  } catch {
+    return '';
+  }
+}
+
 function PhoneNumberInput({ label, required, value, onChange }: { label: string; required?: boolean; value: string; onChange: (next: string) => void }) {
   const parsed = splitE164(value);
   const currentDial = parsed?.dial ?? COUNTRY_PHONE_CODES[0].dial;
@@ -395,7 +406,7 @@ function PhoneNumberInput({ label, required, value, onChange }: { label: string;
         </select>
         <input className={fieldInputClass} inputMode="tel" placeholder="Phone number" value={currentNational} onChange={(e) => onChange(`${currentDial}${onlyDigits(e.target.value)}`)} required={required} />
       </div>
-      <p className="text-xs text-[var(--color-text-tertiary)]">Stored as international format, e.g. +2348012345678</p>
+      <p className="text-xs text-stone-500">Use a number you can currently receive calls or messages on.</p>
     </div>
   );
 }
@@ -405,7 +416,7 @@ function FieldInput({ field, value, onChange }: { field: FormField; value: Field
   const type = normalizeFieldType(field.type);
   const showAsPhone = isPhoneType(type) || (isPhoneLikeField(field) && !isTextareaType(type) && !isSelectType(type) && !isRadioType(type) && !isCheckboxType(type) && !isUploadType(type));
 
-  if (isTextareaType(type)) return <textarea className={`${fieldInputClass} min-h-32 resize-y`} value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} placeholder={field.label} required={field.required} />;
+  if (isTextareaType(type)) return <textarea className={`${fieldInputClass} min-h-32 resize-y`} value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} placeholder={`Enter ${field.label.toLowerCase()}`} required={field.required} minLength={field.validation?.minLength} maxLength={field.validation?.maxLength} />;
   if (isSelectType(type)) return <select className={fieldInputClass} value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} required={field.required}><option value="">Select...</option>{options.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>;
   if (isRadioType(type)) return <div className="grid gap-2">{options.map((opt) => <label key={opt.value} className={choiceRowClass}><input type="radio" name={field.key} value={opt.value} checked={value === opt.value} onChange={(e) => onChange(e.target.value)} className="accent-[var(--color-accent-primary)]" /><span>{opt.label}</span></label>)}</div>;
   if (isCheckboxType(type) && options.length > 0) {
@@ -419,10 +430,10 @@ function FieldInput({ field, value, onChange }: { field: FormField; value: Field
     const maxMb = getUploadLimitMb(field, kind);
     return (
       <div className="space-y-3">
-        <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-6 text-center transition hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-background-tertiary)]">
-          <FileUp className="h-7 w-7 text-[var(--color-text-tertiary)]" />
-          <span className="mt-2 text-sm font-bold text-[var(--color-text-primary)]">{selected ? selected.name : `Upload ${field.label}`}</span>
-          <span className="mt-1 text-xs text-[var(--color-text-tertiary)]">{getUploadFormatLabel(kind)} · max {maxMb}MB</span>
+        <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-stone-300 bg-stone-50 px-4 py-7 text-center transition hover:border-amber-500 hover:bg-amber-50/50 focus-within:border-amber-600 focus-within:ring-4 focus-within:ring-amber-100">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-stone-500 shadow-sm ring-1 ring-stone-200"><FileUp className="h-5 w-5" /></span>
+          <span className="mt-3 max-w-full truncate text-sm font-semibold text-stone-800">{selected ? selected.name : `Choose ${field.label.toLowerCase()}`}</span>
+          <span className="mt-1 text-xs text-stone-500">{getUploadFormatLabel(kind)} · up to {maxMb}MB</span>
           <input type="file" accept={getUploadAccept(kind)} className="sr-only" onChange={(e) => onChange(e.target.files?.[0] || null)} required={field.required} />
         </label>
       </div>
@@ -444,7 +455,7 @@ function FieldInput({ field, value, onChange }: { field: FormField; value: Field
     );
   }
   const inputType = type === 'email' ? 'email' : type === 'number' ? 'number' : 'text';
-  return <input type={inputType} className={fieldInputClass} value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} placeholder={field.label} required={field.required} />;
+  return <input type={inputType} className={fieldInputClass} value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} placeholder={`Enter ${field.label.toLowerCase()}`} required={field.required} minLength={field.validation?.minLength} maxLength={field.validation?.maxLength} min={field.validation?.min} max={field.validation?.max} />;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -506,6 +517,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const [successDetails, setSuccessDetails] = useState<SuccessDetail[]>([]);
   const [successTokens, setSuccessTokens] = useState<Record<string, string>>({});
   const [shouldAutoReturn, setShouldAutoReturn] = useState(false);
+  const [bannerLoadFailed, setBannerLoadFailed] = useState(false);
 
   const fields = useMemo<FormField[]>(() => payload?.form?.fields ?? [], [payload]);
   const sortedFields = useMemo<FormField[]>(() => fields.slice().sort((a, b) => a.order - b.order), [fields]);
@@ -513,7 +525,8 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const visibleFields = useMemo(() => sortedFields.filter((field) => isFieldVisible(field, values)), [sortedFields, values]);
 
   const settings = payload?.form?.settings;
-  const returnTo = (searchParams.get('return_to') || '').trim();
+  const requestedReturnTo = (searchParams.get('return_to') || '').trim();
+  const returnTo = useMemo(() => resolveSafeReturnUrl(requestedReturnTo), [requestedReturnTo]);
   const returnDelayMs = useMemo(() => Math.max(600, Math.min(12_000, Number(searchParams.get('return_delay_ms') || 1800) || 1800)), [searchParams]);
   const hasAutoReturnTarget = Boolean(returnTo);
   const redirectToReturnUrl = useCallback(() => { if (returnTo) window.location.assign(returnTo); }, [returnTo]);
@@ -545,6 +558,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
       if (!alive) return;
       if (res?.form) {
         setPayload(res);
+        setBannerLoadFailed(false);
         resetFormState(res.form.fields ?? []);
         setSuccessOpen(false);
         setSuccessDetails([]);
@@ -600,6 +614,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     const acceptedTypes = ACCEPTED_UPLOAD_TYPES[kind];
     const acceptedExts = ACCEPTED_UPLOAD_EXTENSIONS[kind];
     const maxMb = getUploadLimitMb(field, kind);
+    if (file.size === 0) return 'This file is empty. Please choose a valid file.';
     if (acceptedTypes.length > 0 && !acceptedTypes.includes(file.type)) {
       const lowerName = file.name.toLowerCase();
       if (!acceptedExts.some((ext) => lowerName.endsWith(ext))) return `Unsupported file type. Accepted formats: ${getUploadFormatLabel(kind)}.`;
@@ -614,14 +629,34 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     const hasOptions = Array.isArray(field.options) && field.options.length > 0;
     const isPhoneField = isPhoneType(type) || isPhoneLikeField(field);
     if (isUploadType(type)) return isFileValue(next) ? validateUploadFile(field, next) : field.required ? `${label} is required.` : null;
-    if (isCheckboxType(type) && hasOptions) return field.required && (!Array.isArray(next) || next.length === 0) ? `${label} is required.` : null;
+    if (isCheckboxType(type) && hasOptions) {
+      if (field.required && (!Array.isArray(next) || next.length === 0)) return `${label} is required.`;
+      if (Array.isArray(next) && next.some((value) => !field.options?.some((option) => option.value === value))) return `Please select valid ${label.toLowerCase()} options.`;
+      return null;
+    }
     if (isCheckboxType(type)) return field.required && next !== true ? `${label} is required.` : null;
     const raw = typeof next === 'string' ? next.trim() : '';
     if (!raw) return field.required ? `${label} is required.` : null;
+    if ((isSelectType(type) || isRadioType(type)) && hasOptions && !field.options?.some((option) => option.value === raw)) return `Please select a valid ${label.toLowerCase()} option.`;
+    if (field.validation?.minLength !== undefined && raw.length < field.validation.minLength) return `${label} must be at least ${field.validation.minLength} characters.`;
+    if (field.validation?.maxLength !== undefined && raw.length > field.validation.maxLength) return `${label} cannot exceed ${field.validation.maxLength} characters.`;
+    if (field.validation?.maxWords !== undefined && countWords(raw) > field.validation.maxWords) return `${label} cannot exceed ${field.validation.maxWords} words.`;
+    if (field.validation?.pattern) {
+      try {
+        if (!new RegExp(field.validation.pattern).test(raw)) return `${label} is not in the expected format.`;
+      } catch {
+        // Invalid admin-authored patterns are ignored client-side; the API remains authoritative.
+      }
+    }
     if (type === 'email' && !emailRe.test(raw)) return 'Please enter a valid email address.';
     if (isPrayerRequestField(field) && countWords(raw) > PRAYER_REQUEST_WORD_LIMIT) return `Prayer request cannot exceed ${PRAYER_REQUEST_WORD_LIMIT} words.`;
     if (isPhoneField && !e164Re.test(raw)) return 'Please enter a valid phone number including country code, e.g. +2348012345678.';
-    if (type === 'number' && Number.isNaN(Number(raw))) return 'Please enter a valid number.';
+    if (type === 'number') {
+      const numberValue = Number(raw);
+      if (Number.isNaN(numberValue)) return 'Please enter a valid number.';
+      if (field.validation?.min !== undefined && numberValue < field.validation.min) return `${label} must be ${field.validation.min} or more.`;
+      if (field.validation?.max !== undefined && numberValue > field.validation.max) return `${label} must be ${field.validation.max} or less.`;
+    }
     if (type === 'date') return resolveDateMode(field) === 'full' ? normalizeFullDate(raw) ? null : 'Please enter a valid date.' : parseDDMM(raw) ? null : 'Please enter a valid date in DD-MM format.';
     return null;
   };
@@ -642,6 +677,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const formTypeLabel = (settings?.formType || 'FORM').trim().toUpperCase();
   const eventTitle = payload?.event?.title ?? formTitle;
   const bannerUrl = settings?.design?.coverImageUrl || payload?.event?.bannerImage || payload?.event?.image || undefined;
+  const displayBannerUrl = bannerLoadFailed ? undefined : bannerUrl;
   const contentSections = useMemo<ContentSectionView[]>(() => {
     const configured = Array.isArray(settings?.contentSections) ? settings.contentSections.map((section) => ({ title: section?.title?.trim() || '', subtitle: section?.subtitle?.trim() || '', items: Array.isArray(section?.items) ? section.items.map((item) => item.trim()).filter(Boolean) : [], itemSubtexts: Array.isArray(section?.itemSubtexts) ? section.itemSubtexts.map((item) => item.trim()) : [] })).filter((section) => section.title || section.subtitle || section.items.length > 0) : [];
     if (configured.length > 0) return configured;
@@ -739,7 +775,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const successDescription = applyTemplate(settings?.successMessage || 'We would love to see you.', tokenSource);
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-950 [color-scheme:light]">
+    <div className="public-form-light min-h-screen bg-[#faf9f6] text-stone-950">
       <header className="border-b border-stone-200/80 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
           <Link href={siteHomeUrl} className="flex min-w-0 items-center gap-3" prefetch={false}>
@@ -755,17 +791,26 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8 lg:py-14">
         <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_18px_50px_-36px_rgba(28,25,23,0.45)] sm:rounded-3xl">
-          {bannerUrl ? <div className="relative h-44 sm:h-64 lg:h-72"><Image src={bannerUrl} alt={eventTitle} fill className="object-cover" sizes="(max-width: 1152px) 100vw, 1152px" priority /><div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" /></div> : <div className="h-2 bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-600" />}
-          <div className="p-5 sm:p-8 lg:p-10">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-              <div className="max-w-3xl">
+          <div className={displayBannerUrl ? 'grid lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.78fr)]' : ''}>
+            <div className="flex flex-col justify-center p-5 sm:p-8 lg:p-10 xl:p-12">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between lg:flex-col">
+                <div className="max-w-2xl">
                 <span className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold tracking-[0.16em] text-amber-800 ring-1 ring-inset ring-amber-200">{formTypeLabel}</span>
-                <h1 className="mt-4 break-words text-3xl font-bold tracking-[-0.035em] text-stone-950 sm:text-4xl lg:text-5xl">{formTitle}</h1>
+                <h1 className="mt-4 break-words text-3xl font-bold tracking-[-0.035em] text-stone-950 sm:text-4xl xl:text-5xl">{formTitle}</h1>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600 sm:text-base sm:leading-7">{payload.form.description?.trim() || payload.event?.shortDescription?.trim() || 'Complete the form with accurate details so your registration can be processed correctly.'}</p>
+                </div>
+                <span className={`inline-flex w-fit shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold ${isClosed ? 'bg-red-50 text-red-700 ring-1 ring-red-200' : 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200'}`}><span className={`h-2 w-2 rounded-full ${isClosed ? 'bg-red-500' : 'bg-emerald-500'}`} />{isClosed ? 'Submissions closed' : 'Accepting responses'}</span>
               </div>
-              <span className={`inline-flex w-fit shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold ${isClosed ? 'bg-red-50 text-red-700 ring-1 ring-red-200' : 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200'}`}><span className={`h-2 w-2 rounded-full ${isClosed ? 'bg-red-500' : 'bg-emerald-500'}`} />{isClosed ? 'Submissions closed' : 'Accepting responses'}</span>
+              {isClosed ? <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Registration is closed for this form.</div> : null}
             </div>
-            {isClosed ? <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Registration is closed for this form.</div> : null}
+            {displayBannerUrl ? (
+              <div className="relative min-h-56 overflow-hidden border-t border-stone-200 bg-stone-100 sm:min-h-72 lg:min-h-full lg:border-l lg:border-t-0">
+                <Image src={displayBannerUrl} alt="" fill className="scale-110 object-cover opacity-20 blur-xl" sizes="(max-width: 1024px) 100vw, 440px" aria-hidden unoptimized />
+                <div className="absolute inset-3 overflow-hidden rounded-xl bg-white/75 shadow-lg ring-1 ring-black/5 sm:inset-5 sm:rounded-2xl lg:inset-6">
+                  <Image src={displayBannerUrl} alt={`${eventTitle} header artwork`} fill className="object-contain" sizes="(max-width: 1024px) calc(100vw - 48px), 400px" priority unoptimized onError={() => setBannerLoadFailed(true)} />
+                </div>
+              </div>
+            ) : <div className="h-2 bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-600 lg:hidden" />}
           </div>
         </section>
 
@@ -833,7 +878,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
 
 function StateScreen({ title, description, action, loading }: { title: string; description: string; action?: React.ReactNode; loading?: boolean }) {
   return (
-    <div className="flex min-h-[70vh] items-center justify-center bg-[var(--color-background-secondary)] p-6 text-center">
+    <div className="public-form-light flex min-h-screen items-center justify-center bg-[#faf9f6] p-6 text-center">
       <div className="w-full max-w-md rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-8 shadow-sm">
         {loading ? <Loader2 className="mx-auto h-10 w-10 animate-spin text-[var(--color-accent-primary)]" /> : <ShieldCheck className="mx-auto h-10 w-10 text-[var(--color-text-tertiary)]" />}
         <h1 className="mt-4 text-xl font-black text-[var(--color-text-primary)]">{title}</h1>

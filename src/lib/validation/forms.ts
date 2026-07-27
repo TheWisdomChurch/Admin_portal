@@ -26,7 +26,7 @@ const visibilitySchema = z.object({
 
 const fieldValidationSchema = z
   .object({
-    minLength: z.number().int().positive().optional(),
+    minLength: z.number().int().nonnegative().optional(),
     maxLength: z.number().int().positive().optional(),
     maxWords: z.number().int().positive().optional(),
     pattern: z.string().trim().min(1).optional(),
@@ -71,6 +71,19 @@ export const createFormSchema = z
     }
 
     data.fields.forEach((field, index) => {
+      if (field.validation?.minLength !== undefined && field.validation?.maxLength !== undefined && field.validation.minLength > field.validation.maxLength) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['fields', index, 'validation', 'maxLength'], message: 'Maximum length must be greater than or equal to minimum length' });
+      }
+      if (field.validation?.min !== undefined && field.validation?.max !== undefined && field.validation.min > field.validation.max) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['fields', index, 'validation', 'max'], message: 'Maximum value must be greater than or equal to minimum value' });
+      }
+      if (field.validation?.pattern) {
+        try {
+          new RegExp(field.validation.pattern);
+        } catch {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['fields', index, 'validation', 'pattern'], message: 'Pattern must be a valid regular expression' });
+        }
+      }
       if (isOptionFieldType(field.type)) {
         const opts = field.options ?? [];
         if (opts.length === 0) {
@@ -79,6 +92,10 @@ export const createFormSchema = z
             path: ['fields', index, 'options'],
             message: 'Provide at least one option',
           });
+        }
+        const optionValues = opts.map((option) => option.value.trim().toLowerCase());
+        if (new Set(optionValues).size !== optionValues.length) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['fields', index, 'options'], message: 'Option values must be unique' });
         }
       }
 
@@ -100,14 +117,14 @@ export const createFormSchema = z
             message: 'A field cannot depend on itself',
           });
         }
-        if ((rule.operator === 'equals' || rule.operator === 'not_equals') && rule.value === undefined) {
+        if ((rule.operator === 'equals' || rule.operator === 'not_equals') && (rule.value === undefined || (typeof rule.value === 'string' && !rule.value.trim()))) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ['fields', index, 'visibility', 'rules', ruleIndex, 'value'],
             message: 'Set a comparison value',
           });
         }
-        if ((rule.operator === 'in' || rule.operator === 'not_in') && (!rule.values || rule.values.length === 0)) {
+        if ((rule.operator === 'in' || rule.operator === 'not_in') && (!rule.values || rule.values.length === 0 || rule.values.some((value) => typeof value === 'string' && !value.trim()))) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ['fields', index, 'visibility', 'rules', ruleIndex, 'values'],
@@ -116,6 +133,25 @@ export const createFormSchema = z
         }
       });
     });
+
+    const dependencies = new Map<string, string[]>();
+    data.fields.forEach((field) => {
+      dependencies.set(normalizeFieldKey(field.key), (field.visibility?.rules || []).map((rule) => normalizeFieldKey(rule.fieldKey)).filter(Boolean));
+    });
+    const visiting = new Set<string>();
+    const visited = new Set<string>();
+    const hasCycle = (key: string): boolean => {
+      if (visiting.has(key)) return true;
+      if (visited.has(key)) return false;
+      visiting.add(key);
+      const cyclic = (dependencies.get(key) || []).some((dependency) => dependencies.has(dependency) && hasCycle(dependency));
+      visiting.delete(key);
+      visited.add(key);
+      return cyclic;
+    };
+    if ([...dependencies.keys()].some(hasCycle)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['fields'], message: 'Conditional visibility rules cannot form a circular dependency' });
+    }
   });
 
 export type CreateFormSchema = z.infer<typeof createFormSchema>;
