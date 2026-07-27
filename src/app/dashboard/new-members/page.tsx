@@ -25,7 +25,7 @@ import { getChartPalette } from '@/lib/charts/palette';
 import { buildNewMembersExcelXml, toNewMemberExportRecord, type NewMemberExportRecord } from '@/lib/newMemberExports';
 import { useTheme } from '@/providers/ThemeProviders';
 import { withAuth } from '@/providers/withAuth';
-import type { NewMemberDashboardResponse, NewMemberFormSummary, NewMemberSubmission } from '@/lib/types';
+import type { AdminUserAdmin, NewMemberContact, NewMemberDashboardResponse, NewMemberFormSummary, NewMemberSubmission, NewMemberWorkflow, NewMemberWorkflowStage } from '@/lib/types';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
@@ -192,25 +192,44 @@ function NewMembersPage() {
   const chartPalette = useMemo(() => getChartPalette(resolvedTheme), [resolvedTheme]);
   const [dashboard, setDashboard] = useState<NewMemberDashboardResponse | null>(null);
   const [submissions, setSubmissions] = useState<NewMemberSubmission[]>([]);
+  const [workflows, setWorkflows] = useState<NewMemberWorkflow[]>([]);
+  const [workflowStages, setWorkflowStages] = useState<Record<string, NewMemberWorkflowStage>>({});
+  const [workflowOwners, setWorkflowOwners] = useState<Record<string, string>>({});
+  const [workflowNextActions, setWorkflowNextActions] = useState<Record<string, string>>({});
+  const [contactDrafts, setContactDrafts] = useState<Record<string, { channel: NewMemberContact['channel']; outcome: string; notes: string }>>({});
+  const [adminUsers, setAdminUsers] = useState<AdminUserAdmin[]>([]);
+  const [savingWorkflow, setSavingWorkflow] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [exporting, setExporting] = useState<'pdf' | 'excel' | null>(null);
   const [section, setSection] = useState<'weekly' | 'monthly' | 'quarterly' | 'yearly'>('monthly');
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     try {
-      const [dashboardRes, submissionsRes] = await Promise.all([
+      const [dashboardRes, submissionsRes, workflowsRes, usersRes] = await Promise.all([
         apiClient.getNewMemberDashboard(),
         apiClient.listNewMemberSubmissions({ page: 1, limit: 100 }),
+        apiClient.listNewMemberWorkflows({ page: 1, limit: 100 }),
+        apiClient.listAdminUsers(),
       ]);
       setDashboard(dashboardRes);
-      setSubmissions(submissionsRes.data || dashboardRes.recent || []);
+      setSubmissions(submissionsRes.data);
+      setWorkflows(workflowsRes.data);
+      setWorkflowStages(Object.fromEntries(workflowsRes.data.map((item) => [item.id, item.stage])));
+      setWorkflowOwners(Object.fromEntries(workflowsRes.data.map((item) => [item.id, item.assignedOwnerId || ''])));
+      setWorkflowNextActions(Object.fromEntries(workflowsRes.data.map((item) => [item.id, item.nextActionAt ? item.nextActionAt.slice(0, 16) : ''])));
+      setAdminUsers(usersRes.filter((item) => item.is_active && item.admin_approved));
     } catch (error) {
       console.error('Failed to load new member dashboard:', error);
       toast.error('Unable to load new-member dashboard. Please sign in again if your session expired.');
       setDashboard(null);
       setSubmissions([]);
+      setWorkflows([]);
+      setAdminUsers([]);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -225,6 +244,39 @@ function NewMembersPage() {
   }, [query, submissions]);
   const primaryForm = useMemo(() => dashboard?.forms?.find((form) => form.isPublished && form.slug) || dashboard?.forms?.find((form) => form.slug), [dashboard]);
   const primaryFormUrl = buildPublicFormUrl(primaryForm?.slug);
+  const submissionsById = useMemo(() => new Map(submissions.map((item) => [item.id, item])), [submissions]);
+
+  const saveWorkflowStage = async (workflow: NewMemberWorkflow) => {
+    const stage = workflowStages[workflow.id] || workflow.stage;
+    const owner = workflowOwners[workflow.id] ?? workflow.assignedOwnerId ?? '';
+    const nextAction = workflowNextActions[workflow.id];
+    setSavingWorkflow(workflow.id);
+    try {
+      const updated = await apiClient.updateNewMemberWorkflow(workflow.id, { stage, assignedOwnerId: owner, nextActionAt: nextAction ? new Date(nextAction).toISOString() : undefined });
+      setWorkflows((current) => current.map((item) => item.id === updated.id ? updated : item));
+      toast.success('Follow-up stage updated.');
+    } catch (error) {
+      console.error('Workflow update failed:', error);
+      toast.error('Unable to update the persisted workflow.');
+    } finally {
+      setSavingWorkflow(null);
+    }
+  };
+
+  const recordContact = async (workflow: NewMemberWorkflow) => {
+    const draft = contactDrafts[workflow.id] || { channel: 'phone' as const, outcome: '', notes: '' };
+    if (!draft.outcome.trim()) return toast.error('Enter the real contact outcome.');
+    setSavingWorkflow(workflow.id);
+    try {
+      await apiClient.addNewMemberContact(workflow.id, { channel: draft.channel, outcome: draft.outcome.trim(), notes: draft.notes.trim() || undefined });
+      setContactDrafts((current) => ({ ...current, [workflow.id]: { channel: 'phone', outcome: '', notes: '' } }));
+      await load();
+      toast.success('Contact history recorded.');
+    } catch (error) {
+      console.error('Contact history update failed:', error);
+      toast.error('Unable to persist the contact history.');
+    } finally { setSavingWorkflow(null); }
+  };
 
   const exportPdf = async (items: NewMemberSubmission[]) => {
     if (items.length === 0) return toast.error('There are no member details to export.');
@@ -279,12 +331,14 @@ function NewMembersPage() {
         actions={<div className="flex flex-wrap gap-2"><Button variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={() => void load()} loading={loading}>Refresh</Button>{primaryFormUrl ? <Button icon={<ExternalLink className="h-4 w-4" />} onClick={() => window.open(primaryFormUrl, '_blank', 'noopener,noreferrer')}>Open member form</Button> : <Button icon={<Plus className="h-4 w-4" />} onClick={() => window.location.assign('/dashboard/forms/new?preset=member')}>Prepare form</Button>}</div>}
       />
 
+      {loadError ? <Panel className="border-[var(--color-danger-border)] bg-[var(--color-danger-surface)]"><p className="text-sm font-semibold text-[var(--color-danger-text)]">Authoritative new-member data is unavailable. No substitute or placeholder values are being shown.</p></Panel> : null}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard label="Total" value={Number(dashboard?.totalSubmissions || 0)} trend="All intake submissions" />
-        <StatCard label="This week" value={Number(dashboard?.thisWeek || 0)} trend="Current week intake" />
-        <StatCard label="This month" value={Number(dashboard?.thisMonth || 0)} trend="Current month intake" />
-        <StatCard label="This quarter" value={Number(dashboard?.thisQuarter || 0)} trend="Quarterly movement" />
-        <StatCard label="This year" value={Number(dashboard?.thisYear || 0)} trend="Annual growth" />
+        <StatCard label="Total" value={dashboard ? dashboard.totalSubmissions : 'Unavailable'} trend="All intake submissions" />
+        <StatCard label="This week" value={dashboard ? dashboard.thisWeek : 'Unavailable'} trend="Current week intake" />
+        <StatCard label="This month" value={dashboard ? dashboard.thisMonth : 'Unavailable'} trend="Current month intake" />
+        <StatCard label="This quarter" value={dashboard ? dashboard.thisQuarter : 'Unavailable'} trend="Quarterly movement" />
+        <StatCard label="This year" value={dashboard ? dashboard.thisYear : 'Unavailable'} trend="Annual growth" />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -299,7 +353,7 @@ function NewMembersPage() {
             </div>
           </div>
           <div className="mt-5 h-80">
-            {activeGrowth.length === 0 ? <p className="text-sm text-[var(--color-text-tertiary)]">No growth data yet.</p> : <Bar data={chartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } } }} />}
+            {activeGrowth.length === 0 ? <p className="text-sm text-[var(--color-text-tertiary)]">{loadError ? 'Growth data unavailable.' : 'No growth data has been recorded.'}</p> : <Bar data={chartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } } }} />}
           </div>
         </Panel>
 
@@ -319,6 +373,32 @@ function NewMembersPage() {
           </div>
         </Panel>
       </div>
+
+      <Panel>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div><h2 className="text-lg font-black text-[var(--color-text-primary)]">Automated follow-up queue</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Persisted ownership, next actions, reminders, and escalation state from the backend.</p></div>
+          <Badge variant={workflows.some((item) => item.escalationStatus === 'escalated') ? 'danger' : 'success'}>{workflows.filter((item) => item.escalationStatus === 'escalated').length} escalated</Badge>
+        </div>
+        <div className="mt-5 overflow-hidden rounded-3xl border border-[var(--color-border-secondary)]">
+          <div className="hidden grid-cols-[minmax(180px,1fr)_180px_180px_190px_120px] gap-4 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
+            <div>Member</div><div>Stage</div><div>Owner</div><div>Next action</div><div>State</div>
+          </div>
+          <div className="divide-y divide-[var(--color-border-secondary)]">
+            {!loading && workflows.length === 0 ? <div className="p-6 text-sm text-[var(--color-text-tertiary)]">{loadError ? 'Workflow data unavailable.' : 'No persisted workflows have been created.'}</div> : null}
+            {workflows.map((workflow) => {
+              const submission = submissionsById.get(workflow.submissionId);
+              const draft = contactDrafts[workflow.id] || { channel: 'phone' as const, outcome: '', notes: '' };
+              return <article key={workflow.id} className="px-4 py-4"><div className="grid gap-3 lg:grid-cols-[minmax(180px,1fr)_180px_180px_190px_120px] lg:items-center">
+                <div><p className="text-sm font-black text-[var(--color-text-primary)]">{submission ? displayName(submission) : workflow.submissionId}</p><p className="text-xs text-[var(--color-text-tertiary)]">{workflow.assignedOwnerName || (workflow.assignedOwnerId ? `Owner ${workflow.assignedOwnerId}` : 'Unassigned')}</p></div>
+                <select aria-label="Follow-up stage" value={workflowStages[workflow.id] || workflow.stage} onChange={(event) => setWorkflowStages((current) => ({ ...current, [workflow.id]: event.target.value as NewMemberWorkflowStage }))} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-2 text-xs font-semibold"><option value="new">New</option><option value="contact_attempted">Contact attempted</option><option value="contacted">Contacted</option><option value="orientation_scheduled">Orientation scheduled</option><option value="orientation_completed">Orientation completed</option><option value="integrated">Integrated</option><option value="closed">Closed</option></select>
+                <select aria-label="Assigned owner" value={workflowOwners[workflow.id] || ''} onChange={(event) => setWorkflowOwners((current) => ({ ...current, [workflow.id]: event.target.value }))} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-2 text-xs font-semibold"><option value="">Unassigned</option>{adminUsers.map((user) => <option key={user.id} value={user.id}>{user.first_name} {user.last_name}</option>)}</select>
+                <Input type="datetime-local" aria-label="Next follow-up action" value={workflowNextActions[workflow.id] || ''} onChange={(event) => setWorkflowNextActions((current) => ({ ...current, [workflow.id]: event.target.value }))} />
+                <div className="flex items-center gap-2"><Badge variant={workflow.escalationStatus === 'escalated' ? 'danger' : workflow.escalationStatus === 'due' ? 'warning' : 'secondary'}>{workflow.escalationStatus}</Badge><Button size="sm" loading={savingWorkflow === workflow.id} onClick={() => void saveWorkflowStage(workflow)}>Save</Button></div>
+              </div><details className="mt-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3"><summary className="cursor-pointer text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">Record contact</summary><div className="mt-3 grid gap-3 md:grid-cols-[150px_1fr_1fr_auto]"><select aria-label="Contact channel" value={draft.channel} onChange={(event) => setContactDrafts((current) => ({ ...current, [workflow.id]: { ...draft, channel: event.target.value as NewMemberContact['channel'] } }))} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm"><option value="phone">Phone</option><option value="email">Email</option><option value="sms">SMS</option><option value="whatsapp">WhatsApp</option><option value="in_person">In person</option><option value="other">Other</option></select><Input placeholder="Actual outcome" value={draft.outcome} onChange={(event) => setContactDrafts((current) => ({ ...current, [workflow.id]: { ...draft, outcome: event.target.value } }))} /><Input placeholder="Notes (optional)" value={draft.notes} onChange={(event) => setContactDrafts((current) => ({ ...current, [workflow.id]: { ...draft, notes: event.target.value } }))} /><Button loading={savingWorkflow === workflow.id} onClick={() => void recordContact(workflow)}>Record</Button></div></details></article>;
+            })}
+          </div>
+        </div>
+      </Panel>
 
       <Panel>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -345,7 +425,7 @@ function NewMembersPage() {
           </div>
           <div className="divide-y divide-[var(--color-border-secondary)]">
             {loading ? <div className="p-6 text-sm text-[var(--color-text-tertiary)]">Loading new members...</div> : null}
-            {!loading && filtered.length === 0 ? <div className="p-6 text-sm text-[var(--color-text-tertiary)]">No new-member submissions found.</div> : null}
+            {!loading && filtered.length === 0 ? <div className="p-6 text-sm text-[var(--color-text-tertiary)]">{loadError ? 'Submission data unavailable.' : 'No new-member submissions were found.'}</div> : null}
             {!loading && filtered.map((item) => (
               <article key={item.id} className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(200px,1fr)_minmax(200px,1fr)_150px_160px_110px] lg:items-center">
                 <div className="min-w-0"><p className="truncate text-sm font-black text-[var(--color-text-primary)]">{displayName(item)}</p><p className="truncate text-xs text-[var(--color-text-tertiary)]">{item.registrationCode || item.id}</p></div>

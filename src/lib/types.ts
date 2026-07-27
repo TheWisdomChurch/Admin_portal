@@ -1127,6 +1127,47 @@ export interface NewMemberDashboardResponse {
   yearlyGrowth: GrowthBucket[];
 }
 
+export type NewMemberWorkflowStage = 'new' | 'contact_attempted' | 'contacted' | 'orientation_scheduled' | 'orientation_completed' | 'integrated' | 'closed';
+export type NewMemberEscalationStatus = 'none' | 'due' | 'escalated' | 'resolved';
+
+export interface NewMemberWorkflow {
+  id: string;
+  submissionId: string;
+  stage: NewMemberWorkflowStage;
+  assignedOwnerId?: string;
+  assignedOwnerName?: string;
+  nextActionAt?: string;
+  escalationStatus: NewMemberEscalationStatus;
+  escalatedAt?: string;
+  completedAt?: string;
+  lastContactedAt?: string;
+  lastReminderAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewMemberContact {
+  id: string;
+  workflowId: string;
+  channel: 'phone' | 'email' | 'sms' | 'whatsapp' | 'in_person' | 'other';
+  outcome: string;
+  notes?: string;
+  contactedAt: string;
+  createdById: string;
+  createdAt: string;
+}
+
+export interface NewMemberWorkflowHistory {
+  id: string;
+  workflowId: string;
+  eventType: string;
+  fromStage?: NewMemberWorkflowStage;
+  toStage?: NewMemberWorkflowStage;
+  actorId?: string;
+  details: Record<string, unknown>;
+  createdAt: string;
+}
+
 export interface WorkforceBucket {
   department: string;
   status: WorkforceStatus;

@@ -31,7 +31,7 @@ type Insight = { title: string; description: string; tone: InsightTone; href?: s
 const numberFormatter = new Intl.NumberFormat('en-US');
 
 function formatNumber(value?: number | null): string {
-  return numberFormatter.format(typeof value === 'number' && Number.isFinite(value) ? value : 0);
+  return typeof value === 'number' && Number.isFinite(value) ? numberFormatter.format(value) : 'Unavailable';
 }
 
 function numberValue(value: unknown): number {
@@ -56,11 +56,6 @@ function getGreeting(): string {
 
 function buildInsights(snapshot: DashboardSnapshot): Insight[] {
   const insights: Insight[] = [];
-  const upcoming = numberValue((snapshot.analytics as RawRecord | null)?.upcomingEvents);
-  const totalMembers = numberValue((snapshot.memberStats as RawRecord | null)?.total);
-  const newThisMonth = numberValue((snapshot.newMembers as RawRecord | null)?.thisMonth);
-  const totalWorkforce = numberValue((snapshot.workforceStats as RawRecord | null)?.total);
-  const serving = numberValue(asRecord((snapshot.workforceStats as RawRecord | null)?.byStatus).serving);
   const lowStock = snapshot.storeProducts.filter((item) => {
     const stock = numberValue(asRecord(item).stock);
     return stock > 0 && stock <= 5;
@@ -98,38 +93,6 @@ function buildInsights(snapshot: DashboardSnapshot): Insight[] {
     });
   });
 
-  // Preserve useful fallback guidance if the backend decision engine is
-  // temporarily unavailable; the backend remains the primary source.
-  if (!snapshot.decisionInsights && upcoming === 0) {
-    insights.push({
-      title: 'No upcoming events scheduled',
-      description: 'Add upcoming services, outreach, or programs to keep the calendar visible to your team.',
-      tone: 'warning',
-      href: '/dashboard/event',
-      actionLabel: 'Schedule an event',
-    });
-  }
-
-  if (!snapshot.decisionInsights && totalMembers > 0 && newThisMonth === 0) {
-    insights.push({
-      title: 'No new members recorded this month',
-      description: 'Review intake forms and follow-up workflows to see why acquisition has stalled.',
-      tone: 'info',
-      href: '/dashboard/new-members',
-      actionLabel: 'Review new members',
-    });
-  }
-
-  if (!snapshot.decisionInsights && totalWorkforce > 0 && serving / Math.max(totalWorkforce, 1) < 0.5) {
-    insights.push({
-      title: 'Workforce engagement is below target',
-      description: 'Less than half of workforce profiles are currently marked as serving.',
-      tone: 'danger',
-      href: '/dashboard/workforce',
-      actionLabel: 'Review workforce',
-    });
-  }
-
   if (lowStock > 0) {
     insights.push({
       title: 'Store items are running low',
@@ -140,7 +103,13 @@ function buildInsights(snapshot: DashboardSnapshot): Insight[] {
     });
   }
 
-  if (insights.length === 0) {
+  if (insights.length === 0 && snapshot.failedSources.length > 0) {
+    insights.push({
+      title: 'Live insight data unavailable',
+      description: 'No operational conclusion was generated because one or more authoritative sources failed to load.',
+      tone: 'warning',
+    });
+  } else if (insights.length === 0) {
     insights.push({
       title: 'Everything looks on track',
       description: 'No attention flags were detected from current operational data.',
@@ -200,12 +169,12 @@ function DashboardPage() {
 
   const insights = useMemo(() => (data ? buildInsights(data) : []), [data]);
 
-  const totalMembers = numberValue((data?.memberStats as RawRecord | null)?.total ?? data?.analytics?.operations.totalMembers);
-  const activeMembers = numberValue((data?.memberStats as RawRecord | null)?.active ?? data?.analytics?.operations.activeMembers);
-  const upcomingEventCount = numberValue((data?.analytics as RawRecord | null)?.upcomingEvents);
-  const totalSubmissions = numberValue((data?.formStats as RawRecord | null)?.totalSubmissions ?? data?.analytics?.operations.totalSubmissions);
-  const workforceServing = numberValue(asRecord((data?.workforceStats as RawRecord | null)?.byStatus).serving ?? data?.analytics?.operations.servingWorkforce);
-  const workforceTotal = numberValue((data?.workforceStats as RawRecord | null)?.total ?? data?.analytics?.operations.totalWorkforce);
+  const totalMembers = data?.memberStats?.total ?? null;
+  const activeMembers = data?.memberStats?.active ?? null;
+  const upcomingEventCount = data?.analytics?.upcomingEvents ?? null;
+  const totalSubmissions = data?.formStats?.totalSubmissions ?? null;
+  const workforceServing = data?.workforceStats ? numberValue(data.workforceStats.byStatus.serving) : null;
+  const workforceTotal = data?.workforceStats?.total ?? null;
 
   const kpis = [
     {
