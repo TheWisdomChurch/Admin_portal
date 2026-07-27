@@ -15,14 +15,14 @@ export function Card({ children, className, title, actions, headerClassName, con
   return (
     <div
       className={cn(
-        'bg-[var(--color-background-secondary)] rounded-[var(--radius-card)] border border-[var(--color-border-primary)] shadow-sm transition-shadow duration-200',
+        'rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] shadow-sm transition-[border-color,box-shadow] duration-200',
         className
       )}
     >
       {(title || actions) && (
         <div
           className={cn(
-            'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-5 border-b border-[var(--color-border-secondary)]',
+            'flex flex-col gap-3 border-b border-[var(--color-border-secondary)] p-5 sm:flex-row sm:items-center sm:justify-between',
             headerClassName
           )}
         >

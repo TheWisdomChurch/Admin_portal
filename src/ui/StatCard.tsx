@@ -39,7 +39,7 @@ export function StatCard({ label, value, icon, tone = 'default', trend, classNam
           {trend && <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{trend}</p>}
         </div>
         {icon && (
-          <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl', toneStyles[tone])}>
+          <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-control)]', toneStyles[tone])}>
             {icon}
           </div>
         )}
