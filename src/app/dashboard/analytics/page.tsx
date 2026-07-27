@@ -42,7 +42,7 @@ type TimelineItem = {
 const numberFormatter = new Intl.NumberFormat('en-US');
 
 function formatNumber(value?: number | null): string {
-  return numberFormatter.format(typeof value === 'number' && Number.isFinite(value) ? value : 0);
+  return typeof value === 'number' && Number.isFinite(value) ? numberFormatter.format(value) : 'Unavailable';
 }
 
 function numberValue(value: unknown): number {
@@ -247,12 +247,12 @@ function AnalyticsPage() {
 
   const forecastEvents = forecastNext(monthlyStats.map((row) => row.count));
 
-  const totalMembers = numberValue((data?.memberStats as RawRecord | null)?.total ?? data?.analytics?.operations.totalMembers);
-  const activeMembers = numberValue((data?.memberStats as RawRecord | null)?.active ?? data?.analytics?.operations.activeMembers);
+  const totalMembers = data?.memberStats?.total ?? null;
+  const activeMembers = data?.memberStats?.active ?? null;
   const newMembersThisMonth = numberValue((data?.newMembers as RawRecord | null)?.thisMonth);
   const newMembersThisYear = numberValue((data?.newMembers as RawRecord | null)?.thisYear);
-  const workforceServing = numberValue(asRecord((data?.workforceStats as RawRecord | null)?.byStatus).serving ?? data?.analytics?.operations.servingWorkforce);
-  const workforceTotal = numberValue((data?.workforceStats as RawRecord | null)?.total ?? data?.analytics?.operations.totalWorkforce);
+  const workforceServing = data?.workforceStats ? numberValue(data.workforceStats.byStatus.serving) : null;
+  const workforceTotal = data?.workforceStats?.total ?? null;
   const activeProducts = data?.storeProducts.filter((item) => Boolean(asRecord(item).isActive ?? asRecord(item).is_active)).length ?? 0;
   const lowStockProducts =
     data?.storeProducts.filter((item) => {
@@ -358,7 +358,7 @@ function AnalyticsPage() {
         <Panel>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Attendance in last 30 days</p>
           <p className="mt-2 text-lg font-bold text-[var(--color-text-primary)]">
-            {formatNumber(data?.analytics?.operations.attendance30d)}
+            {data?.analytics ? formatNumber(data.analytics.operations.attendance30d) : 'Unavailable'}
           </p>
         </Panel>
         <Panel>

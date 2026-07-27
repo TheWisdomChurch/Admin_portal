@@ -44,6 +44,9 @@ import type {
   MemberStatsResponse,
   NewMemberDashboardResponse,
   NewMemberSubmission,
+  NewMemberWorkflow,
+  NewMemberContact,
+  NewMemberWorkflowHistory,
   CreateMemberRequest,
   UpdateMemberRequest,
   LeadershipMember,
@@ -2817,6 +2820,27 @@ export const apiClient = {
       res,
       'Invalid new member submissions payload'
     );
+  },
+
+  async listNewMemberWorkflows(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<NewMemberWorkflow>> {
+    const qs = toQueryString(params);
+    const res = await apiFetch(`/admin/new-members/workflows${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<NewMemberWorkflow>(res, 'Invalid new-member workflow payload');
+  },
+
+  async getNewMemberWorkflow(id: string): Promise<{ workflow: NewMemberWorkflow; contacts: NewMemberContact[]; history: NewMemberWorkflowHistory[] }> {
+    const res = await apiFetch<ApiResponse<{ workflow: NewMemberWorkflow; contacts: NewMemberContact[]; history: NewMemberWorkflowHistory[] }>>(`/admin/new-members/workflows/${encodeURIComponent(id)}`, { method: 'GET' });
+    return unwrapData(res, 'Invalid new-member workflow payload');
+  },
+
+  async updateNewMemberWorkflow(id: string, payload: { stage?: NewMemberWorkflow['stage']; assignedOwnerId?: string | null; nextActionAt?: string | null }): Promise<NewMemberWorkflow> {
+    const res = await apiFetch<ApiResponse<NewMemberWorkflow>>(`/admin/new-members/workflows/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(payload) });
+    return unwrapData(res, 'Invalid new-member workflow payload');
+  },
+
+  async addNewMemberContact(id: string, payload: { channel: NewMemberContact['channel']; outcome: string; notes?: string; contactedAt?: string; nextActionAt?: string }): Promise<NewMemberContact> {
+    const res = await apiFetch<ApiResponse<NewMemberContact>>(`/admin/new-members/workflows/${encodeURIComponent(id)}/contacts`, { method: 'POST', body: JSON.stringify(payload) });
+    return unwrapData(res, 'Invalid new-member contact payload');
   },
 
   async createMember(payload: CreateMemberRequest): Promise<Member> {
