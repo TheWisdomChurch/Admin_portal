@@ -10,7 +10,7 @@ import {
   Tooltip,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import { Clipboard, ExternalLink, RefreshCw, Search, TrendingUp } from 'lucide-react';
+import { Clipboard, ExternalLink, FileSpreadsheet, FileText, Plus, RefreshCw, Search, TrendingUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { PageHeader } from '@/layouts';
@@ -22,6 +22,7 @@ import { StatCard } from '@/ui/StatCard';
 import { apiClient } from '@/lib/api';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { getChartPalette } from '@/lib/charts/palette';
+import { buildNewMembersExcelXml, toNewMemberExportRecord, type NewMemberExportRecord } from '@/lib/newMemberExports';
 import { useTheme } from '@/providers/ThemeProviders';
 import { withAuth } from '@/providers/withAuth';
 import type { NewMemberDashboardResponse, NewMemberFormSummary, NewMemberSubmission } from '@/lib/types';
@@ -72,6 +73,81 @@ function shortPeriod(period: string, prefix?: string): string {
   return period.slice(0, 10);
 }
 
+function downloadFile(filename: string, content: BlobPart, mimeType: string) {
+  const url = URL.createObjectURL(new Blob([content], { type: mimeType }));
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function safeFilename(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'new-member';
+}
+
+async function downloadMembersPdf(records: NewMemberExportRecord[], filename: string) {
+  const { jsPDF } = await import('jspdf');
+  const document = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageWidth = document.internal.pageSize.getWidth();
+  const pageHeight = document.internal.pageSize.getHeight();
+  const margin = 18;
+  let y = 20;
+
+  const addPageHeader = () => {
+    document.setFillColor(202, 138, 4);
+    document.rect(0, 0, pageWidth, 5, 'F');
+    document.setTextColor(28, 25, 23);
+    document.setFont('helvetica', 'bold');
+    document.setFontSize(18);
+    document.text(records.length === 1 ? 'New Member Profile' : 'New Members Directory', margin, 18);
+    document.setFont('helvetica', 'normal');
+    document.setTextColor(87, 83, 78);
+    document.setFontSize(9);
+    document.text(`Prepared ${new Date().toLocaleString('en-GB')} · ${records.length} ${records.length === 1 ? 'record' : 'records'}`, margin, 24);
+    y = 34;
+  };
+
+  addPageHeader();
+  records.forEach((record, recordIndex) => {
+    if (y > pageHeight - 40) { document.addPage(); addPageHeader(); }
+    document.setFillColor(250, 250, 249);
+    document.roundedRect(margin, y - 6, pageWidth - margin * 2, 12, 2, 2, 'F');
+    document.setFont('helvetica', 'bold');
+    document.setTextColor(28, 25, 23);
+    document.setFontSize(12);
+    document.text(record.displayName, margin + 4, y + 1.5);
+    y += 13;
+
+    record.fields.filter((field) => field.label !== 'Full Name').forEach((field) => {
+      const valueLines = document.splitTextToSize(field.value, pageWidth - margin * 2 - 52) as string[];
+      const rowHeight = Math.max(7, valueLines.length * 4.5 + 2);
+      if (y + rowHeight > pageHeight - 18) { document.addPage(); addPageHeader(); }
+      document.setFont('helvetica', 'bold');
+      document.setTextColor(87, 83, 78);
+      document.setFontSize(8.5);
+      document.text(field.label, margin + 4, y);
+      document.setFont('helvetica', 'normal');
+      document.setTextColor(41, 37, 36);
+      document.setFontSize(9.5);
+      document.text(valueLines, margin + 50, y);
+      y += rowHeight;
+    });
+    if (recordIndex < records.length - 1) y += 6;
+  });
+
+  const pageCount = document.getNumberOfPages();
+  for (let page = 1; page <= pageCount; page += 1) {
+    document.setPage(page);
+    document.setFontSize(8);
+    document.setTextColor(120, 113, 108);
+    document.text(`The Wisdom Church · New Members · Page ${page} of ${pageCount}`, margin, pageHeight - 8);
+  }
+  document.save(filename);
+}
+
 function FormLinkRow({ form }: { form: NewMemberFormSummary }) {
   const publicUrl = buildPublicFormUrl(form.slug);
 
@@ -118,6 +194,7 @@ function NewMembersPage() {
   const [submissions, setSubmissions] = useState<NewMemberSubmission[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState<'pdf' | 'excel' | null>(null);
   const [section, setSection] = useState<'weekly' | 'monthly' | 'quarterly' | 'yearly'>('monthly');
 
   const load = useCallback(async () => {
@@ -146,6 +223,40 @@ function NewMembersPage() {
     if (!needle) return submissions;
     return submissions.filter((item) => `${displayName(item)} ${item.email || ''} ${item.contactNumber || ''} ${item.formTitle}`.toLowerCase().includes(needle));
   }, [query, submissions]);
+  const primaryForm = useMemo(() => dashboard?.forms?.find((form) => form.isPublished && form.slug) || dashboard?.forms?.find((form) => form.slug), [dashboard]);
+  const primaryFormUrl = buildPublicFormUrl(primaryForm?.slug);
+
+  const exportPdf = async (items: NewMemberSubmission[]) => {
+    if (items.length === 0) return toast.error('There are no member details to export.');
+    setExporting('pdf');
+    try {
+      const records = items.map(toNewMemberExportRecord);
+      const filename = items.length === 1 ? `${safeFilename(records[0].displayName)}.pdf` : 'new-members-directory.pdf';
+      await downloadMembersPdf(records, filename);
+      toast.success(items.length === 1 ? 'Member PDF downloaded.' : 'New members PDF downloaded.');
+    } catch (error) {
+      console.error('PDF export failed:', error);
+      toast.error('Unable to create the PDF right now.');
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const exportExcel = (items: NewMemberSubmission[]) => {
+    if (items.length === 0) return toast.error('There are no member details to export.');
+    setExporting('excel');
+    try {
+      const records = items.map(toNewMemberExportRecord);
+      const filename = items.length === 1 ? `${safeFilename(records[0].displayName)}-excel.xml` : 'new-members-excel.xml';
+      downloadFile(filename, buildNewMembersExcelXml(records), 'application/vnd.ms-excel;charset=utf-8');
+      toast.success(items.length === 1 ? 'Member Excel file downloaded.' : 'New members Excel file downloaded.');
+    } catch (error) {
+      console.error('Excel export failed:', error);
+      toast.error('Unable to create the Excel file right now.');
+    } finally {
+      setExporting(null);
+    }
+  };
 
   const growthSets = useMemo(() => ({
     weekly: dashboard?.weeklyGrowth?.slice(-12) || [],
@@ -165,7 +276,7 @@ function NewMembersPage() {
       <PageHeader
         title="New Members"
         subtitle="Intake, growth trends, and follow-up records, separated from the main member registry."
-        actions={<div className="flex flex-wrap gap-2"><Button variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={() => void load()} loading={loading}>Refresh</Button><Button icon={<ExternalLink className="h-4 w-4" />} onClick={() => window.location.assign('/dashboard/forms/new?preset=member')}>Prepare form</Button></div>}
+        actions={<div className="flex flex-wrap gap-2"><Button variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={() => void load()} loading={loading}>Refresh</Button>{primaryFormUrl ? <Button icon={<ExternalLink className="h-4 w-4" />} onClick={() => window.open(primaryFormUrl, '_blank', 'noopener,noreferrer')}>Open member form</Button> : <Button icon={<Plus className="h-4 w-4" />} onClick={() => window.location.assign('/dashboard/forms/new?preset=member')}>Prepare form</Button>}</div>}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -224,23 +335,24 @@ function NewMembersPage() {
 
       <Panel>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="text-lg font-black text-[var(--color-text-primary)]">Add New Member submissions</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Latest form-driven intake records.</p></div>
-          <div className="relative w-full sm:w-80"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" /><Input className="pl-9" placeholder="Search submissions" value={query} onChange={(event) => setQuery(event.target.value)} /></div>
+          <div><h2 className="text-lg font-black text-[var(--color-text-primary)]">Add New Member submissions</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Latest form-driven intake records. Downloads contain readable member information only.</p></div>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end"><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" icon={<FileText className="h-4 w-4" />} loading={exporting === 'pdf'} disabled={loading || filtered.length === 0 || exporting !== null} onClick={() => void exportPdf(filtered)}>Download PDF</Button><Button size="sm" variant="outline" icon={<FileSpreadsheet className="h-4 w-4" />} loading={exporting === 'excel'} disabled={loading || filtered.length === 0 || exporting !== null} onClick={() => exportExcel(filtered)}>Download Excel</Button></div><div className="relative w-full sm:w-80"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" /><Input aria-label="Search new member submissions" className="pl-9" placeholder="Search submissions" value={query} onChange={(event) => setQuery(event.target.value)} /></div></div>
         </div>
 
         <div className="mt-5 overflow-hidden rounded-3xl border border-[var(--color-border-secondary)]">
-          <div className="hidden grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_160px_180px] gap-4 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
-            <div>Profile</div><div>Contact</div><div>Source</div><div>Submitted</div>
+          <div className="hidden grid-cols-[minmax(200px,1fr)_minmax(200px,1fr)_150px_160px_110px] gap-4 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
+            <div>Profile</div><div>Contact</div><div>Source</div><div>Submitted</div><div className="text-right">Download</div>
           </div>
           <div className="divide-y divide-[var(--color-border-secondary)]">
             {loading ? <div className="p-6 text-sm text-[var(--color-text-tertiary)]">Loading new members...</div> : null}
             {!loading && filtered.length === 0 ? <div className="p-6 text-sm text-[var(--color-text-tertiary)]">No new-member submissions found.</div> : null}
             {!loading && filtered.map((item) => (
-              <article key={item.id} className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_160px_180px] lg:items-center">
+              <article key={item.id} className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(200px,1fr)_minmax(200px,1fr)_150px_160px_110px] lg:items-center">
                 <div className="min-w-0"><p className="truncate text-sm font-black text-[var(--color-text-primary)]">{displayName(item)}</p><p className="truncate text-xs text-[var(--color-text-tertiary)]">{item.registrationCode || item.id}</p></div>
                 <div className="min-w-0 text-sm text-[var(--color-text-secondary)]"><p className="truncate">{item.email || valueFromSubmission(item, ['email', 'emailAddress']) || 'No email'}</p><p className="truncate text-xs text-[var(--color-text-tertiary)]">{item.contactNumber || valueFromSubmission(item, ['phone', 'phoneNumber', 'mobile']) || 'No phone'}</p></div>
                 <Badge variant="info">{item.formTitle}</Badge>
                 <div className="text-sm text-[var(--color-text-secondary)]">{formatDate(item.createdAt)}</div>
+                <div className="flex items-center gap-1 lg:justify-end"><Button size="sm" variant="ghost" aria-label={`Download ${displayName(item)} as PDF`} title="Download PDF" onClick={() => void exportPdf([item])}><FileText className="h-4 w-4" /></Button><Button size="sm" variant="ghost" aria-label={`Download ${displayName(item)} for Excel`} title="Download Excel" onClick={() => exportExcel([item])}><FileSpreadsheet className="h-4 w-4" /></Button></div>
               </article>
             ))}
           </div>
