@@ -1,6 +1,7 @@
 // src/components/ui/Input.tsx
 import { InputHTMLAttributes, forwardRef } from 'react';
 import { cn } from '@/lib/utils';
+import { controlClassName, FieldShell } from '@/ui/FieldShell';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
@@ -9,33 +10,13 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, error, label, helperText, id, ...props }, ref) => {
-    const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
-    
-    return (
-      <div className="space-y-2">
-        {label && (
-          <label htmlFor={inputId} className="block text-sm font-medium text-[var(--color-text-secondary)]">
-            {label}
-          </label>
-        )}
-        <input
-          ref={ref}
-          id={inputId}
-          className={cn(
-            'flex h-10 w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] ring-offset-[var(--color-background-primary)] placeholder:text-[var(--color-text-tertiary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-border-focus)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-            error && 'border-[var(--color-border-error)] focus-visible:ring-[var(--color-border-error)]',
-            className
-          )}
-          {...props}
-        />
-        {helperText && !error && (
-          <p className="text-sm text-[var(--color-text-tertiary)]">{helperText}</p>
-        )}
-        {error && <p className="text-sm text-[var(--color-danger-text)]">{error}</p>}
-      </div>
-    );
-  }
+  ({ className, error, label, helperText, id, required, ...props }, ref) => (
+    <FieldShell id={id} label={label} helperText={helperText} error={error} required={required}>
+      {({ controlId, describedBy, invalid }) => (
+        <input ref={ref} id={controlId} required={required} aria-invalid={invalid || undefined} aria-describedby={describedBy} className={cn(controlClassName, 'h-11 py-2', invalid && 'border-[var(--color-border-error)] focus-visible:border-[var(--color-border-error)] focus-visible:ring-[var(--color-border-error)]/25', className)} {...props} />
+      )}
+    </FieldShell>
+  )
 );
 
 Input.displayName = 'Input';

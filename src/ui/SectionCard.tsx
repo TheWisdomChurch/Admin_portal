@@ -22,7 +22,7 @@ export function SectionCard({ title, subtitle, icon, actions, children, classNam
       title={
         <div className="flex items-start gap-3">
           {icon && (
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-primary)] text-[var(--color-text-inverse)]">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] text-[var(--color-warning-text)] ring-1 ring-inset ring-[var(--color-warning-border)]">
               {icon}
             </div>
           )}

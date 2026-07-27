@@ -25,6 +25,9 @@ import {
 import { Button } from '@/ui/Button';
 import { PageHeader } from '@/layouts';
 import { Input } from '@/ui/Input';
+import { Select } from '@/ui/Select';
+import { Textarea } from '@/ui/Textarea';
+import { Checkbox } from '@/ui/Checkbox';
 import { AlertModal } from '@/ui/AlertModal';
 import { SectionCard } from '@/ui/SectionCard';
 
@@ -718,34 +721,23 @@ export default withAuth(function NewFormPage() {
                 )}
               </div>
 
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Description</label>
-                <textarea className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold leading-7 text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-4 focus:ring-[var(--color-border-focus)]" rows={5} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Write a clean short description. Use '- ' for bullet points." />
-              </div>
+              <div className="md:col-span-2"><Textarea label="Description" rows={5} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Write a clean short description. Use '- ' for bullet points." /></div>
 
-              <div>
-                <label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Form Type</label>
-                <select className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] outline-none" value={formType} onChange={(event) => setFormType(event.target.value as FormSettings['formType'] | '')}>
+              <Select label="Form type" value={formType} onChange={(event) => setFormType(event.target.value as FormSettings['formType'] | '')}>
                   <option value="">Select a type</option>
                   {formTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </div>
+              </Select>
 
-              <div>
-                <label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Linked Event</label>
-                <select className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] outline-none" value={eventId} onChange={(event) => setEventId(event.target.value)} disabled={eventsLoading}>
+              <Select label="Linked event" value={eventId} onChange={(event) => setEventId(event.target.value)} disabled={eventsLoading}>
                   <option value="">No event (standalone form)</option>
                   {events.map((event) => <option key={event.id} value={event.id}>{event.title}</option>)}
-                </select>
-              </div>
+              </Select>
 
               <Input label="Capacity (optional)" type="number" min={0} value={capacity} onChange={(event) => setCapacity(event.target.value)} placeholder="e.g., 250" />
               <Input label="Closes At (optional)" type="datetime-local" value={closesAt} onChange={(event) => setClosesAt(event.target.value)} />
               <Input label="Expires At (optional)" type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />
 
-              <div>
-                <label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Submission Target</label>
-                <select className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] outline-none" value={submissionTarget} onChange={(event) => setSubmissionTarget(event.target.value as FormSettings['submissionTarget'] | '')}>
+              <Select label="Submission target" value={submissionTarget} onChange={(event) => setSubmissionTarget(event.target.value as FormSettings['submissionTarget'] | '')}>
                   <option value="">Do not route</option>
                   <option value="workforce_new">Workforce (new workers)</option>
                   <option value="workforce_serving">Workforce (already serving)</option>
@@ -753,8 +745,7 @@ export default withAuth(function NewFormPage() {
                   <option value="member">Membership (members)</option>
                   <option value="leadership">Leadership applications</option>
                   <option value="testimonial">Testimonials</option>
-                </select>
-              </div>
+              </Select>
 
               <Input label="Department (workforce only)" value={submissionDepartment} onChange={(event) => setSubmissionDepartment(event.target.value)} placeholder="e.g., Hospitality" disabled={!isWorkforceTarget} error={fieldErrors.submissionDepartment} />
             </div>
@@ -762,12 +753,12 @@ export default withAuth(function NewFormPage() {
 
           <SectionCard title="Quick presets" subtitle="Apply a professional structure for common ministry workflows." icon={<Wand2 className="h-5 w-5" />}>
             <div className="space-y-4">
-              <select value={selectedPreset} onChange={(event) => setSelectedPreset(event.target.value as FormPreset | '')} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-black text-[var(--color-text-secondary)] outline-none">
+              <Select label="Preset" value={selectedPreset} onChange={(event) => setSelectedPreset(event.target.value as FormPreset | '')}>
                 <option value="">Choose preset</option>
                 <option value="testimonial">Testimonial Intake</option>
                 <option value="member">New Member Intake</option>
                 <option value="leadership">Leadership Intake</option>
-              </select>
+              </Select>
               <Button type="button" variant="outline" icon={<Wand2 className="h-4 w-4" />} disabled={!selectedPreset} onClick={() => selectedPreset && applyPreset(selectedPreset)}>Apply Preset</Button>
               <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Description preview</p>
@@ -840,7 +831,7 @@ export default withAuth(function NewFormPage() {
               {(bannerPreview || coverImageUrl.trim()) ? <div className="flex aspect-[16/7] w-full items-center justify-center overflow-hidden rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3"><Image src={bannerPreview || coverImageUrl.trim()} alt="Header artwork preview" width={1200} height={525} className="h-full w-full object-contain" unoptimized /></div> : <div className="rounded-2xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-8 text-center text-sm font-semibold text-[var(--color-text-tertiary)]">No header image selected.</div>}
               <Input label="Success modal title" value={successTitle} onChange={(event) => setSuccessTitle(event.target.value)} placeholder="Thank you for registering" />
               <Input label="Success modal subtitle" value={successSubtitle} onChange={(event) => setSuccessSubtitle(event.target.value)} placeholder="for {{formTitle}}" />
-              <label className="grid gap-1.5"><span className="text-sm font-bold text-[var(--color-text-secondary)]">Success modal message</span><textarea className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold leading-7 text-[var(--color-text-primary)] outline-none" rows={3} value={successMessage} onChange={(event) => setSuccessMessage(event.target.value)} /></label>
+              <Textarea label="Success modal message" rows={3} value={successMessage} onChange={(event) => setSuccessMessage(event.target.value)} />
             </div>
           </SectionCard>
         </section>
@@ -852,10 +843,10 @@ export default withAuth(function NewFormPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <Input label="Left column title" value={introTitle} onChange={(event) => setIntroTitle(event.target.value)} />
               <Input label="Left column subtitle" value={introSubtitle} onChange={(event) => setIntroSubtitle(event.target.value)} />
-              <label className="grid gap-1.5"><span className="text-sm font-bold text-[var(--color-text-secondary)]">Left column bullets</span><textarea className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold leading-7 text-[var(--color-text-primary)] outline-none" rows={4} value={introBullets} onChange={(event) => setIntroBullets(event.target.value)} /></label>
-              <label className="grid gap-1.5"><span className="text-sm font-bold text-[var(--color-text-secondary)]">Bullet subtext</span><textarea className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold leading-7 text-[var(--color-text-primary)] outline-none" rows={4} value={introBulletSubs} onChange={(event) => setIntroBulletSubs(event.target.value)} /></label>
-              <div><label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Layout</label><select value={layoutMode} onChange={(event) => setLayoutMode(event.target.value as 'split' | 'stack')} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] outline-none"><option value="split">Two column layout</option><option value="stack">Single column layout</option></select></div>
-              <div><label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Date format</label><select value={dateFormat} onChange={(event) => setDateFormat(event.target.value as DateFormat)} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] outline-none">{dateFormats.map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}</select></div>
+              <Textarea label="Left column bullets" rows={4} value={introBullets} onChange={(event) => setIntroBullets(event.target.value)} />
+              <Textarea label="Bullet subtext" rows={4} value={introBulletSubs} onChange={(event) => setIntroBulletSubs(event.target.value)} />
+              <Select label="Layout" value={layoutMode} onChange={(event) => setLayoutMode(event.target.value as 'split' | 'stack')}><option value="split">Two column layout</option><option value="stack">Single column layout</option></Select>
+              <Select label="Date format" value={dateFormat} onChange={(event) => setDateFormat(event.target.value as DateFormat)}>{dateFormats.map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}</Select>
             </div>
           </SectionCard>
 
@@ -867,14 +858,14 @@ export default withAuth(function NewFormPage() {
               <ColorInput label="Footer text" value={footerTextColor} onChange={setFooterTextColor} />
               <ColorInput label="Button background" value={submitButtonBg} onChange={setSubmitButtonBg} />
               <ColorInput label="Button text" value={submitButtonTextColor} onChange={setSubmitButtonTextColor} />
-              <div><label className="mb-1 block text-sm font-bold text-[var(--color-text-secondary)]">Submit icon</label><select value={submitButtonIcon} onChange={(event) => setSubmitButtonIcon(event.target.value as SubmitButtonIcon)} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] outline-none">{submitButtonIcons.map((icon) => <option key={icon} value={icon}>{icon}</option>)}</select></div>
-              <label className="flex items-center gap-2 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-black text-[var(--color-text-secondary)]"><input type="checkbox" checked={responseEmailEnabled} onChange={(event) => setResponseEmailEnabled(event.target.checked)} />Enable response email</label>
+              <Select label="Submit icon" value={submitButtonIcon} onChange={(event) => setSubmitButtonIcon(event.target.value as SubmitButtonIcon)}>{submitButtonIcons.map((icon) => <option key={icon} value={icon}>{icon}</option>)}</Select>
+              <Checkbox label="Enable response email" checked={responseEmailEnabled} onChange={(event) => setResponseEmailEnabled(event.target.checked)} className="min-h-11 rounded-[var(--radius-control)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3" />
               <Input label="Email subject" value={responseEmailSubject} onChange={(event) => setResponseEmailSubject(event.target.value)} disabled={!responseEmailEnabled} />
               <Input label="Template key" value={responseTemplateKeyPreview} disabled />
               <Input label="Email heading" value={responseEmailHeading} onChange={(event) => setResponseEmailHeading(event.target.value)} disabled={!responseEmailEnabled} />
               <Input label="Template image URL" value={responseTemplateUrl} onChange={(event) => setResponseTemplateUrl(event.target.value)} disabled={!responseEmailEnabled} />
               <Input label="Or upload template image" type="file" accept="image/*" onChange={(event) => handleResponseTemplateFile(event.target.files?.[0])} disabled={!responseEmailEnabled} />
-              <label className="grid gap-1.5 md:col-span-2"><span className="text-sm font-bold text-[var(--color-text-secondary)]">Email body message</span><textarea className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold leading-7 text-[var(--color-text-primary)] outline-none disabled:opacity-50" rows={3} value={responseEmailMessage} onChange={(event) => setResponseEmailMessage(event.target.value)} disabled={!responseEmailEnabled} /></label>
+              <div className="md:col-span-2"><Textarea label="Email body message" rows={3} value={responseEmailMessage} onChange={(event) => setResponseEmailMessage(event.target.value)} disabled={!responseEmailEnabled} /></div>
               {(responseTemplatePreview || responseTemplateUrl.trim()) ? <Image src={responseTemplatePreview || responseTemplateUrl.trim()} alt="Response template preview" width={1200} height={400} className="max-h-64 w-full rounded-3xl border border-[var(--color-border-secondary)] object-cover md:col-span-2" unoptimized /> : null}
             </div>
           </SectionCard>

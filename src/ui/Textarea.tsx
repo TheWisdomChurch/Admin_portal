@@ -1,6 +1,7 @@
 // src/components/ui/Textarea.tsx
 import { TextareaHTMLAttributes, forwardRef } from 'react';
 import { cn } from '@/lib/utils';
+import { controlClassName, FieldShell } from '@/ui/FieldShell';
 
 interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   error?: string;
@@ -9,34 +10,22 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 }
 
 const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, error, label, helperText, id, rows = 4, ...props }, ref) => {
-    const textareaId = id || label?.toLowerCase().replace(/\s+/g, '-');
-
-    return (
-      <div className="space-y-2">
-        {label && (
-          <label htmlFor={textareaId} className="block text-sm font-medium text-[var(--color-text-secondary)]">
-            {label}
-          </label>
-        )}
+  ({ className, error, label, helperText, id, rows = 4, required, ...props }, ref) => (
+    <FieldShell id={id} label={label} helperText={helperText} error={error} required={required}>
+      {({ controlId, describedBy, invalid }) => (
         <textarea
           ref={ref}
-          id={textareaId}
+          id={controlId}
           rows={rows}
-          className={cn(
-            'flex w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm leading-6 text-[var(--color-text-primary)] ring-offset-[var(--color-background-primary)] placeholder:text-[var(--color-text-tertiary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-border-focus)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-            error && 'border-[var(--color-border-error)] focus-visible:ring-[var(--color-border-error)]',
-            className
-          )}
+          required={required}
+          aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
+          className={cn(controlClassName, 'min-h-28 resize-y py-2.5 leading-6', invalid && 'border-[var(--color-border-error)] focus-visible:border-[var(--color-border-error)] focus-visible:ring-[var(--color-border-error)]/25', className)}
           {...props}
         />
-        {helperText && !error && (
-          <p className="text-sm text-[var(--color-text-tertiary)]">{helperText}</p>
-        )}
-        {error && <p className="text-sm text-[var(--color-danger-text)]">{error}</p>}
-      </div>
-    );
-  }
+      )}
+    </FieldShell>
+  )
 );
 
 Textarea.displayName = 'Textarea';

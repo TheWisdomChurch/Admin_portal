@@ -135,7 +135,12 @@
 
   --radius-card: 18px;
   --radius-button: 14px;
+  --radius-control: 12px;
+  --radius-panel: 24px;
+  --radius-shell: 32px;
   --radius-pill: 999px;
+
+  --content-max-width: 112rem;
 
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
@@ -170,6 +175,7 @@
   --spacing-24: 6rem;
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-control: 0 1px 2px rgba(28, 25, 23, 0.035);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
