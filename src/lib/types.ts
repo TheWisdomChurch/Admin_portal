@@ -380,7 +380,19 @@ export interface DashboardAnalytics {
   upcomingEvents: number;
   totalAttendees: number;
   eventsByCategory: Record<string, number>;
-  monthlyStats: Array<{ month: string; events: number; attendees: number }>;
+  monthlyStats: Array<{ month: string; count: number }>;
+  operations: {
+    totalMembers: number;
+    activeMembers: number;
+    totalWorkforce: number;
+    servingWorkforce: number;
+    totalSubmissions: number;
+    submissions30d: number;
+    totalAttendance: number;
+    attendance30d: number;
+    clientEvents30d: number;
+  };
+  generatedAt: string;
 }
 
 export interface DecisionInsights {

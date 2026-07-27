@@ -144,7 +144,6 @@ function SuperAnalyticsPage() {
                   <tr>
                     <th className="pb-3 pr-4">Month</th>
                     <th className="pb-3 pr-4">Events</th>
-                    <th className="pb-3 pr-4">Attendees</th>
                     <th className="pb-3">Signal</th>
                   </tr>
                 </thead>
@@ -152,11 +151,10 @@ function SuperAnalyticsPage() {
                   {data.monthlyStats.map((row) => (
                     <tr key={row.month}>
                       <td className="py-3 pr-4 font-semibold text-[var(--color-text-primary)]">{row.month}</td>
-                      <td className="py-3 pr-4 text-[var(--color-text-secondary)]">{row.events.toLocaleString()}</td>
-                      <td className="py-3 pr-4 text-[var(--color-text-secondary)]">{row.attendees.toLocaleString()}</td>
+                      <td className="py-3 pr-4 text-[var(--color-text-secondary)]">{row.count.toLocaleString()}</td>
                       <td className="py-3">
-                        <Badge variant={row.events > 0 ? 'success' : 'secondary'}>
-                          {row.events > 0 ? 'Active' : 'No activity'}
+                        <Badge variant={row.count > 0 ? 'success' : 'secondary'}>
+                          {row.count > 0 ? 'Active' : 'No activity'}
                         </Badge>
                       </td>
                     </tr>

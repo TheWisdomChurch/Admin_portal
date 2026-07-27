@@ -245,15 +245,14 @@ function AnalyticsPage() {
 
   const timeline = useMemo(() => (data ? buildTimeline(data) : []), [data]);
 
-  const forecastEvents = forecastNext(monthlyStats.map((row) => row.events));
-  const forecastAttendees = forecastNext(monthlyStats.map((row) => row.attendees));
+  const forecastEvents = forecastNext(monthlyStats.map((row) => row.count));
 
-  const totalMembers = numberValue((data?.memberStats as RawRecord | null)?.total);
-  const activeMembers = numberValue((data?.memberStats as RawRecord | null)?.active);
+  const totalMembers = numberValue((data?.memberStats as RawRecord | null)?.total ?? data?.analytics?.operations.totalMembers);
+  const activeMembers = numberValue((data?.memberStats as RawRecord | null)?.active ?? data?.analytics?.operations.activeMembers);
   const newMembersThisMonth = numberValue((data?.newMembers as RawRecord | null)?.thisMonth);
   const newMembersThisYear = numberValue((data?.newMembers as RawRecord | null)?.thisYear);
-  const workforceServing = numberValue(asRecord((data?.workforceStats as RawRecord | null)?.byStatus).serving);
-  const workforceTotal = numberValue((data?.workforceStats as RawRecord | null)?.total);
+  const workforceServing = numberValue(asRecord((data?.workforceStats as RawRecord | null)?.byStatus).serving ?? data?.analytics?.operations.servingWorkforce);
+  const workforceTotal = numberValue((data?.workforceStats as RawRecord | null)?.total ?? data?.analytics?.operations.totalWorkforce);
   const activeProducts = data?.storeProducts.filter((item) => Boolean(asRecord(item).isActive ?? asRecord(item).is_active)).length ?? 0;
   const lowStockProducts =
     data?.storeProducts.filter((item) => {
@@ -266,19 +265,9 @@ function AnalyticsPage() {
     datasets: [
       {
         label: 'Events',
-        data: monthlyStats.map((row) => row.events),
+        data: monthlyStats.map((row) => row.count),
         borderColor: chartPalette.series.emerald.line,
         backgroundColor: chartPalette.series.emerald.fill,
-        borderWidth: 3,
-        fill: true,
-        tension: 0.42,
-        pointRadius: 3,
-      },
-      {
-        label: 'Attendees',
-        data: monthlyStats.map((row) => row.attendees),
-        borderColor: chartPalette.series.blue.line,
-        backgroundColor: chartPalette.series.blue.fill,
         borderWidth: 3,
         fill: true,
         tension: 0.42,
@@ -353,6 +342,12 @@ function AnalyticsPage() {
         }
       />
 
+      {data?.failedSources.length ? (
+        <Panel className="border-[var(--color-warning-border)] bg-[var(--color-warning-surface)]">
+          <p className="text-sm font-semibold text-[var(--color-warning-text)]">Some live data could not be loaded: {data.failedSources.join(', ')}. Available sections remain current; refresh to retry.</p>
+        </Panel>
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-3">
         <Panel>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Next month event forecast</p>
@@ -361,9 +356,9 @@ function AnalyticsPage() {
           </p>
         </Panel>
         <Panel>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Next month attendee forecast</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Attendance in last 30 days</p>
           <p className="mt-2 text-lg font-bold text-[var(--color-text-primary)]">
-            {forecastAttendees === null ? 'Insufficient data' : formatNumber(forecastAttendees)}
+            {formatNumber(data?.analytics?.operations.attendance30d)}
           </p>
         </Panel>
         <Panel>
@@ -379,7 +374,7 @@ function AnalyticsPage() {
           <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Monthly performance</h2>
-              <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Events and attendees over time.</p>
+              <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Events created by month.</p>
             </div>
             <LineChartIcon className="h-5 w-5 text-[var(--color-accent-primary)]" />
           </div>
