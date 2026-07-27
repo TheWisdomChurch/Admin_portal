@@ -49,35 +49,10 @@ scale, spacing/radius/shadow value, and shared component in light and dark mode.
 it before adding a new color or hand-rolling a component — the answer is almost always
 already there.
 
-## Testing
+## Quality checks
 
-- **Component tests** — [Vitest](https://vitest.dev) + React Testing Library, covering
-  the `src/ui/` primitives (highest leverage: every page depends on these).
-  ```bash
-  npm run test        # run once
-  npm run test:watch  # watch mode
-  ```
-  Test files live next to the component they cover (`src/ui/Button.test.tsx`).
-- **End-to-end tests** — [Playwright](https://playwright.dev), covering the critical
-  paths: login (incl. remember-me), MFA/TOTP setup + challenge, cross-tab session
-  takeover, core CRUD on members/events/forms, and role-gating. Specs live in `e2e/`.
-  ```bash
-  npm run test:e2e
-  ```
-  This repo has **no mock backend** — there's no DB or business logic here to fake, so
-  e2e specs run against a real `wisdom_api` instance. Anything beyond the login-page
-  smoke checks needs live credentials, supplied via env vars and skipped automatically
-  when absent (see `e2e/fixtures.ts`):
-  - `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` — a regular admin account
-  - `E2E_SUPER_ADMIN_EMAIL` / `E2E_SUPER_ADMIN_PASSWORD` — a super-admin account
-  - `E2E_LOGIN_OTP_CODE` — a fixed test-only OTP code, if the test accounts have
-    email-OTP MFA enabled
-  - `E2E_BASE_URL` — target a deployed staging environment instead of a local dev
-    server (also gates whether CI's `e2e` job runs at all — see `.github/workflows/ci.yml`)
-- CI (`.github/workflows/ci.yml`) runs lint, typecheck, Vitest, and a production build on
-  every pull request; the Playwright job only runs when `E2E_BASE_URL` is configured as
-  a repo variable, so forks and contributors without staging access still get a green
-  required-checks build.
+Run `npm run precommit` before publishing changes. It validates lint rules,
+TypeScript, and the optimized production build.
 - Deliberately **not** covered: page-level unit tests for all ~40 routes. TypeScript
   strict mode, the ESLint drift rules, and the e2e critical paths are the intended
   safety net there — see the Phase 6 notes in project history for the reasoning.
