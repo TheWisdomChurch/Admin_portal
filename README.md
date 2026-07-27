@@ -53,9 +53,6 @@ already there.
 
 Run `npm run precommit` before publishing changes. It validates lint rules,
 TypeScript, and the optimized production build.
-- Deliberately **not** covered: page-level unit tests for all ~40 routes. TypeScript
-  strict mode, the ESLint drift rules, and the e2e critical paths are the intended
-  safety net there — see the Phase 6 notes in project history for the reasoning.
 
 ## Adding a New Page
 
@@ -77,7 +74,5 @@ TypeScript, and the optimized production build.
 5. **Auth gating**: wrap the default export in `withAuth(Component, { requiredRole })`
    (`src/providers/withAuth.tsx`) unless the route is intentionally public. Role/path
    rules live once in `src/lib/access.ts` — don't re-derive them locally.
-6. **Add a component test** if you added a new `src/ui/` primitive, and an e2e spec in
-   `e2e/` if you added a new critical user-facing flow (see Testing above).
 - A pre-commit hook (`.githooks/pre-commit`, wired up via the `prepare` npm script) runs
-  lint + typecheck + the Vitest suite before every commit.
+  lint, typecheck, and the optimized production build before every commit.

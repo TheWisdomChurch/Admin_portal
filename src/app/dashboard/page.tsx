@@ -26,7 +26,7 @@ import { Panel } from '@/ui/Panel';
 
 type RawRecord = Record<string, unknown>;
 type InsightTone = 'warning' | 'info' | 'danger' | 'success';
-type Insight = { title: string; description: string; tone: InsightTone };
+type Insight = { title: string; description: string; tone: InsightTone; href?: string; actionLabel?: string };
 
 const numberFormatter = new Intl.NumberFormat('en-US');
 
@@ -71,6 +71,8 @@ function buildInsights(snapshot: DashboardSnapshot): Insight[] {
       title: 'No upcoming events scheduled',
       description: 'Add upcoming services, outreach, or programs to keep the calendar visible to your team.',
       tone: 'warning',
+      href: '/dashboard/event',
+      actionLabel: 'Schedule an event',
     });
   }
 
@@ -79,6 +81,8 @@ function buildInsights(snapshot: DashboardSnapshot): Insight[] {
       title: 'No new members recorded this month',
       description: 'Review intake forms and follow-up workflows to see why acquisition has stalled.',
       tone: 'info',
+      href: '/dashboard/new-members',
+      actionLabel: 'Review new members',
     });
   }
 
@@ -87,6 +91,8 @@ function buildInsights(snapshot: DashboardSnapshot): Insight[] {
       title: 'Workforce engagement is below target',
       description: 'Less than half of workforce profiles are currently marked as serving.',
       tone: 'danger',
+      href: '/dashboard/workforce',
+      actionLabel: 'Review workforce',
     });
   }
 
@@ -95,6 +101,8 @@ function buildInsights(snapshot: DashboardSnapshot): Insight[] {
       title: 'Store items are running low',
       description: `${formatNumber(lowStock)} active product${lowStock === 1 ? '' : 's'} at low stock — restock before orders are affected.`,
       tone: 'warning',
+      href: '/dashboard/store',
+      actionLabel: 'Review inventory',
     });
   }
 
@@ -237,6 +245,11 @@ function DashboardPage() {
             <div key={insight.title} className={`rounded-2xl border p-4 ${toneStyles[insight.tone]}`}>
               <p className="text-sm font-semibold">{insight.title}</p>
               <p className="mt-1 text-sm leading-6 opacity-90">{insight.description}</p>
+              {insight.href && insight.actionLabel ? (
+                <Link href={insight.href} className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold underline-offset-4 hover:underline">
+                  {insight.actionLabel} <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              ) : null}
             </div>
           ))}
         </div>
