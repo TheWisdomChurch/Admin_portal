@@ -89,6 +89,7 @@ const eslintConfig = defineConfig([
 
   globalIgnores([
     '.next/**',
+    '.next-prepush/**',
     'out/**',
     'build/**',
     'dist/**',

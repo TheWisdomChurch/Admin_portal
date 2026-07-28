@@ -497,9 +497,7 @@ function LoginInner() {
           initial="hidden"
           animate="show"
         >
-          <motion.div variants={heroItem} className="inline-flex w-fit items-center gap-2.5 border-l-2 border-[var(--brand-500)] bg-[var(--color-background-primary)]/60 py-1 pl-3 pr-4 text-xs font-semibold uppercase tracking-[0.28em] text-[var(--color-text-secondary)]">
-            <span className="font-mono text-[var(--brand-600)] dark:text-[var(--brand-300)]">01</span>
-            <span className="h-3 w-px bg-[var(--color-border-secondary)]" aria-hidden="true" />
+          <motion.div variants={heroItem} className="inline-flex w-fit items-center border-l-2 border-[var(--brand-500)] bg-[var(--color-background-primary)]/60 py-1 pl-3 pr-4 text-xs font-semibold uppercase tracking-[0.28em] text-[var(--color-text-secondary)]">
             {portalMode === 'super' ? 'Super Admin Authority' : 'Administration & Governance'}
           </motion.div>
           <motion.h1 variants={heroItem} className="auth-hero-text font-display text-3xl font-semibold leading-[1.15] text-[var(--color-text-primary)] sm:text-4xl">
@@ -514,7 +512,6 @@ function LoginInner() {
           </motion.p>
           <div className="grid gap-3 sm:grid-cols-2">
             <motion.div variants={heroItem} className="group relative border-l-2 border-[var(--brand-500)]/60 bg-[var(--color-background-primary)]/70 p-4 transition hover:border-[var(--brand-500)]">
-              <span className="absolute right-4 top-4 font-mono text-[10px] font-bold tracking-widest text-[var(--color-text-tertiary)]/50">01</span>
               <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--brand-500)]/30 bg-[var(--color-background-primary)] text-[var(--brand-600)] dark:text-[var(--brand-300)]">
                 <ShieldCheck className="h-[18px] w-[18px]" />
               </div>
@@ -526,7 +523,6 @@ function LoginInner() {
               </p>
             </motion.div>
             <motion.div variants={heroItem} className="group relative border-l-2 border-[var(--brand-500)]/60 bg-[var(--color-background-primary)]/70 p-4 transition hover:border-[var(--brand-500)]">
-              <span className="absolute right-4 top-4 font-mono text-[10px] font-bold tracking-widest text-[var(--color-text-tertiary)]/50">02</span>
               <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--brand-500)]/30 bg-[var(--color-background-primary)] text-[var(--brand-600)] dark:text-[var(--brand-300)]">
                 <Smartphone className="h-[18px] w-[18px]" />
               </div>

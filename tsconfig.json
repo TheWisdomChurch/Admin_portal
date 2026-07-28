@@ -40,7 +40,9 @@
     "**/*.mts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "src/types/**/*.d.ts"
+    "src/types/**/*.d.ts",
+    ".next-prepush/types/**/*.ts",
+    ".next-prepush/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

@@ -4,4 +4,6 @@ set -e
 echo "Running pre-commit checks..."
 npm run lint
 npm run typecheck
-npm run build
+# Keep commit-time builds isolated from a running `next dev` process. Both
+# commands otherwise contend for `.next/lock` and can corrupt the shared cache.
+NEXT_DIST_DIR=.next-prepush npm run build
