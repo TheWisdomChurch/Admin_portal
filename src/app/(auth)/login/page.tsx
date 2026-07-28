@@ -440,8 +440,17 @@ function LoginInner() {
 
   return (
     <div className="auth-shell relative overflow-hidden">
-      <div className="pointer-events-none absolute -right-32 -top-40 h-[28rem] w-[28rem] rounded-full bg-[var(--brand-500)]/[0.14] blur-[120px]" aria-hidden="true" />
-      <div className="pointer-events-none absolute -left-24 top-1/3 h-80 w-80 rounded-full bg-[var(--brand-600)]/[0.08] blur-[110px]" aria-hidden="true" />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.35] dark:opacity-[0.22]"
+        style={{
+          backgroundImage: 'radial-gradient(var(--color-border-secondary) 1px, transparent 1px)',
+          backgroundSize: '28px 28px',
+          maskImage: 'radial-gradient(ellipse 65% 55% at 50% 0%, black 40%, transparent 90%)',
+          WebkitMaskImage: 'radial-gradient(ellipse 65% 55% at 50% 0%, black 40%, transparent 90%)',
+        }}
+        aria-hidden="true"
+      />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--brand-500)]/50 to-transparent" aria-hidden="true" />
 
       <header className="relative mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
@@ -486,51 +495,55 @@ function LoginInner() {
           initial="hidden"
           animate="show"
         >
-          <motion.p variants={heroItem} className="inline-flex w-fit items-center gap-2 rounded-full border border-[var(--brand-400)]/30 bg-[var(--brand-500)]/10 px-3 py-1 text-xs font-black uppercase tracking-[0.3em] text-[var(--brand-600)] dark:text-[var(--brand-300)]">
-            {portalMode === 'super' ? 'Super Admin Access' : 'Secure Access'}
-          </motion.p>
-          <motion.h1 variants={heroItem} className="auth-hero-text font-display text-3xl font-semibold text-[var(--color-text-primary)] sm:text-4xl">
+          <motion.div variants={heroItem} className="inline-flex w-fit items-center gap-2.5 border-l-2 border-[var(--brand-500)] bg-[var(--color-background-primary)]/60 py-1 pl-3 pr-4 text-xs font-black uppercase tracking-[0.28em] text-[var(--color-text-secondary)]">
+            <span className="font-mono text-[var(--brand-600)] dark:text-[var(--brand-300)]">01</span>
+            <span className="h-3 w-px bg-[var(--color-border-secondary)]" aria-hidden="true" />
+            {portalMode === 'super' ? 'Super Admin Authority' : 'Administration & Governance'}
+          </motion.div>
+          <motion.h1 variants={heroItem} className="auth-hero-text font-display text-3xl font-semibold leading-[1.15] text-[var(--color-text-primary)] sm:text-4xl">
             {portalMode === 'super'
-              ? 'The Wisdom Church Super Admin Console'
-              : 'The Wisdom Church Administration Portal'}
+              ? 'Full administrative authority over the Wisdom Church platform.'
+              : 'One governed console for every Wisdom Church operation.'}
           </motion.h1>
-          <motion.p variants={heroItem} className="text-sm text-[var(--color-text-secondary)] sm:text-base">
+          <motion.p variants={heroItem} className="text-sm leading-7 text-[var(--color-text-secondary)] sm:text-base">
             {portalMode === 'super'
-              ? 'Oversee approvals, security-sensitive operations, reports, and platform-wide analytics.'
-              : 'Manage events, testimonies, and ministry updates with clarity and control.'}
+              ? 'Approvals, security-sensitive actions, and platform-wide reporting — governed with full audit visibility.'
+              : 'Events, testimonies, leadership records, and ministry updates — administered from a single console built for accountability.'}
           </motion.p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <motion.div variants={heroItem} className="group rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/70 p-4 transition hover:border-[var(--brand-400)]/40 hover:shadow-md">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--brand-500)]/15 text-[var(--brand-600)] transition group-hover:bg-[var(--brand-500)]/25 dark:text-[var(--brand-300)]">
+            <motion.div variants={heroItem} className="group relative border-l-2 border-[var(--brand-500)]/60 bg-[var(--color-background-primary)]/70 p-4 transition hover:border-[var(--brand-500)]">
+              <span className="absolute right-4 top-4 font-mono text-[10px] font-bold tracking-widest text-[var(--color-text-tertiary)]/50">01</span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--brand-500)]/30 bg-[var(--color-background-primary)] text-[var(--brand-600)] dark:text-[var(--brand-300)]">
                 <ShieldCheck className="h-[18px] w-[18px]" />
               </div>
               <p className="mt-3 text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
-                {portalMode === 'super' ? 'Elevated Access' : 'Access Control'}
+                Verified Access
               </p>
               <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                Password sign-in is protected with a one-time verification code before the session is established.
+                Every password sign-in is confirmed with a one-time code or an authenticator app before a session begins.
               </p>
             </motion.div>
-            <motion.div variants={heroItem} className="group rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/70 p-4 transition hover:border-[var(--brand-400)]/40 hover:shadow-md">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--brand-500)]/15 text-[var(--brand-600)] transition group-hover:bg-[var(--brand-500)]/25 dark:text-[var(--brand-300)]">
+            <motion.div variants={heroItem} className="group relative border-l-2 border-[var(--brand-500)]/60 bg-[var(--color-background-primary)]/70 p-4 transition hover:border-[var(--brand-500)]">
+              <span className="absolute right-4 top-4 font-mono text-[10px] font-bold tracking-widest text-[var(--color-text-tertiary)]/50">02</span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--brand-500)]/30 bg-[var(--color-background-primary)] text-[var(--brand-600)] dark:text-[var(--brand-300)]">
                 <Smartphone className="h-[18px] w-[18px]" />
               </div>
               <p className="mt-3 text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
-                Trusted Devices
+                Governed Sessions
               </p>
               <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                Use Remember me only on secure devices you control. Session persistence remains optional.
+                Remember me applies only to devices you control — every session can be reviewed and revoked from Super Admin.
               </p>
             </motion.div>
           </div>
         </motion.section>
 
-        <motion.div variants={cardEntrance} initial="hidden" animate="show">
+        <motion.div variants={cardEntrance} initial="hidden" animate="show" className="lg:border-l lg:border-[var(--color-border-secondary)] lg:pl-8">
         <Card className="auth-glass w-full max-w-md p-8 shadow-xl shadow-black/5">
           <div className="mb-8 text-center">
-            <div className="relative inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[var(--color-background-tertiary)] mb-4">
-              <div className="absolute inset-0 rounded-2xl bg-[var(--brand-500)]/20 blur-md" aria-hidden="true" />
-              <Lock className="relative h-7 w-7 text-[var(--color-accent-primary)]" />
+            <div className="relative inline-flex items-center justify-center w-14 h-14 rounded-2xl border border-[var(--brand-500)]/30 bg-[var(--color-background-tertiary)] mb-4">
+              <div className="absolute -inset-1.5 rounded-2xl border border-[var(--brand-500)]/15" aria-hidden="true" />
+              <Lock className="h-7 w-7 text-[var(--color-accent-primary)]" />
             </div>
             <h2 className="text-2xl font-semibold text-[var(--color-text-primary)]">Welcome Back</h2>
             <p className="text-[var(--color-text-tertiary)] mt-2 text-sm">
