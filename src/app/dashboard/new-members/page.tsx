@@ -165,7 +165,7 @@ function FormLinkRow({ form }: { form: NewMemberFormSummary }) {
   return (
     <article className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0"><p className="truncate text-sm font-black text-[var(--color-text-primary)]">{form.formTitle}</p></div>
+        <div className="min-w-0"><p className="truncate text-sm font-bold text-[var(--color-text-primary)]">{form.formTitle}</p></div>
         <Badge variant={form.isPublished ? 'success' : 'secondary'}>{form.isPublished ? 'Live' : 'Draft'}</Badge>
       </div>
 
@@ -346,7 +346,7 @@ function NewMembersPage() {
         <Panel>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-lg font-black text-[var(--color-text-primary)]">New-member growth</h2>
+              <h2 className="text-lg font-bold text-[var(--color-text-primary)]">New-member growth</h2>
               <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Switch between available periods.</p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -359,7 +359,7 @@ function NewMembersPage() {
         </Panel>
 
         <Panel>
-          <h2 className="text-lg font-black text-[var(--color-text-primary)]">Add New Member forms</h2>
+          <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Add New Member forms</h2>
           <div className="mt-4 space-y-3">
             {(dashboard?.forms || []).length === 0 ? (
               <div className="rounded-3xl border border-dashed border-[var(--color-border-secondary)] p-4 text-center">
@@ -377,11 +377,11 @@ function NewMembersPage() {
 
       <Panel>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="text-lg font-black text-[var(--color-text-primary)]">Automated follow-up queue</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Persisted ownership, next actions, reminders, and escalation state from the backend.</p></div>
+          <div><h2 className="text-lg font-bold text-[var(--color-text-primary)]">Automated follow-up queue</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Persisted ownership, next actions, reminders, and escalation state from the backend.</p></div>
           <Badge variant={workflows.some((item) => item.escalationStatus === 'escalated') ? 'danger' : 'success'}>{workflows.filter((item) => item.escalationStatus === 'escalated').length} escalated</Badge>
         </div>
         <div className="mt-5 overflow-hidden rounded-3xl border border-[var(--color-border-secondary)]">
-          <div className="hidden grid-cols-[minmax(180px,1fr)_180px_180px_190px_120px] gap-4 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
+          <div className="hidden grid-cols-[minmax(180px,1fr)_180px_180px_190px_120px] gap-4 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
             <div>Member</div><div>Stage</div><div>Owner</div><div>Next action</div><div>State</div>
           </div>
           <div className="divide-y divide-[var(--color-border-secondary)]">
@@ -390,12 +390,12 @@ function NewMembersPage() {
               const submission = submissionsById.get(workflow.submissionId);
               const draft = contactDrafts[workflow.id] || { channel: 'phone' as const, outcome: '', notes: '' };
               return <article key={workflow.id} className="px-4 py-4"><div className="grid gap-3 lg:grid-cols-[minmax(180px,1fr)_180px_180px_190px_120px] lg:items-center">
-                <div><p className="text-sm font-black text-[var(--color-text-primary)]">{submission ? displayName(submission) : workflow.submissionId}</p><p className="text-xs text-[var(--color-text-tertiary)]">{workflow.assignedOwnerName || (workflow.assignedOwnerId ? `Owner ${workflow.assignedOwnerId}` : 'Unassigned')}</p></div>
+                <div><p className="text-sm font-bold text-[var(--color-text-primary)]">{submission ? displayName(submission) : workflow.submissionId}</p><p className="text-xs text-[var(--color-text-tertiary)]">{workflow.assignedOwnerName || (workflow.assignedOwnerId ? `Owner ${workflow.assignedOwnerId}` : 'Unassigned')}</p></div>
                 <Select aria-label="Follow-up stage" value={workflowStages[workflow.id] || workflow.stage} onChange={(event) => setWorkflowStages((current) => ({ ...current, [workflow.id]: event.target.value as NewMemberWorkflowStage }))}><option value="new">New</option><option value="contact_attempted">Contact attempted</option><option value="contacted">Contacted</option><option value="orientation_scheduled">Orientation scheduled</option><option value="orientation_completed">Orientation completed</option><option value="integrated">Integrated</option><option value="closed">Closed</option></Select>
                 <Select aria-label="Assigned owner" value={workflowOwners[workflow.id] || ''} onChange={(event) => setWorkflowOwners((current) => ({ ...current, [workflow.id]: event.target.value }))}><option value="">Unassigned</option>{adminUsers.map((user) => <option key={user.id} value={user.id}>{user.first_name} {user.last_name}</option>)}</Select>
                 <Input type="datetime-local" aria-label="Next follow-up action" value={workflowNextActions[workflow.id] || ''} onChange={(event) => setWorkflowNextActions((current) => ({ ...current, [workflow.id]: event.target.value }))} />
                 <div className="flex items-center gap-2"><Badge variant={workflow.escalationStatus === 'escalated' ? 'danger' : workflow.escalationStatus === 'due' ? 'warning' : 'secondary'}>{workflow.escalationStatus}</Badge><Button size="sm" loading={savingWorkflow === workflow.id} onClick={() => void saveWorkflowStage(workflow)}>Save</Button></div>
-              </div><details className="mt-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3"><summary className="cursor-pointer text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">Record contact</summary><div className="mt-3 grid gap-3 md:grid-cols-[150px_1fr_1fr_auto]"><Select aria-label="Contact channel" value={draft.channel} onChange={(event) => setContactDrafts((current) => ({ ...current, [workflow.id]: { ...draft, channel: event.target.value as NewMemberContact['channel'] } }))}><option value="phone">Phone</option><option value="email">Email</option><option value="sms">SMS</option><option value="whatsapp">WhatsApp</option><option value="in_person">In person</option><option value="other">Other</option></Select><Input placeholder="Actual outcome" value={draft.outcome} onChange={(event) => setContactDrafts((current) => ({ ...current, [workflow.id]: { ...draft, outcome: event.target.value } }))} /><Input placeholder="Notes (optional)" value={draft.notes} onChange={(event) => setContactDrafts((current) => ({ ...current, [workflow.id]: { ...draft, notes: event.target.value } }))} /><Button loading={savingWorkflow === workflow.id} onClick={() => void recordContact(workflow)}>Record</Button></div></details></article>;
+              </div><details className="mt-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3"><summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">Record contact</summary><div className="mt-3 grid gap-3 md:grid-cols-[150px_1fr_1fr_auto]"><Select aria-label="Contact channel" value={draft.channel} onChange={(event) => setContactDrafts((current) => ({ ...current, [workflow.id]: { ...draft, channel: event.target.value as NewMemberContact['channel'] } }))}><option value="phone">Phone</option><option value="email">Email</option><option value="sms">SMS</option><option value="whatsapp">WhatsApp</option><option value="in_person">In person</option><option value="other">Other</option></Select><Input placeholder="Actual outcome" value={draft.outcome} onChange={(event) => setContactDrafts((current) => ({ ...current, [workflow.id]: { ...draft, outcome: event.target.value } }))} /><Input placeholder="Notes (optional)" value={draft.notes} onChange={(event) => setContactDrafts((current) => ({ ...current, [workflow.id]: { ...draft, notes: event.target.value } }))} /><Button loading={savingWorkflow === workflow.id} onClick={() => void recordContact(workflow)}>Record</Button></div></details></article>;
             })}
           </div>
         </div>
@@ -403,7 +403,7 @@ function NewMembersPage() {
 
       <Panel>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="text-lg font-black text-[var(--color-text-primary)]">Period summaries</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Compact accordions prevent dashboard overcrowding.</p></div>
+          <div><h2 className="text-lg font-bold text-[var(--color-text-primary)]">Period summaries</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Compact accordions prevent dashboard overcrowding.</p></div>
           <TrendingUp className="h-5 w-5 text-[var(--color-text-tertiary)]" />
         </div>
         <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -416,12 +416,12 @@ function NewMembersPage() {
 
       <Panel>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="text-lg font-black text-[var(--color-text-primary)]">Add New Member submissions</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Latest form-driven intake records. Downloads contain readable member information only.</p></div>
+          <div><h2 className="text-lg font-bold text-[var(--color-text-primary)]">Add New Member submissions</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Latest form-driven intake records. Downloads contain readable member information only.</p></div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end"><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" icon={<FileText className="h-4 w-4" />} loading={exporting === 'pdf'} disabled={loading || filtered.length === 0 || exporting !== null} onClick={() => void exportPdf(filtered)}>Download PDF</Button><Button size="sm" variant="outline" icon={<FileSpreadsheet className="h-4 w-4" />} loading={exporting === 'excel'} disabled={loading || filtered.length === 0 || exporting !== null} onClick={() => exportExcel(filtered)}>Download Excel</Button></div><div className="relative w-full sm:w-80"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" /><Input aria-label="Search new member submissions" className="pl-9" placeholder="Search submissions" value={query} onChange={(event) => setQuery(event.target.value)} /></div></div>
         </div>
 
         <div className="mt-5 overflow-hidden rounded-3xl border border-[var(--color-border-secondary)]">
-          <div className="hidden grid-cols-[minmax(200px,1fr)_minmax(200px,1fr)_150px_160px_110px] gap-4 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
+          <div className="hidden grid-cols-[minmax(200px,1fr)_minmax(200px,1fr)_150px_160px_110px] gap-4 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
             <div>Profile</div><div>Contact</div><div>Source</div><div>Submitted</div><div className="text-right">Download</div>
           </div>
           <div className="divide-y divide-[var(--color-border-secondary)]">
@@ -429,7 +429,7 @@ function NewMembersPage() {
             {!loading && filtered.length === 0 ? <div className="p-6 text-sm text-[var(--color-text-tertiary)]">{loadError ? 'Submission data unavailable.' : 'No new-member submissions were found.'}</div> : null}
             {!loading && filtered.map((item) => (
               <article key={item.id} className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(200px,1fr)_minmax(200px,1fr)_150px_160px_110px] lg:items-center">
-                <div className="min-w-0"><p className="truncate text-sm font-black text-[var(--color-text-primary)]">{displayName(item)}</p><p className="truncate text-xs text-[var(--color-text-tertiary)]">{item.registrationCode || item.id}</p></div>
+                <div className="min-w-0"><p className="truncate text-sm font-bold text-[var(--color-text-primary)]">{displayName(item)}</p><p className="truncate text-xs text-[var(--color-text-tertiary)]">{item.registrationCode || item.id}</p></div>
                 <div className="min-w-0 text-sm text-[var(--color-text-secondary)]"><p className="truncate">{item.email || valueFromSubmission(item, ['email', 'emailAddress']) || 'No email'}</p><p className="truncate text-xs text-[var(--color-text-tertiary)]">{item.contactNumber || valueFromSubmission(item, ['phone', 'phoneNumber', 'mobile']) || 'No phone'}</p></div>
                 <Badge variant="info">{item.formTitle}</Badge>
                 <div className="text-sm text-[var(--color-text-secondary)]">{formatDate(item.createdAt)}</div>
@@ -449,9 +449,9 @@ function GrowthAccordion({ title, data, open }: { title: string; data: GrowthPoi
   const total = data.reduce((sum, item) => sum + item.count, 0);
   return (
     <details className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 open:bg-[var(--color-background-primary)]" open={open}>
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-black text-[var(--color-text-primary)]"><span>{title}</span><span className="rounded-full bg-[var(--color-background-primary)] px-3 py-1 text-xs text-[var(--color-text-tertiary)]">{total}</span></summary>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold text-[var(--color-text-primary)]"><span>{title}</span><span className="rounded-full bg-[var(--color-background-primary)] px-3 py-1 text-xs text-[var(--color-text-tertiary)]">{total}</span></summary>
       <div className="mt-4 space-y-2">
-        {data.length === 0 ? <p className="text-xs text-[var(--color-text-tertiary)]">No records yet.</p> : data.map((item) => <div key={`${title}-${item.period}`} className="flex items-center justify-between rounded-2xl bg-[var(--color-background-secondary)] px-3 py-2 text-xs"><span className="text-[var(--color-text-secondary)]">{shortPeriod(item.period)}</span><span className="font-black text-[var(--color-text-primary)]">{item.count}</span></div>)}
+        {data.length === 0 ? <p className="text-xs text-[var(--color-text-tertiary)]">No records yet.</p> : data.map((item) => <div key={`${title}-${item.period}`} className="flex items-center justify-between rounded-2xl bg-[var(--color-background-secondary)] px-3 py-2 text-xs"><span className="text-[var(--color-text-secondary)]">{shortPeriod(item.period)}</span><span className="font-bold text-[var(--color-text-primary)]">{item.count}</span></div>)}
       </div>
     </details>
   );

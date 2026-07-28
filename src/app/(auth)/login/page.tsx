@@ -497,7 +497,7 @@ function LoginInner() {
           initial="hidden"
           animate="show"
         >
-          <motion.div variants={heroItem} className="inline-flex w-fit items-center gap-2.5 border-l-2 border-[var(--brand-500)] bg-[var(--color-background-primary)]/60 py-1 pl-3 pr-4 text-xs font-black uppercase tracking-[0.28em] text-[var(--color-text-secondary)]">
+          <motion.div variants={heroItem} className="inline-flex w-fit items-center gap-2.5 border-l-2 border-[var(--brand-500)] bg-[var(--color-background-primary)]/60 py-1 pl-3 pr-4 text-xs font-semibold uppercase tracking-[0.28em] text-[var(--color-text-secondary)]">
             <span className="font-mono text-[var(--brand-600)] dark:text-[var(--brand-300)]">01</span>
             <span className="h-3 w-px bg-[var(--color-border-secondary)]" aria-hidden="true" />
             {portalMode === 'super' ? 'Super Admin Authority' : 'Administration & Governance'}

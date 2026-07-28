@@ -273,7 +273,7 @@ function appendCampaignTextFallback(
 
 function TabButton({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={`rounded-2xl px-4 py-2 text-sm font-black transition ${active ? 'bg-[var(--color-text-primary)] text-[var(--color-text-inverse)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]'}`}>
+    <button type="button" onClick={onClick} className={`rounded-2xl px-4 py-2 text-sm font-bold transition ${active ? 'bg-[var(--color-text-primary)] text-[var(--color-text-inverse)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]'}`}>
       {children}
     </button>
   );
@@ -874,12 +874,12 @@ function RegistrantCampaignPage() {
       <section className="overflow-hidden rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] p-6 text-[var(--color-text-inverse)] shadow-xl">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/65"><Mail className="h-4 w-4" />Registrant email campaign</div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/65"><Mail className="h-4 w-4" />Registrant email campaign</div>
             <h1 className="mt-4 max-w-4xl text-3xl font-black tracking-tight sm:text-4xl">Compose, preview, target, and send from one professional campaign studio.</h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--color-text-inverse)]/65">The audience is deduplicated directly from form submissions, and the template is saved before sending.</p>
           </div>
           <div className="rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-4 backdrop-blur">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-inverse)]/50">Template key</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-inverse)]/50">Template key</p>
             <p className="mt-2 break-all text-sm font-bold text-[var(--color-text-inverse)]/75">{templateKeyPreview}</p>
             <p className="mt-2 text-xs font-semibold text-[var(--color-text-inverse)]/45">{selectedRecipients.length} selected recipients</p>
           </div>
@@ -915,8 +915,8 @@ function RegistrantCampaignPage() {
 
               <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 md:col-span-2">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div><p className="text-sm font-black text-[var(--color-text-primary)]">Call-to-action button</p><p className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">Optional. No button appears unless enabled.</p></div>
-                  <Checkbox label="Enable CTA" checked={ctaEnabled} onChange={(event) => setCtaEnabled(event.target.checked)} className="text-sm font-black text-[var(--color-text-secondary)]" />
+                  <div><p className="text-sm font-bold text-[var(--color-text-primary)]">Call-to-action button</p><p className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">Optional. No button appears unless enabled.</p></div>
+                  <Checkbox label="Enable CTA" checked={ctaEnabled} onChange={(event) => setCtaEnabled(event.target.checked)} className="text-sm font-bold text-[var(--color-text-secondary)]" />
                 </div>
                 <div className="mt-4 grid gap-4 md:grid-cols-2"><Input label="CTA label" value={ctaLabel} onChange={(event) => setCtaLabel(event.target.value)} disabled={!ctaEnabled} /><Input label="CTA URL" value={ctaUrl} onChange={(event) => setCtaUrl(event.target.value)} disabled={!ctaEnabled} /></div>
               </div>
@@ -952,7 +952,7 @@ function RegistrantCampaignPage() {
                 <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-black text-[var(--color-text-primary)]">Resource links</p>
+                      <p className="text-sm font-bold text-[var(--color-text-primary)]">Resource links</p>
                       <p className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">Add flyers, schedules, documents, or download links.</p>
                     </div>
                     <Button type="button" variant="outline" size="sm" onClick={addResourceLink}>Add</Button>
@@ -1001,13 +1001,13 @@ function RegistrantCampaignPage() {
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" onClick={selectAllRecipients}>Select all</Button><Button type="button" size="sm" variant="outline" onClick={selectFilteredRecipients}>Select filtered</Button><Button type="button" size="sm" variant="ghost" onClick={clearRecipientSelection}>Clear selection</Button></div>
-            <div className="mt-4 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-sm"><div className="font-black text-[var(--color-text-primary)]">{selectedRecipients.length} selected of {recipients.length} available recipients</div><div className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">{recipientQuery.trim() ? `${filteredRecipients.length} recipients match your current search and ${selectedFilteredRecipientsCount} of them are selected.` : 'Audience selection is deduplicated by email.'}</div></div>
+            <div className="mt-4 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-sm"><div className="font-bold text-[var(--color-text-primary)]">{selectedRecipients.length} selected of {recipients.length} available recipients</div><div className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">{recipientQuery.trim() ? `${filteredRecipients.length} recipients match your current search and ${selectedFilteredRecipientsCount} of them are selected.` : 'Audience selection is deduplicated by email.'}</div></div>
             <div className="mt-4 max-h-[560px] space-y-2 overflow-y-auto pr-1">
               {filteredRecipients.length > 0 ? filteredRecipients.map((recipient) => {
                 const checked = selectedRecipientIdSet.has(recipient.submissionId);
                 return (
                   // eslint-disable-next-line no-restricted-syntax -- recipient card: the label wraps rich name/email/reg-code content beside the checkbox, which the shared <Checkbox>'s plain-text label can't express
-                  <label key={`${recipient.email}-${recipient.submissionId}`} className={`flex cursor-pointer items-start gap-3 rounded-3xl border px-4 py-3 transition-colors ${checked ? 'border-[var(--color-text-primary)] bg-[var(--color-background-secondary)]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]'}`}><input type="checkbox" checked={checked} onChange={() => toggleRecipientSelection(recipient.submissionId)} className="mt-1 h-4 w-4 rounded border-[var(--color-border-primary)]" /><div className="min-w-0 flex-1"><div className="text-sm font-black text-[var(--color-text-primary)]">{recipient.name}</div><div className="truncate text-xs font-semibold text-[var(--color-text-tertiary)]">{recipient.email}</div><div className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">{recipient.registrationCode ? `Reg: ${recipient.registrationCode} · ` : ''}{new Date(recipient.submittedAt).toLocaleString()}</div></div></label>
+                  <label key={`${recipient.email}-${recipient.submissionId}`} className={`flex cursor-pointer items-start gap-3 rounded-3xl border px-4 py-3 transition-colors ${checked ? 'border-[var(--color-text-primary)] bg-[var(--color-background-secondary)]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]'}`}><input type="checkbox" checked={checked} onChange={() => toggleRecipientSelection(recipient.submissionId)} className="mt-1 h-4 w-4 rounded border-[var(--color-border-primary)]" /><div className="min-w-0 flex-1"><div className="text-sm font-bold text-[var(--color-text-primary)]">{recipient.name}</div><div className="truncate text-xs font-semibold text-[var(--color-text-tertiary)]">{recipient.email}</div><div className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">{recipient.registrationCode ? `Reg: ${recipient.registrationCode} · ` : ''}{new Date(recipient.submittedAt).toLocaleString()}</div></div></label>
                 );
               }) : <EmptyState title={recipients.length === 0 ? 'No valid email addresses have been captured from this form yet.' : 'No recipients match your current search.'} />}
             </div>
@@ -1015,9 +1015,9 @@ function RegistrantCampaignPage() {
 
           <SectionCard title="Delivery result" subtitle="Review the most recent send result and failures." icon={<Send className="h-5 w-5" />}>
             <div className="space-y-4">
-              {lastDeliveryError ? <div className="rounded-3xl border border-[var(--color-danger-border)] bg-[var(--color-danger-surface)] p-4"><div className="text-sm font-black text-[var(--color-danger-text)]">Last delivery error</div><p className="mt-2 text-sm font-semibold leading-6 text-[var(--color-danger-text)]">{lastDeliveryError}</p></div> : null}
-              {lastSendResult ? <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4"><div className="text-sm font-black text-[var(--color-text-primary)]">Last delivery result</div><p className="mt-2 text-sm font-semibold leading-6 text-[var(--color-text-secondary)]">Sent {lastSendResult.sent} of {lastSendResult.totalRecipients} targeted recipients{lastSendResult.skipped > 0 ? `, with ${lastSendResult.skipped} skipped` : ''}.</p>{lastSendResult.failureReason ? <p className="mt-2 text-sm font-semibold text-[var(--color-danger-text)]">Delivery reported: {lastSendResult.failureReason}</p> : null}</div> : <EmptyState title="No delivery result yet." />}
-              <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4"><p className="text-sm font-black text-[var(--color-text-primary)]">Delivery controls</p><p className="mt-2 text-sm font-semibold leading-6 text-[var(--color-text-tertiary)]">SMTP must be configured in the deployment environment. The current template is saved automatically before sending.</p></div>
+              {lastDeliveryError ? <div className="rounded-3xl border border-[var(--color-danger-border)] bg-[var(--color-danger-surface)] p-4"><div className="text-sm font-bold text-[var(--color-danger-text)]">Last delivery error</div><p className="mt-2 text-sm font-semibold leading-6 text-[var(--color-danger-text)]">{lastDeliveryError}</p></div> : null}
+              {lastSendResult ? <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4"><div className="text-sm font-bold text-[var(--color-text-primary)]">Last delivery result</div><p className="mt-2 text-sm font-semibold leading-6 text-[var(--color-text-secondary)]">Sent {lastSendResult.sent} of {lastSendResult.totalRecipients} targeted recipients{lastSendResult.skipped > 0 ? `, with ${lastSendResult.skipped} skipped` : ''}.</p>{lastSendResult.failureReason ? <p className="mt-2 text-sm font-semibold text-[var(--color-danger-text)]">Delivery reported: {lastSendResult.failureReason}</p> : null}</div> : <EmptyState title="No delivery result yet." />}
+              <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4"><p className="text-sm font-bold text-[var(--color-text-primary)]">Delivery controls</p><p className="mt-2 text-sm font-semibold leading-6 text-[var(--color-text-tertiary)]">SMTP must be configured in the deployment environment. The current template is saved automatically before sending.</p></div>
             </div>
           </SectionCard>
         </section>
@@ -1051,7 +1051,7 @@ function ColorInput({ label, value, onChange }: { label: string; value: string; 
       <div className="flex items-center gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
         {/* eslint-disable-next-line no-restricted-syntax -- color input, styled with tokens */}
         <input type="color" value={value} onChange={(event) => onChange(event.target.value)} className="h-8 w-12 rounded border border-[var(--color-border-secondary)] bg-transparent" />
-        <span className="text-xs font-black text-[var(--color-text-tertiary)]">{value}</span>
+        <span className="text-xs font-semibold text-[var(--color-text-tertiary)]">{value}</span>
       </div>
     </label>
   );

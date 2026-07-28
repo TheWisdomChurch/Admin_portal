@@ -889,7 +889,7 @@ function StateScreen({ title, description, action, loading }: { title: string; d
     <div className="public-form-light flex min-h-screen items-center justify-center bg-[#faf9f6] p-6 text-center">
       <div className="w-full max-w-md rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-8 shadow-sm">
         {loading ? <Loader2 className="mx-auto h-10 w-10 animate-spin text-[var(--color-accent-primary)]" /> : <ShieldCheck className="mx-auto h-10 w-10 text-[var(--color-text-tertiary)]" />}
-        <h1 className="mt-4 text-xl font-black text-[var(--color-text-primary)]">{title}</h1>
+        <h1 className="mt-4 text-xl font-bold text-[var(--color-text-primary)]">{title}</h1>
         <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">{description}</p>
         {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
       </div>

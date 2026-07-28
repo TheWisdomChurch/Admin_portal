@@ -207,7 +207,7 @@ function RegistrationsPage() {
   }), [filteredDailyStats, chartPalette]);
 
   const columns = useMemo<Column<FormSubmission>[]>(() => [
-    { key: 'name' as keyof FormSubmission, header: 'Full Name', cell: (item) => <span className="text-sm font-black text-[var(--color-text-primary)]">{resolveName(item)}</span> },
+    { key: 'name' as keyof FormSubmission, header: 'Full Name', cell: (item) => <span className="text-sm font-bold text-[var(--color-text-primary)]">{resolveName(item)}</span> },
     { key: 'email' as keyof FormSubmission, header: 'Email Address', cell: (item) => <span className="break-all text-sm text-[var(--color-text-secondary)]">{resolveEmail(item)}</span> },
     { key: 'createdAt' as keyof FormSubmission, header: 'Registered', cell: (item) => <span className="text-xs text-[var(--color-text-tertiary)]">{formatDateTime(item.createdAt)}</span> },
   ], []);
@@ -242,7 +242,7 @@ function RegistrationsPage() {
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="grid flex-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(240px,1.4fr)_minmax(220px,1fr)_160px_160px]">
             <div>
-              <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Registration Link</label>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Registration Link</label>
               <Select
                 value={selectedFormId}
                 onChange={(e) => { setSelectedFormId(e.target.value); setPage(1); }}
@@ -266,7 +266,7 @@ function RegistrationsPage() {
         <Panel>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-black text-[var(--color-text-primary)]">Daily registrations</h2>
+              <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Daily registrations</h2>
               <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Selected link trend. Date filters apply.</p>
             </div>
           </div>
@@ -276,7 +276,7 @@ function RegistrationsPage() {
         </Panel>
 
         <Panel>
-          <h2 className="text-lg font-black text-[var(--color-text-primary)]">Summary</h2>
+          <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Summary</h2>
           <div className="mt-5 space-y-4">
             <Info label="Selected link" value={selectedForm?.title || '—'} />
             <Info label="Total registrations" value={String(submissionsTotal)} />
@@ -289,7 +289,7 @@ function RegistrationsPage() {
       <Panel>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-black text-[var(--color-text-primary)]">Registered People</h2>
+            <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Registered People</h2>
             <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Paginated records from the selected registration link.</p>
           </div>
         </div>
@@ -304,7 +304,7 @@ function RegistrationsPage() {
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">{label}</p>
       <p className="mt-2 break-words text-sm font-bold text-[var(--color-text-primary)]">{value}</p>
     </div>
   );

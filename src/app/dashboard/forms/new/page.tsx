@@ -762,7 +762,7 @@ export default withAuth(function NewFormPage() {
               </Select>
               <Button type="button" variant="outline" icon={<Wand2 className="h-4 w-4" />} disabled={!selectedPreset} onClick={() => selectedPreset && applyPreset(selectedPreset)}>Apply Preset</Button>
               <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Description preview</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Description preview</p>
                 <div className="mt-3 space-y-2 text-sm font-semibold leading-6 text-[var(--color-text-secondary)]">
                   {descriptionStructure.paragraphs.length === 0 && descriptionStructure.bullets.length === 0 ? <p>No description yet.</p> : null}
                   {descriptionStructure.paragraphs.map((paragraph, index) => <p key={`description-paragraph-${index}`}>{paragraph}</p>)}
@@ -876,7 +876,7 @@ export default withAuth(function NewFormPage() {
       <section className="rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Form link</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Form link</p>
             <p className="mt-2 break-all text-sm font-bold text-[var(--color-text-secondary)]">{publishedSlug ? buildPublicFormUrl(publishedSlug) : 'Create & publish to generate link'}</p>
           </div>
           <Button variant="outline" size="sm" onClick={async () => {
@@ -922,7 +922,7 @@ function ColorInput({ label, value, onChange }: { label: string; value: string; 
       <div className="flex items-center gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
         {/* eslint-disable-next-line no-restricted-syntax -- color input, styled with tokens */}
         <input type="color" value={value} onChange={(event) => onChange(event.target.value)} className="h-8 w-12 rounded border border-[var(--color-border-secondary)] bg-transparent" />
-        <span className="text-xs font-black text-[var(--color-text-tertiary)]">{value}</span>
+        <span className="text-xs font-semibold text-[var(--color-text-tertiary)]">{value}</span>
       </div>
     </label>
   );
@@ -967,16 +967,16 @@ function FormPreview({
     <SectionCard title="Live public preview" subtitle="This approximates what visitors will see on the published form." icon={<Eye className="h-5 w-5" />}>
       <div className={`grid gap-6 ${layoutMode === 'split' ? 'lg:grid-cols-[1.1fr_1fr]' : 'grid-cols-1'}`}>
         <div className="space-y-4 rounded-[1.5rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] p-5 text-[var(--color-text-inverse)]">
-          <div className="inline-flex items-center rounded-full border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-inverse)]/60">Preview</div>
+          <div className="inline-flex items-center rounded-full border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-inverse)]/60">Preview</div>
           <h2 className="text-3xl font-black tracking-tight">{introTitle || 'Form Details'}</h2>
           <p className="text-sm leading-7 text-[var(--color-text-inverse)]/65">{introSubtitle || 'Secure your spot by registering below.'}</p>
           {formHeaderNote ? <p className="rounded-2xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-3 text-xs font-semibold text-[var(--color-text-inverse)]/55">{formHeaderNote}</p> : null}
           <div className="grid gap-3">
             {introBullets.split('\n').filter(Boolean).map((item, index) => (
               <div key={item} className="flex items-center gap-3 rounded-2xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-4 py-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-accent-primary)] text-sm font-black text-[var(--color-text-primary)]">{index + 1}</div>
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-accent-primary)] text-sm font-bold text-[var(--color-text-primary)]">{index + 1}</div>
                 <div className="text-sm leading-relaxed text-[var(--color-text-inverse)]/70">
-                  <div className="font-black text-[var(--color-text-inverse)]">{item}</div>
+                  <div className="font-bold text-[var(--color-text-inverse)]">{item}</div>
                   {bulletSubtexts[index] ? <div className="mt-1 text-xs text-[var(--color-text-inverse)]/45">{bulletSubtexts[index]}</div> : null}
                 </div>
               </div>
@@ -987,14 +987,14 @@ function FormPreview({
         <div className="space-y-4 rounded-[1.5rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5">
           {fields.map((field, index) => (
             <div key={`${field.key}-${index}`} className="space-y-1">
-              {field.type !== 'checkbox' ? <label className="block text-sm font-black text-[var(--color-text-secondary)]">{field.label} {field.required ? <span className="text-[var(--color-danger-text)]">*</span> : null}</label> : null}
+              {field.type !== 'checkbox' ? <label className="block text-sm font-bold text-[var(--color-text-secondary)]">{field.label} {field.required ? <span className="text-[var(--color-danger-text)]">*</span> : null}</label> : null}
               {renderFieldPreview(field, dateFormat)}
             </div>
           ))}
-          <button type="button" disabled className="w-full rounded-2xl px-4 py-2.5 text-sm font-black shadow-sm" style={{ background: submitButtonBg, color: submitButtonTextColor, opacity: 0.9 }}>
+          <button type="button" disabled className="w-full rounded-2xl px-4 py-2.5 text-sm font-bold shadow-sm" style={{ background: submitButtonBg, color: submitButtonTextColor, opacity: 0.9 }}>
             <span className="inline-flex items-center justify-center gap-2">{submitButtonIcon !== 'none' ? <span>{submitButtonIcon === 'check' ? '✔' : submitButtonIcon === 'send' ? '➜' : submitButtonIcon === 'calendar' ? '📅' : '✦'}</span> : null}{submitButtonText || 'Submit Registration'}</span>
           </button>
-          <div className="rounded-2xl px-3 py-2 text-center text-xs font-black" style={{ background: footerBg, color: footerTextColor }}>{footerText}</div>
+          <div className="rounded-2xl px-3 py-2 text-center text-xs font-semibold" style={{ background: footerBg, color: footerTextColor }}>{footerText}</div>
         </div>
       </div>
     </SectionCard>

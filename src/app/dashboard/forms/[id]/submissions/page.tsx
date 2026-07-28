@@ -132,7 +132,7 @@ function SubmissionsPage() {
   const latestSubmissions = sortedSubmissions.slice(0, 5);
 
   const columns = useMemo(() => [
-    { key: 'name' as keyof FormSubmission, header: 'Name', cell: (row: FormSubmission) => <span className="font-black text-[var(--color-text-primary)]">{resolveFormSubmissionName(row, '—')}</span> },
+    { key: 'name' as keyof FormSubmission, header: 'Name', cell: (row: FormSubmission) => <span className="font-bold text-[var(--color-text-primary)]">{resolveFormSubmissionName(row, '—')}</span> },
     { key: 'email' as keyof FormSubmission, header: 'Email', cell: (row: FormSubmission) => <span className="break-all text-[var(--color-text-secondary)]">{resolveFormSubmissionEmail(row) || '—'}</span> },
     { key: 'registrationCode' as keyof FormSubmission, header: 'Registration Code', cell: (row: FormSubmission) => row.registrationCode || '—' },
     { key: 'createdAt' as keyof FormSubmission, header: 'Submitted', cell: (row: FormSubmission) => new Date(row.createdAt).toLocaleString() },
@@ -194,11 +194,11 @@ function SubmissionsPage() {
 
       <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
         <Panel>
-          <h2 className="text-lg font-black text-[var(--color-text-primary)]">Latest registrations</h2>
+          <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Latest registrations</h2>
           <div className="mt-4 space-y-3">
             {latestSubmissions.length > 0 ? latestSubmissions.map((submission) => (
               <article key={submission.id} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                <p className="truncate text-sm font-black text-[var(--color-text-primary)]">{resolveFormSubmissionName(submission, 'Anonymous')}</p>
+                <p className="truncate text-sm font-bold text-[var(--color-text-primary)]">{resolveFormSubmissionName(submission, 'Anonymous')}</p>
                 <p className="mt-1 truncate text-xs text-[var(--color-text-secondary)]">{resolveFormSubmissionEmail(submission) || submission.contactNumber || 'No contact information'}</p>
                 <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">{new Date(submission.createdAt).toLocaleString()}</p>
               </article>
@@ -208,7 +208,7 @@ function SubmissionsPage() {
 
         <Panel>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div><h2 className="text-lg font-black text-[var(--color-text-primary)]">Registrations over time</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Daily series for the selected form.</p></div>
+            <div><h2 className="text-lg font-bold text-[var(--color-text-primary)]">Registrations over time</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Daily series for the selected form.</p></div>
             <div className="flex gap-2"><Button variant={range === 7 ? 'primary' : 'outline'} size="sm" onClick={() => setRange(7)}>7 days</Button><Button variant={range === 30 ? 'primary' : 'outline'} size="sm" onClick={() => setRange(30)}>30 days</Button></div>
           </div>
           <div className="mt-5 h-[300px]"><Line data={chartData} options={{ maintainAspectRatio: false, responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } } }} /></div>
@@ -216,7 +216,7 @@ function SubmissionsPage() {
       </div>
 
       <Panel>
-        <h2 className="mb-4 text-lg font-black text-[var(--color-text-primary)]">All submissions</h2>
+        <h2 className="mb-4 text-lg font-bold text-[var(--color-text-primary)]">All submissions</h2>
         <DataTable data={sortedSubmissions} columns={columns} total={total} page={page} limit={limit} onPageChange={setPage} onLimitChange={setLimit} isLoading={false} />
       </Panel>
     </div>

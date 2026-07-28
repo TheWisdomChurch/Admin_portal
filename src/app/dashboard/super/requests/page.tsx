@@ -470,7 +470,7 @@ function RequestsPage() {
                       <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">{typeDescriptions[request.type] || 'Review this request and decide the next action.'}</p>
                       {request.reason ? (
                         <div className="mt-2 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2">
-                          <p className="text-xs font-black uppercase tracking-wide text-[var(--color-text-tertiary)]">Stated reason</p>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Stated reason</p>
                           <p className="mt-1 text-sm font-semibold text-[var(--color-text-primary)]">{request.reason}</p>
                         </div>
                       ) : null}

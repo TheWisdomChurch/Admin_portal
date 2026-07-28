@@ -242,7 +242,7 @@ function CellGroupsPage() {
                 className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 text-left transition hover:shadow-md"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <h3 className="truncate text-sm font-black text-[var(--color-text-primary)]">{g.name}</h3>
+                  <h3 className="truncate text-sm font-bold text-[var(--color-text-primary)]">{g.name}</h3>
                   <Badge variant={g.is_active ? 'success' : 'secondary'}>{g.is_active ? 'Active' : 'Inactive'}</Badge>
                 </div>
                 {g.zone ? <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-[var(--color-text-tertiary)]"><MapPin className="h-3.5 w-3.5" />{g.zone}</p> : null}
@@ -259,8 +259,8 @@ function CellGroupsPage() {
           <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-5 py-4">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Cell group</p>
-                <h2 className="mt-1 text-lg font-black text-[var(--color-text-primary)]">{selected.name}</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Cell group</p>
+                <h2 className="mt-1 text-lg font-bold text-[var(--color-text-primary)]">{selected.name}</h2>
               </div>
               <button type="button" className="rounded-2xl border border-[var(--color-border-secondary)] p-2 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)]" onClick={() => setSelected(null)} aria-label="Close group">
                 <X className="h-5 w-5" />
@@ -269,7 +269,7 @@ function CellGroupsPage() {
 
             <div className="space-y-6 p-5">
               <div>
-                <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Members ({groupMembers.length})</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Members ({groupMembers.length})</p>
                 <div className="relative mb-2">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                   <Input value={memberQuery} onChange={(e) => setMemberQuery(e.target.value)} placeholder="Search members to add…" className="pl-10" />
@@ -300,7 +300,7 @@ function CellGroupsPage() {
                     {groupMembers.map((gm) => (
                       <div key={gm.id} className="flex items-center justify-between rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3">
                         <div>
-                          <p className="text-sm font-black text-[var(--color-text-primary)]">{memberName(gm.member_id)}</p>
+                          <p className="text-sm font-bold text-[var(--color-text-primary)]">{memberName(gm.member_id)}</p>
                           <Badge variant="outline">{gm.role}</Badge>
                         </div>
                         <button
@@ -319,7 +319,7 @@ function CellGroupsPage() {
               </div>
 
               <div className="border-t border-[var(--color-border-secondary)] pt-5">
-                <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Log a meeting</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Log a meeting</p>
                 <div className="grid grid-cols-[1fr_100px_auto] gap-2">
                   <Input
                     type="date"
@@ -333,7 +333,7 @@ function CellGroupsPage() {
                 <div className="mt-3 space-y-2">
                   {meetings.map((m) => (
                     <div key={m.id} className="flex items-center justify-between rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3">
-                      <span className="text-sm font-black text-[var(--color-text-primary)]">{formatDate(m.date)}</span>
+                      <span className="text-sm font-bold text-[var(--color-text-primary)]">{formatDate(m.date)}</span>
                       <span className="text-xs font-semibold text-[var(--color-text-tertiary)]">{m.attendee_count} attended</span>
                     </div>
                   ))}

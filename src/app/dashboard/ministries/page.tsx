@@ -43,11 +43,11 @@ function WorkforceIdentityCard({ assignment, busy, onRemove, onRoleChange }: { a
       <div className={`h-20 ${leadership ? 'bg-gradient-to-br from-amber-500 via-orange-500 to-rose-600' : 'bg-gradient-to-br from-slate-800 via-indigo-900 to-blue-700'}`} />
       <div className="relative px-4 pb-4">
         <div className="-mt-9 flex items-end justify-between gap-3">
-          <div className="flex h-18 w-18 items-center justify-center rounded-3xl border-4 border-[var(--color-background-primary)] bg-[var(--color-background-secondary)] text-xl font-black text-[var(--color-text-primary)] shadow-lg">{initials}</div>
+          <div className="flex h-18 w-18 items-center justify-center rounded-3xl border-4 border-[var(--color-background-primary)] bg-[var(--color-background-secondary)] text-xl font-bold text-[var(--color-text-primary)] shadow-lg">{initials}</div>
           <button type="button" disabled={busy} onClick={onRemove} className="mb-1 rounded-xl bg-[var(--color-background-secondary)] p-2 text-[var(--color-text-tertiary)] shadow transition hover:bg-red-500/10 hover:text-red-500 disabled:opacity-50" aria-label={`Remove ${person.firstName} ${person.lastName}`}><Trash2 className="h-4 w-4" /></button>
         </div>
         <div className="mt-3 flex items-start justify-between gap-2">
-          <div className="min-w-0"><h3 className="truncate text-base font-black text-[var(--color-text-primary)]">{person.firstName} {person.lastName}</h3><p className="truncate text-xs font-semibold text-[var(--color-text-tertiary)]">{assignment.title || roleLabel(assignment.role)}</p></div>
+          <div className="min-w-0"><h3 className="truncate text-base font-bold text-[var(--color-text-primary)]">{person.firstName} {person.lastName}</h3><p className="truncate text-xs font-semibold text-[var(--color-text-tertiary)]">{assignment.title || roleLabel(assignment.role)}</p></div>
           {leadership ? <Crown className="h-4 w-4 shrink-0 text-amber-500" /> : null}
         </div>
         <div className="mt-3 flex flex-wrap gap-1.5"><Badge variant={person.status === 'serving' ? 'success' : person.status === 'pending' ? 'warning' : 'secondary'}>{person.status.replace('_', ' ')}</Badge><Badge variant="outline">{roleLabel(assignment.role)}</Badge></div>
@@ -263,7 +263,7 @@ function MinistriesPage() {
                 className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 text-left transition hover:shadow-md"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <h3 className="truncate text-sm font-black text-[var(--color-text-primary)]">{m.name}</h3>
+                  <h3 className="truncate text-sm font-bold text-[var(--color-text-primary)]">{m.name}</h3>
                   <Badge variant={m.is_active ? 'success' : 'secondary'}>{m.is_active ? 'Active' : 'Inactive'}</Badge>
                 </div>
                 {m.category ? <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-[var(--color-text-tertiary)]"><Tag className="h-3.5 w-3.5" />{m.category}</p> : null}
@@ -280,8 +280,8 @@ function MinistriesPage() {
           <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-5 py-4">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Ministry</p>
-                <h2 className="mt-1 text-lg font-black text-[var(--color-text-primary)]">{selected.name}</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Ministry</p>
+                <h2 className="mt-1 text-lg font-bold text-[var(--color-text-primary)]">{selected.name}</h2>
               </div>
               <button type="button" className="rounded-2xl border border-[var(--color-border-secondary)] p-2 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)]" onClick={() => setSelected(null)} aria-label="Close ministry">
                 <X className="h-5 w-5" />
@@ -290,7 +290,7 @@ function MinistriesPage() {
 
             <div className="space-y-6 p-5">
               <div>
-                <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Ministry workforce ({structure?.total ?? 0})</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Ministry workforce ({structure?.total ?? 0})</p>
                 <div className="mb-3 grid gap-2 sm:grid-cols-2">
                   <Select aria-label="Ministry role" value={assignmentRole} onChange={(event) => setAssignmentRole(event.target.value as MinistryWorkforceRole)}><option value="head">Department head</option><option value="deputy_head">Deputy head</option><option value="coordinator">Coordinator</option><option value="member">Team member</option></Select>
                   <Input value={assignmentTitle} onChange={(event) => setAssignmentTitle(event.target.value)} placeholder="Ministry title (optional)" />

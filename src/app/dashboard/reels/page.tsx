@@ -199,7 +199,7 @@ function ReelsPage() {
       <Panel>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-black text-[var(--color-text-primary)]">Reel library</h2>
+            <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Reel library</h2>
             <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Compact cards prevent table overflow on small screens.</p>
           </div>
           <div className="relative w-full sm:w-80">
@@ -218,7 +218,7 @@ function ReelsPage() {
               </div>
               <div className="space-y-3 p-4">
                 <div className="min-w-0">
-                  <h3 className="truncate text-sm font-black text-[var(--color-text-primary)]">{reel.title}</h3>
+                  <h3 className="truncate text-sm font-bold text-[var(--color-text-primary)]">{reel.title}</h3>
                   <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{formatDate(reel.createdAt)} · {reel.duration || '0:00'}</p>
                 </div>
                 <div className="flex justify-end">
@@ -250,7 +250,7 @@ function ReelsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-text-primary)]/50 p-4 backdrop-blur-sm">
           <Panel className="max-h-[92vh] w-full max-w-2xl overflow-y-auto" padded={false}>
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-5 py-4">
-              <div><h2 className="text-lg font-black text-[var(--color-text-primary)]">Upload New Reel</h2><p className="text-sm text-[var(--color-text-tertiary)]">Add video and thumbnail media.</p></div>
+              <div><h2 className="text-lg font-bold text-[var(--color-text-primary)]">Upload New Reel</h2><p className="text-sm text-[var(--color-text-tertiary)]">Add video and thumbnail media.</p></div>
               <button className="rounded-2xl p-2 text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-secondary)]" onClick={() => { setShowUploadModal(false); resetUploadState(); }}><X className="h-5 w-5" /></button>
             </div>
 
@@ -278,7 +278,7 @@ function UploadBox({ label, hint, accept, onChange, icon }: { label: string; hin
   return (
     <label className="flex cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-8 text-center transition hover:border-[var(--color-accent-primary)]">
       <span className="text-[var(--color-text-tertiary)]">{icon}</span>
-      <span className="mt-2 text-sm font-black text-[var(--color-text-primary)]">{label}</span>
+      <span className="mt-2 text-sm font-bold text-[var(--color-text-primary)]">{label}</span>
       <span className="mt-1 text-xs text-[var(--color-text-tertiary)]">{hint}</span>
       {/* eslint-disable-next-line no-restricted-syntax -- visually-hidden file input inside a dropzone card, styled with tokens */}
       <input type="file" className="sr-only" accept={accept} onChange={(e) => onChange(e.target.files?.[0])} />

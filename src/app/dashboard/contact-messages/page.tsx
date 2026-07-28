@@ -79,7 +79,7 @@ function ContactMessagesPage() {
                 className="block w-full rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 text-left transition hover:shadow-md"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-sm font-black text-[var(--color-text-primary)]">{m.firstName} {m.lastName}</h3>
+                  <h3 className="text-sm font-bold text-[var(--color-text-primary)]">{m.firstName} {m.lastName}</h3>
                   {m.topic ? <Badge variant="outline">{m.topic}</Badge> : null}
                 </div>
                 <p className="mt-2 line-clamp-2 text-sm text-[var(--color-text-secondary)]">{m.message}</p>
@@ -101,8 +101,8 @@ function ContactMessagesPage() {
           <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-5 py-4">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Contact message</p>
-                <h2 className="mt-1 text-lg font-black text-[var(--color-text-primary)]">{selected.firstName} {selected.lastName}</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Contact message</p>
+                <h2 className="mt-1 text-lg font-bold text-[var(--color-text-primary)]">{selected.firstName} {selected.lastName}</h2>
               </div>
               <button type="button" className="rounded-2xl border border-[var(--color-border-secondary)] p-2 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)]" onClick={() => setSelected(null)} aria-label="Close message">
                 <X className="h-5 w-5" />
@@ -111,22 +111,22 @@ function ContactMessagesPage() {
             <div className="space-y-5 p-5">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-[var(--color-text-tertiary)]">Email</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Email</p>
                   <p className="mt-2 break-words text-sm font-bold text-[var(--color-text-primary)]">{selected.email}</p>
                 </div>
                 <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-[var(--color-text-tertiary)]">Phone</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Phone</p>
                   <p className="mt-2 text-sm font-bold text-[var(--color-text-primary)]">{selected.phone || 'Not provided'}</p>
                 </div>
               </div>
               {selected.topic ? (
                 <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-[var(--color-text-tertiary)]">Topic</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Topic</p>
                   <Badge variant="outline" className="mt-2">{selected.topic}</Badge>
                 </div>
               ) : null}
               <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Message</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Message</p>
                 <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-[var(--color-text-secondary)]">{selected.message}</p>
               </div>
               <p className="text-xs text-[var(--color-text-tertiary)]">Submitted {formatDateTime(selected.createdAt)} · via {selected.sourceChannel}</p>

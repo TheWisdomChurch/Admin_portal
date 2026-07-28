@@ -95,7 +95,7 @@ function NewsletterPage() {
       <Panel className="overflow-hidden" padded={false}>
         <div className="flex flex-col gap-4 p-6 sm:p-7 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">
               <Mail className="h-4 w-4" /> Newsletter
             </div>
             <h1 className="mt-4 text-2xl font-black tracking-tight text-[var(--color-text-primary)] sm:text-3xl">Subscriber Control Center</h1>
@@ -116,21 +116,21 @@ function NewsletterPage() {
         <Panel>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-black text-[var(--color-text-primary)]">Compose newsletter</h2>
+              <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Compose newsletter</h2>
               <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Simple, readable, and focused for public updates.</p>
             </div>
           </div>
 
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Type</label>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Type</label>
               <Select value={type} onChange={(e) => setType(e.target.value as 'update' | 'event')}>
                 <option value="update">General update</option>
                 <option value="event">Event update</option>
               </Select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Event</label>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Event</label>
               <Select value={eventId} onChange={(e) => setEventId(e.target.value)} disabled={type !== 'event'}>
                 <option value="">Select event</option>
                 {events.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
@@ -154,7 +154,7 @@ function NewsletterPage() {
         </Panel>
 
         <Panel>
-          <h2 className="text-lg font-black text-[var(--color-text-primary)]">Subscribers</h2>
+          <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Subscribers</h2>
           <div className="mt-4 grid gap-2 sm:grid-cols-[160px_minmax(0,1fr)]">
             <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as 'all' | 'active' | 'unsubscribed'); setPage(1); }}>
               <option value="all">All statuses</option>
@@ -174,7 +174,7 @@ function NewsletterPage() {
               <article key={item.id} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <p className="break-all text-sm font-black text-[var(--color-text-primary)]">{item.email}</p>
+                    <p className="break-all text-sm font-bold text-[var(--color-text-primary)]">{item.email}</p>
                     <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{item.name || 'No name'} · {item.source || 'No source'}</p>
                   </div>
                   <Badge variant={item.status === 'active' ? 'success' : 'warning'} size="sm">{item.status}</Badge>

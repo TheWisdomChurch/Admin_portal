@@ -227,7 +227,7 @@ function SectionButton({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-2xl px-4 py-2 text-sm font-black transition ${
+      className={`rounded-2xl px-4 py-2 text-sm font-bold transition ${
         active
           ? 'bg-[var(--color-text-primary)] text-[var(--color-background-primary)] shadow-sm'
           : 'border border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'
@@ -267,12 +267,12 @@ function Drawer({
         <div className="bg-[var(--color-text-primary)] px-5 py-6 text-[var(--color-text-inverse)]">
           <div className="flex items-start justify-between gap-4">
             <div className="flex min-w-0 items-center gap-4">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-inverse)] text-xl font-black text-[var(--color-text-primary)]">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-inverse)] text-xl font-bold text-[var(--color-text-primary)]">
                 {initials(worker)}
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/55">Workforce Profile</p>
-                <h2 className="mt-2 truncate text-2xl font-black">{workerName(worker)}</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/55">Workforce Profile</p>
+                <h2 className="mt-2 truncate text-2xl font-bold">{workerName(worker)}</h2>
                 <p className="mt-1 truncate text-sm text-[var(--color-text-inverse)]/70">{worker.department || 'Unassigned department'}</p>
               </div>
             </div>
@@ -299,7 +299,7 @@ function Drawer({
 
           {worker.notes ? (
             <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Service notes</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Service notes</p>
               <p className="mt-3 whitespace-pre-line break-words text-sm leading-7 text-[var(--color-text-secondary)]">{worker.notes}</p>
             </div>
           ) : null}
@@ -331,7 +331,7 @@ function Drawer({
 function ProfileTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-4">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">{label}</p>
       <p className="mt-2 break-words text-sm font-bold text-[var(--color-text-primary)]">{value}</p>
     </div>
   );
@@ -394,8 +394,8 @@ function WorkforceEditModal({
       <form onSubmit={submit} className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-2xl">
         <div className="flex flex-col gap-3 border-b border-[var(--color-border-secondary)] pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Edit workforce profile</p>
-            <h2 className="mt-1 text-xl font-black text-[var(--color-text-primary)]">{workerName(worker)}</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Edit workforce profile</p>
+            <h2 className="mt-1 text-xl font-bold text-[var(--color-text-primary)]">{workerName(worker)}</h2>
           </div>
           <button type="button" className="self-start rounded-2xl border border-[var(--color-border-secondary)] p-2 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)]" onClick={onClose} aria-label="Close workforce editor"><X className="h-5 w-5" /></button>
         </div>
@@ -788,8 +788,8 @@ function WorkforcePage() {
                 <LayoutGrid className="h-6 w-6" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Service intelligence</p>
-                <h2 className="mt-2 text-xl font-black text-[var(--color-text-primary)]">Department-based workforce command center</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Service intelligence</p>
+                <h2 className="mt-2 text-xl font-bold text-[var(--color-text-primary)]">Department-based workforce command center</h2>
                 <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--color-text-secondary)]">
                   Track current workers, incoming workforce profiles, inactive service records, and department strength from live ministry data.
                 </p>
@@ -799,7 +799,7 @@ function WorkforcePage() {
 
           <div className="border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5 xl:border-l xl:border-t-0">
             <div className="min-w-0 rounded-2xl bg-[var(--color-background-primary)] p-4">
-              <p className="text-xs font-black uppercase text-[var(--color-text-tertiary)]">Public form</p>
+              <p className="text-xs font-semibold uppercase text-[var(--color-text-tertiary)]">Public form</p>
               <p className="mt-2 truncate text-sm font-bold text-[var(--color-text-primary)]">
                 {primaryForm?.title || 'No workforce form connected'}
               </p>
@@ -830,7 +830,7 @@ function WorkforcePage() {
         <Panel>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="text-lg font-black text-[var(--color-text-primary)]">Workers by department</h2>
+              <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Workers by department</h2>
               <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Top departments by active profile count.</p>
             </div>
             <Badge variant="outline">{deptLabels.length} departments</Badge>
@@ -856,7 +856,7 @@ function WorkforcePage() {
         </Panel>
 
         <Panel>
-          <h2 className="text-lg font-black text-[var(--color-text-primary)]">Service status</h2>
+          <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Service status</h2>
           <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Current distribution by service state.</p>
           <div className="mx-auto mt-6 h-[260px] max-w-[280px]">
             <Doughnut
@@ -875,7 +875,7 @@ function WorkforcePage() {
       <Panel>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
-            <h2 className="text-lg font-black text-[var(--color-text-primary)]">Department accordions</h2>
+            <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Department accordions</h2>
             <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Quick department-by-department coverage breakdown.</p>
           </div>
           <Badge variant="outline">{Object.keys(groupedByDepartment).length} sections</Badge>
@@ -893,7 +893,7 @@ function WorkforcePage() {
                   key={department}
                   className="group rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 transition open:bg-[var(--color-background-primary)] open:shadow-sm"
                 >
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-black text-[var(--color-text-primary)]">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold text-[var(--color-text-primary)]">
                     <span className="min-w-0 truncate">{department}</span>
                     <span className="shrink-0 rounded-full bg-[var(--color-background-primary)] px-3 py-1 text-xs text-[var(--color-text-tertiary)]">
                       {items.length}
@@ -918,7 +918,7 @@ function WorkforcePage() {
       <Panel>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
-            <h2 className="text-lg font-black text-[var(--color-text-primary)]">Workforce profiles</h2>
+            <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Workforce profiles</h2>
             <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Search, sort, inspect, and request governed profile removal.</p>
           </div>
           <div className="grid gap-2 sm:grid-cols-[minmax(0,280px)_160px]">
@@ -953,7 +953,7 @@ function WorkforcePage() {
         </div>
 
         <div className="mt-5 overflow-hidden rounded-3xl border border-[var(--color-border-secondary)]">
-          <div className="hidden grid-cols-[minmax(200px,1fr)_150px_140px_150px_minmax(180px,1fr)_180px] gap-4 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
+          <div className="hidden grid-cols-[minmax(200px,1fr)_150px_140px_150px_minmax(180px,1fr)_180px] gap-4 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
             <div>Profile</div>
             <div>Department</div>
             <div>Status</div>
@@ -1004,11 +1004,11 @@ function WorkforcePage() {
                     <div className="flex flex-col gap-3 lg:hidden">
                       <div className="flex items-start justify-between gap-3">
                         <button className="flex min-w-0 items-center gap-3 text-left" onClick={() => setSelectedWorker(item)}>
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)] text-sm font-black text-[var(--color-text-primary)]">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)] text-sm font-bold text-[var(--color-text-primary)]">
                             <IdCard className="h-4 w-4" />
                           </div>
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-black text-[var(--color-text-primary)]">{workerName(item)}</p>
+                            <p className="truncate text-sm font-bold text-[var(--color-text-primary)]">{workerName(item)}</p>
                             <p className="truncate text-xs text-[var(--color-text-tertiary)]">{item.id.slice(0, 8).toUpperCase()}</p>
                           </div>
                         </button>
@@ -1038,11 +1038,11 @@ function WorkforcePage() {
                     {/* lg and up: the compact grid row. */}
                     <div className="hidden lg:grid lg:grid-cols-[minmax(200px,1fr)_150px_140px_150px_minmax(180px,1fr)_180px] lg:items-center lg:gap-4">
                       <button className="flex min-w-0 items-center gap-3 text-left" onClick={() => setSelectedWorker(item)}>
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)] text-sm font-black text-[var(--color-text-primary)]">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)] text-sm font-bold text-[var(--color-text-primary)]">
                           <IdCard className="h-4 w-4" />
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-[var(--color-text-primary)]">{workerName(item)}</p>
+                          <p className="truncate text-sm font-bold text-[var(--color-text-primary)]">{workerName(item)}</p>
                           <p className="truncate text-xs text-[var(--color-text-tertiary)]">{item.id.slice(0, 8).toUpperCase()}</p>
                         </div>
                       </button>
@@ -1113,7 +1113,7 @@ function WorkforcePage() {
               <AlertTriangle className="h-5 w-5" />
             </div>
             <div>
-              <h2 id="workforce-delete-title" className="text-lg font-black tracking-tight text-[var(--color-text-primary)]">
+              <h2 id="workforce-delete-title" className="text-lg font-bold tracking-tight text-[var(--color-text-primary)]">
                 Request deletion
               </h2>
               <p className="mt-0.5 text-sm text-[var(--color-text-tertiary)]">
@@ -1135,11 +1135,11 @@ function WorkforcePage() {
         <div className="max-h-[75vh] overflow-y-auto px-6 py-5">
           {deleteTarget ? (
             <div className="flex items-center gap-4 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-primary)] text-base font-black text-[var(--color-background-primary)]">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-primary)] text-base font-bold text-[var(--color-background-primary)]">
                 {initials(deleteTarget)}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-base font-black text-[var(--color-text-primary)]">{workerName(deleteTarget)}</p>
+                <p className="truncate text-base font-bold text-[var(--color-text-primary)]">{workerName(deleteTarget)}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-[var(--color-text-tertiary)]">
                   <span>{deleteTarget.department || 'Unassigned department'}</span>
                   {deleteTarget.email ? <span>{deleteTarget.email}</span> : null}
@@ -1152,7 +1152,7 @@ function WorkforcePage() {
             This profile stays on record until a super admin approves this ticket. Be specific — your stated reason is what they&apos;ll base their decision on.
           </div>
 
-          <label htmlFor="workforce-delete-reason" className="mt-5 block text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
+          <label htmlFor="workforce-delete-reason" className="mt-5 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
             Reason for removal
           </label>
           <textarea
@@ -1180,7 +1180,7 @@ function WorkforcePage() {
               <X className="h-5 w-5" />
             </div>
             <div>
-              <h2 id="workforce-reject-title" className="text-lg font-black tracking-tight text-[var(--color-text-primary)]">
+              <h2 id="workforce-reject-title" className="text-lg font-bold tracking-tight text-[var(--color-text-primary)]">
                 Reject registration
               </h2>
               <p className="mt-0.5 text-sm text-[var(--color-text-tertiary)]">
@@ -1202,11 +1202,11 @@ function WorkforcePage() {
         <div className="max-h-[75vh] overflow-y-auto px-6 py-5">
           {rejectTarget ? (
             <div className="flex items-center gap-4 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-primary)] text-base font-black text-[var(--color-background-primary)]">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-primary)] text-base font-bold text-[var(--color-background-primary)]">
                 {initials(rejectTarget)}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-base font-black text-[var(--color-text-primary)]">{workerName(rejectTarget)}</p>
+                <p className="truncate text-base font-bold text-[var(--color-text-primary)]">{workerName(rejectTarget)}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-[var(--color-text-tertiary)]">
                   <span>{rejectTarget.department || 'Unassigned department'}</span>
                   {rejectTarget.email ? <span>{rejectTarget.email}</span> : null}
@@ -1215,7 +1215,7 @@ function WorkforcePage() {
             </div>
           ) : null}
 
-          <label htmlFor="workforce-reject-reason" className="mt-5 block text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
+          <label htmlFor="workforce-reject-reason" className="mt-5 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
             Reason for rejection
           </label>
           <textarea
@@ -1243,7 +1243,7 @@ function MiniCount({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-3">
       <p className="truncate text-[var(--color-text-tertiary)]">{label}</p>
-      <p className="mt-1 text-lg font-black text-[var(--color-text-primary)]">{value}</p>
+      <p className="mt-1 text-lg font-bold text-[var(--color-text-primary)]">{value}</p>
     </div>
   );
 }

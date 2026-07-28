@@ -155,7 +155,7 @@ function Field({ label, value, onChange, placeholder, type = 'text' }: { label: 
 function TextArea({ label, value, onChange, rows = 4, placeholder }: { label: string; value: string; onChange: (value: string) => void; rows?: number; placeholder?: string }) {
   return (
     <label className="grid gap-1.5">
-      <span className="text-xs font-black uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">{label}</span>
+      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">{label}</span>
       <textarea
         value={value}
         rows={rows}
@@ -169,7 +169,7 @@ function TextArea({ label, value, onChange, rows = 4, placeholder }: { label: st
 
 function TabButton({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={`rounded-2xl px-4 py-2 text-sm font-black transition ${active ? 'bg-[var(--color-text-primary)] text-[var(--color-text-inverse)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]'}`}>
+    <button type="button" onClick={onClick} className={`rounded-2xl px-4 py-2 text-sm font-bold transition ${active ? 'bg-[var(--color-text-primary)] text-[var(--color-text-inverse)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]'}`}>
       {children}
     </button>
   );
@@ -177,7 +177,7 @@ function TabButton({ active, children, onClick }: { active: boolean; children: R
 
 function StatusPill({ active }: { active: boolean }) {
   return (
-    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ring-1 ${active ? 'bg-[var(--color-success-surface)] text-[var(--color-success-text)] ring-[var(--color-success-border)]' : 'bg-[var(--color-warning-surface)] text-[var(--color-warning-text)] ring-[var(--color-warning-border)]'}`}>
+    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ${active ? 'bg-[var(--color-success-surface)] text-[var(--color-success-text)] ring-[var(--color-success-border)]' : 'bg-[var(--color-warning-surface)] text-[var(--color-warning-text)] ring-[var(--color-warning-border)]'}`}>
       {active ? 'Active' : 'Missing / inactive'}
     </span>
   );
@@ -329,19 +329,19 @@ function ContentPage() {
         <div className="relative grid gap-6 p-6 text-[var(--color-text-inverse)] lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)] lg:items-end">
           <div className="absolute right-0 top-0 h-56 w-56 rounded-full bg-[var(--color-accent-primary)]/10 blur-3xl" />
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/65"><ShieldCheck className="h-4 w-4" /> Website content operations</div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/65"><ShieldCheck className="h-4 w-4" /> Website content operations</div>
             <h1 className="mt-4 max-w-3xl text-3xl font-black tracking-tight sm:text-4xl xl:text-5xl">Publish consistent content across homepage, popups, and automated follow-up.</h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--color-text-inverse)]/65">This workspace keeps public-facing messaging and automation templates aligned.</p>
           </div>
           <div className="relative grid gap-3 sm:grid-cols-2">
             <div className="rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-4 backdrop-blur">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-inverse)]/50">Homepage ad</p>
-              <p className="mt-2 text-2xl font-black">{stats.adState}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-inverse)]/50">Homepage ad</p>
+              <p className="mt-2 text-2xl font-bold">{stats.adState}</p>
               <p className="mt-1 text-xs font-semibold text-[var(--color-text-inverse)]/55">{formatDate(homepageAd.startAt)} — {formatDate(homepageAd.endAt)}</p>
             </div>
             <div className="rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-4 backdrop-blur">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-inverse)]/50">Templates</p>
-              <p className="mt-2 text-2xl font-black">{stats.templates}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-inverse)]/50">Templates</p>
+              <p className="mt-2 text-2xl font-bold">{stats.templates}</p>
               <p className="mt-1 text-xs font-semibold text-[var(--color-text-inverse)]/55">required automations active</p>
             </div>
           </div>
@@ -392,11 +392,11 @@ function ContentPage() {
                 {homepagePreviewImage ? <Image src={homepagePreviewImage} alt="Homepage ad image preview" fill className="object-cover" unoptimized /> : <div className="flex h-full items-center justify-center text-[var(--color-text-tertiary)]"><ImageIcon className="h-8 w-8" /></div>}
               </div>
               <div className="space-y-3 bg-[var(--color-background-primary)] p-5">
-                <span className="inline-flex rounded-full bg-[var(--color-warning-surface)] px-3 py-1 text-xs font-black text-[var(--color-warning-text)] ring-1 ring-[var(--color-warning-border)]">{homepageAd.title || 'Campaign title'}</span>
-                <h3 className="text-2xl font-black tracking-tight text-[var(--color-text-primary)]">{homepageAd.headline || 'Campaign headline'}</h3>
+                <span className="inline-flex rounded-full bg-[var(--color-warning-surface)] px-3 py-1 text-xs font-semibold text-[var(--color-warning-text)] ring-1 ring-[var(--color-warning-border)]">{homepageAd.title || 'Campaign title'}</span>
+                <h3 className="text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">{homepageAd.headline || 'Campaign headline'}</h3>
                 <p className="text-sm leading-7 text-[var(--color-text-secondary)]">{homepageAd.description || 'Campaign description appears here.'}</p>
                 <div className="rounded-2xl bg-[var(--color-background-secondary)] p-3 text-xs font-bold text-[var(--color-text-tertiary)]">{homepageAd.time || 'Time'} · {homepageAd.location || 'Location'}</div>
-                <div className="inline-flex rounded-2xl bg-[var(--color-text-primary)] px-4 py-2 text-sm font-black text-[var(--color-text-inverse)]">{homepageAd.ctaLabel || 'Register now'}</div>
+                <div className="inline-flex rounded-2xl bg-[var(--color-text-primary)] px-4 py-2 text-sm font-bold text-[var(--color-text-inverse)]">{homepageAd.ctaLabel || 'Register now'}</div>
               </div>
             </div>
           </SectionCard>
@@ -413,7 +413,7 @@ function ContentPage() {
               <TextArea label="Confession text" value={confession.confessionText || ''} onChange={(value) => setConfession((state) => ({ ...state, confessionText: value }))} rows={5} />
             </div>
             <div className="rounded-[1.7rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] p-5 text-[var(--color-text-inverse)] shadow-sm">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">Popup preview</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">Popup preview</p>
               <h3 className="mt-4 text-3xl font-black tracking-tight">{confession.welcomeTitle || 'Welcome Home'}</h3>
               <p className="mt-4 text-sm leading-7 text-[var(--color-text-inverse)]/65">{confession.welcomeMessage}</p>
               <div className="mt-5 rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-4"><p className="text-sm font-bold leading-7 text-[var(--color-text-inverse)]">{confession.confessionText}</p></div>
@@ -460,7 +460,7 @@ function ContentPage() {
                 <article key={def.key} className="rounded-[1.5rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 transition hover:bg-[var(--color-background-primary)] hover:shadow-sm">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-black text-[var(--color-text-primary)]">{def.title}</h3><StatusPill active={isActive} /></div>
+                      <div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-bold text-[var(--color-text-primary)]">{def.title}</h3><StatusPill active={isActive} /></div>
                       <p className="mt-2 break-all text-xs font-semibold text-[var(--color-text-tertiary)]">{def.key}</p>
                       <p className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">{state?.version ? `Version ${state.version}` : 'No version detected'}</p>
                     </div>
@@ -483,7 +483,7 @@ function RequestList({ items, empty }: { items: Array<{ id: string; title: strin
     <div className="space-y-3">
       {items.map((item) => (
         <article key={item.id} className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 transition hover:bg-[var(--color-background-primary)] hover:shadow-sm">
-          <p className="text-sm font-black text-[var(--color-text-primary)]">{item.title}</p>
+          <p className="text-sm font-bold text-[var(--color-text-primary)]">{item.title}</p>
           <p className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">{item.meta}</p>
           <p className="mt-3 text-xs font-semibold text-[var(--color-text-tertiary)]">{item.detail}</p>
         </article>

@@ -32,7 +32,7 @@ function FilterButton({ active, children, onClick }: { active: boolean; children
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-2xl px-3 py-2 text-xs font-black transition ${
+      className={`rounded-2xl px-3 py-2 text-xs font-semibold transition ${
         active
           ? 'bg-[var(--color-text-primary)] text-[var(--color-background-primary)] shadow-sm'
           : 'border border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'
@@ -129,7 +129,7 @@ function ApprovalsPage() {
                 <ShieldCheck className="h-6 w-6" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Approval authority</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Approval authority</p>
                 <h1 className="mt-2 text-2xl font-black text-[var(--color-text-primary)] md:text-3xl">Approve only what should go live</h1>
                 <p className="mt-3 max-w-4xl text-sm leading-7 text-[var(--color-text-secondary)]">
                   This page is designed for quick super-admin review. Use the request center for deeper governance, IDs, deletion approvals, and audit trails.
@@ -139,12 +139,12 @@ function ApprovalsPage() {
           </div>
           <div className="grid grid-cols-2 gap-3 border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5 xl:border-l xl:border-t-0">
             <div className="rounded-3xl bg-[var(--color-background-primary)] p-4">
-              <p className="text-[11px] font-black uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending</p>
-              <p className="mt-2 text-2xl font-black text-[var(--color-text-primary)]">{pending}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending</p>
+              <p className="mt-2 text-2xl font-bold text-[var(--color-text-primary)]">{pending}</p>
             </div>
             <div className="rounded-3xl bg-[var(--color-background-primary)] p-4">
-              <p className="text-[11px] font-black uppercase tracking-wide text-[var(--color-text-tertiary)]">Approved</p>
-              <p className="mt-2 text-2xl font-black text-[var(--color-text-primary)]">{approved}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Approved</p>
+              <p className="mt-2 text-2xl font-bold text-[var(--color-text-primary)]">{approved}</p>
             </div>
           </div>
         </div>
@@ -180,7 +180,7 @@ function ApprovalsPage() {
         </div>
 
         <div className="mt-5 overflow-hidden rounded-3xl border border-[var(--color-border-secondary)]">
-          <div className="hidden grid-cols-[220px_160px_minmax(280px,1fr)_180px_140px_240px] gap-4 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] xl:grid">
+          <div className="hidden grid-cols-[220px_160px_minmax(280px,1fr)_180px_140px_240px] gap-4 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] xl:grid">
             <div>Name</div><div>Type</div><div>Summary</div><div>Submitted</div><div>Status</div><div className="text-right">Action</div>
           </div>
           <div className="divide-y divide-[var(--color-border-secondary)]">
@@ -189,7 +189,7 @@ function ApprovalsPage() {
             {!loading && filteredItems.map((item) => (
               <article key={item.id} className="grid gap-4 px-4 py-4 transition hover:bg-[var(--color-background-secondary)] xl:grid-cols-[220px_160px_minmax(280px,1fr)_180px_140px_240px] xl:items-center">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-[var(--color-text-primary)]">{item.name}</p>
+                  <p className="truncate text-sm font-bold text-[var(--color-text-primary)]">{item.name}</p>
                   {item.email ? <p className="mt-1 truncate text-xs text-[var(--color-text-tertiary)]">{item.email}</p> : null}
                 </div>
                 <div><Badge variant="outline" size="sm"><span className="inline-flex items-center gap-1">{typeIcon(item.type)} {typeLabel(item.type)}</span></Badge></div>
@@ -216,8 +216,8 @@ function ApprovalsPage() {
           <div className="w-full max-w-2xl rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Approval detail</p>
-                <h2 className="mt-2 break-words text-xl font-black text-[var(--color-text-primary)]">{activeItem.name}</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Approval detail</p>
+                <h2 className="mt-2 break-words text-xl font-bold text-[var(--color-text-primary)]">{activeItem.name}</h2>
                 <p className="mt-2 break-words text-sm leading-6 text-[var(--color-text-secondary)]">{activeItem.summary}</p>
               </div>
               <button type="button" onClick={() => setActiveItem(null)} className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]" aria-label="Close">

@@ -62,7 +62,7 @@ function FilterButton({ active, children, onClick }: { active: boolean; children
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-2xl px-3 py-2 text-xs font-black transition ${
+      className={`rounded-2xl px-3 py-2 text-xs font-semibold transition ${
         active
           ? 'bg-[var(--color-text-primary)] text-[var(--color-background-primary)] shadow-sm'
           : 'border border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'
@@ -223,7 +223,7 @@ export function NotificationInbox({ title, subtitle }: Props) {
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
               <Bell className="h-5 w-5" />
-              <h2 className="text-lg font-black">Decision inbox</h2>
+              <h2 className="text-lg font-bold">Decision inbox</h2>
             </div>
             <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Prioritised alerts for super-admin decisions.</p>
           </div>
@@ -265,7 +265,7 @@ export function NotificationInbox({ title, subtitle }: Props) {
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="break-words text-sm font-black text-[var(--color-text-primary)]">{item.title}</p>
+                        <p className="break-words text-sm font-bold text-[var(--color-text-primary)]">{item.title}</p>
                         <Badge variant={category === 'approval' ? 'warning' : category === 'content' ? 'info' : 'secondary'} size="sm">
                           {itemTypeLabel(item.type || category)}
                         </Badge>
@@ -301,8 +301,8 @@ export function NotificationInbox({ title, subtitle }: Props) {
             <div className="bg-[var(--color-text-primary)] px-5 py-6 text-[var(--color-text-inverse)]">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/55">Notification detail</p>
-                  <h3 className="mt-2 break-words text-2xl font-black">{activeItem.title}</h3>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/55">Notification detail</p>
+                  <h3 className="mt-2 break-words text-2xl font-bold">{activeItem.title}</h3>
                 </div>
                 <button className="rounded-2xl p-2 text-[var(--color-text-inverse)]/70 hover:bg-[var(--color-text-inverse)]/10 hover:text-[var(--color-text-inverse)]" onClick={() => setActiveItem(null)} aria-label="Close">
                   <X className="h-5 w-5" />
@@ -312,7 +312,7 @@ export function NotificationInbox({ title, subtitle }: Props) {
 
             <div className="space-y-4 p-5">
               <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Message</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Message</p>
                 <p className="mt-3 whitespace-pre-line break-words text-sm leading-7 text-[var(--color-text-secondary)]">{activeItem.message}</p>
               </div>
 

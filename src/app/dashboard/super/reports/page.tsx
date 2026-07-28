@@ -132,7 +132,7 @@ function ReportsPage() {
                 <FileDown className="h-6 w-6" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Executive reporting</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Executive reporting</p>
                 <h1 className="mt-2 text-2xl font-black tracking-tight text-[var(--color-text-primary)] md:text-3xl">
                   Super-admin command reports
                 </h1>
@@ -144,7 +144,7 @@ function ReportsPage() {
           </div>
           <div className="border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5 xl:border-l xl:border-t-0">
             <div className="rounded-3xl bg-[var(--color-background-primary)] p-5">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Report period</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Report period</p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Select
                   value={selectedMonth}
@@ -191,7 +191,7 @@ function ReportsPage() {
 
         <Card title="Monthly summary">
           <div className="overflow-hidden rounded-3xl border border-[var(--color-border-secondary)]">
-            <div className="hidden grid-cols-2 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] md:grid">
+            <div className="hidden grid-cols-2 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] md:grid">
               <div>Month</div><div>Events</div>
             </div>
             <div className="divide-y divide-[var(--color-border-secondary)]">
@@ -200,7 +200,7 @@ function ReportsPage() {
               ) : (
                 monthlyRows.map((row) => (
                   <div key={row.month} className="grid gap-2 px-4 py-4 text-sm md:grid-cols-2 md:items-center">
-                    <div className="font-black text-[var(--color-text-primary)]">{row.month}</div>
+                    <div className="font-bold text-[var(--color-text-primary)]">{row.month}</div>
                     <div className="text-[var(--color-text-secondary)]">{formatNumber(row.count)}</div>
                   </div>
                 ))

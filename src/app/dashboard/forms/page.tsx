@@ -354,7 +354,7 @@ function FormsManagerPage() {
               <AlertTriangle className="h-5 w-5" />
             </div>
             <div>
-              <h2 id="form-delete-title" className="text-lg font-black tracking-tight text-[var(--color-text-primary)]">
+              <h2 id="form-delete-title" className="text-lg font-bold tracking-tight text-[var(--color-text-primary)]">
                 Delete form
               </h2>
               <p className="mt-0.5 text-sm text-[var(--color-text-tertiary)]">
@@ -376,7 +376,7 @@ function FormsManagerPage() {
         <div className="px-6 py-5">
           {deleteTarget ? (
             <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-              <p className="truncate text-base font-black text-[var(--color-text-primary)]">{deleteTarget.title || 'Untitled form'}</p>
+              <p className="truncate text-base font-bold text-[var(--color-text-primary)]">{deleteTarget.title || 'Untitled form'}</p>
               <p className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">
                 {formatNumber(deleteTarget.fields?.length || 0)} fields · {formatNumber(getFormSubmissionCount(deleteTarget))} submissions on record
               </p>

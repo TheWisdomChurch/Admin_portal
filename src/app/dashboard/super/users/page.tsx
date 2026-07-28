@@ -143,7 +143,7 @@ function AdminUsersPage() {
   };
 
   const columns: TableColumn<AdminUserAdmin>[] = [
-    { key: 'name', header: 'Name', render: (row) => <span className="font-black text-[var(--color-text-primary)]">{row.first_name} {row.last_name}</span> },
+    { key: 'name', header: 'Name', render: (row) => <span className="font-bold text-[var(--color-text-primary)]">{row.first_name} {row.last_name}</span> },
     { key: 'email', header: 'Email', render: (row) => <span className="text-[var(--color-text-secondary)]">{row.email}</span> },
     {
       key: 'role',

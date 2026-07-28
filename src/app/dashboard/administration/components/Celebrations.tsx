@@ -157,10 +157,10 @@ export function TrackerModal({
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">People care</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">People care</p>
                   <Badge variant={today.length ? 'success' : 'secondary'}>{today.length} today</Badge>
                 </div>
-                <h2 id="celebration-centre-title" className="mt-1 text-xl font-black tracking-tight text-[var(--color-text-primary)] md:text-2xl">{title}</h2>
+                <h2 id="celebration-centre-title" className="mt-1 text-xl font-bold tracking-tight text-[var(--color-text-primary)] md:text-2xl">{title}</h2>
                 <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)]">Plan timely, personal recognition from profile data and keep every celebration visible to the care team.</p>
               </div>
             </div>
@@ -232,7 +232,7 @@ export function TrackerModal({
                 {monthGroups.map((group) => (
                   <div key={group.month}>
                     <div className="mb-3 flex items-center gap-3">
-                      <div className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-[var(--color-background-tertiary)] px-2 text-xs font-black text-[var(--color-accent-primary)]">{String(group.month).padStart(2, '0')}</div>
+                      <div className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-[var(--color-background-tertiary)] px-2 text-xs font-semibold text-[var(--color-accent-primary)]">{String(group.month).padStart(2, '0')}</div>
                       <h4 className="font-bold text-[var(--color-text-primary)]">{MONTH_NAMES[group.month - 1]}</h4>
                       <span className="h-px flex-1 bg-[var(--color-border-secondary)]" />
                       <span className="text-xs font-semibold text-[var(--color-text-tertiary)]">{group.items.length} {group.items.length === 1 ? 'person' : 'people'}</span>
@@ -256,7 +256,7 @@ function Metric({ icon, label, value, detail }: { icon: ReactNode; label: string
   return (
     <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
       <div className="flex items-center gap-2 text-[var(--color-text-tertiary)]">{icon}<span className="text-xs font-bold uppercase tracking-[0.12em]">{label}</span></div>
-      <div className="mt-3 text-2xl font-black text-[var(--color-text-primary)]">{value}</div>
+      <div className="mt-3 text-2xl font-bold text-[var(--color-text-primary)]">{value}</div>
       <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{detail}</p>
     </div>
   );
@@ -274,7 +274,7 @@ function CelebrationCard({ item, onOpen, compact = false }: { item: TrackerItem;
               <p className="mt-0.5 truncate text-xs text-[var(--color-text-tertiary)]">{item.role || segmentMeta[item.segment].label}</p>
             </div>
             <div className="rounded-xl bg-[var(--color-background-tertiary)] px-2.5 py-1.5 text-center">
-              <div className="text-base font-black leading-none text-[var(--color-text-primary)]">{String(item.day).padStart(2, '0')}</div>
+              <div className="text-base font-bold leading-none text-[var(--color-text-primary)]">{String(item.day).padStart(2, '0')}</div>
               <div className="mt-1 text-[9px] font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">{MONTH_NAMES[item.month - 1]?.slice(0, 3)}</div>
             </div>
           </div>
