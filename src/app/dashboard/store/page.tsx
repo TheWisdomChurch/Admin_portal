@@ -29,6 +29,7 @@ import type {
   UpsertStoreProductRequest,
 } from '@/lib/types';
 import { Input } from '@/ui/Input';
+import { Select } from '@/ui/Select';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
 import { Checkbox } from '@/ui/Checkbox';
@@ -480,8 +481,7 @@ function StoreDashboardPage() {
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                 <Input className="pl-9" placeholder="Search products" value={productQuery} onChange={(e) => setProductQuery(e.target.value)} />
               </div>
-              <select
-                className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+              <Select
                 value={productFilter}
                 onChange={(e) => setProductFilter(e.target.value as typeof productFilter)}
               >
