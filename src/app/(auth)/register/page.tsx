@@ -286,6 +286,7 @@ export default function RegisterPage() {
               <p className="mb-2 block text-sm font-medium text-[var(--color-text-secondary)]">Account role</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 hover:bg-[var(--color-background-hover)]">
+                  {/* eslint-disable-next-line no-restricted-syntax -- radio card: the label wraps rich title/subtitle content beside the input, which the label-above <Input> layout can't express */}
                   <input
                     type="radio"
                     value="admin"
@@ -305,6 +306,7 @@ export default function RegisterPage() {
                 </label>
 
                 <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 hover:bg-[var(--color-background-hover)]">
+                  {/* eslint-disable-next-line no-restricted-syntax -- radio card, see comment above */}
                   <input
                     type="radio"
                     value="super_admin"

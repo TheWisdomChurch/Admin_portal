@@ -8,6 +8,7 @@ import { Plus, Trash2, Copy, Save, Globe, Mail, MailCheck, Send, ExternalLink } 
 
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
+import { Checkbox } from '@/ui/Checkbox';
 import { Input } from '@/ui/Input';
 import { PageHeader } from '@/layouts';
 import { AlertModal } from '@/ui/AlertModal';
@@ -907,14 +908,11 @@ function EditFormPage() {
             </div>
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-            <input
-              type="checkbox"
-              checked={responseEmailEnabled}
-              onChange={(event) => updateSettings({ responseEmailEnabled: event.target.checked })}
-            />
-            Enable response email
-          </label>
+          <Checkbox
+            label="Enable response email"
+            checked={responseEmailEnabled}
+            onChange={(event) => updateSettings({ responseEmailEnabled: event.target.checked })}
+          />
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Input

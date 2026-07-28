@@ -21,6 +21,7 @@ import {
   Edit3,
   ExternalLink,
   IdCard,
+  Link2,
   Loader2,
   Mail,
   Phone,
@@ -331,21 +332,29 @@ function LeadershipPage() {
         }
       />
 
-      <section className="overflow-hidden rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] p-6 text-[var(--color-text-inverse)] shadow-xl">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.75fr)] lg:items-end">
+      <section className="relative overflow-hidden rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] p-6 text-[var(--color-text-inverse)] shadow-2xl shadow-black/25 ring-1 ring-inset ring-[var(--color-text-inverse)]/10 sm:p-8">
+        {/* Decorative glow + watermark — purely visual, no semantic content. */}
+        <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[var(--brand-500)]/25 blur-[100px]" aria-hidden="true" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/4 h-64 w-64 rounded-full bg-[var(--brand-600)]/10 blur-[100px]" aria-hidden="true" />
+        <Crown className="pointer-events-none absolute -right-8 -top-8 h-44 w-44 text-[var(--color-text-inverse)]/[0.04]" aria-hidden="true" strokeWidth={1} />
+
+        <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.75fr)] lg:items-end">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/65"><Crown className="h-4 w-4" /> Leadership governance</div>
-            <h1 className="mt-4 max-w-4xl text-3xl font-black tracking-tight sm:text-4xl xl:text-5xl">Review, approve, and manage leadership biodata with clear operational visibility.</h1>
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-400)]/30 bg-[var(--brand-500)]/15 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[var(--brand-300)]"><Crown className="h-4 w-4" /> Leadership governance</div>
+            <h1 className="mt-4 max-w-4xl text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl xl:text-5xl">Review, approve, and manage leadership biodata with clear operational visibility.</h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--color-text-inverse)]/65">Monitor submitted profiles, copy the biodata form, inspect profile completeness, and request governed deletion.</p>
           </div>
-          <div className="rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-4 backdrop-blur">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-inverse)]/50">Biodata intake form</p>
-            <p className="mt-2 break-all text-sm font-semibold text-[var(--color-text-inverse)]/70">
+          <div className="rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/[0.07] p-5 shadow-lg backdrop-blur">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-500)]/20 text-[var(--brand-300)]"><Link2 className="h-4 w-4" /></div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-inverse)]/50">Biodata intake form</p>
+            </div>
+            <p className="mt-3 truncate rounded-xl border border-[var(--color-text-inverse)]/10 bg-black/20 px-3 py-2.5 font-mono text-xs font-semibold text-[var(--color-text-inverse)]/80">
               {publicFormUrl || 'Create and publish the leadership form to generate an intake link.'}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" icon={<Clipboard className="h-4 w-4" />} disabled={!publicFormUrl} onClick={() => void copyFormLink()}>Copy Link</Button>
-              <Button size="sm" variant="outline" icon={<ExternalLink className="h-4 w-4" />} disabled={!publicFormUrl} onClick={openPublicForm}>Open Form</Button>
+              <Button size="sm" icon={<Clipboard className="h-4 w-4" />} disabled={!publicFormUrl} onClick={() => void copyFormLink()}>Copy Link</Button>
+              <Button size="sm" variant="outline" className="border-[var(--color-text-inverse)]/15 text-[var(--color-text-inverse)] hover:bg-[var(--color-text-inverse)]/10" icon={<ExternalLink className="h-4 w-4" />} disabled={!publicFormUrl} onClick={openPublicForm}>Open Form</Button>
             </div>
           </div>
         </div>

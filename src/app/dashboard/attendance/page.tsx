@@ -239,11 +239,10 @@ function AttendancePage() {
               <option value="">Select service type…</option>
               {serviceTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
-            <input
+            <Input
               type="date"
               value={newSessionDate}
               onChange={(e) => setNewSessionDate(e.target.value)}
-              className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-bold text-[var(--color-text-secondary)] outline-none focus:border-[var(--color-border-focus)]"
             />
             <Button size="sm" icon={<Plus className="h-4 w-4" />} loading={creatingSession} onClick={() => void createSession()}>New session</Button>
           </div>

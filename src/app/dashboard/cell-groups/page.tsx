@@ -321,11 +321,10 @@ function CellGroupsPage() {
               <div className="border-t border-[var(--color-border-secondary)] pt-5">
                 <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Log a meeting</p>
                 <div className="grid grid-cols-[1fr_100px_auto] gap-2">
-                  <input
+                  <Input
                     type="date"
                     value={meetingDate}
                     onChange={(e) => setMeetingDate(e.target.value)}
-                    className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-bold text-[var(--color-text-secondary)] outline-none focus:border-[var(--color-border-focus)]"
                   />
                   <Input value={meetingCount} onChange={(e) => setMeetingCount(e.target.value)} placeholder="Count" type="number" />
                   <Button size="sm" icon={<CalendarPlus className="h-4 w-4" />} loading={loggingMeeting} onClick={() => void logMeeting()}>Log</Button>

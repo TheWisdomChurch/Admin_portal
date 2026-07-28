@@ -706,6 +706,7 @@ export default withAuth(function NewFormPage() {
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Public Link Slug *</label>
                 <div className={`flex items-center rounded-[var(--radius-button)] border bg-[var(--color-background-secondary)] pl-3 text-sm transition focus-within:ring-2 focus-within:ring-[var(--color-border-focus)] ${fieldErrors.slug ? 'border-[var(--color-border-error)] focus-within:ring-[var(--color-border-error)]' : 'border-[var(--color-border-primary)]'}`}>
                   <span className="shrink-0 select-none font-mono text-[var(--color-text-tertiary)]">/forms/</span>
+                  {/* eslint-disable-next-line no-restricted-syntax -- compound input: "/forms/" prefix sits inline inside the same bordered box, which the shared <Input>'s standalone layout can't express */}
                   <input
                     value={slug}
                     onChange={(event) => { clearFieldError('slug'); setSlug(event.target.value); }}
@@ -919,6 +920,7 @@ function ColorInput({ label, value, onChange }: { label: string; value: string; 
     <label className="grid gap-1.5">
       <span className="text-sm font-bold text-[var(--color-text-secondary)]">{label}</span>
       <div className="flex items-center gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
+        {/* eslint-disable-next-line no-restricted-syntax -- color input, styled with tokens */}
         <input type="color" value={value} onChange={(event) => onChange(event.target.value)} className="h-8 w-12 rounded border border-[var(--color-border-secondary)] bg-transparent" />
         <span className="text-xs font-black text-[var(--color-text-tertiary)]">{value}</span>
       </div>

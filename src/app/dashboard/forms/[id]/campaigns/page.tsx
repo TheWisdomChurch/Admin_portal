@@ -56,6 +56,7 @@ import type { AdminForm, EmailTemplate, EventData, FormSubmission, UpdateFormReq
 import { withAuth } from '@/providers/withAuth';
 import { ActionStatusModal, type ActionStatusDetail, type ActionStatusMode } from '@/ui/ActionStatusModal';
 import { Button } from '@/ui/Button';
+import { Checkbox } from '@/ui/Checkbox';
 import { EmptyState } from '@/ui/EmptyState';
 import { Input } from '@/ui/Input';
 import { SectionCard } from '@/ui/SectionCard';
@@ -906,13 +907,15 @@ function RegistrantCampaignPage() {
               <Input label="Campaign heading" value={heading} onChange={(event) => setHeading(event.target.value)} placeholder="Here is everything you need before the event" />
               <Input label="Logo URL" value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} placeholder="https://.../logo.png" />
               <Input label="Flyer / hero image URL" value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} placeholder="https://.../flyer.png" />
+              {/* eslint-disable-next-line no-restricted-syntax -- file input, styled with tokens */}
               <div className="space-y-2"><label className="block text-sm font-bold text-[var(--color-text-secondary)]">Upload logo</label><input type="file" accept="image/*" onChange={(event) => handleLogoFile(event.target.files?.[0])} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold" /><p className="text-xs font-semibold text-[var(--color-text-tertiary)]">Max {MAX_EMAIL_IMAGE_MB}MB. JPEG, PNG, WebP.</p></div>
+              {/* eslint-disable-next-line no-restricted-syntax -- file input, styled with tokens */}
               <div className="space-y-2"><label className="block text-sm font-bold text-[var(--color-text-secondary)]">Upload flyer / hero image</label><input type="file" accept="image/*" onChange={(event) => handleImageFile(event.target.files?.[0])} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold" /><p className="text-xs font-semibold text-[var(--color-text-tertiary)]">Max {MAX_EMAIL_IMAGE_MB}MB. JPEG, PNG, WebP.</p></div>
 
               <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 md:col-span-2">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div><p className="text-sm font-black text-[var(--color-text-primary)]">Call-to-action button</p><p className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">Optional. No button appears unless enabled.</p></div>
-                  <label className="flex items-center gap-2 text-sm font-black text-[var(--color-text-secondary)]"><input type="checkbox" checked={ctaEnabled} onChange={(event) => setCtaEnabled(event.target.checked)} />Enable CTA</label>
+                  <Checkbox label="Enable CTA" checked={ctaEnabled} onChange={(event) => setCtaEnabled(event.target.checked)} className="text-sm font-black text-[var(--color-text-secondary)]" />
                 </div>
                 <div className="mt-4 grid gap-4 md:grid-cols-2"><Input label="CTA label" value={ctaLabel} onChange={(event) => setCtaLabel(event.target.value)} disabled={!ctaEnabled} /><Input label="CTA URL" value={ctaUrl} onChange={(event) => setCtaUrl(event.target.value)} disabled={!ctaEnabled} /></div>
               </div>
@@ -1001,7 +1004,10 @@ function RegistrantCampaignPage() {
             <div className="mt-4 max-h-[560px] space-y-2 overflow-y-auto pr-1">
               {filteredRecipients.length > 0 ? filteredRecipients.map((recipient) => {
                 const checked = selectedRecipientIdSet.has(recipient.submissionId);
-                return <label key={`${recipient.email}-${recipient.submissionId}`} className={`flex cursor-pointer items-start gap-3 rounded-3xl border px-4 py-3 transition-colors ${checked ? 'border-[var(--color-text-primary)] bg-[var(--color-background-secondary)]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]'}`}><input type="checkbox" checked={checked} onChange={() => toggleRecipientSelection(recipient.submissionId)} className="mt-1 h-4 w-4 rounded border-[var(--color-border-primary)]" /><div className="min-w-0 flex-1"><div className="text-sm font-black text-[var(--color-text-primary)]">{recipient.name}</div><div className="truncate text-xs font-semibold text-[var(--color-text-tertiary)]">{recipient.email}</div><div className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">{recipient.registrationCode ? `Reg: ${recipient.registrationCode} · ` : ''}{new Date(recipient.submittedAt).toLocaleString()}</div></div></label>;
+                return (
+                  // eslint-disable-next-line no-restricted-syntax -- recipient card: the label wraps rich name/email/reg-code content beside the checkbox, which the shared <Checkbox>'s plain-text label can't express
+                  <label key={`${recipient.email}-${recipient.submissionId}`} className={`flex cursor-pointer items-start gap-3 rounded-3xl border px-4 py-3 transition-colors ${checked ? 'border-[var(--color-text-primary)] bg-[var(--color-background-secondary)]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]'}`}><input type="checkbox" checked={checked} onChange={() => toggleRecipientSelection(recipient.submissionId)} className="mt-1 h-4 w-4 rounded border-[var(--color-border-primary)]" /><div className="min-w-0 flex-1"><div className="text-sm font-black text-[var(--color-text-primary)]">{recipient.name}</div><div className="truncate text-xs font-semibold text-[var(--color-text-tertiary)]">{recipient.email}</div><div className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">{recipient.registrationCode ? `Reg: ${recipient.registrationCode} · ` : ''}{new Date(recipient.submittedAt).toLocaleString()}</div></div></label>
+                );
               }) : <EmptyState title={recipients.length === 0 ? 'No valid email addresses have been captured from this form yet.' : 'No recipients match your current search.'} />}
             </div>
           </SectionCard>
@@ -1042,6 +1048,7 @@ function ColorInput({ label, value, onChange }: { label: string; value: string; 
     <label className="grid gap-1.5">
       <span className="text-sm font-bold text-[var(--color-text-secondary)]">{label}</span>
       <div className="flex items-center gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
+        {/* eslint-disable-next-line no-restricted-syntax -- color input, styled with tokens */}
         <input type="color" value={value} onChange={(event) => onChange(event.target.value)} className="h-8 w-12 rounded border border-[var(--color-border-secondary)] bg-transparent" />
         <span className="text-xs font-black text-[var(--color-text-tertiary)]">{value}</span>
       </div>
