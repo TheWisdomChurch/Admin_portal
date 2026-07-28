@@ -404,6 +404,7 @@ function PhoneNumberInput({ label, required, value, onChange }: { label: string;
         <select className={fieldInputClass} value={currentDial} onChange={(e) => onChange(`${e.target.value}${onlyDigits(currentNational)}`)} aria-label={`${label} country code`}>
           {COUNTRY_PHONE_CODES.map((c) => <option key={c.iso} value={c.dial}>{c.name} ({c.dial})</option>)}
         </select>
+        {/* eslint-disable-next-line no-restricted-syntax -- public-form field, see FieldInput's comment */}
         <input className={fieldInputClass} inputMode="tel" placeholder="Phone number" value={currentNational} onChange={(e) => onChange(`${currentDial}${onlyDigits(e.target.value)}`)} required={required} />
       </div>
       <p className="text-xs text-stone-500">Use a number you can currently receive calls or messages on.</p>
@@ -411,6 +412,7 @@ function PhoneNumberInput({ label, required, value, onChange }: { label: string;
   );
 }
 
+// Uses its own fieldInputClass/choiceRowClass convention (not src/ui/Input) since this renders every public-form input type uniformly, outside the admin design system.
 function FieldInput({ field, value, onChange }: { field: FormField; value: FieldValue | undefined; onChange: (next: FieldValue) => void }) {
   const options = Array.isArray(field.options) ? field.options : [];
   const type = normalizeFieldType(field.type);
@@ -418,11 +420,14 @@ function FieldInput({ field, value, onChange }: { field: FormField; value: Field
 
   if (isTextareaType(type)) return <textarea className={`${fieldInputClass} min-h-32 resize-y`} value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} placeholder={`Enter ${field.label.toLowerCase()}`} required={field.required} minLength={field.validation?.minLength} maxLength={field.validation?.maxLength} />;
   if (isSelectType(type)) return <select className={fieldInputClass} value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} required={field.required}><option value="">Select...</option>{options.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>;
+  // eslint-disable-next-line no-restricted-syntax -- public-form choice rows, see FieldInput's comment
   if (isRadioType(type)) return <div className="grid gap-2">{options.map((opt) => <label key={opt.value} className={choiceRowClass}><input type="radio" name={field.key} value={opt.value} checked={value === opt.value} onChange={(e) => onChange(e.target.value)} className="accent-[var(--color-accent-primary)]" /><span>{opt.label}</span></label>)}</div>;
   if (isCheckboxType(type) && options.length > 0) {
     const selected = Array.isArray(value) ? value : [];
+    // eslint-disable-next-line no-restricted-syntax -- public-form choice rows, see FieldInput's comment
     return <div className="grid gap-2">{options.map((opt) => <label key={opt.value} className={choiceRowClass}><input type="checkbox" checked={selected.includes(opt.value)} onChange={(e) => onChange(e.target.checked ? [...selected, opt.value] : selected.filter((v) => v !== opt.value))} className="accent-[var(--color-accent-primary)]" /><span>{opt.label}</span></label>)}</div>;
   }
+  // eslint-disable-next-line no-restricted-syntax -- public-form choice row, see FieldInput's comment
   if (isCheckboxType(type)) return <label className={choiceRowClass}><input type="checkbox" checked={Boolean(value)} onChange={(e) => onChange(e.target.checked)} className="accent-[var(--color-accent-primary)]" /><span>{field.label}</span></label>;
   if (isUploadType(type)) {
     const selected = isFileValue(value) ? value : null;
@@ -434,12 +439,14 @@ function FieldInput({ field, value, onChange }: { field: FormField; value: Field
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-stone-500 shadow-sm ring-1 ring-stone-200"><FileUp className="h-5 w-5" /></span>
           <span className="mt-3 max-w-full truncate text-sm font-semibold text-stone-800">{selected ? selected.name : `Choose ${field.label.toLowerCase()}`}</span>
           <span className="mt-1 text-xs text-stone-500">{getUploadFormatLabel(kind)} · up to {maxMb}MB</span>
+          {/* eslint-disable-next-line no-restricted-syntax -- public-form file dropzone, see FieldInput's comment */}
           <input type="file" accept={getUploadAccept(kind)} className="sr-only" onChange={(e) => onChange(e.target.files?.[0] || null)} required={field.required} />
         </label>
       </div>
     );
   }
   if (showAsPhone) return <PhoneNumberInput label={field.label || 'Phone'} required={field.required} value={typeof value === 'string' ? value : ''} onChange={onChange} />;
+  // eslint-disable-next-line no-restricted-syntax -- public-form field, see FieldInput's comment
   if (type === 'date' && resolveDateMode(field) === 'full') return <input type="date" className={fieldInputClass} value={toHtmlDateInputValue(typeof value === 'string' ? value : '')} onChange={(e) => onChange(fromHtmlDateInputValue(e.target.value))} required={field.required} />;
   if (type === 'date') {
     const parsed = parseDDMMPartial(typeof value === 'string' ? value : '');
@@ -455,6 +462,7 @@ function FieldInput({ field, value, onChange }: { field: FormField; value: Field
     );
   }
   const inputType = type === 'email' ? 'email' : type === 'number' ? 'number' : 'text';
+  // eslint-disable-next-line no-restricted-syntax -- public-form field, see FieldInput's comment
   return <input type={inputType} className={fieldInputClass} value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} placeholder={`Enter ${field.label.toLowerCase()}`} required={field.required} minLength={field.validation?.minLength} maxLength={field.validation?.maxLength} min={field.validation?.min} max={field.validation?.max} />;
 }
 

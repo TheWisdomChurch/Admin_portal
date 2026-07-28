@@ -100,6 +100,7 @@ export function ImageCropModal({
           >
             Zoom
           </label>
+          {/* eslint-disable-next-line no-restricted-syntax -- range slider, not a text-like field the shared <Input>'s boxed styling fits */}
           <input
             id="crop-zoom"
             type="range"

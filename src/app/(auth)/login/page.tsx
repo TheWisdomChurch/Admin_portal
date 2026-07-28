@@ -502,7 +502,7 @@ function LoginInner() {
           <div className="grid gap-3 sm:grid-cols-2">
             <motion.div variants={heroItem} className="group rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/70 p-4 transition hover:border-[var(--brand-400)]/40 hover:shadow-md">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--brand-500)]/15 text-[var(--brand-600)] transition group-hover:bg-[var(--brand-500)]/25 dark:text-[var(--brand-300)]">
-                <ShieldCheck className="h-4.5 w-4.5" />
+                <ShieldCheck className="h-[18px] w-[18px]" />
               </div>
               <p className="mt-3 text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
                 {portalMode === 'super' ? 'Elevated Access' : 'Access Control'}
@@ -513,7 +513,7 @@ function LoginInner() {
             </motion.div>
             <motion.div variants={heroItem} className="group rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/70 p-4 transition hover:border-[var(--brand-400)]/40 hover:shadow-md">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--brand-500)]/15 text-[var(--brand-600)] transition group-hover:bg-[var(--brand-500)]/25 dark:text-[var(--brand-300)]">
-                <Smartphone className="h-4.5 w-4.5" />
+                <Smartphone className="h-[18px] w-[18px]" />
               </div>
               <p className="mt-3 text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
                 Trusted Devices

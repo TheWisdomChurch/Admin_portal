@@ -31,6 +31,7 @@ import type {
 import { Input } from '@/ui/Input';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
+import { Checkbox } from '@/ui/Checkbox';
 import { Panel } from '@/ui/Panel';
 import { StatCard } from '@/ui/StatCard';
 import { EmptyState } from '@/ui/EmptyState';
@@ -452,10 +453,12 @@ function StoreDashboardPage() {
             <Input label="Tags" value={tagsCsv} onChange={(e) => setTagsCsv(e.target.value)} placeholder="shirt, conference, merch" />
             <Input label="Stock" type="number" min={0} value={String(productForm.stock)} onChange={(e) => setProductForm((p) => ({ ...p, stock: Number(e.target.value || 0) }))} />
 
-            <label className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 text-sm">
-              <span className="font-bold text-[var(--color-text-secondary)]">Product is active</span>
-              <input type="checkbox" className="h-5 w-5 accent-[var(--color-accent-primary)]" checked={productForm.isActive} onChange={(e) => setProductForm((p) => ({ ...p, isActive: e.target.checked }))} />
-            </label>
+            <Checkbox
+              label="Product is active"
+              checked={productForm.isActive}
+              onChange={(e) => setProductForm((p) => ({ ...p, isActive: e.target.checked }))}
+              className="w-full flex-row-reverse justify-between rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 text-sm font-bold text-[var(--color-text-secondary)]"
+            />
 
             <div className="flex flex-wrap gap-3 pt-2">
               <Button loading={savingProduct} onClick={saveProduct} icon={<PackagePlus className="h-4 w-4" />}>
