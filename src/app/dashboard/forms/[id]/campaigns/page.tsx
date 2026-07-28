@@ -875,7 +875,7 @@ function RegistrantCampaignPage() {
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/65"><Mail className="h-4 w-4" />Registrant email campaign</div>
-            <h1 className="mt-4 max-w-4xl text-3xl font-black tracking-tight sm:text-4xl">Compose, preview, target, and send from one professional campaign studio.</h1>
+            <h1 className="heading-page mt-4 max-w-4xl">Compose, preview, target, and send from one professional campaign studio.</h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--color-text-inverse)]/65">The audience is deduplicated directly from form submissions, and the template is saved before sending.</p>
           </div>
           <div className="rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-4 backdrop-blur">
@@ -1056,4 +1056,3 @@ function ColorInput({ label, value, onChange }: { label: string; value: string; 
     </label>
   );
 }
-

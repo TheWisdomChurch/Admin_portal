@@ -968,7 +968,7 @@ function FormPreview({
       <div className={`grid gap-6 ${layoutMode === 'split' ? 'lg:grid-cols-[1.1fr_1fr]' : 'grid-cols-1'}`}>
         <div className="space-y-4 rounded-[1.5rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] p-5 text-[var(--color-text-inverse)]">
           <div className="inline-flex items-center rounded-full border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-inverse)]/60">Preview</div>
-          <h2 className="text-3xl font-black tracking-tight">{introTitle || 'Form Details'}</h2>
+          <h2 className="heading-page">{introTitle || 'Form Details'}</h2>
           <p className="text-sm leading-7 text-[var(--color-text-inverse)]/65">{introSubtitle || 'Secure your spot by registering below.'}</p>
           {formHeaderNote ? <p className="rounded-2xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-3 text-xs font-semibold text-[var(--color-text-inverse)]/55">{formHeaderNote}</p> : null}
           <div className="grid gap-3">

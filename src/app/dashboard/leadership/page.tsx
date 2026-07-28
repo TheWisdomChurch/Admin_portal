@@ -342,7 +342,7 @@ function LeadershipPage() {
         <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.75fr)] lg:items-end">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-400)]/30 bg-[var(--brand-500)]/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand-300)]"><Crown className="h-4 w-4" /> Leadership governance</div>
-            <h1 className="mt-4 max-w-4xl text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl xl:text-5xl">Review, approve, and manage leadership biodata with clear operational visibility.</h1>
+            <h1 className="heading-page mt-4 max-w-4xl">Review, approve, and manage leadership biodata with clear operational visibility.</h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--color-text-inverse)]/65">Monitor submitted profiles, copy the biodata form, inspect profile completeness, and request governed deletion.</p>
           </div>
           <div className="rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/[0.07] p-5 shadow-lg backdrop-blur">

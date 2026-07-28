@@ -161,6 +161,13 @@
   --font-size-4xl: 2.25rem;
   --font-size-5xl: 3rem;
 
+  /* Fluid display scale: readable on compact screens without abrupt
+     breakpoint jumps, while remaining bounded on ultrawide displays. */
+  --font-size-heading-sm: clamp(1.25rem, 1.12rem + 0.45vw, 1.625rem);
+  --font-size-heading-md: clamp(1.5rem, 1.25rem + 0.8vw, 2.125rem);
+  --font-size-heading-lg: clamp(1.875rem, 1.38rem + 1.55vw, 3.125rem);
+  --font-size-heading-xl: clamp(2.5rem, 1.6rem + 3vw, 5rem);
+
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
@@ -193,6 +200,29 @@
   --transition-fast: 150ms ease-in-out;
   --transition-normal: 250ms ease-in-out;
   --transition-slow: 350ms ease-in-out;
+}
+
+@layer components {
+  .heading-section {
+    font-size: var(--font-size-heading-sm);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .heading-page {
+    font-size: var(--font-size-heading-lg);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.08;
+    letter-spacing: -0.035em;
+  }
+
+  .heading-display {
+    font-size: var(--font-size-heading-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: 0.98;
+    letter-spacing: -0.045em;
+  }
 }
 
 /* ============================================================

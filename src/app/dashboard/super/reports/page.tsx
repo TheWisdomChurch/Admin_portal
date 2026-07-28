@@ -133,7 +133,7 @@ function ReportsPage() {
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Executive reporting</p>
-                <h1 className="mt-2 text-2xl font-black tracking-tight text-[var(--color-text-primary)] md:text-3xl">
+                <h1 className="heading-page mt-2 text-[var(--color-text-primary)]">
                   Super-admin command reports
                 </h1>
                 <p className="mt-3 max-w-4xl text-sm leading-7 text-[var(--color-text-secondary)]">

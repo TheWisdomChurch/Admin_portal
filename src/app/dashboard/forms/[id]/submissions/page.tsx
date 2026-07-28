@@ -20,7 +20,7 @@ import { Button } from '@/ui/Button';
 import { PageHeader } from '@/layouts';
 import { Panel } from '@/ui/Panel';
 import { StatCard } from '@/ui/StatCard';
-import { DataTable } from '@/components/DateTable';
+import { Table, type TableColumn } from '@/ui/Table';
 import { apiClient } from '@/lib/api';
 import { getChartPalette } from '@/lib/charts/palette';
 import {
@@ -131,7 +131,7 @@ function SubmissionsPage() {
 
   const latestSubmissions = sortedSubmissions.slice(0, 5);
 
-  const columns = useMemo(() => [
+  const columns = useMemo<TableColumn<FormSubmission>[]>(() => [
     { key: 'name' as keyof FormSubmission, header: 'Name', cell: (row: FormSubmission) => <span className="font-bold text-[var(--color-text-primary)]">{resolveFormSubmissionName(row, '—')}</span> },
     { key: 'email' as keyof FormSubmission, header: 'Email', cell: (row: FormSubmission) => <span className="break-all text-[var(--color-text-secondary)]">{resolveFormSubmissionEmail(row) || '—'}</span> },
     { key: 'registrationCode' as keyof FormSubmission, header: 'Registration Code', cell: (row: FormSubmission) => row.registrationCode || '—' },
@@ -217,7 +217,7 @@ function SubmissionsPage() {
 
       <Panel>
         <h2 className="mb-4 text-lg font-bold text-[var(--color-text-primary)]">All submissions</h2>
-        <DataTable data={sortedSubmissions} columns={columns} total={total} page={page} limit={limit} onPageChange={setPage} onLimitChange={setLimit} isLoading={false} />
+        <Table data={sortedSubmissions} columns={columns} rowKey={(row) => row.id} total={total} page={page} pageSize={limit} onPageChange={setPage} onPageSizeChange={setLimit} emptyTitle="No submissions found" />
       </Panel>
     </div>
   );

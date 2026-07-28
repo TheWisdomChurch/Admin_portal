@@ -224,7 +224,7 @@ export default function MfaSetupPage() {
               <ShieldCheck className="h-7 w-7" />
             </div>
             <p className="mt-7 text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-text-inverse)]/50">Multi-factor authentication</p>
-            <h1 className="mt-3 max-w-2xl text-3xl font-black tracking-tight sm:text-5xl">Secure your admin account before entering the dashboard.</h1>
+            <h1 className="heading-page mt-3 max-w-2xl">Secure your admin account before entering the dashboard.</h1>
             <p className="mt-5 max-w-2xl text-sm leading-7 text-[var(--color-text-inverse)]/70 sm:text-base">Your account is signed in, but admin access requires authenticator-based MFA. This protects church records, members, and operational data.</p>
           </div>
 

@@ -98,7 +98,7 @@ function NewsletterPage() {
             <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">
               <Mail className="h-4 w-4" /> Newsletter
             </div>
-            <h1 className="mt-4 text-2xl font-black tracking-tight text-[var(--color-text-primary)] sm:text-3xl">Subscriber Control Center</h1>
+            <h1 className="heading-page mt-4 text-[var(--color-text-primary)]">Subscriber Control Center</h1>
             <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--color-text-secondary)]">Manage public newsletter subscribers and send clean audience-safe updates.</p>
           </div>
           <Button variant="outline" onClick={() => void load()} disabled={loading} loading={loading} icon={<RefreshCw className="h-4 w-4" />}>Refresh</Button>

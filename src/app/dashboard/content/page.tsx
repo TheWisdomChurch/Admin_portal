@@ -330,7 +330,7 @@ function ContentPage() {
           <div className="absolute right-0 top-0 h-56 w-56 rounded-full bg-[var(--color-accent-primary)]/10 blur-3xl" />
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/65"><ShieldCheck className="h-4 w-4" /> Website content operations</div>
-            <h1 className="mt-4 max-w-3xl text-3xl font-black tracking-tight sm:text-4xl xl:text-5xl">Publish consistent content across homepage, popups, and automated follow-up.</h1>
+            <h1 className="heading-page mt-4 max-w-3xl">Publish consistent content across homepage, popups, and automated follow-up.</h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--color-text-inverse)]/65">This workspace keeps public-facing messaging and automation templates aligned.</p>
           </div>
           <div className="relative grid gap-3 sm:grid-cols-2">
@@ -414,7 +414,7 @@ function ContentPage() {
             </div>
             <div className="rounded-[1.7rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] p-5 text-[var(--color-text-inverse)] shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">Popup preview</p>
-              <h3 className="mt-4 text-3xl font-black tracking-tight">{confession.welcomeTitle || 'Welcome Home'}</h3>
+              <h3 className="heading-section mt-4">{confession.welcomeTitle || 'Welcome Home'}</h3>
               <p className="mt-4 text-sm leading-7 text-[var(--color-text-inverse)]/65">{confession.welcomeMessage}</p>
               <div className="mt-5 rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-4"><p className="text-sm font-bold leading-7 text-[var(--color-text-inverse)]">{confession.confessionText}</p></div>
               <p className="mt-4 text-xs font-semibold leading-6 text-[var(--color-text-inverse)]/45">{confession.motto}</p>

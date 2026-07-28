@@ -386,7 +386,7 @@ function StoreDashboardPage() {
                   <ShoppingBag className="h-4 w-4" />
                   Store operations
                 </div>
-                <h1 className="mt-4 text-2xl font-black tracking-tight text-[var(--color-text-primary)] sm:text-3xl">Products, stock, and order workflow</h1>
+                <h1 className="heading-page mt-4 text-[var(--color-text-primary)]">Products, stock, and order workflow</h1>
                 <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--color-text-secondary)]">
                   Manage live products, inventory alerts, and customer order movement in one connected workspace.
                 </p>
@@ -399,7 +399,7 @@ function StoreDashboardPage() {
           <div className="border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5 xl:border-l xl:border-t-0">
             <div className="rounded-3xl bg-[var(--color-background-primary)] p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Inventory value</p>
-              <p className="mt-3 text-3xl font-black text-[var(--color-text-primary)]">₦{totalInventoryValue.toLocaleString()}</p>
+              <p className="mt-3 text-3xl font-bold text-[var(--color-text-primary)]">₦{totalInventoryValue.toLocaleString()}</p>
               <p className="mt-2 text-sm text-[var(--color-text-secondary)]">Estimated from saved product prices and stock.</p>
             </div>
           </div>

@@ -130,7 +130,7 @@ function ApprovalsPage() {
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Approval authority</p>
-                <h1 className="mt-2 text-2xl font-black text-[var(--color-text-primary)] md:text-3xl">Approve only what should go live</h1>
+                <h1 className="heading-page mt-2 text-[var(--color-text-primary)]">Approve only what should go live</h1>
                 <p className="mt-3 max-w-4xl text-sm leading-7 text-[var(--color-text-secondary)]">
                   This page is designed for quick super-admin review. Use the request center for deeper governance, IDs, deletion approvals, and audit trails.
                 </p>
