@@ -15,6 +15,7 @@ import { Bar } from 'react-chartjs-2';
 
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
+import { Select } from '@/ui/Select';
 import { Panel } from '@/ui/Panel';
 import { StatCard } from '@/ui/StatCard';
 import { DataTable } from '@/components/DateTable';
@@ -242,14 +243,13 @@ function RegistrationsPage() {
           <div className="grid flex-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(240px,1.4fr)_minmax(220px,1fr)_160px_160px]">
             <div>
               <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Registration Link</label>
-              <select
-                className="h-11 w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 text-sm text-[var(--color-text-primary)]"
+              <Select
                 value={selectedFormId}
                 onChange={(e) => { setSelectedFormId(e.target.value); setPage(1); }}
                 disabled={formsLoading || forms.length === 0}
               >
                 {forms.length === 0 ? <option value="">No links available</option> : <><option value="">Select a link</option>{forms.map((form) => <option key={form.id} value={form.id}>{form.title}</option>)}</>}
-              </select>
+              </Select>
             </div>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-[38px] h-4 w-4 text-[var(--color-text-tertiary)]" />

@@ -29,6 +29,7 @@ import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
+import { Select } from '@/ui/Select';
 import { StatCard } from '@/ui/StatCard';
 import { EmptyState } from '@/ui/EmptyState';
 import { Modal } from '@/ui/Modal';
@@ -656,27 +657,25 @@ function EventPage() {
                   ) : null}
                 </div>
 
-                <select
+                <Select
                   value={statusFilter}
                   onChange={(event) => setStatusFilter(event.target.value as 'all' | NormalizedStatus)}
-                  className="rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-black text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]"
                 >
                   <option value="all">All statuses</option>
                   <option value="upcoming">Upcoming</option>
                   <option value="ongoing">Ongoing</option>
                   <option value="completed">Completed</option>
-                </select>
+                </Select>
 
-                <select
+                <Select
                   value={categoryFilter}
                   onChange={(event) => setCategoryFilter(event.target.value as 'all' | EventCategory)}
-                  className="rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-black text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]"
                 >
                   <option value="all">All categories</option>
                   {categoryOptions.map((category) => (
                     <option key={category} value={category}>{category}</option>
                   ))}
-                </select>
+                </Select>
               </div>
             </div>
           </section>
@@ -837,18 +836,15 @@ function EventPage() {
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <Input label="Title" value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Event title" />
 
-                  <label className="flex flex-col gap-1 text-sm font-semibold text-[var(--color-text-secondary)]">
-                    Category
-                    <select
-                      className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-border-focus)]"
-                      value={draft.category}
-                      onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value as EventCategory }))}
-                    >
-                      {categoryOptions.map((category) => (
-                        <option key={category} value={category}>{category}</option>
-                      ))}
-                    </select>
-                  </label>
+                  <Select
+                    label="Category"
+                    value={draft.category}
+                    onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value as EventCategory }))}
+                  >
+                    {categoryOptions.map((category) => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </Select>
 
                   <Input label="Short description" value={draft.shortDescription} onChange={(event) => setDraft((current) => ({ ...current, shortDescription: event.target.value }))} placeholder="Quick summary for frontend cards" />
                   <Input label="Location" value={draft.location} onChange={(event) => setDraft((current) => ({ ...current, location: event.target.value }))} placeholder="Event location" />

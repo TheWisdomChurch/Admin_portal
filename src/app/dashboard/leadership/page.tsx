@@ -384,14 +384,14 @@ function LeadershipPage() {
         actions={
           <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_170px_170px]">
             <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search leadership..." className="pl-10" /></div>
-            <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as RoleFilter)} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-black text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]">
+            <Select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as RoleFilter)}>
               <option value="all">All roles</option>
               {(Object.keys(roleLabels) as LeadershipRole[]).map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}
-            </select>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-black text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]">
+            </Select>
+            <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}>
               <option value="all">All statuses</option>
               {(Object.keys(statusLabels) as LeadershipStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
-            </select>
+            </Select>
           </div>
         }
       >
@@ -672,18 +672,12 @@ function LeaderEditModal({
           <Input label="Last name" value={draft.lastName} onChange={(event) => updateDraft({ lastName: event.target.value })} />
           <Input label="Email" value={draft.email} onChange={(event) => updateDraft({ email: event.target.value })} />
           <Input label="Phone" value={draft.phone} onChange={(event) => updateDraft({ phone: event.target.value })} />
-          <label className="space-y-2 text-sm font-semibold text-[var(--color-text-secondary)]">
-            <span>Role</span>
-            <select value={draft.role} onChange={(event) => updateDraft({ role: event.target.value as LeadershipRole })} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-bold text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]">
-              {(Object.keys(roleLabels) as LeadershipRole[]).map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}
-            </select>
-          </label>
-          <label className="space-y-2 text-sm font-semibold text-[var(--color-text-secondary)]">
-            <span>Status</span>
-            <select value={draft.status} onChange={(event) => updateDraft({ status: event.target.value as LeadershipStatus })} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-bold text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]">
-              {(Object.keys(statusLabels) as LeadershipStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
-            </select>
-          </label>
+          <Select label="Role" value={draft.role} onChange={(event) => updateDraft({ role: event.target.value as LeadershipRole })}>
+            {(Object.keys(roleLabels) as LeadershipRole[]).map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}
+          </Select>
+          <Select label="Status" value={draft.status} onChange={(event) => updateDraft({ status: event.target.value as LeadershipStatus })}>
+            {(Object.keys(statusLabels) as LeadershipStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
+          </Select>
           <Input label="Birthday (DD/MM)" value={draft.birthday} onChange={(event) => updateDraft({ birthday: event.target.value })} />
           <Input label="Anniversary (DD/MM)" value={draft.anniversary} onChange={(event) => updateDraft({ anniversary: event.target.value })} />
           <div className="sm:col-span-2">
