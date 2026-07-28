@@ -111,11 +111,27 @@ function buildWorkforceFormPayload(): CreateFormRequest {
         options: DEPARTMENTS.map((department) => ({ label: department, value: department })),
       },
       {
+        key: 'birthday',
+        label: 'Birthday (day and month)',
+        type: 'date',
+        required: true,
+        order: 6,
+        validation: { dateMode: 'day-month' },
+      },
+      {
+        key: 'wedding_anniversary',
+        label: 'Wedding Anniversary (if applicable)',
+        type: 'date',
+        required: false,
+        order: 7,
+        validation: { dateMode: 'day-month' },
+      },
+      {
         key: 'notes',
         label: 'Service Notes',
         type: 'textarea',
         required: false,
-        order: 6,
+        order: 8,
         validation: { maxWords: 300 },
       },
     ],
@@ -596,6 +612,28 @@ function WorkforcePage() {
 
       let nextForm = existing || (await apiClient.createAdminForm(buildWorkforceFormPayload()));
 
+      if (existing) {
+        const desired = buildWorkforceFormPayload();
+        const existingKeys = new Set(existing.fields.map((field) => field.key));
+        const missingDateFields = desired.fields.filter((field) => (field.key === 'birthday' || field.key === 'wedding_anniversary') && !existingKeys.has(field.key));
+        if (missingDateFields.length > 0) {
+          const preservedFields = existing.fields.map((field) => ({
+            key: field.key,
+            label: field.label,
+            type: field.type,
+            required: field.required,
+            options: field.options,
+            validation: field.validation,
+            visibility: field.visibility,
+            order: field.order,
+          }));
+          const nextOrder = Math.max(0, ...preservedFields.map((field) => field.order));
+          nextForm = await apiClient.updateAdminForm(existing.id, {
+            fields: [...preservedFields, ...missingDateFields.map((field, index) => ({ ...field, order: nextOrder + index + 1 }))],
+          });
+        }
+      }
+
       if (!nextForm.isPublished && nextForm.status !== 'published') {
         const published = await apiClient.publishAdminForm(nextForm.id);
         nextForm = {
@@ -915,10 +953,11 @@ function WorkforcePage() {
         </div>
 
         <div className="mt-5 overflow-hidden rounded-3xl border border-[var(--color-border-secondary)]">
-          <div className="hidden grid-cols-[minmax(220px,1fr)_180px_170px_minmax(200px,1fr)_180px] gap-4 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
+          <div className="hidden grid-cols-[minmax(200px,1fr)_150px_140px_150px_minmax(180px,1fr)_180px] gap-4 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
             <div>Profile</div>
             <div>Department</div>
             <div>Status</div>
+            <div>Important dates</div>
             <div>Contact</div>
             <div className="text-right">Action</div>
           </div>
@@ -984,12 +1023,20 @@ function WorkforcePage() {
                           <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Contact</dt>
                           <dd className="mt-0.5 truncate font-semibold text-[var(--color-text-secondary)]">{item.email || item.phone || 'Not provided'}</dd>
                         </div>
+                        <div>
+                          <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Birthday</dt>
+                          <dd className="mt-0.5 font-semibold text-[var(--color-text-secondary)]">{formatDayMonth(item.birthdayDay, item.birthdayMonth)}</dd>
+                        </div>
+                        <div>
+                          <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Wedding anniversary</dt>
+                          <dd className="mt-0.5 font-semibold text-[var(--color-text-secondary)]">{formatDayMonth(item.anniversaryDay, item.anniversaryMonth)}</dd>
+                        </div>
                       </dl>
                       <div className="flex flex-wrap gap-2">{rowActions}</div>
                     </div>
 
                     {/* lg and up: the compact grid row. */}
-                    <div className="hidden lg:grid lg:grid-cols-[minmax(220px,1fr)_180px_170px_minmax(200px,1fr)_180px] lg:items-center lg:gap-4">
+                    <div className="hidden lg:grid lg:grid-cols-[minmax(200px,1fr)_150px_140px_150px_minmax(180px,1fr)_180px] lg:items-center lg:gap-4">
                       <button className="flex min-w-0 items-center gap-3 text-left" onClick={() => setSelectedWorker(item)}>
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)] text-sm font-black text-[var(--color-text-primary)]">
                           <IdCard className="h-4 w-4" />
@@ -1002,6 +1049,10 @@ function WorkforcePage() {
                       <div className="truncate text-sm font-semibold text-[var(--color-text-secondary)]">{item.department || 'Unassigned'}</div>
                       <div>
                         <Badge variant={statusVariant(item.status)}>{statusLabels[item.status] || item.status}</Badge>
+                      </div>
+                      <div className="text-xs text-[var(--color-text-secondary)]">
+                        <p><span className="font-bold">Born:</span> {formatDayMonth(item.birthdayDay, item.birthdayMonth)}</p>
+                        <p className="mt-1"><span className="font-bold">Wed:</span> {formatDayMonth(item.anniversaryDay, item.anniversaryMonth)}</p>
                       </div>
                       <div className="min-w-0 text-sm text-[var(--color-text-secondary)]">
                         <p className="truncate">{item.email || 'No email'}</p>

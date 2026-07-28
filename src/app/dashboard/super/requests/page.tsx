@@ -419,27 +419,25 @@ function RequestsPage() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
               <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} className="pl-10" placeholder="Search ticket, requester, label..." />
             </div>
-            <select
+            <Select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-              className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
             >
               <option value="all">All statuses</option>
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
               <option value="deleted">Deleted</option>
-            </select>
-            <select
+            </Select>
+            <Select
               value={sortBy}
               onChange={(event) => setSortBy(event.target.value as SortMode)}
-              className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
             >
               <option value="recent">Newest first</option>
               <option value="oldest">Oldest first</option>
               <option value="requester">Requester</option>
               <option value="type">Type</option>
-            </select>
+            </Select>
           </div>
         </div>
 

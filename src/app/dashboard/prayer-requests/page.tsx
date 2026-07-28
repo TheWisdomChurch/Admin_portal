@@ -19,6 +19,7 @@ import { PageHeader } from '@/layouts';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
+import { Select } from '@/ui/Select';
 import { SectionCard } from '@/ui/SectionCard';
 import { StatCard } from '@/ui/StatCard';
 import { EmptyState } from '@/ui/EmptyState';
@@ -196,10 +197,10 @@ function PrayerRequestsPage() {
         actions={
           <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_170px]">
             <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search requests..." className="pl-10" /></div>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-black text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]">
+            <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}>
               <option value="all">All statuses</option>
               {(Object.keys(statusLabels) as PrayerRequestStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
-            </select>
+            </Select>
           </div>
         }
       >
