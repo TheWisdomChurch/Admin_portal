@@ -2909,12 +2909,18 @@ export const apiClient = {
     return unwrapData<LeadershipMember>(res, 'Invalid leadership payload');
   },
 
-  async deleteLeadership(id: string, reason: string): Promise<ApprovalRequest> {
-    const res = await apiFetch<ApiResponse<ApprovalRequest>>(`/admin/leadership/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-      body: JSON.stringify({ reason }),
-    });
-    return unwrapData<ApprovalRequest>(res, 'Invalid delete request payload');
+  async deleteLeadership(
+    id: string,
+    reason: string
+  ): Promise<ApprovalRequest | { deleted: true }> {
+    const res = await apiFetch<ApiResponse<ApprovalRequest | { deleted: true }>>(
+      `/admin/leadership/${encodeURIComponent(id)}`,
+      {
+        method: 'DELETE',
+        body: JSON.stringify({ reason }),
+      }
+    );
+    return unwrapData<ApprovalRequest | { deleted: true }>(res, 'Invalid delete request payload');
   },
 
   async approveLeadershipDelete(id: string): Promise<MessageResponse> {
