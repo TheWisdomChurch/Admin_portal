@@ -1,5 +1,3 @@
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -46,31 +44,7 @@ const operationalRows = [
   { label: 'Follow-up workflow', value: 'Ready', tone: 'bg-sky-500' },
 ];
 
-export default async function HomePage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value;
-  const roleCookie = cookieStore.get('auth_role')?.value;
-
-  let role: 'admin' | 'super_admin' | null = null;
-  if (roleCookie === 'admin' || roleCookie === 'super_admin') {
-    role = roleCookie;
-  } else if (token) {
-    try {
-      const [, payload] = token.split('.');
-      if (payload) {
-        const decoded = Buffer.from(payload, 'base64url').toString('utf8');
-        const data = JSON.parse(decoded);
-        const rawRole = data?.role ?? data?.user?.role ?? data?.claims?.role;
-        if (rawRole === 'admin' || rawRole === 'super_admin') role = rawRole;
-      }
-    } catch {
-      role = null;
-    }
-  }
-
-  if (token && role === 'super_admin') redirect('/dashboard/super');
-  if (token) redirect('/dashboard');
-
+export default function HomePage() {
   return (
     <div className="public-form-light min-h-screen overflow-x-clip bg-[#f7f6f2] text-[#171511]">
       <header className="relative z-40 border-b border-black/[0.07] bg-[#f7f6f2]/90 backdrop-blur-xl">
