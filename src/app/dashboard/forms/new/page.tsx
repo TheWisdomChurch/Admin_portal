@@ -1001,6 +1001,7 @@ function FormPreview({
   );
 }
 
+/* eslint-disable no-restricted-syntax -- inert `disabled` preview mockups only (rendered read-only inside the live public-form preview), never a real interactive control */
 function renderFieldPreview(field: FieldDraft, dateFormat: DateFormat) {
   const inputClass = 'w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold text-[var(--color-text-secondary)]';
 

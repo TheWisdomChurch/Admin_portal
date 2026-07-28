@@ -897,6 +897,7 @@ function SettingsPage() {
                       <p className="text-xs text-[var(--color-text-tertiary)]">Receive email updates</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      {/* eslint-disable-next-line no-restricted-syntax -- toggle-switch UI (peer-checked styles a sibling div into a switch), a different visual widget than the shared <Checkbox>'s checkbox square */}
                       <input type="checkbox" className="sr-only peer" defaultChecked />
                       <div className="w-11 h-6 bg-[var(--color-background-tertiary)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-[var(--color-text-inverse)] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-background-primary)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent-primary)]"></div>
                     </label>
@@ -908,6 +909,7 @@ function SettingsPage() {
                       <p className="text-xs text-[var(--color-text-tertiary)]">Receive browser notifications</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      {/* eslint-disable-next-line no-restricted-syntax -- toggle-switch UI, see comment on the first toggle above */}
                       <input type="checkbox" className="sr-only peer" />
                       <div className="w-11 h-6 bg-[var(--color-background-tertiary)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-[var(--color-text-inverse)] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-background-primary)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent-primary)]"></div>
                     </label>
@@ -919,6 +921,7 @@ function SettingsPage() {
                       <p className="text-xs text-[var(--color-text-tertiary)]">Receive text message alerts</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      {/* eslint-disable-next-line no-restricted-syntax -- toggle-switch UI, see comment on the first toggle above */}
                       <input type="checkbox" className="sr-only peer" />
                       <div className="w-11 h-6 bg-[var(--color-background-tertiary)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-[var(--color-text-inverse)] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-background-primary)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent-primary)]"></div>
                     </label>

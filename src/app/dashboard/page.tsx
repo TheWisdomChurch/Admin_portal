@@ -326,6 +326,7 @@ function CommandPalette({ open, onClose, onRefresh }: { open: boolean; onClose: 
       >
         <div className="flex items-center gap-3 border-b border-[var(--color-border-secondary)] px-4 py-3">
           <Command className="h-5 w-5 text-[var(--color-text-tertiary)]" />
+          {/* eslint-disable-next-line no-restricted-syntax -- borderless command-palette search field inline with icon/close button; the shared <Input>'s boxed border/background can't be cleanly overridden here */}
           <input
             autoFocus
             value={search}

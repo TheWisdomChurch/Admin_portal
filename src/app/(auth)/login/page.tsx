@@ -9,6 +9,7 @@ import {
 } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { motion, type Variants } from 'framer-motion';
 import {
   Lock,
   Mail,
@@ -16,6 +17,9 @@ import {
   UserPlus,
   AlertTriangle,
   Chrome,
+  Home,
+  ShieldCheck,
+  Smartphone,
 } from 'lucide-react';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
@@ -61,6 +65,21 @@ function ProviderIcon({ providerId }: { providerId: string }) {
     </svg>
   );
 }
+
+const heroContainer: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.09, delayChildren: 0.05 } },
+};
+
+const heroItem: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] } },
+};
+
+const cardEntrance: Variants = {
+  hidden: { opacity: 0, y: 20, scale: 0.98 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.15 } },
+};
 
 function safeRedirect(raw: string | null): string {
   if (!raw) return '/dashboard';
@@ -420,8 +439,11 @@ function LoginInner() {
   };
 
   return (
-    <div className="auth-shell">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
+    <div className="auth-shell relative overflow-hidden">
+      <div className="pointer-events-none absolute -right-32 -top-40 h-[28rem] w-[28rem] rounded-full bg-[var(--brand-500)]/[0.14] blur-[120px]" aria-hidden="true" />
+      <div className="pointer-events-none absolute -left-24 top-1/3 h-80 w-80 rounded-full bg-[var(--brand-600)]/[0.08] blur-[110px]" aria-hidden="true" />
+
+      <header className="relative mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full border-2 border-white bg-black shadow-sm">
             <Image
@@ -441,56 +463,74 @@ function LoginInner() {
             </p>
           </div>
         </Link>
-        {portalMode === 'admin' ? (
-          <Link href="/register">
-            <Button variant="outline">Register as Admin</Button>
+        <nav className="flex items-center gap-2">
+          <Link href="/" className="hidden sm:block">
+            <Button variant="ghost" icon={<Home className="h-4 w-4" />}>Home</Button>
           </Link>
-        ) : (
-          <Link href="/login?redirect=%2Fdashboard">
-            <Button variant="outline">Admin Login</Button>
-          </Link>
-        )}
+          {portalMode === 'admin' ? (
+            <Link href="/register">
+              <Button variant="outline">Register as Admin</Button>
+            </Link>
+          ) : (
+            <Link href="/login?redirect=%2Fdashboard">
+              <Button variant="outline">Admin Login</Button>
+            </Link>
+          )}
+        </nav>
       </header>
 
-      <main className="mx-auto grid w-full max-w-6xl gap-8 px-4 pb-12 pt-6 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
-        <section className="flex flex-col justify-center gap-6">
-          <p className="text-xs uppercase tracking-[0.4em] text-[var(--color-text-tertiary)]">
+      <main className="relative mx-auto grid w-full max-w-6xl gap-8 px-4 pb-12 pt-6 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
+        <motion.section
+          className="flex flex-col justify-center gap-6"
+          variants={heroContainer}
+          initial="hidden"
+          animate="show"
+        >
+          <motion.p variants={heroItem} className="inline-flex w-fit items-center gap-2 rounded-full border border-[var(--brand-400)]/30 bg-[var(--brand-500)]/10 px-3 py-1 text-xs font-black uppercase tracking-[0.3em] text-[var(--brand-600)] dark:text-[var(--brand-300)]">
             {portalMode === 'super' ? 'Super Admin Access' : 'Secure Access'}
-          </p>
-          <h1 className="auth-hero-text font-display text-3xl font-semibold text-[var(--color-text-primary)] sm:text-4xl">
+          </motion.p>
+          <motion.h1 variants={heroItem} className="auth-hero-text font-display text-3xl font-semibold text-[var(--color-text-primary)] sm:text-4xl">
             {portalMode === 'super'
               ? 'The Wisdom Church Super Admin Console'
               : 'The Wisdom Church Administration Portal'}
-          </h1>
-          <p className="text-sm text-[var(--color-text-secondary)] sm:text-base">
+          </motion.h1>
+          <motion.p variants={heroItem} className="text-sm text-[var(--color-text-secondary)] sm:text-base">
             {portalMode === 'super'
               ? 'Oversee approvals, security-sensitive operations, reports, and platform-wide analytics.'
               : 'Manage events, testimonies, and ministry updates with clarity and control.'}
-          </p>
+          </motion.p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/70 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
+            <motion.div variants={heroItem} className="group rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/70 p-4 transition hover:border-[var(--brand-400)]/40 hover:shadow-md">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--brand-500)]/15 text-[var(--brand-600)] transition group-hover:bg-[var(--brand-500)]/25 dark:text-[var(--brand-300)]">
+                <ShieldCheck className="h-4.5 w-4.5" />
+              </div>
+              <p className="mt-3 text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
                 {portalMode === 'super' ? 'Elevated Access' : 'Access Control'}
               </p>
               <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
                 Password sign-in is protected with a one-time verification code before the session is established.
               </p>
-            </div>
-            <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/70 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
+            </motion.div>
+            <motion.div variants={heroItem} className="group rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/70 p-4 transition hover:border-[var(--brand-400)]/40 hover:shadow-md">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--brand-500)]/15 text-[var(--brand-600)] transition group-hover:bg-[var(--brand-500)]/25 dark:text-[var(--brand-300)]">
+                <Smartphone className="h-4.5 w-4.5" />
+              </div>
+              <p className="mt-3 text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
                 Trusted Devices
               </p>
               <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
                 Use Remember me only on secure devices you control. Session persistence remains optional.
               </p>
-            </div>
+            </motion.div>
           </div>
-        </section>
+        </motion.section>
 
-        <Card className="auth-glass w-full max-w-md p-8">
+        <motion.div variants={cardEntrance} initial="hidden" animate="show">
+        <Card className="auth-glass w-full max-w-md p-8 shadow-xl shadow-black/5">
           <div className="mb-8 text-center">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[var(--color-background-tertiary)] mb-4">
-              <Lock className="h-7 w-7 text-[var(--color-accent-primary)]" />
+            <div className="relative inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[var(--color-background-tertiary)] mb-4">
+              <div className="absolute inset-0 rounded-2xl bg-[var(--brand-500)]/20 blur-md" aria-hidden="true" />
+              <Lock className="relative h-7 w-7 text-[var(--color-accent-primary)]" />
             </div>
             <h2 className="text-2xl font-semibold text-[var(--color-text-primary)]">Welcome Back</h2>
             <p className="text-[var(--color-text-tertiary)] mt-2 text-sm">
@@ -682,6 +722,7 @@ function LoginInner() {
             )}
           </div>
         </Card>
+        </motion.div>
       </main>
 
       <Footer />

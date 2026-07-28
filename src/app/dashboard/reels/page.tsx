@@ -279,6 +279,7 @@ function UploadBox({ label, hint, accept, onChange, icon }: { label: string; hin
       <span className="text-[var(--color-text-tertiary)]">{icon}</span>
       <span className="mt-2 text-sm font-black text-[var(--color-text-primary)]">{label}</span>
       <span className="mt-1 text-xs text-[var(--color-text-tertiary)]">{hint}</span>
+      {/* eslint-disable-next-line no-restricted-syntax -- visually-hidden file input inside a dropzone card, styled with tokens */}
       <input type="file" className="sr-only" accept={accept} onChange={(e) => onChange(e.target.files?.[0])} />
     </label>
   );
