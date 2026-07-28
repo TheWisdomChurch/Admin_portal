@@ -21,13 +21,6 @@ function mapAliasToCanonical(pathname: string): string | null {
   return null;
 }
 
-function redirectTo(req: NextRequest, pathname: string) {
-  const url = req.nextUrl.clone();
-  url.pathname = pathname;
-  url.search = '';
-  return NextResponse.redirect(url);
-}
-
 function rewriteTo(req: NextRequest, pathname: string) {
   const url = req.nextUrl.clone();
   url.pathname = pathname;
@@ -52,12 +45,6 @@ export function middleware(req: NextRequest) {
   const canonical = mapAliasToCanonical(pathname);
   if (canonical && canonical !== pathname) {
     return rewriteTo(req, canonical);
-  }
-
-  // Optional redirect: if auth cookie exists and user visits "/", send to dashboard
-  const token = req.cookies.get('auth_token')?.value;
-  if (token && pathname === '/') {
-    return redirectTo(req, ADMIN_DASHBOARD);
   }
 
   // Do NOT enforce auth at middleware level.

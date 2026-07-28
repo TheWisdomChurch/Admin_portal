@@ -1,6 +1,12 @@
 #!/bin/sh
 set -e
 
+# This directory contains generated, disposable output. Starting and ending
+# clean prevents macOS file-provider conflict copies (for example `routes.d 2.ts`)
+# from entering ESLint or TypeScript checks.
+rm -rf .next-prepush
+trap 'rm -rf .next-prepush' EXIT
+
 echo "Running pre-commit checks..."
 npm run lint
 npm run typecheck
