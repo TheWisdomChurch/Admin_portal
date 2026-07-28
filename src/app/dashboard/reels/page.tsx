@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { Film, Plus, Play, RefreshCw, Search, Trash2, UploadCloud, X } from 'lucide-react';
 
 import { Button } from '@/ui/Button';
+import { Select } from '@/ui/Select';
 import { Input } from '@/ui/Input';
 import { Panel } from '@/ui/Panel';
 import { StatCard } from '@/ui/StatCard';
@@ -237,9 +238,9 @@ function ReelsPage() {
           <p className="text-sm text-[var(--color-text-tertiary)]">{total} total reels</p>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</Button>
-            <select className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 text-sm" value={limit} onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}>
+            <Select value={limit} onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}>
               {[8, 12, 24, 48].map((value) => <option key={value} value={value}>{value}/page</option>)}
-            </select>
+            </Select>
             <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>Next</Button>
           </div>
         </div>

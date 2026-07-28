@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { PageHeader } from '@/layouts';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
+import { Select } from '@/ui/Select';
 import { SectionCard } from '@/ui/SectionCard';
 import { StatCard } from '@/ui/StatCard';
 import { Table, type TableColumn } from '@/ui/Table';
@@ -146,17 +147,16 @@ function GivingPage() {
         title="Transactions"
         icon={<HandCoins className="h-5 w-5" />}
         actions={
-          <select
+          <Select
             value={statusFilter}
             onChange={(e) => { setPage(1); setStatusFilter(e.target.value as 'all' | GivingTransactionStatus); }}
-            className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-black text-[var(--color-text-secondary)] outline-none focus:border-[var(--color-border-focus)]"
           >
             <option value="all">All statuses</option>
             <option value="success">Success</option>
             <option value="pending">Pending</option>
             <option value="failed">Failed</option>
             <option value="reversed">Reversed</option>
-          </select>
+          </Select>
         }
       >
         <Table

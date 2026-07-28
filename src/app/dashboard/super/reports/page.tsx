@@ -14,6 +14,7 @@ import toast from 'react-hot-toast';
 
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
+import { Select } from '@/ui/Select';
 import { Card } from '@/ui/Card';
 import { Panel } from '@/ui/Panel';
 import { StatCard } from '@/ui/StatCard';
@@ -145,13 +146,12 @@ function ReportsPage() {
             <div className="rounded-3xl bg-[var(--color-background-primary)] p-5">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Report period</p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <select
+                <Select
                   value={selectedMonth}
                   onChange={(event) => setSelectedMonth(event.target.value)}
-                  className="min-h-10 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 text-sm font-semibold text-[var(--color-text-primary)]"
                 >
                   {months.map((month) => <option key={month} value={month}>{month}</option>)}
-                </select>
+                </Select>
                 <Button icon={<FileDown className="h-4 w-4" />} loading={exporting === 'pdf'} disabled={exporting !== null} onClick={handleExportPdf}>
                   PDF
                 </Button>

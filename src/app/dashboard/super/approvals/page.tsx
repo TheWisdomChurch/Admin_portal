@@ -15,6 +15,7 @@ import {
 
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
+import { Select } from '@/ui/Select';
 import { Input } from '@/ui/Input';
 import { Panel } from '@/ui/Panel';
 import { PageHeader } from '@/layouts';
@@ -167,15 +168,14 @@ function ApprovalsPage() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
               <Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search approvals..." className="pl-10" />
             </div>
-            <select
+            <Select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortKey)}
-              className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
             >
               <option value="recent">Newest</option>
               <option value="oldest">Oldest</option>
               <option value="name">Name A-Z</option>
-            </select>
+            </Select>
           </div>
         </div>
 
