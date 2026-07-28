@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { PageHeader } from '@/layouts';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
+import { Select } from '@/ui/Select';
 import { SectionCard } from '@/ui/SectionCard';
 import { StatCard } from '@/ui/StatCard';
 import { Table, type TableColumn } from '@/ui/Table';
@@ -103,11 +104,11 @@ function GivingPage() {
 
   const columns: TableColumn<GivingTransactionAdmin>[] = [
     { key: 'date', header: 'Date', render: (row) => formatDate(row.given_at) },
-    { key: 'giver', header: 'Giver', render: (row) => <span className="font-black text-[var(--color-text-primary)]">{row.giver_name || 'Anonymous'}</span> },
+    { key: 'giver', header: 'Giver', render: (row) => <span className="font-bold text-[var(--color-text-primary)]">{row.giver_name || 'Anonymous'}</span> },
     { key: 'category', header: 'Category', render: (row) => row.category?.name || '—' },
     { key: 'channel', header: 'Channel', render: (row) => <span className="uppercase text-xs font-bold">{row.channel}</span> },
     { key: 'provider', header: 'Provider', render: (row) => <span className="capitalize">{row.payment_provider}</span> },
-    { key: 'amount', header: 'Amount', className: 'text-right', headerClassName: 'text-right', render: (row) => <span className="font-black tabular-nums">{formatMoney(row.amount_kobo, row.currency)}</span> },
+    { key: 'amount', header: 'Amount', className: 'text-right', headerClassName: 'text-right', render: (row) => <span className="font-bold tabular-nums">{formatMoney(row.amount_kobo, row.currency)}</span> },
     { key: 'status', header: 'Status', render: (row) => <Badge variant={statusVariant[row.status]}>{statusLabel[row.status]}</Badge> },
   ];
 
@@ -134,8 +135,8 @@ function GivingPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {monthlySeries.map(([key, total]) => (
               <div key={key} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 text-center">
-                <p className="text-xs font-black uppercase tracking-wide text-[var(--color-text-tertiary)]">{key}</p>
-                <p className="mt-2 text-sm font-black tabular-nums text-[var(--color-text-primary)]">{formatMoney(total, currentCurrency)}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">{key}</p>
+                <p className="mt-2 text-sm font-bold tabular-nums text-[var(--color-text-primary)]">{formatMoney(total, currentCurrency)}</p>
               </div>
             ))}
           </div>
@@ -146,17 +147,16 @@ function GivingPage() {
         title="Transactions"
         icon={<HandCoins className="h-5 w-5" />}
         actions={
-          <select
+          <Select
             value={statusFilter}
             onChange={(e) => { setPage(1); setStatusFilter(e.target.value as 'all' | GivingTransactionStatus); }}
-            className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-black text-[var(--color-text-secondary)] outline-none focus:border-[var(--color-border-focus)]"
           >
             <option value="all">All statuses</option>
             <option value="success">Success</option>
             <option value="pending">Pending</option>
             <option value="failed">Failed</option>
             <option value="reversed">Reversed</option>
-          </select>
+          </Select>
         }
       >
         <Table

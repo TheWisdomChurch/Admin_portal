@@ -19,6 +19,7 @@ import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
 import { Panel } from '@/ui/Panel';
+import { Select } from '@/ui/Select';
 import { StatCard } from '@/ui/StatCard';
 import { Table, type TableColumn } from '@/ui/Table';
 import { Pagination } from '@/ui/Pagination';
@@ -55,8 +56,8 @@ function MemberDrawer({ member, onClose }: { member: Member; onClose: () => void
       <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-2xl">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-5 py-4">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Member profile</p>
-            <h2 className="mt-1 text-lg font-black text-[var(--color-text-primary)]">{memberName(member)}</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Member profile</p>
+            <h2 className="mt-1 text-lg font-bold text-[var(--color-text-primary)]">{memberName(member)}</h2>
           </div>
           <button type="button" className="rounded-2xl p-2 text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-secondary)]" onClick={onClose} aria-label="Close">
             <X className="h-5 w-5" />
@@ -64,11 +65,11 @@ function MemberDrawer({ member, onClose }: { member: Member; onClose: () => void
         </div>
         <div className="space-y-5 p-5">
           <div className="flex items-center gap-4 rounded-3xl bg-[var(--color-background-secondary)] p-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-primary)] text-lg font-black text-[var(--color-text-inverse)]">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-primary)] text-lg font-bold text-[var(--color-text-inverse)]">
               {(member.firstName?.[0] || 'M') + (member.lastName?.[0] || '')}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xl font-black text-[var(--color-text-primary)]">{memberName(member)}</p>
+              <p className="truncate text-xl font-bold text-[var(--color-text-primary)]">{memberName(member)}</p>
               <Badge variant={member.isActive ? 'success' : 'secondary'}>{member.isActive ? 'Active' : 'Inactive'}</Badge>
             </div>
           </div>
@@ -88,7 +89,7 @@ function MemberDrawer({ member, onClose }: { member: Member; onClose: () => void
 function InfoTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">{label}</p>
       <p className="mt-2 break-words text-sm font-bold text-[var(--color-text-primary)]">{value}</p>
     </div>
   );
@@ -221,15 +222,14 @@ function MembersPage() {
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
               <Input className="pl-9" placeholder="Search members" value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} />
             </div>
-            <select
-              className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 text-sm text-[var(--color-text-primary)]"
+            <Select
               value={statusFilter}
               onChange={(event) => { setStatusFilter(event.target.value as typeof statusFilter); setPage(1); }}
             >
               <option value="all">All</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
-            </select>
+            </Select>
           </div>
         </div>
 

@@ -29,8 +29,10 @@ import type {
   UpsertStoreProductRequest,
 } from '@/lib/types';
 import { Input } from '@/ui/Input';
+import { Select } from '@/ui/Select';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
+import { Checkbox } from '@/ui/Checkbox';
 import { Panel } from '@/ui/Panel';
 import { StatCard } from '@/ui/StatCard';
 import { EmptyState } from '@/ui/EmptyState';
@@ -101,8 +103,8 @@ function ProductDrawer({ product, onClose, onEdit }: { product: StoreProductAdmi
       <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-2xl">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-5 py-4">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Product overview</p>
-            <h2 className="mt-1 text-lg font-black text-[var(--color-text-primary)]">{product.name}</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Product overview</p>
+            <h2 className="mt-1 text-lg font-bold text-[var(--color-text-primary)]">{product.name}</h2>
           </div>
           <button type="button" className="rounded-2xl p-2 text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-secondary)]" onClick={onClose}>
             <X className="h-5 w-5" />
@@ -124,7 +126,7 @@ function ProductDrawer({ product, onClose, onEdit }: { product: StoreProductAdmi
           </div>
 
           <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Description</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Description</p>
             <p className="mt-3 whitespace-pre-line break-words text-sm leading-7 text-[var(--color-text-secondary)]">{product.description || 'No description provided.'}</p>
           </div>
 
@@ -148,7 +150,7 @@ function ProductDrawer({ product, onClose, onEdit }: { product: StoreProductAdmi
 function InfoTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">{label}</p>
       <p className="mt-2 break-words text-sm font-bold text-[var(--color-text-primary)]">{value}</p>
     </div>
   );
@@ -380,11 +382,11 @@ function StoreDashboardPage() {
           <div className="p-6 sm:p-7">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">
+                <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">
                   <ShoppingBag className="h-4 w-4" />
                   Store operations
                 </div>
-                <h1 className="mt-4 text-2xl font-black tracking-tight text-[var(--color-text-primary)] sm:text-3xl">Products, stock, and order workflow</h1>
+                <h1 className="heading-page mt-4 text-[var(--color-text-primary)]">Products, stock, and order workflow</h1>
                 <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--color-text-secondary)]">
                   Manage live products, inventory alerts, and customer order movement in one connected workspace.
                 </p>
@@ -396,8 +398,8 @@ function StoreDashboardPage() {
           </div>
           <div className="border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5 xl:border-l xl:border-t-0">
             <div className="rounded-3xl bg-[var(--color-background-primary)] p-5">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Inventory value</p>
-              <p className="mt-3 text-3xl font-black text-[var(--color-text-primary)]">₦{totalInventoryValue.toLocaleString()}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Inventory value</p>
+              <p className="mt-3 text-3xl font-bold text-[var(--color-text-primary)]">₦{totalInventoryValue.toLocaleString()}</p>
               <p className="mt-2 text-sm text-[var(--color-text-secondary)]">Estimated from saved product prices and stock.</p>
             </div>
           </div>
@@ -415,7 +417,7 @@ function StoreDashboardPage() {
         <Panel>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-black text-[var(--color-text-primary)]">{editingProductId ? 'Edit product' : 'Create product'}</h2>
+              <h2 className="text-lg font-bold text-[var(--color-text-primary)]">{editingProductId ? 'Edit product' : 'Create product'}</h2>
               <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Upload product media and update inventory metadata.</p>
             </div>
             {editingProductId ? <Badge variant="primary">Editing</Badge> : <Badge variant="outline">New</Badge>}
@@ -452,10 +454,12 @@ function StoreDashboardPage() {
             <Input label="Tags" value={tagsCsv} onChange={(e) => setTagsCsv(e.target.value)} placeholder="shirt, conference, merch" />
             <Input label="Stock" type="number" min={0} value={String(productForm.stock)} onChange={(e) => setProductForm((p) => ({ ...p, stock: Number(e.target.value || 0) }))} />
 
-            <label className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 text-sm">
-              <span className="font-bold text-[var(--color-text-secondary)]">Product is active</span>
-              <input type="checkbox" className="h-5 w-5 accent-[var(--color-accent-primary)]" checked={productForm.isActive} onChange={(e) => setProductForm((p) => ({ ...p, isActive: e.target.checked }))} />
-            </label>
+            <Checkbox
+              label="Product is active"
+              checked={productForm.isActive}
+              onChange={(e) => setProductForm((p) => ({ ...p, isActive: e.target.checked }))}
+              className="w-full flex-row-reverse justify-between rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 text-sm font-bold text-[var(--color-text-secondary)]"
+            />
 
             <div className="flex flex-wrap gap-3 pt-2">
               <Button loading={savingProduct} onClick={saveProduct} icon={<PackagePlus className="h-4 w-4" />}>
@@ -469,7 +473,7 @@ function StoreDashboardPage() {
         <Panel>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-lg font-black text-[var(--color-text-primary)]">Product inventory</h2>
+              <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Product inventory</h2>
               <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Search, inspect, edit, activate, and update stock.</p>
             </div>
             <div className="grid gap-2 sm:grid-cols-[minmax(0,260px)_150px]">
@@ -477,8 +481,7 @@ function StoreDashboardPage() {
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                 <Input className="pl-9" placeholder="Search products" value={productQuery} onChange={(e) => setProductQuery(e.target.value)} />
               </div>
-              <select
-                className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+              <Select
                 value={productFilter}
                 onChange={(e) => setProductFilter(e.target.value as typeof productFilter)}
               >
@@ -486,12 +489,12 @@ function StoreDashboardPage() {
                 <option value="active">Active</option>
                 <option value="low">Low stock</option>
                 <option value="inactive">Inactive</option>
-              </select>
+              </Select>
             </div>
           </div>
 
           <div className="mt-5 overflow-hidden rounded-3xl border border-[var(--color-border-secondary)]">
-            <div className="hidden grid-cols-[minmax(240px,1fr)_120px_160px_190px] gap-4 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
+            <div className="hidden grid-cols-[minmax(240px,1fr)_120px_160px_190px] gap-4 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
               <div>Product</div><div>Stock</div><div>Status</div><div className="text-right">Actions</div>
             </div>
 
@@ -501,7 +504,7 @@ function StoreDashboardPage() {
                   <button type="button" className="flex min-w-0 items-center gap-3 text-left" onClick={() => setSelectedProduct(item)}>
                     <ProductImage src={item.image} alt={item.name} />
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-[var(--color-text-primary)]">{item.name}</p>
+                      <p className="truncate text-sm font-bold text-[var(--color-text-primary)]">{item.name}</p>
                       <p className="mt-1 truncate text-xs text-[var(--color-text-tertiary)]">{item.category} · {item.price}</p>
                     </div>
                   </button>
@@ -555,19 +558,18 @@ function StoreDashboardPage() {
       <Panel>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-lg font-black text-[var(--color-text-primary)]">Order workflow</h2>
+            <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Order workflow</h2>
             <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Move orders through fulfilment from one responsive list.</p>
           </div>
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-            <select
-              className="h-10 rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 text-sm text-[var(--color-text-primary)]"
+            <Select
               value={orderStatusFilter}
               onChange={(e) => setOrderStatusFilter((e.target.value as StoreOrderStatus) || '')}
             >
               <option value="">All statuses</option>
               {ORDER_STATUSES.map((status) => <option key={status} value={status}>{titleCase(status)}</option>)}
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -576,7 +578,7 @@ function StoreDashboardPage() {
             <article key={order.orderId} className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-[var(--color-text-primary)]">{order.orderId}</p>
+                  <p className="truncate text-sm font-bold text-[var(--color-text-primary)]">{order.orderId}</p>
                   <p className="mt-1 truncate text-xs text-[var(--color-text-tertiary)]">{order.customer.firstName} {order.customer.lastName} · {order.customer.email}</p>
                 </div>
                 <Badge variant={statusVariant(order.status)}>{titleCase(order.status)}</Badge>
@@ -586,15 +588,14 @@ function StoreDashboardPage() {
                 <InfoTile label="Total" value={`₦${order.total.toLocaleString()}`} />
                 <InfoTile label="Items" value={String(order.items?.length || 0)} />
                 <div>
-                  <p className="mb-1 text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Update</p>
-                  <select
-                    className="h-11 w-full rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 text-sm font-semibold text-[var(--color-text-primary)]"
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Update</p>
+                  <Select
                     value={order.status}
                     onChange={(e) => updateOrderStatus(order.orderId, e.target.value as StoreOrderStatus)}
                     disabled={orderBusy === order.orderId}
                   >
                     {ORDER_STATUSES.map((status) => <option key={status} value={status}>{titleCase(status)}</option>)}
-                  </select>
+                  </Select>
                 </div>
               </div>
             </article>

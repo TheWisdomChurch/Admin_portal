@@ -16,6 +16,7 @@ import toast from 'react-hot-toast';
 import { PageHeader } from '@/layouts';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
+import { Select } from '@/ui/Select';
 import { Input } from '@/ui/Input';
 import { SectionCard } from '@/ui/SectionCard';
 import { StatCard } from '@/ui/StatCard';
@@ -142,7 +143,7 @@ function AdminUsersPage() {
   };
 
   const columns: TableColumn<AdminUserAdmin>[] = [
-    { key: 'name', header: 'Name', render: (row) => <span className="font-black text-[var(--color-text-primary)]">{row.first_name} {row.last_name}</span> },
+    { key: 'name', header: 'Name', render: (row) => <span className="font-bold text-[var(--color-text-primary)]">{row.first_name} {row.last_name}</span> },
     { key: 'email', header: 'Email', render: (row) => <span className="text-[var(--color-text-secondary)]">{row.email}</span> },
     {
       key: 'role',
@@ -224,14 +225,14 @@ function AdminUsersPage() {
             <Input value={form.lastName} onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))} placeholder="Last name" />
             <Input value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="Email" type="email" />
             <Input value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="Temporary password (min 8 characters)" type="password" />
-            <select
+            <Select
               value={form.role}
               onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as AdminUserRole }))}
-              className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-bold text-[var(--color-text-secondary)] outline-none focus:border-[var(--color-border-focus)] sm:col-span-2"
+              className="sm:col-span-2"
             >
               <option value="admin">Admin</option>
               <option value="super_admin">Super Admin</option>
-            </select>
+            </Select>
           </div>
           <div className="mt-4 flex justify-end">
             <Button loading={creating} onClick={() => void createUser()}>Create account</Button>

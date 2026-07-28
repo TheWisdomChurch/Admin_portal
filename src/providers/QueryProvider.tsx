@@ -7,13 +7,26 @@ function createQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        // Admin data (members, events, forms...) doesn't change second to
-        // second — avoid refetching on every window focus/mount by default.
+        // Keep CRM screens responsive while still reconciling changes made by
+        // another administrator when a user returns to the portal.
         staleTime: 30_000,
-        gcTime: 5 * 60_000,
-        refetchOnWindowFocus: false,
-        retry: 1,
+        gcTime: 10 * 60_000,
+        refetchOnWindowFocus: true,
+        refetchOnReconnect: true,
+        retry: (failureCount, error) => {
+          const status = typeof error === 'object' && error !== null
+            ? Number('statusCode' in error
+              ? (error as { statusCode?: unknown }).statusCode
+              : 'status' in error
+                ? (error as { status?: unknown }).status
+                : 0)
+            : 0;
+          if ([400, 401, 403, 404, 409, 422].includes(status)) return false;
+          return failureCount < 2;
+        },
+        retryDelay: (attempt) => Math.min(1_000 * 2 ** attempt, 8_000),
       },
+      mutations: { retry: false },
     },
   });
 }

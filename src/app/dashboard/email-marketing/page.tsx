@@ -682,6 +682,7 @@ function EmailMarketingPage() {
             <div className={styles.audienceGrid}>
               <section className={styles.panel}>
                 <div className={styles.panelHeader}><div><p>Audience source</p><h2>Recipient forms</h2><span>Select forms whose submitted emails should receive this campaign.</span></div><strong>{formatNumber(formTotal)}</strong></div>
+                {/* eslint-disable-next-line no-restricted-syntax -- icon-prefixed search box styled via this page's CSS module (email-marketing.module.scss), not the Tailwind-utility <Input> */}
                 <div className={styles.searchBox}><Search className="h-4 w-4" /><input value={formSearch} onChange={(event) => setFormSearch(event.target.value)} placeholder="Search forms..." />{formSearch ? <button type="button" onClick={() => setFormSearch('')}><X className="h-4 w-4" /></button> : null}</div>
                 <div className={styles.audienceActions}><Button type="button" variant="outline" onClick={toggleCurrentPage} disabled={forms.length === 0}>{currentPageAllSelected ? 'Unselect page' : 'Select page'}</Button><Button type="button" variant="ghost" onClick={useTopAudiences}>Top</Button><Button type="button" variant="ghost" onClick={clearAudience}>Clear</Button></div>
                 <p className={styles.selectionHint}>{selectedFormIds.length} form{selectedFormIds.length === 1 ? '' : 's'} selected. {selectedCurrentPageCount > 0 ? `${selectedCurrentPageCount} selected here.` : ''}</p>
@@ -710,11 +711,13 @@ function EmailMarketingPage() {
             <section className={styles.composePanel}>
               <div className={styles.composeHeader}><div><p>Compose studio</p><h2>Campaign composer</h2><span>Subject, attachments, eflier banner, HTML body and text fallback.</span></div><div><Button type="button" variant="outline" onClick={copyHtmlBody} icon={<Copy className="h-4 w-4" />}>Copy HTML</Button></div></div>
               <div className={styles.composerBox}>
+                {/* eslint-disable-next-line no-restricted-syntax -- CSS-module grid row (label + input), see the searchBox comment above */}
                 <div className={styles.composerRow}><label htmlFor="campaign-subject">Subject</label><input id="campaign-subject" value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Add a clear subject line" /></div>
 
                 <div className={styles.attachmentBlock}>
                   <label>Attach</label>
                   <div className={styles.attachmentControls}>
+                    {/* eslint-disable-next-line no-restricted-syntax -- hidden file input triggered via ref, not user-facing */}
                     <input ref={attachmentInputRef} type="file" multiple hidden onChange={handleAttachmentSelect} />
                     <Button
                       type="button"
@@ -749,6 +752,7 @@ function EmailMarketingPage() {
                 <div className={styles.attachmentBlock}>
                   <label>Eflier</label>
                   <div className={styles.attachmentControls}>
+                    {/* eslint-disable-next-line no-restricted-syntax -- hidden file input triggered via ref, not user-facing */}
                     <input ref={eflierInputRef} type="file" accept="image/*" hidden onChange={handleEflierSelect} />
                     {eflierUrl ? (
                       <div className={styles.eflierPreview}>

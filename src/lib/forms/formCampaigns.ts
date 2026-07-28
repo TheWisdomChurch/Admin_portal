@@ -1,4 +1,4 @@
-import { apiFetch } from './api';
+import { apiFetch } from '../api';
 import type { FormEmailResourceLink } from './formEmailTemplates';
 
 export type FormCampaignCTA = {

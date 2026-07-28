@@ -18,6 +18,7 @@ import { PageHeader } from '@/layouts';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
+import { Select } from '@/ui/Select';
 import { SectionCard } from '@/ui/SectionCard';
 import { StatCard } from '@/ui/StatCard';
 import { EmptyState } from '@/ui/EmptyState';
@@ -206,7 +207,7 @@ function AttendancePage() {
   const columns: TableColumn<AttendanceSessionAdmin>[] = [
     { key: 'date', header: 'Date', render: (row) => formatDate(row.date) },
     { key: 'service', header: 'Service', render: (row) => row.service_type?.name || serviceTypes.find((t) => t.id === row.service_type_id)?.name || '—' },
-    { key: 'headcount', header: 'Head count', render: (row) => <span className="font-black tabular-nums">{row.head_count}</span> },
+    { key: 'headcount', header: 'Head count', render: (row) => <span className="font-bold tabular-nums">{row.head_count}</span> },
     { key: 'notes', header: 'Notes', render: (row) => <span className="text-[var(--color-text-tertiary)]">{row.notes || '—'}</span> },
   ];
 
@@ -231,19 +232,17 @@ function AttendancePage() {
       <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
         <SectionCard title="Sessions" subtitle="Every recorded service, most recent first." icon={<CalendarCheck className="h-5 w-5" />}>
           <div className="mb-4 grid gap-2 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 sm:grid-cols-[1fr_180px_auto]">
-            <select
+            <Select
               value={newSessionType}
               onChange={(e) => setNewSessionType(e.target.value)}
-              className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-bold text-[var(--color-text-secondary)] outline-none focus:border-[var(--color-border-focus)]"
             >
               <option value="">Select service type…</option>
               {serviceTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-            <input
+            </Select>
+            <Input
               type="date"
               value={newSessionDate}
               onChange={(e) => setNewSessionDate(e.target.value)}
-              className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-bold text-[var(--color-text-secondary)] outline-none focus:border-[var(--color-border-focus)]"
             />
             <Button size="sm" icon={<Plus className="h-4 w-4" />} loading={creatingSession} onClick={() => void createSession()}>New session</Button>
           </div>
@@ -270,7 +269,7 @@ function AttendancePage() {
             <div className="space-y-2">
               {serviceTypes.map((t) => (
                 <div key={t.id} className="flex items-center justify-between rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3">
-                  <span className="text-sm font-black text-[var(--color-text-primary)]">{t.name}</span>
+                  <span className="text-sm font-bold text-[var(--color-text-primary)]">{t.name}</span>
                   <Badge variant={t.is_active ? 'success' : 'secondary'}>{t.is_active ? 'Active' : 'Inactive'}</Badge>
                 </div>
               ))}
@@ -285,8 +284,8 @@ function AttendancePage() {
           <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-5 py-4">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">{formatDate(selected.date)}</p>
-                <h2 className="mt-1 text-lg font-black text-[var(--color-text-primary)]">{selected.service_type?.name || 'Session'}</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">{formatDate(selected.date)}</p>
+                <h2 className="mt-1 text-lg font-bold text-[var(--color-text-primary)]">{selected.service_type?.name || 'Session'}</h2>
               </div>
               <button type="button" className="rounded-2xl border border-[var(--color-border-secondary)] p-2 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)]" onClick={() => setSelected(null)} aria-label="Close session">
                 <X className="h-5 w-5" />
@@ -296,17 +295,17 @@ function AttendancePage() {
             <div className="space-y-6 p-5">
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-[var(--color-text-tertiary)]">Head count</p>
-                  <p className="mt-2 text-2xl font-black tabular-nums text-[var(--color-text-primary)]">{selected.head_count}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Head count</p>
+                  <p className="mt-2 text-2xl font-bold tabular-nums text-[var(--color-text-primary)]">{selected.head_count}</p>
                 </div>
                 <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-[var(--color-text-tertiary)]">Checked in</p>
-                  <p className="mt-2 text-2xl font-black tabular-nums text-[var(--color-text-primary)]">{records.length}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Checked in</p>
+                  <p className="mt-2 text-2xl font-bold tabular-nums text-[var(--color-text-primary)]">{records.length}</p>
                 </div>
               </div>
 
               <div>
-                <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Check in a member</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Check in a member</p>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                   <Input value={memberQuery} onChange={(e) => setMemberQuery(e.target.value)} placeholder="Search members by name or email…" className="pl-10" />
@@ -330,7 +329,7 @@ function AttendancePage() {
               </div>
 
               <div>
-                <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Or check in a guest</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Or check in a guest</p>
                 <div className="flex gap-2">
                   <Input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Guest name" className="flex-1" />
                   <Button size="sm" loading={checkingIn} onClick={() => void checkInGuest()}>Check in</Button>
@@ -338,7 +337,7 @@ function AttendancePage() {
               </div>
 
               <div>
-                <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Check-ins</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Check-ins</p>
                 {recordsLoading ? (
                   <p className="py-6 text-center text-sm font-bold text-[var(--color-text-tertiary)]">Loading…</p>
                 ) : records.length === 0 ? (
@@ -349,7 +348,7 @@ function AttendancePage() {
                       <div key={r.id} className="flex items-center justify-between rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3">
                         <div className="flex items-center gap-2">
                           <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                          <span className="text-sm font-black text-[var(--color-text-primary)]">{r.guest_name || memberName(r.member_id) || 'Member'}</span>
+                          <span className="text-sm font-bold text-[var(--color-text-primary)]">{r.guest_name || memberName(r.member_id) || 'Member'}</span>
                         </div>
                         <span className="text-xs font-semibold text-[var(--color-text-tertiary)]">{formatDateTime(r.checked_in_at)}</span>
                       </div>

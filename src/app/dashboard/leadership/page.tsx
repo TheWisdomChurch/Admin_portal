@@ -21,6 +21,7 @@ import {
   Edit3,
   ExternalLink,
   IdCard,
+  Link2,
   Loader2,
   Mail,
   Phone,
@@ -39,6 +40,7 @@ import { PageHeader } from '@/layouts';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
+import { Select } from '@/ui/Select';
 import { SectionCard } from '@/ui/SectionCard';
 import { StatCard } from '@/ui/StatCard';
 import { EmptyState } from '@/ui/EmptyState';
@@ -47,6 +49,7 @@ import { apiClient } from '@/lib/api';
 import { getChartPalette } from '@/lib/charts/palette';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { useTheme } from '@/providers/ThemeProviders';
+import { useAuthContext } from '@/providers/AuthProviders';
 import { withAuth } from '@/providers/withAuth';
 import type { AdminForm, LeadershipMember, LeadershipRole, LeadershipStatus, UpdateLeadershipRequest } from '@/lib/types';
 
@@ -118,11 +121,13 @@ function toDayMonthInput(day?: number, month?: number): string {
 
 function LeaderAvatar({ leader }: { leader: LeadershipMember }) {
   const initials = `${leader.firstName?.[0] || 'L'}${leader.lastName?.[0] || ''}`.toUpperCase();
-  return <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-primary)] text-sm font-black text-[var(--color-text-inverse)]">{initials}</div>;
+  return <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-primary)] text-sm font-bold text-[var(--color-text-inverse)]">{initials}</div>;
 }
 
 function LeadershipPage() {
   const { resolvedTheme } = useTheme();
+  const { user } = useAuthContext();
+  const isSuperAdmin = user?.role === 'super_admin';
   const chartPalette = useMemo(() => getChartPalette(resolvedTheme), [resolvedTheme]);
   const [leaders, setLeaders] = useState<LeadershipMember[]>([]);
   const [forms, setForms] = useState<AdminForm[]>([]);
@@ -302,14 +307,14 @@ function LeadershipPage() {
 
     setDeletingId(deleteTarget.id);
     try {
-      await apiClient.deleteLeadership(deleteTarget.id, reason);
-      toast.success('Delete request sent to super admin');
+      const result = await apiClient.deleteLeadership(deleteTarget.id, reason);
+      toast.success('deleted' in result ? 'Leadership profile deleted' : 'Delete request sent to super admin');
       setDeleteTarget(null);
       setDeleteReason('');
       await loadData();
     } catch (error) {
-      console.error('Failed to request leadership delete:', error);
-      toast.error(error instanceof Error ? error.message : 'Unable to request delete approval');
+      console.error('Failed to delete leadership member:', error);
+      toast.error(error instanceof Error ? error.message : 'Unable to delete this profile');
     } finally {
       setDeletingId(null);
     }
@@ -328,21 +333,29 @@ function LeadershipPage() {
         }
       />
 
-      <section className="overflow-hidden rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] p-6 text-[var(--color-text-inverse)] shadow-xl">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.75fr)] lg:items-end">
+      <section className="relative overflow-hidden rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] p-6 text-[var(--color-text-inverse)] shadow-[var(--shadow-md)] ring-1 ring-inset ring-[var(--color-text-inverse)]/10 sm:p-8">
+        {/* Decorative glow + watermark — purely visual, no semantic content. */}
+        <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[var(--brand-500)]/25 blur-[100px]" aria-hidden="true" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/4 h-64 w-64 rounded-full bg-[var(--brand-600)]/10 blur-[100px]" aria-hidden="true" />
+        <Crown className="pointer-events-none absolute -right-8 -top-8 h-44 w-44 text-[var(--color-text-inverse)]/[0.04]" aria-hidden="true" strokeWidth={1} />
+
+        <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.75fr)] lg:items-end">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-inverse)]/65"><Crown className="h-4 w-4" /> Leadership governance</div>
-            <h1 className="mt-4 max-w-4xl text-3xl font-black tracking-tight sm:text-4xl xl:text-5xl">Review, approve, and manage leadership biodata with clear operational visibility.</h1>
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-400)]/30 bg-[var(--brand-500)]/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand-300)]"><Crown className="h-4 w-4" /> Leadership governance</div>
+            <h1 className="heading-page mt-4 max-w-4xl">Review, approve, and manage leadership biodata with clear operational visibility.</h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--color-text-inverse)]/65">Monitor submitted profiles, copy the biodata form, inspect profile completeness, and request governed deletion.</p>
           </div>
-          <div className="rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-4 backdrop-blur">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-inverse)]/50">Biodata intake form</p>
-            <p className="mt-2 break-all text-sm font-semibold text-[var(--color-text-inverse)]/70">
+          <div className="rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/[0.07] p-5 shadow-lg backdrop-blur">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-500)]/20 text-[var(--brand-300)]"><Link2 className="h-4 w-4" /></div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-inverse)]/50">Biodata intake form</p>
+            </div>
+            <p className="mt-3 truncate rounded-xl border border-[var(--color-text-inverse)]/10 bg-black/20 px-3 py-2.5 font-mono text-xs font-semibold text-[var(--color-text-inverse)]/80">
               {publicFormUrl || 'Create and publish the leadership form to generate an intake link.'}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" icon={<Clipboard className="h-4 w-4" />} disabled={!publicFormUrl} onClick={() => void copyFormLink()}>Copy Link</Button>
-              <Button size="sm" variant="outline" icon={<ExternalLink className="h-4 w-4" />} disabled={!publicFormUrl} onClick={openPublicForm}>Open Form</Button>
+              <Button size="sm" icon={<Clipboard className="h-4 w-4" />} disabled={!publicFormUrl} onClick={() => void copyFormLink()}>Copy Link</Button>
+              <Button size="sm" variant="outline" className="border-[var(--color-text-inverse)]/15 text-[var(--color-text-inverse)] hover:bg-[var(--color-text-inverse)]/10" icon={<ExternalLink className="h-4 w-4" />} disabled={!publicFormUrl} onClick={openPublicForm}>Open Form</Button>
             </div>
           </div>
         </div>
@@ -371,19 +384,19 @@ function LeadershipPage() {
         actions={
           <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_170px_170px]">
             <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search leadership..." className="pl-10" /></div>
-            <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as RoleFilter)} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-black text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]">
+            <Select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as RoleFilter)}>
               <option value="all">All roles</option>
               {(Object.keys(roleLabels) as LeadershipRole[]).map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}
-            </select>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-black text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]">
+            </Select>
+            <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}>
               <option value="all">All statuses</option>
               {(Object.keys(statusLabels) as LeadershipStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
-            </select>
+            </Select>
           </div>
         }
       >
         <div className="overflow-hidden rounded-[1.5rem] border border-[var(--color-border-secondary)]">
-          <div className="hidden grid-cols-[1.4fr_1fr_1fr_1fr_260px] gap-4 bg-[var(--color-text-primary)] px-4 py-3 text-xs font-black uppercase tracking-wide text-[var(--color-text-inverse)] xl:grid">
+          <div className="hidden grid-cols-[1.4fr_1fr_1fr_1fr_260px] gap-4 bg-[var(--color-text-primary)] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-inverse)] xl:grid">
             <div>Profile</div><div>Role</div><div>Status</div><div>Anniversary</div><div className="text-right">Action</div>
           </div>
           <div className="divide-y divide-[var(--color-border-secondary)] bg-[var(--color-background-primary)]">
@@ -399,7 +412,7 @@ function LeadershipPage() {
                       <Button size="sm" icon={<CheckCircle2 className="h-4 w-4" />} loading={actionId === `approve:${item.id}`} onClick={() => void approveLeader(item)}>Approve</Button>
                     ) : null}
                     <Button size="sm" variant="outline" icon={<Edit3 className="h-4 w-4" />} loading={actionId === `edit:${item.id}`} onClick={() => setEditingLeader(item)}>Edit</Button>
-                    <Button size="sm" variant="outline" icon={<Trash2 className="h-4 w-4" />} loading={deletingId === item.id} onClick={() => openDeleteModal(item)}>Request Delete</Button>
+                    <Button size="sm" variant="outline" icon={<Trash2 className="h-4 w-4" />} loading={deletingId === item.id} onClick={() => openDeleteModal(item)}>{isSuperAdmin ? 'Delete' : 'Request Delete'}</Button>
                   </>
                 );
 
@@ -413,7 +426,7 @@ function LeadershipPage() {
                       <div className="flex items-start justify-between gap-3">
                         <button type="button" className="flex min-w-0 items-center gap-3 text-left" onClick={() => setSelectedLeader(item)}>
                           <LeaderAvatar leader={item} />
-                          <div className="min-w-0"><div className="truncate text-sm font-black text-[var(--color-text-primary)]">{leaderName(item)}</div><div className="truncate text-xs font-semibold text-[var(--color-text-tertiary)]">{item.email || item.phone || 'No contact recorded'}</div></div>
+                          <div className="min-w-0"><div className="truncate text-sm font-bold text-[var(--color-text-primary)]">{leaderName(item)}</div><div className="truncate text-xs font-semibold text-[var(--color-text-tertiary)]">{item.email || item.phone || 'No contact recorded'}</div></div>
                         </button>
                         <Badge variant={statusVariant(item.status)}>{statusLabels[item.status] || item.status}</Badge>
                       </div>
@@ -434,7 +447,7 @@ function LeadershipPage() {
                     <div className="hidden xl:grid xl:grid-cols-[1.4fr_1fr_1fr_1fr_260px] xl:items-center xl:gap-3">
                       <button type="button" className="flex min-w-0 items-center gap-3 text-left" onClick={() => setSelectedLeader(item)}>
                         <LeaderAvatar leader={item} />
-                        <div className="min-w-0"><div className="truncate text-sm font-black text-[var(--color-text-primary)]">{leaderName(item)}</div><div className="truncate text-xs font-semibold text-[var(--color-text-tertiary)]">{item.email || item.phone || 'No contact recorded'}</div></div>
+                        <div className="min-w-0"><div className="truncate text-sm font-bold text-[var(--color-text-primary)]">{leaderName(item)}</div><div className="truncate text-xs font-semibold text-[var(--color-text-tertiary)]">{item.email || item.phone || 'No contact recorded'}</div></div>
                       </button>
                       <div className="text-sm font-semibold text-[var(--color-text-secondary)]">{roleLabels[item.role] || item.role}</div>
                       <div><Badge variant={statusVariant(item.status)}>{statusLabels[item.status] || item.status}</Badge></div>
@@ -475,11 +488,13 @@ function LeadershipPage() {
               <AlertTriangle className="h-5 w-5" />
             </div>
             <div>
-              <h2 id="leadership-delete-title" className="text-lg font-black tracking-tight text-[var(--color-text-primary)]">
-                Request deletion
+              <h2 id="leadership-delete-title" className="text-lg font-bold tracking-tight text-[var(--color-text-primary)]">
+                {isSuperAdmin ? 'Delete profile' : 'Request deletion'}
               </h2>
               <p className="mt-0.5 text-sm text-[var(--color-text-tertiary)]">
-                Sends a ticket for super admin review — nothing is removed yet.
+                {isSuperAdmin
+                  ? 'This removes the profile immediately — this cannot be undone.'
+                  : 'Sends a ticket for super admin review — nothing is removed yet.'}
               </p>
             </div>
           </div>
@@ -499,7 +514,7 @@ function LeadershipPage() {
             <div className="flex items-center gap-4 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
               <LeaderAvatar leader={deleteTarget} />
               <div className="min-w-0">
-                <p className="truncate text-base font-black text-[var(--color-text-primary)]">{leaderName(deleteTarget)}</p>
+                <p className="truncate text-base font-bold text-[var(--color-text-primary)]">{leaderName(deleteTarget)}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-[var(--color-text-tertiary)]">
                   <span>{roleLabels[deleteTarget.role] || deleteTarget.role}</span>
                   {deleteTarget.email ? <span>{deleteTarget.email}</span> : null}
@@ -509,10 +524,12 @@ function LeadershipPage() {
           ) : null}
 
           <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-            This profile stays on record until a super admin approves this ticket. Be specific — your stated reason is what they&apos;ll base their decision on.
+            {isSuperAdmin
+              ? 'This profile is deleted the moment you confirm. Record why for the audit log.'
+              : "This profile stays on record until a super admin approves this ticket. Be specific — your stated reason is what they'll base their decision on."}
           </div>
 
-          <label htmlFor="leadership-delete-reason" className="mt-5 block text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
+          <label htmlFor="leadership-delete-reason" className="mt-5 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
             Reason for removal
           </label>
           <textarea
@@ -528,7 +545,7 @@ function LeadershipPage() {
         <div className="flex justify-end gap-2 border-t border-[var(--color-border-secondary)] px-6 py-4">
           <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deletingId === deleteTarget?.id}>Cancel</Button>
           <Button variant="danger" loading={deletingId === deleteTarget?.id} icon={<Trash2 className="h-4 w-4" />} onClick={() => void submitDeleteRequest()}>
-            Send request
+            {isSuperAdmin ? 'Delete' : 'Send request'}
           </Button>
         </div>
       </Modal>
@@ -556,9 +573,9 @@ function LeaderProfile({
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-[var(--color-text-primary)]/55 backdrop-blur-sm">
       <button type="button" aria-label="Close leadership profile" className="absolute inset-0 cursor-default" onClick={onClose} />
-      <aside className="relative h-full w-full max-w-xl overflow-y-auto bg-[var(--color-background-primary)] shadow-2xl animate-in slide-in-from-right duration-300">
+      <aside className="relative h-full w-full max-w-xl overflow-y-auto bg-[var(--color-background-primary)] shadow-[var(--shadow-2xl)] animate-in slide-in-from-right duration-300">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/95 px-5 py-4 backdrop-blur">
-          <div><p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Leadership profile</p><h2 className="text-lg font-black text-[var(--color-text-primary)]">{leaderName(leader)}</h2></div>
+          <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Leadership profile</p><h2 className="text-lg font-bold text-[var(--color-text-primary)]">{leaderName(leader)}</h2></div>
           <div className="flex items-center gap-2">
             {onApprove ? <Button size="sm" icon={<CheckCircle2 className="h-4 w-4" />} loading={approving} onClick={onApprove}>Approve</Button> : null}
             <Button size="sm" variant="outline" icon={<Edit3 className="h-4 w-4" />} onClick={onEdit}>Edit</Button>
@@ -568,8 +585,8 @@ function LeaderProfile({
         <div className="p-5">
           <div className="rounded-[2rem] bg-[var(--color-text-primary)] p-5 text-[var(--color-text-inverse)]">
             <div className="flex items-start gap-4">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-inverse)] text-xl font-black text-[var(--color-text-primary)]">{leader.firstName?.[0] || 'L'}{leader.lastName?.[0] || ''}</div>
-              <div className="min-w-0"><h3 className="text-2xl font-black tracking-tight">{leaderName(leader)}</h3><p className="mt-1 text-sm font-semibold text-[var(--color-text-inverse)]/60">{roleLabels[leader.role] || leader.role}</p><div className="mt-3"><Badge variant={statusVariant(leader.status)}>{statusLabels[leader.status] || leader.status}</Badge></div></div>
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-inverse)] text-xl font-bold text-[var(--color-text-primary)]">{leader.firstName?.[0] || 'L'}{leader.lastName?.[0] || ''}</div>
+              <div className="min-w-0"><h3 className="text-2xl font-bold tracking-tight">{leaderName(leader)}</h3><p className="mt-1 text-sm font-semibold text-[var(--color-text-inverse)]/60">{roleLabels[leader.role] || leader.role}</p><div className="mt-3"><Badge variant={statusVariant(leader.status)}>{statusLabels[leader.status] || leader.status}</Badge></div></div>
             </div>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -578,7 +595,7 @@ function LeaderProfile({
             <ProfileInfo icon={CalendarHeart} label="Birthday" value={formatDayMonth(leader.birthdayDay, leader.birthdayMonth)} />
             <ProfileInfo icon={CalendarHeart} label="Anniversary" value={formatDayMonth(leader.anniversaryDay, leader.anniversaryMonth)} />
           </div>
-          <div className="mt-5 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4"><p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Bio</p><p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-7 text-[var(--color-text-secondary)]">{leader.bio || 'No bio recorded.'}</p></div>
+          <div className="mt-5 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Bio</p><p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-7 text-[var(--color-text-secondary)]">{leader.bio || 'No bio recorded.'}</p></div>
         </div>
       </aside>
     </div>
@@ -641,11 +658,11 @@ function LeaderEditModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--color-text-primary)]/55 p-4 backdrop-blur-sm">
       <button type="button" aria-label="Close leadership editor" className="absolute inset-0 cursor-default" onClick={onClose} />
-      <form onSubmit={submit} className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-[var(--color-background-primary)] p-5 shadow-2xl">
+      <form onSubmit={submit} className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-[var(--color-background-primary)] p-5 shadow-[var(--shadow-2xl)]">
         <div className="flex flex-col gap-3 border-b border-[var(--color-border-secondary)] pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Edit leadership profile</p>
-            <h2 className="mt-1 text-xl font-black text-[var(--color-text-primary)]">{leaderName(leader)}</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Edit leadership profile</p>
+            <h2 className="mt-1 text-xl font-bold text-[var(--color-text-primary)]">{leaderName(leader)}</h2>
           </div>
           <button type="button" className="self-start rounded-2xl border border-[var(--color-border-secondary)] p-2 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)]" onClick={onClose} aria-label="Close leadership editor"><X className="h-5 w-5" /></button>
         </div>
@@ -655,18 +672,12 @@ function LeaderEditModal({
           <Input label="Last name" value={draft.lastName} onChange={(event) => updateDraft({ lastName: event.target.value })} />
           <Input label="Email" value={draft.email} onChange={(event) => updateDraft({ email: event.target.value })} />
           <Input label="Phone" value={draft.phone} onChange={(event) => updateDraft({ phone: event.target.value })} />
-          <label className="space-y-2 text-sm font-semibold text-[var(--color-text-secondary)]">
-            <span>Role</span>
-            <select value={draft.role} onChange={(event) => updateDraft({ role: event.target.value as LeadershipRole })} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-bold text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]">
-              {(Object.keys(roleLabels) as LeadershipRole[]).map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}
-            </select>
-          </label>
-          <label className="space-y-2 text-sm font-semibold text-[var(--color-text-secondary)]">
-            <span>Status</span>
-            <select value={draft.status} onChange={(event) => updateDraft({ status: event.target.value as LeadershipStatus })} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-bold text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]">
-              {(Object.keys(statusLabels) as LeadershipStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
-            </select>
-          </label>
+          <Select label="Role" value={draft.role} onChange={(event) => updateDraft({ role: event.target.value as LeadershipRole })}>
+            {(Object.keys(roleLabels) as LeadershipRole[]).map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}
+          </Select>
+          <Select label="Status" value={draft.status} onChange={(event) => updateDraft({ status: event.target.value as LeadershipStatus })}>
+            {(Object.keys(statusLabels) as LeadershipStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
+          </Select>
           <Input label="Birthday (DD/MM)" value={draft.birthday} onChange={(event) => updateDraft({ birthday: event.target.value })} />
           <Input label="Anniversary (DD/MM)" value={draft.anniversary} onChange={(event) => updateDraft({ anniversary: event.target.value })} />
           <div className="sm:col-span-2">
@@ -693,7 +704,7 @@ function LeaderEditModal({
 }
 
 function ProfileInfo({ icon: Icon, label, value }: { icon: ComponentType<{ className?: string }>; label: string; value: string }) {
-  return <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4"><div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--color-text-tertiary)]"><Icon className="h-4 w-4" />{label}</div><div className="mt-2 break-words text-sm font-bold text-[var(--color-text-primary)]">{value}</div></div>;
+  return <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4"><div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]"><Icon className="h-4 w-4" />{label}</div><div className="mt-2 break-words text-sm font-bold text-[var(--color-text-primary)]">{value}</div></div>;
 }
 
 export default withAuth(LeadershipPage, { requiredRole: 'admin' });

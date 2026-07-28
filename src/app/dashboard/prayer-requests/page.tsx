@@ -19,6 +19,7 @@ import { PageHeader } from '@/layouts';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
+import { Select } from '@/ui/Select';
 import { SectionCard } from '@/ui/SectionCard';
 import { StatCard } from '@/ui/StatCard';
 import { EmptyState } from '@/ui/EmptyState';
@@ -196,10 +197,10 @@ function PrayerRequestsPage() {
         actions={
           <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_170px]">
             <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search requests..." className="pl-10" /></div>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-black text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]">
+            <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}>
               <option value="all">All statuses</option>
               {(Object.keys(statusLabels) as PrayerRequestStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
-            </select>
+            </Select>
           </div>
         }
       >
@@ -219,7 +220,7 @@ function PrayerRequestsPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="truncate text-sm font-black text-[var(--color-text-primary)]">{requesterName(item)}</h3>
+                      <h3 className="truncate text-sm font-bold text-[var(--color-text-primary)]">{requesterName(item)}</h3>
                       <Badge variant={statusVariant[item.status]}>{statusLabels[item.status] || item.status}</Badge>
                       {item.category ? <Badge variant="outline">{item.category}</Badge> : null}
                     </div>
@@ -239,8 +240,8 @@ function PrayerRequestsPage() {
           <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-5 py-4">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Prayer request</p>
-                <h2 className="mt-1 text-lg font-black text-[var(--color-text-primary)]">{requesterName(selected)}</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Prayer request</p>
+                <h2 className="mt-1 text-lg font-bold text-[var(--color-text-primary)]">{requesterName(selected)}</h2>
               </div>
               <button type="button" className="rounded-2xl border border-[var(--color-border-secondary)] p-2 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)]" onClick={() => setSelected(null)} aria-label="Close prayer request">
                 <X className="h-5 w-5" />
@@ -257,23 +258,23 @@ function PrayerRequestsPage() {
               {!selected.isAnonymous ? (
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                    <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--color-text-tertiary)]"><User className="h-4 w-4" />Requester</p>
+                    <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]"><User className="h-4 w-4" />Requester</p>
                     <p className="mt-2 break-words text-sm font-bold text-[var(--color-text-primary)]">{requesterName(selected)}</p>
                   </div>
                   <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                    <p className="text-xs font-black uppercase tracking-wide text-[var(--color-text-tertiary)]">Email</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Email</p>
                     <p className="mt-2 break-words text-sm font-bold text-[var(--color-text-primary)]">{selected.email || 'Not provided'}</p>
                   </div>
                 </div>
               ) : null}
 
               <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Request</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Request</p>
                 <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-[var(--color-text-secondary)]">{selected.request}</p>
               </div>
 
               <div>
-                <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Update status</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Update status</p>
                 <div className="flex flex-wrap gap-2">
                   {(Object.keys(statusLabels) as PrayerRequestStatus[]).map((status) => (
                     <Button
@@ -292,7 +293,7 @@ function PrayerRequestsPage() {
 
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Assignment</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Assignment</p>
                   <Button size="sm" variant="outline" icon={<UserCheck className="h-4 w-4" />} loading={actionId === `assign:${selected.id}`} onClick={() => void assignToMe(selected)}>
                     Assign to me
                   </Button>
@@ -301,7 +302,7 @@ function PrayerRequestsPage() {
               </div>
 
               <div>
-                <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Pastoral notes</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Pastoral notes</p>
                 <textarea
                   value={noteDraft}
                   onChange={(event) => setNoteDraft(event.target.value)}
@@ -341,4 +342,4 @@ function PrayerRequestsPage() {
   );
 }
 
-export default withAuth(PrayerRequestsPage, { requiredRole: 'admin' });
+export default withAuth(PrayerRequestsPage, { requiredRole: 'super_admin' });

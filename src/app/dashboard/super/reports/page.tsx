@@ -14,12 +14,14 @@ import toast from 'react-hot-toast';
 
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
+import { Select } from '@/ui/Select';
 import { Card } from '@/ui/Card';
 import { Panel } from '@/ui/Panel';
 import { StatCard } from '@/ui/StatCard';
 import { PageHeader } from '@/layouts';
 import { withAuth } from '@/providers/withAuth';
 import { apiClient } from '@/lib/api';
+import { buildExecutiveReportCsv, downloadExecutiveReportPdf } from '@/lib/executiveReport';
 import type { ApprovalRequest, DashboardAnalytics } from '@/lib/types';
 
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -28,12 +30,6 @@ const numberFormatter = new Intl.NumberFormat('en-US');
 function formatNumber(value?: number | null): string {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '0';
   return numberFormatter.format(value);
-}
-
-function escapeCsv(value: unknown): string {
-  const raw = String(value ?? '');
-  if (/[",\n]/.test(raw)) return `"${raw.replace(/"/g, '""')}"`;
-  return raw;
 }
 
 function downloadTextFile(filename: string, content: string, mime = 'text/csv;charset=utf-8;') {
@@ -51,7 +47,7 @@ function downloadTextFile(filename: string, content: string, mime = 'text/csv;ch
 function ReportsPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>(months[new Date().getMonth()]);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<'csv' | 'pdf' | null>(null);
   const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
   const [requests, setRequests] = useState<ApprovalRequest[]>([]);
 
@@ -89,46 +85,26 @@ function ReportsPage() {
   const monthlyRows = useMemo(() => analytics?.monthlyStats ?? [], [analytics?.monthlyStats]);
 
   const handleExportCsv = async () => {
-    setExporting(true);
+    setExporting('csv');
     try {
-      const lines: string[] = [];
-      lines.push(['Wisdom House Executive Report', selectedMonth, new Date().toISOString()].map(escapeCsv).join(','));
-      lines.push('');
-      lines.push(['Section', 'Metric', 'Value'].map(escapeCsv).join(','));
-      lines.push(['Overview', 'Total events', analytics?.totalEvents ?? 0].map(escapeCsv).join(','));
-      lines.push(['Overview', 'Upcoming events', analytics?.upcomingEvents ?? 0].map(escapeCsv).join(','));
-      lines.push(['Overview', 'Total attendees', analytics?.totalAttendees ?? 0].map(escapeCsv).join(','));
-      lines.push(['Approvals', 'Total requests', requests.length].map(escapeCsv).join(','));
-      lines.push(['Approvals', 'Pending requests', pendingRequests].map(escapeCsv).join(','));
-      lines.push(['Approvals', 'Approved requests', approvedRequests].map(escapeCsv).join(','));
-      lines.push('');
-      lines.push(['Category', 'Events'].map(escapeCsv).join(','));
-      categoryEntries.forEach(([category, count]) => lines.push([category, count].map(escapeCsv).join(',')));
-      lines.push('');
-      lines.push(['Month', 'Events', 'Attendees'].map(escapeCsv).join(','));
-      monthlyRows.forEach((row) => lines.push([row.month, row.events, row.attendees].map(escapeCsv).join(',')));
-      lines.push('');
-      lines.push(['Ticket', 'Type', 'Status', 'Label', 'Requester', 'Created'].map(escapeCsv).join(','));
-      requests.forEach((request) => {
-        lines.push([
-          request.ticketCode,
-          request.type,
-          request.status,
-          request.entityLabel || '',
-          request.requestedByName || request.requestedByEmail || 'System',
-          request.createdAt,
-        ].map(escapeCsv).join(','));
-      });
-
-      downloadTextFile(`wisdom-executive-report-${selectedMonth.toLowerCase()}.csv`, lines.join('\n'));
+      downloadTextFile(`wisdom-house-executive-report-${selectedMonth.toLowerCase()}.csv`, buildExecutiveReportCsv({ period: selectedMonth, analytics, requests }));
       toast.success('Executive report exported as CSV.');
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   };
 
-  const handlePdfNotice = async () => {
-    toast.error('PDF export is not available yet. The CSV export is active now.');
+  const handleExportPdf = async () => {
+    setExporting('pdf');
+    try {
+      await downloadExecutiveReportPdf({ period: selectedMonth, analytics, requests });
+      toast.success('Executive report exported as PDF.');
+    } catch (error) {
+      console.error('Failed to export executive PDF:', error);
+      toast.error('The PDF could not be generated. Please try again.');
+    } finally {
+      setExporting(null);
+    }
   };
 
   return (
@@ -141,7 +117,7 @@ function ReportsPage() {
             <Button variant="outline" icon={<RefreshCcw className="h-4 w-4" />} loading={loading} onClick={() => void load()}>
               Refresh
             </Button>
-            <Button variant="outline" icon={<Download className="h-4 w-4" />} loading={exporting} onClick={handleExportCsv}>
+            <Button variant="outline" icon={<Download className="h-4 w-4" />} loading={exporting === 'csv'} disabled={exporting !== null} onClick={handleExportCsv}>
               Export CSV
             </Button>
           </div>
@@ -156,8 +132,8 @@ function ReportsPage() {
                 <FileDown className="h-6 w-6" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Executive reporting</p>
-                <h1 className="mt-2 text-2xl font-black tracking-tight text-[var(--color-text-primary)] md:text-3xl">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Executive reporting</p>
+                <h1 className="heading-page mt-2 text-[var(--color-text-primary)]">
                   Super-admin command reports
                 </h1>
                 <p className="mt-3 max-w-4xl text-sm leading-7 text-[var(--color-text-secondary)]">
@@ -168,21 +144,20 @@ function ReportsPage() {
           </div>
           <div className="border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5 xl:border-l xl:border-t-0">
             <div className="rounded-3xl bg-[var(--color-background-primary)] p-5">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Report period</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Report period</p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <select
+                <Select
                   value={selectedMonth}
                   onChange={(event) => setSelectedMonth(event.target.value)}
-                  className="min-h-10 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 text-sm font-semibold text-[var(--color-text-primary)]"
                 >
                   {months.map((month) => <option key={month} value={month}>{month}</option>)}
-                </select>
-                <Button icon={<FileDown className="h-4 w-4" />} onClick={handlePdfNotice}>
+                </Select>
+                <Button icon={<FileDown className="h-4 w-4" />} loading={exporting === 'pdf'} disabled={exporting !== null} onClick={handleExportPdf}>
                   PDF
                 </Button>
               </div>
               <p className="mt-3 text-xs leading-5 text-[var(--color-text-tertiary)]">
-                CSV is client-ready. PDF should be generated server-side for professional letterhead and audit records.
+                Download a presentation-ready PDF for leadership or a structured CSV for further analysis.
               </p>
             </div>
           </div>
@@ -216,18 +191,17 @@ function ReportsPage() {
 
         <Card title="Monthly summary">
           <div className="overflow-hidden rounded-3xl border border-[var(--color-border-secondary)]">
-            <div className="hidden grid-cols-3 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] md:grid">
-              <div>Month</div><div>Events</div><div>Attendees</div>
+            <div className="hidden grid-cols-2 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] md:grid">
+              <div>Month</div><div>Events</div>
             </div>
             <div className="divide-y divide-[var(--color-border-secondary)]">
               {monthlyRows.length === 0 ? (
                 <div className="p-5 text-sm text-[var(--color-text-tertiary)]">No monthly stats available yet.</div>
               ) : (
                 monthlyRows.map((row) => (
-                  <div key={row.month} className="grid gap-2 px-4 py-4 text-sm md:grid-cols-3 md:items-center">
-                    <div className="font-black text-[var(--color-text-primary)]">{row.month}</div>
-                    <div className="text-[var(--color-text-secondary)]">{formatNumber(row.events)}</div>
-                    <div className="text-[var(--color-text-secondary)]">{formatNumber(row.attendees)}</div>
+                  <div key={row.month} className="grid gap-2 px-4 py-4 text-sm md:grid-cols-2 md:items-center">
+                    <div className="font-bold text-[var(--color-text-primary)]">{row.month}</div>
+                    <div className="text-[var(--color-text-secondary)]">{formatNumber(row.count)}</div>
                   </div>
                 ))
               )}

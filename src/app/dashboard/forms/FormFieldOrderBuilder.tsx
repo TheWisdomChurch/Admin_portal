@@ -8,7 +8,7 @@ import {
   moveOrderedFieldByKey,
   normalizeOrderedFields,
   type OrderedFormField,
-} from '@/lib/formFieldOrdering';
+} from '@/lib/forms/formFieldOrdering';
 
 type FormFieldOrderBuilderProps<T extends OrderedFormField> = {
   fields: T[];
@@ -42,10 +42,10 @@ export default function FormFieldOrderBuilder<T extends OrderedFormField>({
     <section className={`rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm sm:p-5 ${className}`}>
       <div className="flex flex-col gap-3 border-b border-[var(--color-border-secondary)] pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-[var(--color-text-tertiary)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--color-text-tertiary)]">
             Field order
           </p>
-          <h2 className="mt-1 text-lg font-black tracking-tight text-[var(--color-text-primary)]">
+          <h2 className="mt-1 text-lg font-bold tracking-tight text-[var(--color-text-primary)]">
             {title}
           </h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--color-text-tertiary)]">
@@ -114,16 +114,16 @@ export default function FormFieldOrderBuilder<T extends OrderedFormField>({
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-[var(--color-background-secondary)] px-2 py-0.5 text-xs font-black text-[var(--color-text-tertiary)]">
+                    <span className="rounded-full bg-[var(--color-background-secondary)] px-2 py-0.5 text-xs font-semibold text-[var(--color-text-tertiary)]">
                       #{index + 1}
                     </span>
 
-                    <p className="truncate text-sm font-black text-[var(--color-text-primary)]">
+                    <p className="truncate text-sm font-bold text-[var(--color-text-primary)]">
                       {fieldTitle}
                     </p>
 
                     {field.required ? (
-                      <span className="rounded-full bg-[var(--color-danger-surface)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--color-danger-text)] ring-1 ring-[var(--color-danger-border)]">
+                      <span className="rounded-full bg-[var(--color-danger-surface)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-danger-text)] ring-1 ring-[var(--color-danger-border)]">
                         Required
                       </span>
                     ) : null}

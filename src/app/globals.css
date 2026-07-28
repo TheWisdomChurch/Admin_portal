@@ -135,7 +135,21 @@
 
   --radius-card: 18px;
   --radius-button: 14px;
+  --radius-control: 12px;
+  --radius-panel: 24px;
+  --radius-shell: 32px;
   --radius-pill: 999px;
+
+  /* Fixed px, not rem: `html` below sets a 14px root font-size, so a rem
+     value here would silently resolve smaller than it reads (112rem read as
+     "1792px at 16px root" actually renders at 1568px — the same trap
+     Tailwind's own rem-based max-w-* utilities fall into on this site).
+     This is the shared cap for wide/dense layouts — the dashboard shell and
+     the homepage. */
+  --content-max-width: 1600px;
+  /* Narrower cap for focused, single-purpose layouts (login/register) where
+     --content-max-width would leave the form looking lost in whitespace. */
+  --content-max-width-narrow: 1152px;
 
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
@@ -146,6 +160,13 @@
   --font-size-3xl: 1.875rem;
   --font-size-4xl: 2.25rem;
   --font-size-5xl: 3rem;
+
+  /* Fluid display scale: readable on compact screens without abrupt
+     breakpoint jumps, while remaining bounded on ultrawide displays. */
+  --font-size-heading-sm: clamp(1.25rem, 1.12rem + 0.45vw, 1.625rem);
+  --font-size-heading-md: clamp(1.5rem, 1.25rem + 0.8vw, 2.125rem);
+  --font-size-heading-lg: clamp(1.875rem, 1.38rem + 1.55vw, 3.125rem);
+  --font-size-heading-xl: clamp(2.5rem, 1.6rem + 3vw, 5rem);
 
   --font-weight-normal: 400;
   --font-weight-medium: 500;
@@ -170,6 +191,7 @@
   --spacing-24: 6rem;
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-control: 0 1px 2px rgba(28, 25, 23, 0.035);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
@@ -178,6 +200,29 @@
   --transition-fast: 150ms ease-in-out;
   --transition-normal: 250ms ease-in-out;
   --transition-slow: 350ms ease-in-out;
+}
+
+@layer components {
+  .heading-section {
+    font-size: var(--font-size-heading-sm);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .heading-page {
+    font-size: var(--font-size-heading-lg);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.08;
+    letter-spacing: -0.035em;
+  }
+
+  .heading-display {
+    font-size: var(--font-size-heading-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: 0.98;
+    letter-spacing: -0.045em;
+  }
 }
 
 /* ============================================================
@@ -257,6 +302,9 @@ body {
 }
 
 html {
+  /* Any token defined in rem (not px) elsewhere in this file resolves
+     against this, not the browser's 16px default — keep that in mind before
+     adding new rem-based sizing tokens. */
   font-size: 14px;
 }
 

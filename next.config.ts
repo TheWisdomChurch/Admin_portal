@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next';
 
 const isProd = process.env.NODE_ENV === 'production';
+const distDir = process.env.NEXT_DIST_DIR?.trim() || '.next';
 const RAW_API_ORIGIN =
   process.env.API_PROXY_ORIGIN ??
   process.env.NEXT_PUBLIC_API_URL ??
@@ -58,6 +59,7 @@ function buildCsp() {
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  distDir,
 
   // Required for Dockerfile COPY .next/standalone and server.js
   output: 'standalone',

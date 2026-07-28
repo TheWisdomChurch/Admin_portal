@@ -380,7 +380,58 @@ export interface DashboardAnalytics {
   upcomingEvents: number;
   totalAttendees: number;
   eventsByCategory: Record<string, number>;
-  monthlyStats: Array<{ month: string; events: number; attendees: number }>;
+  monthlyStats: Array<{ month: string; count: number }>;
+  operations: {
+    totalMembers: number;
+    activeMembers: number;
+    totalWorkforce: number;
+    servingWorkforce: number;
+    totalSubmissions: number;
+    submissions30d: number;
+    totalAttendance: number;
+    attendance30d: number;
+    clientEvents30d: number;
+  };
+  generatedAt: string;
+}
+
+export interface DecisionInsights {
+  generatedAt: string;
+  window: {
+    currentStart: string;
+    currentEnd: string;
+    previousStart: string;
+    previousEnd: string;
+  };
+  core: {
+    totalEvents: number;
+    upcomingEvents: number;
+    totalMembers: number;
+    activeMembers: number;
+    totalWorkforce: number;
+    servingWorkforce: number;
+    submissionsCurrent30d: number;
+    submissionsPrevious30d: number;
+  };
+  signals: {
+    memberActivationRate: number;
+    volunteerCoverageRate: number;
+    upcomingEventLoadRate: number;
+    submissionDeltaPercent: number;
+    decisionReadinessScore: number;
+  };
+  recommendations: string[];
+}
+
+export interface AdminAuditLog {
+  id: string;
+  action?: string;
+  actor?: string;
+  resource?: string;
+  description?: string;
+  createdAt?: string;
+  created_at?: string;
+  status?: string;
 }
 
 export interface SecurityOverview {
@@ -1076,6 +1127,47 @@ export interface NewMemberDashboardResponse {
   yearlyGrowth: GrowthBucket[];
 }
 
+export type NewMemberWorkflowStage = 'new' | 'contact_attempted' | 'contacted' | 'orientation_scheduled' | 'orientation_completed' | 'integrated' | 'closed';
+export type NewMemberEscalationStatus = 'none' | 'due' | 'escalated' | 'resolved';
+
+export interface NewMemberWorkflow {
+  id: string;
+  submissionId: string;
+  stage: NewMemberWorkflowStage;
+  assignedOwnerId?: string;
+  assignedOwnerName?: string;
+  nextActionAt?: string;
+  escalationStatus: NewMemberEscalationStatus;
+  escalatedAt?: string;
+  completedAt?: string;
+  lastContactedAt?: string;
+  lastReminderAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewMemberContact {
+  id: string;
+  workflowId: string;
+  channel: 'phone' | 'email' | 'sms' | 'whatsapp' | 'in_person' | 'other';
+  outcome: string;
+  notes?: string;
+  contactedAt: string;
+  createdById: string;
+  createdAt: string;
+}
+
+export interface NewMemberWorkflowHistory {
+  id: string;
+  workflowId: string;
+  eventType: string;
+  fromStage?: NewMemberWorkflowStage;
+  toStage?: NewMemberWorkflowStage;
+  actorId?: string;
+  details: Record<string, unknown>;
+  createdAt: string;
+}
+
 export interface WorkforceBucket {
   department: string;
   status: WorkforceStatus;
@@ -1387,7 +1479,6 @@ export interface CellGroupAdmin {
   id: string;
   name: string;
   campus_id?: string;
-  leader_id?: string;
   zone?: string;
   max_capacity?: number;
   is_active: boolean;
@@ -1438,6 +1529,30 @@ export interface MinistryMemberAdmin {
   role: string;
   joined_at: string;
   created_at: string;
+}
+
+export type MinistryWorkforceRole = 'head' | 'deputy_head' | 'coordinator' | 'member';
+
+export interface MinistryWorkforceAssignment {
+  id: string;
+  ministryId: string;
+  workforceMemberId: string;
+  role: MinistryWorkforceRole;
+  title?: string;
+  source: 'manual' | 'department_sync';
+  joinedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  workforceMember: WorkforceMember;
+}
+
+export interface MinistryStructure {
+  ministry: MinistryAdmin;
+  heads: MinistryWorkforceAssignment[];
+  deputyHeads: MinistryWorkforceAssignment[];
+  coordinators: MinistryWorkforceAssignment[];
+  members: MinistryWorkforceAssignment[];
+  total: number;
 }
 
 /* =========================

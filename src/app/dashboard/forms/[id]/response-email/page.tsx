@@ -23,7 +23,7 @@ import {
   parseTemplateMeta,
   stripTemplateMeta,
   toEmailPreview,
-} from '@/lib/formEmailTemplates';
+} from '@/lib/forms/formEmailTemplates';
 import type { AdminForm, EmailTemplate, UpdateFormRequest } from '@/lib/types';
 import { getServerErrorMessage } from '@/lib/serverValidation';
 
@@ -412,6 +412,7 @@ function ResponseEmailEditorPage() {
             />
             <div className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-3">
               <label className="mb-2 flex items-center gap-2 text-sm font-medium text-[var(--color-text-secondary)]"><ImageIcon className="h-4 w-4" /> Upload logo</label>
+              {/* eslint-disable-next-line no-restricted-syntax -- file input, styled with tokens */}
               <input
                 type="file"
                 accept="image/*"
@@ -422,6 +423,7 @@ function ResponseEmailEditorPage() {
             </div>
             <div className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-3 md:col-span-2">
               <label className="mb-2 block text-sm font-medium text-[var(--color-text-secondary)]">Upload template image (optional)</label>
+              {/* eslint-disable-next-line no-restricted-syntax -- file input, styled with tokens */}
               <input
                 type="file"
                 accept="image/*"

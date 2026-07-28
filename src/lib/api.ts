@@ -12,6 +12,8 @@ import type {
   EventData,
   EventPayload,
   DashboardAnalytics,
+  DecisionInsights,
+  AdminAuditLog,
   SecurityOverview,
   ReelData,
   CreateReelData,
@@ -42,6 +44,9 @@ import type {
   MemberStatsResponse,
   NewMemberDashboardResponse,
   NewMemberSubmission,
+  NewMemberWorkflow,
+  NewMemberContact,
+  NewMemberWorkflowHistory,
   CreateMemberRequest,
   UpdateMemberRequest,
   LeadershipMember,
@@ -94,6 +99,8 @@ import type {
   CellGroupMeetingAdmin,
   MinistryAdmin,
   MinistryMemberAdmin,
+  MinistryStructure,
+  MinistryWorkforceRole,
   GivingTransactionAdmin,
   GivingMonthlySummaryRow,
   ContactMessageAdmin,
@@ -427,12 +434,7 @@ async function ensureCsrfToken(
   }
 
   const proxyUrl = `${API_V1_BASE_URL}/auth/csrf-token`;
-  const directUrl = API_ORIGIN ? `${API_ORIGIN}/api/v1/auth/csrf-token` : '';
-
-  let csrf = await requestCsrfFromUrl(proxyUrl);
-  if (!csrf && USE_API_PROXY && directUrl) {
-    csrf = await requestCsrfFromUrl(directUrl);
-  }
+  const csrf = await requestCsrfFromUrl(proxyUrl);
   if (!csrf) {
     throw createApiError('Unable to establish CSRF session', 401);
   }
@@ -705,7 +707,6 @@ export async function apiFetch<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const proxyUrl = API_V1_BASE_URL + endpoint;
-  const directUrl = API_ORIGIN ? API_ORIGIN + '/api/v1' + endpoint : '';
   const method = String(options.method || 'GET').toUpperCase();
   const isFormData =
     typeof FormData !== 'undefined' && options.body instanceof FormData;
@@ -740,26 +741,13 @@ export async function apiFetch<T>(
   };
 
   try {
-    let usedUrl = proxyUrl;
     let { response, payload } = await execute(proxyUrl, headers);
-
-    // Only fall back to a direct cross-origin request for safe, idempotent
-    // reads. Retrying a mutating call (POST/PUT/PATCH/DELETE) against a
-    // second origin risks double-firing the mutation (e.g. a delete
-    // succeeding once but reporting a confusing error from a second attempt)
-    // or failing silently on cookie/CORS mismatches unrelated to the actual
-    // request — surfacing as "it says it worked but nothing changed" or
-    // "it just fails" for CRUD actions.
-    if (response.status === 404 && method === 'GET' && USE_API_PROXY && directUrl) {
-      usedUrl = directUrl;
-      ({ response, payload } = await execute(directUrl, headers));
-    }
 
     if (response.status === 403 && csrfRequired) {
       resetCsrfCache();
       const csrf = await ensureCsrfToken(true);
       const retryHeaders = { ...headers, [csrf.header]: csrf.token };
-      ({ response, payload } = await execute(usedUrl, retryHeaders));
+      ({ response, payload } = await execute(proxyUrl, retryHeaders));
     }
 
     if (!response.ok) {
@@ -788,7 +776,6 @@ async function uploadFetch<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const proxyUrl = `${UPLOAD_V1_BASE_URL}${endpoint}`;
-  const directUrl = UPLOAD_ORIGIN ? `${UPLOAD_ORIGIN}/api/v1${endpoint}` : '';
   const method = String(options.method || 'GET').toUpperCase();
   const isFormData =
     typeof FormData !== 'undefined' && options.body instanceof FormData;
@@ -826,16 +813,7 @@ async function uploadFetch<T>(
       headers[csrf.header] = csrf.token;
     }
 
-    let usedUrl = isFormData && directUrl ? directUrl : proxyUrl;
-    let { response, payload } = await execute(usedUrl, headers);
-
-    // Uploads are POST (non-idempotent) — never retry against a second origin
-    // on 404, since that risks a duplicate upload or a confusing cookie/CORS
-    // failure unrelated to whether the first attempt actually succeeded.
-    if (response.status === 404 && method === 'GET' && USE_API_PROXY && directUrl && usedUrl !== directUrl) {
-      usedUrl = directUrl;
-      ({ response, payload } = await execute(directUrl, headers));
-    }
+    let { response, payload } = await execute(proxyUrl, headers);
 
     if (response.status === 403 && csrfRequired) {
       resetCsrfCache();
@@ -843,7 +821,7 @@ async function uploadFetch<T>(
       const csrf = await ensureCsrfToken(true);
       headers = { ...baseHeaders, [csrf.header]: csrf.token };
 
-      ({ response, payload } = await execute(usedUrl, headers));
+      ({ response, payload } = await execute(proxyUrl, headers));
     }
 
     if (!response.ok) {
@@ -1665,6 +1643,24 @@ export const apiClient = {
       { method: 'GET' }
     );
     return unwrapData<DashboardAnalytics>(res, 'Invalid analytics payload');
+  },
+
+  async getDecisionInsights(): Promise<DecisionInsights> {
+    const res = await apiFetch<ApiResponse<DecisionInsights>>(
+      '/admin/analytics/insights',
+      { method: 'GET' }
+    );
+    return unwrapData<DecisionInsights>(res, 'Invalid decision insights payload');
+  },
+
+  async listAuditLogs(params?: Record<string, unknown>): Promise<AdminAuditLog[]> {
+    const qs = toQueryString(params);
+    const res = await apiFetch<ApiResponse<AdminAuditLog[]> | AdminAuditLog[]>(
+      `/admin/audit-logs${qs}`,
+      { method: 'GET' }
+    );
+    const data = Array.isArray(res) ? res : res.data;
+    return Array.isArray(data) ? data : [];
   },
 
   async getEvents(
@@ -2609,6 +2605,23 @@ export const apiClient = {
     return apiFetch(`/admin/ministries/${encodeURIComponent(ministryId)}/members/${encodeURIComponent(memberId)}`, { method: 'DELETE' });
   },
 
+  async getMinistryStructure(ministryId: string): Promise<MinistryStructure> {
+    const res = await apiFetch<ApiResponse<MinistryStructure>>(`/admin/ministries/${encodeURIComponent(ministryId)}/structure`, { method: 'GET' });
+    return unwrapData<MinistryStructure>(res, 'Invalid ministry structure payload');
+  },
+
+  async assignMinistryWorkforceMember(ministryId: string, payload: { workforceMemberId: string; role: MinistryWorkforceRole; title?: string }): Promise<MessageResponse> {
+    return apiFetch(`/admin/ministries/${encodeURIComponent(ministryId)}/workforce`, { method: 'POST', body: JSON.stringify(payload) });
+  },
+
+  async updateMinistryWorkforceAssignment(ministryId: string, workforceMemberId: string, payload: { role: MinistryWorkforceRole; title?: string }): Promise<MessageResponse> {
+    return apiFetch(`/admin/ministries/${encodeURIComponent(ministryId)}/workforce/${encodeURIComponent(workforceMemberId)}`, { method: 'PATCH', body: JSON.stringify({ workforceMemberId, ...payload }) });
+  },
+
+  async removeMinistryWorkforceMember(ministryId: string, workforceMemberId: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/ministries/${encodeURIComponent(ministryId)}/workforce/${encodeURIComponent(workforceMemberId)}`, { method: 'DELETE' });
+  },
+
   /* -----------------------------
      GIVING OVERVIEW (admin) — real transactions, distinct from giving intents
      ----------------------------- */
@@ -2828,6 +2841,27 @@ export const apiClient = {
     );
   },
 
+  async listNewMemberWorkflows(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<NewMemberWorkflow>> {
+    const qs = toQueryString(params);
+    const res = await apiFetch(`/admin/new-members/workflows${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<NewMemberWorkflow>(res, 'Invalid new-member workflow payload');
+  },
+
+  async getNewMemberWorkflow(id: string): Promise<{ workflow: NewMemberWorkflow; contacts: NewMemberContact[]; history: NewMemberWorkflowHistory[] }> {
+    const res = await apiFetch<ApiResponse<{ workflow: NewMemberWorkflow; contacts: NewMemberContact[]; history: NewMemberWorkflowHistory[] }>>(`/admin/new-members/workflows/${encodeURIComponent(id)}`, { method: 'GET' });
+    return unwrapData(res, 'Invalid new-member workflow payload');
+  },
+
+  async updateNewMemberWorkflow(id: string, payload: { stage?: NewMemberWorkflow['stage']; assignedOwnerId?: string | null; nextActionAt?: string | null }): Promise<NewMemberWorkflow> {
+    const res = await apiFetch<ApiResponse<NewMemberWorkflow>>(`/admin/new-members/workflows/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(payload) });
+    return unwrapData(res, 'Invalid new-member workflow payload');
+  },
+
+  async addNewMemberContact(id: string, payload: { channel: NewMemberContact['channel']; outcome: string; notes?: string; contactedAt?: string; nextActionAt?: string }): Promise<NewMemberContact> {
+    const res = await apiFetch<ApiResponse<NewMemberContact>>(`/admin/new-members/workflows/${encodeURIComponent(id)}/contacts`, { method: 'POST', body: JSON.stringify(payload) });
+    return unwrapData(res, 'Invalid new-member contact payload');
+  },
+
   async createMember(payload: CreateMemberRequest): Promise<Member> {
     const res = await apiFetch<ApiResponse<Member>>('/admin/members', {
       method: 'POST',
@@ -2894,12 +2928,18 @@ export const apiClient = {
     return unwrapData<LeadershipMember>(res, 'Invalid leadership payload');
   },
 
-  async deleteLeadership(id: string, reason: string): Promise<ApprovalRequest> {
-    const res = await apiFetch<ApiResponse<ApprovalRequest>>(`/admin/leadership/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-      body: JSON.stringify({ reason }),
-    });
-    return unwrapData<ApprovalRequest>(res, 'Invalid delete request payload');
+  async deleteLeadership(
+    id: string,
+    reason: string
+  ): Promise<ApprovalRequest | { deleted: true }> {
+    const res = await apiFetch<ApiResponse<ApprovalRequest | { deleted: true }>>(
+      `/admin/leadership/${encodeURIComponent(id)}`,
+      {
+        method: 'DELETE',
+        body: JSON.stringify({ reason }),
+      }
+    );
+    return unwrapData<ApprovalRequest | { deleted: true }>(res, 'Invalid delete request payload');
   },
 
   async approveLeadershipDelete(id: string): Promise<MessageResponse> {

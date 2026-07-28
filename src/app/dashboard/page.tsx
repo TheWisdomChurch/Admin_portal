@@ -26,12 +26,12 @@ import { Panel } from '@/ui/Panel';
 
 type RawRecord = Record<string, unknown>;
 type InsightTone = 'warning' | 'info' | 'danger' | 'success';
-type Insight = { title: string; description: string; tone: InsightTone };
+type Insight = { title: string; description: string; tone: InsightTone; href?: string; actionLabel?: string };
 
 const numberFormatter = new Intl.NumberFormat('en-US');
 
 function formatNumber(value?: number | null): string {
-  return numberFormatter.format(typeof value === 'number' && Number.isFinite(value) ? value : 0);
+  return typeof value === 'number' && Number.isFinite(value) ? numberFormatter.format(value) : 'Unavailable';
 }
 
 function numberValue(value: unknown): number {
@@ -56,49 +56,60 @@ function getGreeting(): string {
 
 function buildInsights(snapshot: DashboardSnapshot): Insight[] {
   const insights: Insight[] = [];
-  const upcoming = numberValue((snapshot.analytics as RawRecord | null)?.upcomingEvents);
-  const totalMembers = numberValue((snapshot.memberStats as RawRecord | null)?.total);
-  const newThisMonth = numberValue((snapshot.newMembers as RawRecord | null)?.thisMonth);
-  const totalWorkforce = numberValue((snapshot.workforceStats as RawRecord | null)?.total);
-  const serving = numberValue(asRecord((snapshot.workforceStats as RawRecord | null)?.byStatus).serving);
   const lowStock = snapshot.storeProducts.filter((item) => {
     const stock = numberValue(asRecord(item).stock);
     return stock > 0 && stock <= 5;
   }).length;
 
-  if (upcoming === 0) {
+  snapshot.decisionInsights?.recommendations.forEach((recommendation) => {
+    const normalized = recommendation.toLowerCase();
+    const workforceRecommendation = normalized.includes('volunteer') || normalized.includes('workforce');
+    const memberRecommendation = normalized.includes('member') || normalized.includes('retention');
+    const submissionRecommendation = normalized.includes('submission') || normalized.includes('campaign');
     insights.push({
-      title: 'No upcoming events scheduled',
-      description: 'Add upcoming services, outreach, or programs to keep the calendar visible to your team.',
-      tone: 'warning',
+      title: workforceRecommendation
+        ? 'Workforce action recommended'
+        : memberRecommendation
+          ? 'Member engagement action recommended'
+          : submissionRecommendation
+            ? 'Follow-up action recommended'
+            : 'Operations are on track',
+      description: recommendation,
+      tone: normalized.includes('healthy') ? 'success' : normalized.includes('low') || normalized.includes('dropping') ? 'danger' : 'info',
+      href: workforceRecommendation
+        ? '/dashboard/workforce'
+        : memberRecommendation
+          ? '/dashboard/members'
+          : submissionRecommendation
+            ? '/dashboard/forms'
+            : '/dashboard/analytics',
+      actionLabel: workforceRecommendation
+        ? 'Open workforce'
+        : memberRecommendation
+          ? 'Open members'
+          : submissionRecommendation
+            ? 'Open forms'
+            : 'View analytics',
     });
-  }
-
-  if (totalMembers > 0 && newThisMonth === 0) {
-    insights.push({
-      title: 'No new members recorded this month',
-      description: 'Review intake forms and follow-up workflows to see why acquisition has stalled.',
-      tone: 'info',
-    });
-  }
-
-  if (totalWorkforce > 0 && serving / Math.max(totalWorkforce, 1) < 0.5) {
-    insights.push({
-      title: 'Workforce engagement is below target',
-      description: 'Less than half of workforce profiles are currently marked as serving.',
-      tone: 'danger',
-    });
-  }
+  });
 
   if (lowStock > 0) {
     insights.push({
       title: 'Store items are running low',
       description: `${formatNumber(lowStock)} active product${lowStock === 1 ? '' : 's'} at low stock — restock before orders are affected.`,
       tone: 'warning',
+      href: '/dashboard/store',
+      actionLabel: 'Review inventory',
     });
   }
 
-  if (insights.length === 0) {
+  if (insights.length === 0 && snapshot.failedSources.length > 0) {
+    insights.push({
+      title: 'Live insight data unavailable',
+      description: 'No operational conclusion was generated because one or more authoritative sources failed to load.',
+      tone: 'warning',
+    });
+  } else if (insights.length === 0) {
     insights.push({
       title: 'Everything looks on track',
       description: 'No attention flags were detected from current operational data.',
@@ -158,12 +169,12 @@ function DashboardPage() {
 
   const insights = useMemo(() => (data ? buildInsights(data) : []), [data]);
 
-  const totalMembers = numberValue((data?.memberStats as RawRecord | null)?.total);
-  const activeMembers = numberValue((data?.memberStats as RawRecord | null)?.active);
-  const upcomingEventCount = numberValue((data?.analytics as RawRecord | null)?.upcomingEvents);
-  const totalSubmissions = numberValue((data?.formStats as RawRecord | null)?.totalSubmissions);
-  const workforceServing = numberValue(asRecord((data?.workforceStats as RawRecord | null)?.byStatus).serving);
-  const workforceTotal = numberValue((data?.workforceStats as RawRecord | null)?.total);
+  const totalMembers = data?.memberStats?.total ?? null;
+  const activeMembers = data?.memberStats?.active ?? null;
+  const upcomingEventCount = data?.analytics?.upcomingEvents ?? null;
+  const totalSubmissions = data?.formStats?.totalSubmissions ?? null;
+  const workforceServing = data?.workforceStats ? numberValue(data.workforceStats.byStatus.serving) : null;
+  const workforceTotal = data?.workforceStats?.total ?? null;
 
   const kpis = [
     {
@@ -221,6 +232,12 @@ function DashboardPage() {
         </div>
       </div>
 
+      {data?.failedSources.length ? (
+        <Panel className="border-[var(--color-warning-border)] bg-[var(--color-warning-surface)]">
+          <p className="text-sm font-semibold text-[var(--color-warning-text)]">Some live data could not be loaded: {data.failedSources.join(', ')}. Available metrics are shown; refresh to retry.</p>
+        </Panel>
+      ) : null}
+
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((kpi) => (
           <StatCard key={kpi.label} label={kpi.label} value={kpi.value} trend={kpi.trend} icon={kpi.icon} tone={kpi.tone} />
@@ -231,12 +248,22 @@ function DashboardPage() {
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-[var(--color-accent-primary)]" />
           <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Needs your attention</h2>
+          {data?.decisionInsights ? (
+            <span className="ml-auto rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1 text-xs font-semibold text-[var(--color-text-secondary)]">
+              Readiness {Math.round(data.decisionInsights.signals.decisionReadinessScore)}%
+            </span>
+          ) : null}
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {insights.map((insight) => (
             <div key={insight.title} className={`rounded-2xl border p-4 ${toneStyles[insight.tone]}`}>
               <p className="text-sm font-semibold">{insight.title}</p>
               <p className="mt-1 text-sm leading-6 opacity-90">{insight.description}</p>
+              {insight.href && insight.actionLabel ? (
+                <Link href={insight.href} className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold underline-offset-4 hover:underline">
+                  {insight.actionLabel} <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              ) : null}
             </div>
           ))}
         </div>
@@ -299,6 +326,7 @@ function CommandPalette({ open, onClose, onRefresh }: { open: boolean; onClose: 
       >
         <div className="flex items-center gap-3 border-b border-[var(--color-border-secondary)] px-4 py-3">
           <Command className="h-5 w-5 text-[var(--color-text-tertiary)]" />
+          {/* eslint-disable-next-line no-restricted-syntax -- borderless command-palette search field inline with icon/close button; the shared <Input>'s boxed border/background can't be cleanly overridden here */}
           <input
             autoFocus
             value={search}

@@ -235,7 +235,7 @@ function FormsManagerPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
 
-  const { data: forms = [], isLoading, isFetching, refetch } = useQuery({
+  const { data: forms = [], isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ['forms', 'list'],
     queryFn: async () => (await apiClient.getAdminForms({ page: 1, limit: 100 })).data || [],
   });
@@ -325,6 +325,15 @@ function FormsManagerPage() {
           <div className="divide-y divide-[var(--color-border-secondary)]">
             {isLoading ? (
               <div className="p-6 text-sm text-[var(--color-text-tertiary)]">Loading forms...</div>
+            ) : isError ? (
+              <div className="p-5">
+                <EmptyState
+                  icon={<AlertTriangle className="h-5 w-5" />}
+                  title="Couldn't load forms."
+                  description={error instanceof Error ? error.message : 'Something went wrong fetching your forms.'}
+                  action={<Button size="sm" variant="outline" onClick={() => void refetch()} loading={isFetching} icon={<RefreshCw className="h-4 w-4" />}>Try again</Button>}
+                />
+              </div>
             ) : filteredForms.length > 0 ? (
               filteredForms.map((form) => (
                 <FormAccordionRow key={form.id} form={form} deleting={deleteMutation.isPending && deleteMutation.variables?.id === form.id} onDelete={handleDelete} />
@@ -345,7 +354,7 @@ function FormsManagerPage() {
               <AlertTriangle className="h-5 w-5" />
             </div>
             <div>
-              <h2 id="form-delete-title" className="text-lg font-black tracking-tight text-[var(--color-text-primary)]">
+              <h2 id="form-delete-title" className="text-lg font-bold tracking-tight text-[var(--color-text-primary)]">
                 Delete form
               </h2>
               <p className="mt-0.5 text-sm text-[var(--color-text-tertiary)]">
@@ -367,7 +376,7 @@ function FormsManagerPage() {
         <div className="px-6 py-5">
           {deleteTarget ? (
             <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-              <p className="truncate text-base font-black text-[var(--color-text-primary)]">{deleteTarget.title || 'Untitled form'}</p>
+              <p className="truncate text-base font-bold text-[var(--color-text-primary)]">{deleteTarget.title || 'Untitled form'}</p>
               <p className="mt-1 text-xs font-semibold text-[var(--color-text-tertiary)]">
                 {formatNumber(deleteTarget.fields?.length || 0)} fields · {formatNumber(getFormSubmissionCount(deleteTarget))} submissions on record
               </p>

@@ -113,7 +113,7 @@ export default function RegisterPage() {
 
   return (
     <div className="auth-shell">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
+      <header className="mx-auto flex w-full max-w-[var(--content-max-width-narrow)] items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full border-2 border-white bg-black shadow-sm">
             <Image src="/OIP.webp" alt="Wisdom Church logo" width={40} height={40} className="rounded-full object-cover" />
@@ -128,7 +128,7 @@ export default function RegisterPage() {
         </Link>
       </header>
 
-      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 pb-12 pt-4 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:px-8">
+      <main className="mx-auto grid w-full max-w-[var(--content-max-width-narrow)] gap-6 px-4 pb-12 pt-4 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:px-8">
         <section className="auth-glass rounded-3xl p-8 sm:p-10">
           <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]">
             <UserPlus className="h-6 w-6" />
@@ -286,6 +286,7 @@ export default function RegisterPage() {
               <p className="mb-2 block text-sm font-medium text-[var(--color-text-secondary)]">Account role</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 hover:bg-[var(--color-background-hover)]">
+                  {/* eslint-disable-next-line no-restricted-syntax -- radio card: the label wraps rich title/subtitle content beside the input, which the label-above <Input> layout can't express */}
                   <input
                     type="radio"
                     value="admin"
@@ -305,6 +306,7 @@ export default function RegisterPage() {
                 </label>
 
                 <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 hover:bg-[var(--color-background-hover)]">
+                  {/* eslint-disable-next-line no-restricted-syntax -- radio card, see comment above */}
                   <input
                     type="radio"
                     value="super_admin"

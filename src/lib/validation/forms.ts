@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { FormFieldType } from '@/lib/types';
-import { ALL_FIELD_TYPES, isOptionFieldType } from '@/lib/formFields';
+import { ALL_FIELD_TYPES, isOptionFieldType } from '@/lib/forms/formFields';
 import { normalizeFieldKey } from './helpers';
 
 const formFieldTypes: readonly FormFieldType[] = ALL_FIELD_TYPES;

@@ -64,6 +64,7 @@ export function ImageUpload({
         onClick={() => fileInputRef.current?.click()}
         className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors"
       >
+        {/* eslint-disable-next-line no-restricted-syntax -- hidden file input triggered via ref, not user-facing */}
         <input
           ref={fileInputRef}
           type="file"

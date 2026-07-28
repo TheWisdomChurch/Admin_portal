@@ -1,6 +1,6 @@
-import { apiClient } from './api';
-import type { FormField, FormReportLinkPayload, FormSubmission } from './types';
-import { normalizeEmail, validateEmail } from './utils';
+import { apiClient } from '../api';
+import type { FormField, FormReportLinkPayload, FormSubmission } from '../types';
+import { normalizeEmail, validateEmail } from '../utils';
 
 export type FormSubmissionFilters = {
   query?: string;

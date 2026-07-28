@@ -40,7 +40,7 @@ import {
 } from './lib';
 import { DashboardCharts } from './components/Charts';
 import { SegmentAccordion, PeopleTable } from './components/PeopleDirectory';
-import { TrackerList, TrackerModal } from './components/Celebrations';
+import { TrackerList, TrackerModal, trackerPersonId } from './components/Celebrations';
 import { Timeline } from './components/ActivityLog';
 import { ProfileDrawer } from './components/ProfileDrawer';
 import { CommandPalette } from './components/CommandPalette';
@@ -195,6 +195,7 @@ function AdminDashboardPage() {
                     const person = data.allPeople.find((profile) => profile.id === item.id.replace(`birthdays-${item.segment}-`, ''));
                     if (person) setSelectedPerson(person);
                   }}
+                  onViewAll={() => setTrackerMode('birthdays')}
                 />
                 <TrackerList
                   title="Upcoming wedding anniversaries"
@@ -204,6 +205,7 @@ function AdminDashboardPage() {
                     const person = data.allPeople.find((profile) => profile.id === item.id.replace(`anniversaries-${item.segment}-`, ''));
                     if (person) setSelectedPerson(person);
                   }}
+                  onViewAll={() => setTrackerMode('anniversaries')}
                 />
               </div>
               <SegmentAccordion data={data} onOpen={setSelectedPerson} />
@@ -217,7 +219,16 @@ function AdminDashboardPage() {
       ) : null}
 
       <ProfileDrawer person={selectedPerson} onClose={() => setSelectedPerson(null)} />
-      <TrackerModal mode={trackerMode} items={trackerItems} onClose={() => setTrackerMode(null)} onSendToday={sendToday} />
+      <TrackerModal
+        mode={trackerMode}
+        items={trackerItems}
+        onClose={() => setTrackerMode(null)}
+        onSendToday={sendToday}
+        onOpen={(item) => {
+          const person = data?.allPeople.find((profile) => profile.id === trackerPersonId(item));
+          if (person) setSelectedPerson(person);
+        }}
+      />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onRefresh={() => void refetch()} onTab={setTab} />
     </div>
   );

@@ -17,7 +17,7 @@ type DashboardLayoutClientProps = Readonly<{
 function FullPageMessage({ title, description }: { title: string; description: string }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--color-background-primary)] px-6">
-      <div className="w-full max-w-lg rounded-3xl border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-8 shadow-2xl">
+      <div className="w-full max-w-lg rounded-3xl border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-8 shadow-[var(--shadow-2xl)]">
         <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">{title}</h1>
         <p className="mt-3 text-sm leading-6 text-[var(--color-text-tertiary)]">{description}</p>
       </div>
@@ -120,7 +120,7 @@ export default function DashboardLayoutClient({ children }: DashboardLayoutClien
         <Navbar />
         <SessionTimeout />
         <main className="flex-1 overflow-auto">
-          <div className="mx-auto w-full max-w-[1800px] px-4 py-5 sm:px-6 sm:py-7 lg:px-8 xl:px-10">{children}</div>
+          <div className="mx-auto w-full max-w-[var(--content-max-width)] px-4 py-5 sm:px-6 sm:py-7 lg:px-8 xl:px-10">{children}</div>
         </main>
       </div>
     </div>

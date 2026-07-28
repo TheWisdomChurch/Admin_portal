@@ -69,11 +69,11 @@ function InfoStep({ index, title, body }: { index: number; title: string; body: 
   return (
     <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-start gap-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-accent-primary)] text-sm font-black text-[var(--color-text-onprimary)]">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-accent-primary)] text-sm font-bold text-[var(--color-text-onprimary)]">
           {index}
         </div>
         <div className="min-w-0">
-          <h3 className="text-sm font-black text-[var(--color-text-primary)]">{title}</h3>
+          <h3 className="text-sm font-bold text-[var(--color-text-primary)]">{title}</h3>
           <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">{body}</p>
         </div>
       </div>
@@ -223,8 +223,8 @@ export default function MfaSetupPage() {
             <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-text-inverse)]/10 text-[var(--color-accent-primary)]">
               <ShieldCheck className="h-7 w-7" />
             </div>
-            <p className="mt-7 text-xs font-black uppercase tracking-[0.3em] text-[var(--color-text-inverse)]/50">Multi-factor authentication</p>
-            <h1 className="mt-3 max-w-2xl text-3xl font-black tracking-tight sm:text-5xl">Secure your admin account before entering the dashboard.</h1>
+            <p className="mt-7 text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-text-inverse)]/50">Multi-factor authentication</p>
+            <h1 className="heading-page mt-3 max-w-2xl">Secure your admin account before entering the dashboard.</h1>
             <p className="mt-5 max-w-2xl text-sm leading-7 text-[var(--color-text-inverse)]/70 sm:text-base">Your account is signed in, but admin access requires authenticator-based MFA. This protects church records, members, and operational data.</p>
           </div>
 
@@ -253,7 +253,7 @@ export default function MfaSetupPage() {
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)]">
               <Smartphone className="h-7 w-7 text-[var(--color-accent-primary)]" />
             </div>
-            <h2 className="text-2xl font-black text-[var(--color-text-primary)]">Authenticator setup</h2>
+            <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">Authenticator setup</h2>
             <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">Scan the QR code. If scanning fails, copy the secret key into your authenticator app manually.</p>
           </div>
 
@@ -272,7 +272,7 @@ export default function MfaSetupPage() {
                   <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]"><KeyRound className="h-4 w-4" /> Secret key</p>
+                        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]"><KeyRound className="h-4 w-4" /> Secret key</p>
                         <code className="mt-3 block break-all text-sm font-bold text-[var(--color-text-primary)]">{secret}</code>
                       </div>
                       <Button size="sm" variant="outline" icon={<Copy className="h-4 w-4" />} onClick={() => void copySecret()}>Copy</Button>

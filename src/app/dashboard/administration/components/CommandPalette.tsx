@@ -42,6 +42,7 @@ export function CommandPalette({
       <div className="w-full max-w-2xl overflow-hidden rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
         <div className="flex items-center gap-3 border-b border-[var(--color-border-secondary)] px-4 py-3">
           <Command className="h-5 w-5 text-[var(--color-text-tertiary)]" />
+          {/* eslint-disable-next-line no-restricted-syntax -- borderless command-palette search field inline with icon/close button; the shared <Input>'s boxed border/background can't be cleanly overridden here */}
           <input value={query} onChange={(event) => setQuery(event.target.value)} autoFocus placeholder="Search commands..." className="w-full bg-transparent py-2 text-sm font-semibold outline-none placeholder:text-[var(--color-text-tertiary)]" />
           <button type="button" onClick={onClose} className="rounded-xl p-2 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)]" aria-label="Close">
             <X className="h-5 w-5" />

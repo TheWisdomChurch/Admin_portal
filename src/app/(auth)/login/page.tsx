@@ -9,6 +9,7 @@ import {
 } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { motion, type Variants } from 'framer-motion';
 import {
   Lock,
   Mail,
@@ -16,9 +17,14 @@ import {
   UserPlus,
   AlertTriangle,
   Chrome,
+  Home,
+  ShieldCheck,
+  Smartphone,
 } from 'lucide-react';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
+import { Container } from '@/ui/Container';
+import { Flex } from '@/ui/Flex';
 import { Input } from '@/ui/Input';
 import { Checkbox } from '@/ui/Checkbox';
 import toast from 'react-hot-toast';
@@ -61,6 +67,21 @@ function ProviderIcon({ providerId }: { providerId: string }) {
     </svg>
   );
 }
+
+const heroContainer: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.09, delayChildren: 0.05 } },
+};
+
+const heroItem: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] } },
+};
+
+const cardEntrance: Variants = {
+  hidden: { opacity: 0, y: 20, scale: 0.98 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.15 } },
+};
 
 function safeRedirect(raw: string | null): string {
   if (!raw) return '/dashboard';
@@ -420,8 +441,20 @@ function LoginInner() {
   };
 
   return (
-    <div className="auth-shell">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
+    <div className="auth-shell relative overflow-hidden">
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.35] dark:opacity-[0.22]"
+        style={{
+          backgroundImage: 'radial-gradient(var(--color-border-secondary) 1px, transparent 1px)',
+          backgroundSize: '28px 28px',
+          maskImage: 'radial-gradient(ellipse 65% 55% at 50% 0%, black 40%, transparent 90%)',
+          WebkitMaskImage: 'radial-gradient(ellipse 65% 55% at 50% 0%, black 40%, transparent 90%)',
+        }}
+        aria-hidden="true"
+      />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--brand-500)]/50 to-transparent" aria-hidden="true" />
+
+      <Container as="header" size="narrow" className="relative flex items-center justify-between py-6">
         <Link href="/" className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full border-2 border-white bg-black shadow-sm">
             <Image
@@ -441,57 +474,75 @@ function LoginInner() {
             </p>
           </div>
         </Link>
-        {portalMode === 'admin' ? (
-          <Link href="/register">
-            <Button variant="outline">Register as Admin</Button>
+        <nav className="flex items-center gap-2">
+          <Link href="/" className="hidden sm:block">
+            <Button variant="ghost" icon={<Home className="h-4 w-4" />}>Home</Button>
           </Link>
-        ) : (
-          <Link href="/login?redirect=%2Fdashboard">
-            <Button variant="outline">Admin Login</Button>
-          </Link>
-        )}
-      </header>
+          {portalMode === 'admin' ? (
+            <Link href="/register">
+              <Button variant="outline">Register as Admin</Button>
+            </Link>
+          ) : (
+            <Link href="/login?redirect=%2Fdashboard">
+              <Button variant="outline">Admin Login</Button>
+            </Link>
+          )}
+        </nav>
+      </Container>
 
-      <main className="mx-auto grid w-full max-w-6xl gap-8 px-4 pb-12 pt-6 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
-        <section className="flex flex-col justify-center gap-6">
-          <p className="text-xs uppercase tracking-[0.4em] text-[var(--color-text-tertiary)]">
-            {portalMode === 'super' ? 'Super Admin Access' : 'Secure Access'}
-          </p>
-          <h1 className="auth-hero-text font-display text-3xl font-semibold text-[var(--color-text-primary)] sm:text-4xl">
+      <Container as="main" size="narrow" className="relative grid gap-8 pb-12 pt-6 lg:grid-cols-[1.05fr_0.95fr]">
+        <motion.section
+          className="flex flex-col justify-center gap-6"
+          variants={heroContainer}
+          initial="hidden"
+          animate="show"
+        >
+          <motion.div variants={heroItem} className="inline-flex w-fit items-center border-l-2 border-[var(--brand-500)] bg-[var(--color-background-primary)]/60 py-1 pl-3 pr-4 text-xs font-semibold uppercase tracking-[0.28em] text-[var(--color-text-secondary)]">
+            {portalMode === 'super' ? 'Super Admin Authority' : 'Administration & Governance'}
+          </motion.div>
+          <motion.h1 variants={heroItem} className="auth-hero-text font-display text-3xl font-semibold leading-[1.15] text-[var(--color-text-primary)] sm:text-4xl">
             {portalMode === 'super'
-              ? 'The Wisdom Church Super Admin Console'
-              : 'The Wisdom Church Administration Portal'}
-          </h1>
-          <p className="text-sm text-[var(--color-text-secondary)] sm:text-base">
+              ? 'Full administrative authority over the Wisdom Church platform.'
+              : 'One governed console for every Wisdom Church operation.'}
+          </motion.h1>
+          <motion.p variants={heroItem} className="text-sm leading-7 text-[var(--color-text-secondary)] sm:text-base">
             {portalMode === 'super'
-              ? 'Oversee approvals, security-sensitive operations, reports, and platform-wide analytics.'
-              : 'Manage events, testimonies, and ministry updates with clarity and control.'}
-          </p>
+              ? 'Approvals, security-sensitive actions, and platform-wide reporting — governed with full audit visibility.'
+              : 'Events, testimonies, leadership records, and ministry updates — administered from a single console built for accountability.'}
+          </motion.p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/70 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
-                {portalMode === 'super' ? 'Elevated Access' : 'Access Control'}
+            <motion.div variants={heroItem} className="group relative border-l-2 border-[var(--brand-500)]/60 bg-[var(--color-background-primary)]/70 p-4 transition hover:border-[var(--brand-500)]">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--brand-500)]/30 bg-[var(--color-background-primary)] text-[var(--brand-600)] dark:text-[var(--brand-300)]">
+                <ShieldCheck className="h-[18px] w-[18px]" />
+              </div>
+              <p className="mt-3 text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
+                Verified Access
               </p>
               <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                Password sign-in is protected with a one-time verification code before the session is established.
+                Every password sign-in is confirmed with a one-time code or an authenticator app before a session begins.
               </p>
-            </div>
-            <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/70 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
-                Trusted Devices
+            </motion.div>
+            <motion.div variants={heroItem} className="group relative border-l-2 border-[var(--brand-500)]/60 bg-[var(--color-background-primary)]/70 p-4 transition hover:border-[var(--brand-500)]">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--brand-500)]/30 bg-[var(--color-background-primary)] text-[var(--brand-600)] dark:text-[var(--brand-300)]">
+                <Smartphone className="h-[18px] w-[18px]" />
+              </div>
+              <p className="mt-3 text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
+                Governed Sessions
               </p>
               <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                Use Remember me only on secure devices you control. Session persistence remains optional.
+                Remember me applies only to devices you control — every session can be reviewed and revoked from Super Admin.
               </p>
-            </div>
+            </motion.div>
           </div>
-        </section>
+        </motion.section>
 
-        <Card className="auth-glass w-full max-w-md p-8">
+        <motion.div variants={cardEntrance} initial="hidden" animate="show" className="lg:border-l lg:border-[var(--color-border-secondary)] lg:pl-8">
+        <Card className="auth-glass w-full max-w-md p-8 shadow-[var(--shadow-lg)]">
           <div className="mb-8 text-center">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[var(--color-background-tertiary)] mb-4">
+            <Flex align="center" justify="center" className="relative w-14 h-14 rounded-2xl border border-[var(--brand-500)]/30 bg-[var(--color-background-tertiary)] mb-4">
+              <div className="absolute -inset-1.5 rounded-2xl border border-[var(--brand-500)]/15" aria-hidden="true" />
               <Lock className="h-7 w-7 text-[var(--color-accent-primary)]" />
-            </div>
+            </Flex>
             <h2 className="text-2xl font-semibold text-[var(--color-text-primary)]">Welcome Back</h2>
             <p className="text-[var(--color-text-tertiary)] mt-2 text-sm">
               {portalMode === 'super' ? 'Sign in as super admin' : 'Sign in to your account'}
@@ -682,7 +733,8 @@ function LoginInner() {
             )}
           </div>
         </Card>
-      </main>
+        </motion.div>
+      </Container>
 
       <Footer />
 

@@ -4,6 +4,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, Eye, PanelRight
 import { Badge } from '@/ui/Badge';
 import { EmptyState } from '@/ui/EmptyState';
 import { Input } from '@/ui/Input';
+import { Select } from '@/ui/Select';
 import { SectionCard } from '@/ui/SectionCard';
 import { Avatar } from './Avatar';
 import {
@@ -127,17 +128,6 @@ function SortHeader({ label, active, onClick, align }: { label: string; active: 
   );
 }
 
-function Select({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: Array<{ label: string; value: string }> }) {
-  return (
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]"
-    >
-      {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-    </select>
-  );
-}
 
 export function PeopleTable({ people, onOpen }: { people: PersonRecord[]; onOpen: (person: PersonRecord) => void }) {
   const [query, setQuery] = useState('');
@@ -190,9 +180,18 @@ export function PeopleTable({ people, onOpen }: { people: PersonRecord[]; onOpen
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
           <Input className="pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, email, phone, role..." />
         </div>
-        <Select value={segment} onChange={(value) => setSegment(value as 'all' | SegmentKey)} options={[{ label: 'All segments', value: 'all' }, { label: 'Leadership', value: 'leadership' }, { label: 'Members', value: 'members' }, { label: 'Workforce', value: 'workforce' }]} />
-        <Select value={status} onChange={setStatus} options={statuses.map((item) => ({ label: item === 'all' ? 'All statuses' : titleCase(item), value: item }))} />
-        <Select value={String(pageSize)} onChange={(value) => setPageSize(Number(value))} options={PAGE_SIZE_OPTIONS.map((item) => ({ label: `${item} / page`, value: String(item) }))} />
+        <Select value={segment} onChange={(event) => setSegment(event.target.value as 'all' | SegmentKey)}>
+          <option value="all">All segments</option>
+          <option value="leadership">Leadership</option>
+          <option value="members">Members</option>
+          <option value="workforce">Workforce</option>
+        </Select>
+        <Select value={status} onChange={(event) => setStatus(event.target.value)}>
+          {statuses.map((item) => <option key={item} value={item}>{item === 'all' ? 'All statuses' : titleCase(item)}</option>)}
+        </Select>
+        <Select value={String(pageSize)} onChange={(event) => setPageSize(Number(event.target.value))}>
+          {PAGE_SIZE_OPTIONS.map((item) => <option key={item} value={item}>{item} / page</option>)}
+        </Select>
       </div>
 
       <div className="mt-4 overflow-hidden rounded-3xl border border-[var(--color-border-secondary)]">

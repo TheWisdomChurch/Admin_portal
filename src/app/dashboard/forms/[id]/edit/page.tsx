@@ -8,19 +8,21 @@ import { Plus, Trash2, Copy, Save, Globe, Mail, MailCheck, Send, ExternalLink } 
 
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
+import { Checkbox } from '@/ui/Checkbox';
 import { Input } from '@/ui/Input';
+import { Select } from '@/ui/Select';
 import { PageHeader } from '@/layouts';
 import { AlertModal } from '@/ui/AlertModal';
 import FormFieldOrderBuilder from '../../FormFieldOrderBuilder';
 import { FieldEditor, type FieldDraft } from '../../_shared/FieldEditor';
 import { apiClient } from '@/lib/api';
-import { ensureFieldOptions, isOptionFieldType, normalizeFieldOptions, sanitizeFieldVisibility } from '@/lib/formFields';
+import { ensureFieldOptions, isOptionFieldType, normalizeFieldOptions, sanitizeFieldVisibility } from '@/lib/forms/formFields';
 
-import { normalizeOrderedFields } from '@/lib/formFieldOrdering';
+import { normalizeOrderedFields } from '@/lib/forms/formFieldOrdering';
 import {
   buildFormSubmissionsReportPath,
   copyFormSubmissionsReportLink,
-} from '@/lib/formSubmissions';
+} from '@/lib/forms/formSubmissions';
 import { buildPublicFormUrl } from '@/lib/utils';
 import {
   extractServerFieldErrors,
@@ -761,32 +763,27 @@ function EditFormPage() {
 
       <Card title="Registration Settings">
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Form Type</label>
-            <select
-              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-              value={formType}
-              onChange={(event) =>
-                updateSettings({
-                  formType: event.target.value ? (event.target.value as FormSettings['formType']) : undefined,
-                })
-              }
-            >
-              <option value="">Select a type</option>
-              {formTypeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-
-            {fieldErrors.formType && <p className="text-sm text-[var(--color-danger-text)]">{fieldErrors.formType}</p>}
-          </div>
+          <Select
+            label="Form Type"
+            value={formType}
+            onChange={(event) =>
+              updateSettings({
+                formType: event.target.value ? (event.target.value as FormSettings['formType']) : undefined,
+              })
+            }
+            error={fieldErrors.formType}
+          >
+            <option value="">Select a type</option>
+            {formTypeOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
 
           <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Linked Event</label>
-            <select
-              className="mt-1 w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+            <Select
+              label="Linked Event"
               value={form.eventId || ''}
               onChange={(event) => setForm({ ...form, eventId: event.target.value || undefined })}
               disabled={eventsLoading}
@@ -797,7 +794,7 @@ function EditFormPage() {
                   {event.title}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <Input
@@ -826,35 +823,26 @@ function EditFormPage() {
 
       <Card title="Submission Routing">
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
-              Submission Target
-            </label>
-
-            <select
-              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-              value={submissionTarget}
-              onChange={(event) =>
-                updateSettings({
-                  submissionTarget: event.target.value
-                    ? (event.target.value as FormSettings['submissionTarget'])
-                    : undefined,
-                })
-              }
-            >
-              <option value="">Do not route</option>
-              <option value="workforce_new">Workforce - New workers</option>
-              <option value="workforce_serving">Workforce - Already serving</option>
-              <option value="workforce">Workforce - General</option>
-              <option value="member">Member</option>
-              <option value="leadership">Leadership</option>
-              <option value="testimonial">Testimonial</option>
-            </select>
-
-            {fieldErrors.submissionTarget && (
-              <p className="text-sm text-[var(--color-danger-text)]">{fieldErrors.submissionTarget}</p>
-            )}
-          </div>
+          <Select
+            label="Submission Target"
+            value={submissionTarget}
+            onChange={(event) =>
+              updateSettings({
+                submissionTarget: event.target.value
+                  ? (event.target.value as FormSettings['submissionTarget'])
+                  : undefined,
+              })
+            }
+            error={fieldErrors.submissionTarget}
+          >
+            <option value="">Do not route</option>
+            <option value="workforce_new">Workforce - New workers</option>
+            <option value="workforce_serving">Workforce - Already serving</option>
+            <option value="workforce">Workforce - General</option>
+            <option value="member">Member</option>
+            <option value="leadership">Leadership</option>
+            <option value="testimonial">Testimonial</option>
+          </Select>
 
           <Input
             label="Department"
@@ -907,14 +895,11 @@ function EditFormPage() {
             </div>
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-            <input
-              type="checkbox"
-              checked={responseEmailEnabled}
-              onChange={(event) => updateSettings({ responseEmailEnabled: event.target.checked })}
-            />
-            Enable response email
-          </label>
+          <Checkbox
+            label="Enable response email"
+            checked={responseEmailEnabled}
+            onChange={(event) => updateSettings({ responseEmailEnabled: event.target.checked })}
+          />
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
@@ -1099,35 +1084,29 @@ function EditFormPage() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Layout</label>
-              <select
-                className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-                value={form.settings?.layoutMode ?? 'split'}
-                onChange={(event) => updateSettings({ layoutMode: event.target.value === 'stack' ? 'stack' : 'split' })}
-              >
-                <option value="split">Two column layout</option>
-                <option value="stack">Single column layout</option>
-              </select>
-            </div>
+            <Select
+              label="Layout"
+              value={form.settings?.layoutMode ?? 'split'}
+              onChange={(event) => updateSettings({ layoutMode: event.target.value === 'stack' ? 'stack' : 'split' })}
+            >
+              <option value="split">Two column layout</option>
+              <option value="stack">Single column layout</option>
+            </Select>
 
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Date format</label>
-              <select
-                className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
-                value={form.settings?.dateFormat ?? 'dd/mm'}
-                onChange={(event) =>
-                  updateSettings({
-                    dateFormat: event.target.value as NonNullable<FormSettings['dateFormat']>,
-                  })
-                }
-              >
-                <option value="yyyy-mm-dd">YYYY-MM-DD</option>
-                <option value="mm/dd/yyyy">MM/DD/YYYY</option>
-                <option value="dd/mm/yyyy">DD/MM/YYYY</option>
-                <option value="dd/mm">DD/MM</option>
-              </select>
-            </div>
+            <Select
+              label="Date format"
+              value={form.settings?.dateFormat ?? 'dd/mm'}
+              onChange={(event) =>
+                updateSettings({
+                  dateFormat: event.target.value as NonNullable<FormSettings['dateFormat']>,
+                })
+              }
+            >
+              <option value="yyyy-mm-dd">YYYY-MM-DD</option>
+              <option value="mm/dd/yyyy">MM/DD/YYYY</option>
+              <option value="dd/mm/yyyy">DD/MM/YYYY</option>
+              <option value="dd/mm">DD/MM</option>
+            </Select>
           </div>
         </div>
       </Card>

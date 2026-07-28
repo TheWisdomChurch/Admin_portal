@@ -148,10 +148,6 @@ npm-prod: ## Run npm command in production container
 lint: ## Run ESLint in development container
 	@docker compose --profile $(DEV_PROFILE) exec $(NEXTJS_SERVICE) npm run lint
 
-.PHONY: test
-test: ## Run tests in development container
-	@docker compose --profile $(DEV_PROFILE) exec $(NEXTJS_SERVICE) npm test
-
 # ============================================
 # HELP & INFO
 # ============================================

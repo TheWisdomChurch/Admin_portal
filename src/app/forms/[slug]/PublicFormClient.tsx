@@ -404,6 +404,7 @@ function PhoneNumberInput({ label, required, value, onChange }: { label: string;
         <select className={fieldInputClass} value={currentDial} onChange={(e) => onChange(`${e.target.value}${onlyDigits(currentNational)}`)} aria-label={`${label} country code`}>
           {COUNTRY_PHONE_CODES.map((c) => <option key={c.iso} value={c.dial}>{c.name} ({c.dial})</option>)}
         </select>
+        {/* eslint-disable-next-line no-restricted-syntax -- public-form field, see FieldInput's comment */}
         <input className={fieldInputClass} inputMode="tel" placeholder="Phone number" value={currentNational} onChange={(e) => onChange(`${currentDial}${onlyDigits(e.target.value)}`)} required={required} />
       </div>
       <p className="text-xs text-stone-500">Use a number you can currently receive calls or messages on.</p>
@@ -411,6 +412,7 @@ function PhoneNumberInput({ label, required, value, onChange }: { label: string;
   );
 }
 
+// Uses its own fieldInputClass/choiceRowClass convention (not src/ui/Input) since this renders every public-form input type uniformly, outside the admin design system.
 function FieldInput({ field, value, onChange }: { field: FormField; value: FieldValue | undefined; onChange: (next: FieldValue) => void }) {
   const options = Array.isArray(field.options) ? field.options : [];
   const type = normalizeFieldType(field.type);
@@ -418,11 +420,14 @@ function FieldInput({ field, value, onChange }: { field: FormField; value: Field
 
   if (isTextareaType(type)) return <textarea className={`${fieldInputClass} min-h-32 resize-y`} value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} placeholder={`Enter ${field.label.toLowerCase()}`} required={field.required} minLength={field.validation?.minLength} maxLength={field.validation?.maxLength} />;
   if (isSelectType(type)) return <select className={fieldInputClass} value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} required={field.required}><option value="">Select...</option>{options.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>;
+  // eslint-disable-next-line no-restricted-syntax -- public-form choice rows, see FieldInput's comment
   if (isRadioType(type)) return <div className="grid gap-2">{options.map((opt) => <label key={opt.value} className={choiceRowClass}><input type="radio" name={field.key} value={opt.value} checked={value === opt.value} onChange={(e) => onChange(e.target.value)} className="accent-[var(--color-accent-primary)]" /><span>{opt.label}</span></label>)}</div>;
   if (isCheckboxType(type) && options.length > 0) {
     const selected = Array.isArray(value) ? value : [];
+    // eslint-disable-next-line no-restricted-syntax -- public-form choice rows, see FieldInput's comment
     return <div className="grid gap-2">{options.map((opt) => <label key={opt.value} className={choiceRowClass}><input type="checkbox" checked={selected.includes(opt.value)} onChange={(e) => onChange(e.target.checked ? [...selected, opt.value] : selected.filter((v) => v !== opt.value))} className="accent-[var(--color-accent-primary)]" /><span>{opt.label}</span></label>)}</div>;
   }
+  // eslint-disable-next-line no-restricted-syntax -- public-form choice row, see FieldInput's comment
   if (isCheckboxType(type)) return <label className={choiceRowClass}><input type="checkbox" checked={Boolean(value)} onChange={(e) => onChange(e.target.checked)} className="accent-[var(--color-accent-primary)]" /><span>{field.label}</span></label>;
   if (isUploadType(type)) {
     const selected = isFileValue(value) ? value : null;
@@ -434,12 +439,14 @@ function FieldInput({ field, value, onChange }: { field: FormField; value: Field
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-stone-500 shadow-sm ring-1 ring-stone-200"><FileUp className="h-5 w-5" /></span>
           <span className="mt-3 max-w-full truncate text-sm font-semibold text-stone-800">{selected ? selected.name : `Choose ${field.label.toLowerCase()}`}</span>
           <span className="mt-1 text-xs text-stone-500">{getUploadFormatLabel(kind)} · up to {maxMb}MB</span>
+          {/* eslint-disable-next-line no-restricted-syntax -- public-form file dropzone, see FieldInput's comment */}
           <input type="file" accept={getUploadAccept(kind)} className="sr-only" onChange={(e) => onChange(e.target.files?.[0] || null)} required={field.required} />
         </label>
       </div>
     );
   }
   if (showAsPhone) return <PhoneNumberInput label={field.label || 'Phone'} required={field.required} value={typeof value === 'string' ? value : ''} onChange={onChange} />;
+  // eslint-disable-next-line no-restricted-syntax -- public-form field, see FieldInput's comment
   if (type === 'date' && resolveDateMode(field) === 'full') return <input type="date" className={fieldInputClass} value={toHtmlDateInputValue(typeof value === 'string' ? value : '')} onChange={(e) => onChange(fromHtmlDateInputValue(e.target.value))} required={field.required} />;
   if (type === 'date') {
     const parsed = parseDDMMPartial(typeof value === 'string' ? value : '');
@@ -455,6 +462,7 @@ function FieldInput({ field, value, onChange }: { field: FormField; value: Field
     );
   }
   const inputType = type === 'email' ? 'email' : type === 'number' ? 'number' : 'text';
+  // eslint-disable-next-line no-restricted-syntax -- public-form field, see FieldInput's comment
   return <input type={inputType} className={fieldInputClass} value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} placeholder={`Enter ${field.label.toLowerCase()}`} required={field.required} minLength={field.validation?.minLength} maxLength={field.validation?.maxLength} min={field.validation?.min} max={field.validation?.max} />;
 }
 
@@ -790,7 +798,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8 lg:py-14">
-        <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_18px_50px_-36px_rgba(28,25,23,0.45)] sm:rounded-3xl">
+        <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[var(--shadow-xl)] sm:rounded-3xl">
           <div className={displayBannerUrl ? 'grid lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.78fr)]' : ''}>
             <div className="flex flex-col justify-center p-5 sm:p-8 lg:p-10 xl:p-12">
               <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between lg:flex-col">
@@ -816,7 +824,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
 
         <div className={showDetailsColumn && layoutMode === 'split' ? 'mt-6 grid items-start gap-6 lg:mt-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-8' : 'mx-auto mt-6 max-w-3xl space-y-6 lg:mt-8'}>
           <div className={showDetailsColumn && layoutMode === 'split' ? 'min-w-0' : ''}>
-            <Card className="rounded-2xl border-stone-200 bg-white p-5 shadow-[0_18px_50px_-40px_rgba(28,25,23,0.45)] sm:rounded-3xl sm:p-8" contentClassName="p-0">
+            <Card className="rounded-2xl border-stone-200 bg-white p-5 shadow-[var(--shadow-xl)] sm:rounded-3xl sm:p-8" contentClassName="p-0">
               <div className="mb-7 border-b border-stone-200 pb-5">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-700">Your information</p>
                 <h2 className="mt-2 text-xl font-bold text-stone-950 sm:text-2xl">Please complete the form below</h2>
@@ -881,7 +889,7 @@ function StateScreen({ title, description, action, loading }: { title: string; d
     <div className="public-form-light flex min-h-screen items-center justify-center bg-[#faf9f6] p-6 text-center">
       <div className="w-full max-w-md rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-8 shadow-sm">
         {loading ? <Loader2 className="mx-auto h-10 w-10 animate-spin text-[var(--color-accent-primary)]" /> : <ShieldCheck className="mx-auto h-10 w-10 text-[var(--color-text-tertiary)]" />}
-        <h1 className="mt-4 text-xl font-black text-[var(--color-text-primary)]">{title}</h1>
+        <h1 className="mt-4 text-xl font-bold text-[var(--color-text-primary)]">{title}</h1>
         <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">{description}</p>
         {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
       </div>
