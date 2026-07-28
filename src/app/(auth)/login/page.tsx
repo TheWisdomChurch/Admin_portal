@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
+import { Container } from '@/ui/Container';
+import { Flex } from '@/ui/Flex';
 import { Input } from '@/ui/Input';
 import { Checkbox } from '@/ui/Checkbox';
 import toast from 'react-hot-toast';
@@ -452,7 +454,7 @@ function LoginInner() {
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--brand-500)]/50 to-transparent" aria-hidden="true" />
 
-      <header className="relative mx-auto flex w-full max-w-[var(--content-max-width-narrow)] items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
+      <Container as="header" size="narrow" className="relative flex items-center justify-between py-6">
         <Link href="/" className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full border-2 border-white bg-black shadow-sm">
             <Image
@@ -486,7 +488,7 @@ function LoginInner() {
             </Link>
           )}
         </nav>
-      </header>
+      </Container>
 
       <main className="relative mx-auto grid w-full max-w-[var(--content-max-width-narrow)] gap-8 px-4 pb-12 pt-6 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
         <motion.section
