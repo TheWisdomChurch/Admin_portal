@@ -543,10 +543,10 @@ function LoginInner() {
         <motion.div variants={cardEntrance} initial="hidden" animate="show" className="lg:border-l lg:border-[var(--color-border-secondary)] lg:pl-8">
         <Card className="auth-glass w-full max-w-md p-8 shadow-[var(--shadow-lg)]">
           <div className="mb-8 text-center">
-            <div className="relative inline-flex items-center justify-center w-14 h-14 rounded-2xl border border-[var(--brand-500)]/30 bg-[var(--color-background-tertiary)] mb-4">
+            <Flex align="center" justify="center" className="relative w-14 h-14 rounded-2xl border border-[var(--brand-500)]/30 bg-[var(--color-background-tertiary)] mb-4">
               <div className="absolute -inset-1.5 rounded-2xl border border-[var(--brand-500)]/15" aria-hidden="true" />
               <Lock className="h-7 w-7 text-[var(--color-accent-primary)]" />
-            </div>
+            </Flex>
             <h2 className="text-2xl font-semibold text-[var(--color-text-primary)]">Welcome Back</h2>
             <p className="text-[var(--color-text-tertiary)] mt-2 text-sm">
               {portalMode === 'super' ? 'Sign in as super admin' : 'Sign in to your account'}

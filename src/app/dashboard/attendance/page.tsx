@@ -18,6 +18,7 @@ import { PageHeader } from '@/layouts';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
+import { Select } from '@/ui/Select';
 import { SectionCard } from '@/ui/SectionCard';
 import { StatCard } from '@/ui/StatCard';
 import { EmptyState } from '@/ui/EmptyState';
@@ -231,14 +232,13 @@ function AttendancePage() {
       <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
         <SectionCard title="Sessions" subtitle="Every recorded service, most recent first." icon={<CalendarCheck className="h-5 w-5" />}>
           <div className="mb-4 grid gap-2 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 sm:grid-cols-[1fr_180px_auto]">
-            <select
+            <Select
               value={newSessionType}
               onChange={(e) => setNewSessionType(e.target.value)}
-              className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-bold text-[var(--color-text-secondary)] outline-none focus:border-[var(--color-border-focus)]"
             >
               <option value="">Select service type…</option>
               {serviceTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
+            </Select>
             <Input
               type="date"
               value={newSessionDate}

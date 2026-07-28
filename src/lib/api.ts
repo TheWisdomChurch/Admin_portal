@@ -99,6 +99,8 @@ import type {
   CellGroupMeetingAdmin,
   MinistryAdmin,
   MinistryMemberAdmin,
+  MinistryStructure,
+  MinistryWorkforceRole,
   GivingTransactionAdmin,
   GivingMonthlySummaryRow,
   ContactMessageAdmin,
@@ -2601,6 +2603,23 @@ export const apiClient = {
 
   async removeMinistryMember(ministryId: string, memberId: string): Promise<MessageResponse> {
     return apiFetch(`/admin/ministries/${encodeURIComponent(ministryId)}/members/${encodeURIComponent(memberId)}`, { method: 'DELETE' });
+  },
+
+  async getMinistryStructure(ministryId: string): Promise<MinistryStructure> {
+    const res = await apiFetch<ApiResponse<MinistryStructure>>(`/admin/ministries/${encodeURIComponent(ministryId)}/structure`, { method: 'GET' });
+    return unwrapData<MinistryStructure>(res, 'Invalid ministry structure payload');
+  },
+
+  async assignMinistryWorkforceMember(ministryId: string, payload: { workforceMemberId: string; role: MinistryWorkforceRole; title?: string }): Promise<MessageResponse> {
+    return apiFetch(`/admin/ministries/${encodeURIComponent(ministryId)}/workforce`, { method: 'POST', body: JSON.stringify(payload) });
+  },
+
+  async updateMinistryWorkforceAssignment(ministryId: string, workforceMemberId: string, payload: { role: MinistryWorkforceRole; title?: string }): Promise<MessageResponse> {
+    return apiFetch(`/admin/ministries/${encodeURIComponent(ministryId)}/workforce/${encodeURIComponent(workforceMemberId)}`, { method: 'PATCH', body: JSON.stringify({ workforceMemberId, ...payload }) });
+  },
+
+  async removeMinistryWorkforceMember(ministryId: string, workforceMemberId: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/ministries/${encodeURIComponent(ministryId)}/workforce/${encodeURIComponent(workforceMemberId)}`, { method: 'DELETE' });
   },
 
   /* -----------------------------

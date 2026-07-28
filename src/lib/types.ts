@@ -1479,7 +1479,6 @@ export interface CellGroupAdmin {
   id: string;
   name: string;
   campus_id?: string;
-  leader_id?: string;
   zone?: string;
   max_capacity?: number;
   is_active: boolean;
@@ -1530,6 +1529,30 @@ export interface MinistryMemberAdmin {
   role: string;
   joined_at: string;
   created_at: string;
+}
+
+export type MinistryWorkforceRole = 'head' | 'deputy_head' | 'coordinator' | 'member';
+
+export interface MinistryWorkforceAssignment {
+  id: string;
+  ministryId: string;
+  workforceMemberId: string;
+  role: MinistryWorkforceRole;
+  title?: string;
+  source: 'manual' | 'department_sync';
+  joinedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  workforceMember: WorkforceMember;
+}
+
+export interface MinistryStructure {
+  ministry: MinistryAdmin;
+  heads: MinistryWorkforceAssignment[];
+  deputyHeads: MinistryWorkforceAssignment[];
+  coordinators: MinistryWorkforceAssignment[];
+  members: MinistryWorkforceAssignment[];
+  total: number;
 }
 
 /* =========================

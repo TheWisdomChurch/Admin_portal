@@ -59,6 +59,7 @@ import { Button } from '@/ui/Button';
 import { Checkbox } from '@/ui/Checkbox';
 import { EmptyState } from '@/ui/EmptyState';
 import { Input } from '@/ui/Input';
+import { Select } from '@/ui/Select';
 import { SectionCard } from '@/ui/SectionCard';
 import { StatCard } from '@/ui/StatCard';
 
@@ -965,13 +966,13 @@ function RegistrantCampaignPage() {
                           <Input value={resource.url} onChange={(event) => updateResourceLink(index, 'url', event.target.value)} placeholder="https://..." />
                           <textarea value={resource.description} onChange={(event) => updateResourceLink(index, 'description', event.target.value)} placeholder="Short description" rows={2} className="rounded-xl border border-[var(--color-border-secondary)] px-3 py-2 text-xs font-semibold outline-none" />
                           <div className="flex items-center justify-between gap-2">
-                            <select value={resource.kind} onChange={(event) => updateResourceLink(index, 'kind', event.target.value)} className="rounded-xl border border-[var(--color-border-secondary)] px-3 py-2 text-xs font-black outline-none">
+                            <Select value={resource.kind} onChange={(event) => updateResourceLink(index, 'kind', event.target.value)}>
                               <option value="flyer">Flyer</option>
                               <option value="document">Document</option>
                               <option value="guide">Guide</option>
                               <option value="schedule">Schedule</option>
                               <option value="resource">Resource</option>
-                            </select>
+                            </Select>
                             <Button type="button" variant="ghost" size="sm" onClick={() => removeResourceLink(index)}>Remove</Button>
                           </div>
                         </div>

@@ -35,6 +35,7 @@ import { PageHeader } from '@/layouts';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
+import { Select } from '@/ui/Select';
 import { Panel } from '@/ui/Panel';
 import { StatCard } from '@/ui/StatCard';
 import { EmptyState } from '@/ui/EmptyState';
@@ -388,27 +389,23 @@ function WorkforceEditModal({
           <Input label="Last name" value={draft.lastName} onChange={(event) => updateDraft({ lastName: event.target.value })} />
           <Input label="Email" value={draft.email} onChange={(event) => updateDraft({ email: event.target.value })} />
           <Input label="Phone" value={draft.phone} onChange={(event) => updateDraft({ phone: event.target.value })} />
-          <label className="space-y-2 text-sm font-semibold text-[var(--color-text-secondary)]">
-            <span>Department</span>
-            <select value={draft.department} onChange={(event) => updateDraft({ department: event.target.value })} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-bold text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]">
-              {DEPARTMENTS.map((department) => <option key={department} value={department}>{department}</option>)}
-            </select>
-          </label>
-          <label className="space-y-2 text-sm font-semibold text-[var(--color-text-secondary)]">
-            <span>Status</span>
+          <Select label="Department" value={draft.department} onChange={(event) => updateDraft({ department: event.target.value })}>
+            {DEPARTMENTS.map((department) => <option key={department} value={department}>{department}</option>)}
+          </Select>
+          <div>
             {worker.status === 'pending' || worker.status === 'new' ? (
               <>
-                <select disabled value={draft.status} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm font-bold text-[var(--color-text-tertiary)] outline-none">
+                <Select label="Status" disabled value={draft.status}>
                   <option value={draft.status}>{statusLabels[draft.status]}</option>
-                </select>
-                <p className="text-xs font-normal text-[var(--color-text-tertiary)]">Use Approve or Reject to decide a pending registration — close this editor first.</p>
+                </Select>
+                <p className="mt-2 text-xs font-normal text-[var(--color-text-tertiary)]">Use Approve or Reject to decide a pending registration — close this editor first.</p>
               </>
             ) : (
-              <select value={draft.status} onChange={(event) => updateDraft({ status: event.target.value as WorkforceStatus })} className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-bold text-[var(--color-text-secondary)] outline-none transition focus:border-[var(--color-border-focus)]">
+              <Select label="Status" value={draft.status} onChange={(event) => updateDraft({ status: event.target.value as WorkforceStatus })}>
                 {(['serving', 'not_serving'] as WorkforceStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
-              </select>
+              </Select>
             )}
-          </label>
+          </div>
           <Input label="Birthday (DD/MM)" value={draft.birthday} onChange={(event) => updateDraft({ birthday: event.target.value })} />
           <Input label="Anniversary (DD/MM)" value={draft.anniversary} onChange={(event) => updateDraft({ anniversary: event.target.value })} />
           <label className="space-y-2 text-sm font-semibold text-[var(--color-text-secondary)] sm:col-span-2">
@@ -891,15 +888,14 @@ function WorkforcePage() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
               <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search workers..." className="pl-10" />
             </div>
-            <select
+            <Select
               value={sort}
               onChange={(event) => setSort(event.target.value as SortKey)}
-              className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
             >
               <option value="name">Sort: Name</option>
               <option value="department">Sort: Department</option>
               <option value="status">Sort: Status</option>
-            </select>
+            </Select>
           </div>
         </div>
 
