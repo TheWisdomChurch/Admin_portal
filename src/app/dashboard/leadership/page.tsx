@@ -47,6 +47,7 @@ import { apiClient } from '@/lib/api';
 import { getChartPalette } from '@/lib/charts/palette';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { useTheme } from '@/providers/ThemeProviders';
+import { useAuthContext } from '@/providers/AuthProviders';
 import { withAuth } from '@/providers/withAuth';
 import type { AdminForm, LeadershipMember, LeadershipRole, LeadershipStatus, UpdateLeadershipRequest } from '@/lib/types';
 
@@ -123,6 +124,8 @@ function LeaderAvatar({ leader }: { leader: LeadershipMember }) {
 
 function LeadershipPage() {
   const { resolvedTheme } = useTheme();
+  const { user } = useAuthContext();
+  const isSuperAdmin = user?.role === 'super_admin';
   const chartPalette = useMemo(() => getChartPalette(resolvedTheme), [resolvedTheme]);
   const [leaders, setLeaders] = useState<LeadershipMember[]>([]);
   const [forms, setForms] = useState<AdminForm[]>([]);
@@ -302,14 +305,14 @@ function LeadershipPage() {
 
     setDeletingId(deleteTarget.id);
     try {
-      await apiClient.deleteLeadership(deleteTarget.id, reason);
-      toast.success('Delete request sent to super admin');
+      const result = await apiClient.deleteLeadership(deleteTarget.id, reason);
+      toast.success('deleted' in result ? 'Leadership profile deleted' : 'Delete request sent to super admin');
       setDeleteTarget(null);
       setDeleteReason('');
       await loadData();
     } catch (error) {
-      console.error('Failed to request leadership delete:', error);
-      toast.error(error instanceof Error ? error.message : 'Unable to request delete approval');
+      console.error('Failed to delete leadership member:', error);
+      toast.error(error instanceof Error ? error.message : 'Unable to delete this profile');
     } finally {
       setDeletingId(null);
     }
@@ -399,7 +402,7 @@ function LeadershipPage() {
                       <Button size="sm" icon={<CheckCircle2 className="h-4 w-4" />} loading={actionId === `approve:${item.id}`} onClick={() => void approveLeader(item)}>Approve</Button>
                     ) : null}
                     <Button size="sm" variant="outline" icon={<Edit3 className="h-4 w-4" />} loading={actionId === `edit:${item.id}`} onClick={() => setEditingLeader(item)}>Edit</Button>
-                    <Button size="sm" variant="outline" icon={<Trash2 className="h-4 w-4" />} loading={deletingId === item.id} onClick={() => openDeleteModal(item)}>Request Delete</Button>
+                    <Button size="sm" variant="outline" icon={<Trash2 className="h-4 w-4" />} loading={deletingId === item.id} onClick={() => openDeleteModal(item)}>{isSuperAdmin ? 'Delete' : 'Request Delete'}</Button>
                   </>
                 );
 
@@ -476,10 +479,12 @@ function LeadershipPage() {
             </div>
             <div>
               <h2 id="leadership-delete-title" className="text-lg font-black tracking-tight text-[var(--color-text-primary)]">
-                Request deletion
+                {isSuperAdmin ? 'Delete profile' : 'Request deletion'}
               </h2>
               <p className="mt-0.5 text-sm text-[var(--color-text-tertiary)]">
-                Sends a ticket for super admin review — nothing is removed yet.
+                {isSuperAdmin
+                  ? 'This removes the profile immediately — this cannot be undone.'
+                  : 'Sends a ticket for super admin review — nothing is removed yet.'}
               </p>
             </div>
           </div>
@@ -509,7 +514,9 @@ function LeadershipPage() {
           ) : null}
 
           <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-            This profile stays on record until a super admin approves this ticket. Be specific — your stated reason is what they&apos;ll base their decision on.
+            {isSuperAdmin
+              ? 'This profile is deleted the moment you confirm. Record why for the audit log.'
+              : "This profile stays on record until a super admin approves this ticket. Be specific — your stated reason is what they'll base their decision on."}
           </div>
 
           <label htmlFor="leadership-delete-reason" className="mt-5 block text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
@@ -528,7 +535,7 @@ function LeadershipPage() {
         <div className="flex justify-end gap-2 border-t border-[var(--color-border-secondary)] px-6 py-4">
           <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deletingId === deleteTarget?.id}>Cancel</Button>
           <Button variant="danger" loading={deletingId === deleteTarget?.id} icon={<Trash2 className="h-4 w-4" />} onClick={() => void submitDeleteRequest()}>
-            Send request
+            {isSuperAdmin ? 'Delete' : 'Send request'}
           </Button>
         </div>
       </Modal>
