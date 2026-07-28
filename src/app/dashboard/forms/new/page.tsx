@@ -36,9 +36,9 @@ import FormFieldOrderBuilder from '../FormFieldOrderBuilder';
 import { FieldEditor, type FieldDraft } from '../_shared/FieldEditor';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { createFormSchema } from '@/lib/validation/forms';
-import { normalizeFieldOptions, sanitizeFieldVisibility } from '@/lib/formFields';
+import { normalizeFieldOptions, sanitizeFieldVisibility } from '@/lib/forms/formFields';
 import type { CreateFormRequest, EventData, FormSettings } from '@/lib/types';
-import { normalizeOrderedFields } from '@/lib/formFieldOrdering';
+import { normalizeOrderedFields } from '@/lib/forms/formFieldOrdering';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';

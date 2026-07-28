@@ -24,7 +24,7 @@ import {
   isOptionFieldType,
   slugifyOptionValue,
   usesVisibilityList,
-} from '@/lib/formFields';
+} from '@/lib/forms/formFields';
 import type { FormField, FormFieldCondition, FormFieldOption, FormFieldType } from '@/lib/types';
 
 export type FieldDraft = Omit<FormField, 'id'>;

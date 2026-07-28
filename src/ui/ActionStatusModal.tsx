@@ -90,7 +90,7 @@ export function ActionStatusModal({
       size="lg"
       overlayClassName="z-[70] bg-slate-950/55"
       closeOnBackdrop={mode !== 'progress'}
-      className={`rounded-[28px] shadow-[0_32px_90px_rgba(15,23,42,0.26)] ${config.panelClassName}`}
+      className={`rounded-[28px] shadow-[var(--shadow-2xl)] ${config.panelClassName}`}
       labelledBy="action-status-modal-title"
     >
       <div className="relative overflow-hidden border-b border-[var(--color-border-secondary)] px-6 pb-6 pt-6">

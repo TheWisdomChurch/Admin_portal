@@ -15,7 +15,7 @@ export function Card({ children, className, title, actions, headerClassName, con
   return (
     <div
       className={cn(
-        'rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] shadow-sm transition-[border-color,box-shadow] duration-200',
+        'rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] shadow-[var(--shadow-sm)] transition-[border-color,box-shadow] duration-200',
         className
       )}
     >

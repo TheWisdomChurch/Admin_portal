@@ -111,8 +111,8 @@ export function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-[var(--color-border-primary)] bg-[var(--color-background-primary)]/95 text-[var(--color-text-primary)] shadow-sm backdrop-blur-xl">
-        <div className="flex min-h-[72px] items-center justify-between gap-4 px-4 py-3 md:px-6 lg:px-8">
+      <header className="sticky top-0 z-40 border-b border-[var(--color-border-primary)] bg-[var(--color-background-primary)]/95 text-[var(--color-text-primary)] shadow-[var(--shadow-sm)] backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[72px] w-full max-w-[var(--content-max-width)] items-center justify-between gap-4 px-4 py-3 md:px-6 lg:px-8">
           <div className="min-w-0 flex-1 pl-12 md:pl-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="truncate text-lg font-bold tracking-tight md:text-xl">{pageTitle}</h1>

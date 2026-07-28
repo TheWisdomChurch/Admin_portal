@@ -15,13 +15,13 @@ import { AlertModal } from '@/ui/AlertModal';
 import FormFieldOrderBuilder from '../../FormFieldOrderBuilder';
 import { FieldEditor, type FieldDraft } from '../../_shared/FieldEditor';
 import { apiClient } from '@/lib/api';
-import { ensureFieldOptions, isOptionFieldType, normalizeFieldOptions, sanitizeFieldVisibility } from '@/lib/formFields';
+import { ensureFieldOptions, isOptionFieldType, normalizeFieldOptions, sanitizeFieldVisibility } from '@/lib/forms/formFields';
 
-import { normalizeOrderedFields } from '@/lib/formFieldOrdering';
+import { normalizeOrderedFields } from '@/lib/forms/formFieldOrdering';
 import {
   buildFormSubmissionsReportPath,
   copyFormSubmissionsReportLink,
-} from '@/lib/formSubmissions';
+} from '@/lib/forms/formSubmissions';
 import { buildPublicFormUrl } from '@/lib/utils';
 import {
   extractServerFieldErrors,

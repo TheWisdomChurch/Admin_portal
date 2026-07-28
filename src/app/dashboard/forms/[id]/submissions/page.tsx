@@ -31,7 +31,7 @@ import {
   filterFormSubmissions,
   resolveFormSubmissionEmail,
   resolveFormSubmissionName,
-} from '@/lib/formSubmissions';
+} from '@/lib/forms/formSubmissions';
 import type { AdminForm, FormSubmission, FormSubmissionDailyStat } from '@/lib/types';
 import { useTheme } from '@/providers/ThemeProviders';
 import { withAuth } from '@/providers/withAuth';

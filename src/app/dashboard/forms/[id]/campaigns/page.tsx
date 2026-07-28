@@ -23,8 +23,8 @@ import {
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
-import { buildCampaignCalendarEventFromEventData, buildCampaignDefaultCopy } from '@/lib/formCampaignCalendar';
-import { sendFormCampaign, type SendFormCampaignResult } from '@/lib/formCampaigns';
+import { buildCampaignCalendarEventFromEventData, buildCampaignDefaultCopy } from '@/lib/forms/formCampaignCalendar';
+import { sendFormCampaign, type SendFormCampaignResult } from '@/lib/forms/formCampaigns';
 import {
   ACCEPTED_EMAIL_IMAGE_TYPES,
   DEFAULT_EMAIL_ACCENT_COLOR,
@@ -43,14 +43,14 @@ import {
   type FormEmailCalendarEvent,
   type FormEmailResourceLink,
   type StoredFormEmailTemplateMeta,
-} from '@/lib/formEmailTemplates';
+} from '@/lib/forms/formEmailTemplates';
 import {
   exportFormCampaignRecipientsCsv,
   extractFormCampaignRecipients,
   fetchAllFormSubmissions,
   resolveFormSubmissionEmail,
   type FormCampaignRecipient,
-} from '@/lib/formSubmissions';
+} from '@/lib/forms/formSubmissions';
 import { getServerErrorMessage } from '@/lib/serverValidation';
 import type { AdminForm, EmailTemplate, EventData, FormSubmission, UpdateFormRequest } from '@/lib/types';
 import { withAuth } from '@/providers/withAuth';

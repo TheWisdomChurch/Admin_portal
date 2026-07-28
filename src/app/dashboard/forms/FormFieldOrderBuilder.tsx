@@ -8,7 +8,7 @@ import {
   moveOrderedFieldByKey,
   normalizeOrderedFields,
   type OrderedFormField,
-} from '@/lib/formFieldOrdering';
+} from '@/lib/forms/formFieldOrdering';
 
 type FormFieldOrderBuilderProps<T extends OrderedFormField> = {
   fields: T[];

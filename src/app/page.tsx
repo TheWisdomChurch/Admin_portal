@@ -74,7 +74,7 @@ export default async function HomePage() {
   return (
     <div className="public-form-light min-h-screen overflow-x-clip bg-[#f7f6f2] text-[#171511]">
       <header className="relative z-40 border-b border-black/[0.07] bg-[#f7f6f2]/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-[72px] w-full max-w-[1480px] items-center justify-between px-4 min-[390px]:px-5 sm:h-20 sm:px-8 lg:px-12">
+        <div className="mx-auto flex h-[72px] w-full max-w-[var(--content-max-width)] items-center justify-between px-4 min-[390px]:px-5 sm:h-20 sm:px-8 lg:px-12">
           <Link href="/" className="flex min-w-0 items-center gap-3" aria-label="Wisdom Church administration home">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-black/10 bg-[#171511] shadow-sm">
               <Image src="/OIP.webp" alt="" width={44} height={44} priority className="h-full w-full object-cover" />
@@ -107,7 +107,7 @@ export default async function HomePage() {
             <div className="absolute -left-48 bottom-0 h-[420px] w-[420px] rounded-full bg-[#8da5a0]/10 blur-3xl" />
           </div>
 
-          <div className="relative mx-auto grid min-h-[calc(100svh-72px)] w-full max-w-[1480px] items-center gap-12 px-4 py-12 min-[390px]:px-5 sm:min-h-[calc(100svh-80px)] sm:px-8 sm:py-20 lg:grid-cols-[minmax(0,0.88fr)_minmax(560px,1.12fr)] lg:gap-14 lg:px-12 lg:py-24 xl:grid-cols-[minmax(0,0.9fr)_minmax(620px,1.1fr)]">
+          <div className="relative mx-auto grid min-h-[calc(100svh-72px)] w-full max-w-[var(--content-max-width)] items-center gap-12 px-4 py-12 min-[390px]:px-5 sm:min-h-[calc(100svh-80px)] sm:px-8 sm:py-20 lg:grid-cols-[minmax(0,0.88fr)_minmax(560px,1.12fr)] lg:gap-14 lg:px-12 lg:py-24 xl:grid-cols-[minmax(0,0.9fr)_minmax(620px,1.1fr)]">
             <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-[#b88920]/25 bg-white/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[#785711] shadow-sm">
                 <Sparkles className="h-3.5 w-3.5" /> Ministry operations, elevated
@@ -215,7 +215,7 @@ export default async function HomePage() {
         </section>
 
         <section className="border-y border-black/[0.07] bg-white">
-          <div className="mx-auto grid w-full max-w-[1480px] gap-px bg-black/[0.07] sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mx-auto grid w-full max-w-[var(--content-max-width)] gap-px bg-black/[0.07] sm:grid-cols-2 lg:grid-cols-4">
             {capabilities.map(({ icon: Icon, title, description }) => (
               <article key={title} className="bg-white px-6 py-9 sm:px-8 lg:py-11">
                 <Icon className="h-5 w-5 text-[#9b741b]" />
@@ -227,7 +227,7 @@ export default async function HomePage() {
         </section>
 
         <section className="bg-[#171511] px-5 py-16 text-white sm:px-8 lg:px-12 lg:py-20">
-          <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="mx-auto flex w-full max-w-[var(--content-max-width)] flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-2xl">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-[#d7b85f]">Authorized personnel only</p>
               <h2 className="mt-4 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Ready to continue the work?</h2>
@@ -242,7 +242,7 @@ export default async function HomePage() {
       </main>
 
       <footer className="border-t border-black/[0.07] bg-[#f7f6f2] px-5 py-7 sm:px-8 lg:px-12">
-        <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-4 text-xs text-[#746f65] sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto flex w-full max-w-[var(--content-max-width)] flex-col gap-4 text-xs text-[#746f65] sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} The Wisdom Church. Internal administration system.</p>
           <div className="flex items-center gap-5"><Link href="/login" className="font-bold hover:text-[#171511]">Sign in</Link><Link href="/register" className="font-bold hover:text-[#171511]">Request access</Link></div>
         </div>

@@ -140,7 +140,16 @@
   --radius-shell: 32px;
   --radius-pill: 999px;
 
-  --content-max-width: 112rem;
+  /* Fixed px, not rem: `html` below sets a 14px root font-size, so a rem
+     value here would silently resolve smaller than it reads (112rem read as
+     "1792px at 16px root" actually renders at 1568px — the same trap
+     Tailwind's own rem-based max-w-* utilities fall into on this site).
+     This is the shared cap for wide/dense layouts — the dashboard shell and
+     the homepage. */
+  --content-max-width: 1600px;
+  /* Narrower cap for focused, single-purpose layouts (login/register) where
+     --content-max-width would leave the form looking lost in whitespace. */
+  --content-max-width-narrow: 1152px;
 
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
@@ -263,6 +272,9 @@ body {
 }
 
 html {
+  /* Any token defined in rem (not px) elsewhere in this file resolves
+     against this, not the browser's 16px default — keep that in mind before
+     adding new rem-based sizing tokens. */
   font-size: 14px;
 }
 

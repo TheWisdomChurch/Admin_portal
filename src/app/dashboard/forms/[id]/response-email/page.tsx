@@ -23,7 +23,7 @@ import {
   parseTemplateMeta,
   stripTemplateMeta,
   toEmailPreview,
-} from '@/lib/formEmailTemplates';
+} from '@/lib/forms/formEmailTemplates';
 import type { AdminForm, EmailTemplate, UpdateFormRequest } from '@/lib/types';
 import { getServerErrorMessage } from '@/lib/serverValidation';
 

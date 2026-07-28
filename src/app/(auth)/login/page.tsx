@@ -452,7 +452,7 @@ function LoginInner() {
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--brand-500)]/50 to-transparent" aria-hidden="true" />
 
-      <header className="relative mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
+      <header className="relative mx-auto flex w-full max-w-[var(--content-max-width-narrow)] items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full border-2 border-white bg-black shadow-sm">
             <Image
@@ -488,7 +488,7 @@ function LoginInner() {
         </nav>
       </header>
 
-      <main className="relative mx-auto grid w-full max-w-6xl gap-8 px-4 pb-12 pt-6 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
+      <main className="relative mx-auto grid w-full max-w-[var(--content-max-width-narrow)] gap-8 px-4 pb-12 pt-6 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
         <motion.section
           className="flex flex-col justify-center gap-6"
           variants={heroContainer}
@@ -539,7 +539,7 @@ function LoginInner() {
         </motion.section>
 
         <motion.div variants={cardEntrance} initial="hidden" animate="show" className="lg:border-l lg:border-[var(--color-border-secondary)] lg:pl-8">
-        <Card className="auth-glass w-full max-w-md p-8 shadow-xl shadow-black/5">
+        <Card className="auth-glass w-full max-w-md p-8 shadow-[var(--shadow-lg)]">
           <div className="mb-8 text-center">
             <div className="relative inline-flex items-center justify-center w-14 h-14 rounded-2xl border border-[var(--brand-500)]/30 bg-[var(--color-background-tertiary)] mb-4">
               <div className="absolute -inset-1.5 rounded-2xl border border-[var(--brand-500)]/15" aria-hidden="true" />

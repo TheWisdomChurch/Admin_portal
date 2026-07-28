@@ -16,7 +16,7 @@ export function Panel({ children, className, padded = true }: PanelProps) {
   return (
     <div
       className={cn(
-        'rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] shadow-sm',
+        'rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] shadow-[var(--shadow-sm)]',
         padded && 'p-5',
         className
       )}

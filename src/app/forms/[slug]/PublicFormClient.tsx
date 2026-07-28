@@ -798,7 +798,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8 lg:py-14">
-        <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_18px_50px_-36px_rgba(28,25,23,0.45)] sm:rounded-3xl">
+        <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[var(--shadow-xl)] sm:rounded-3xl">
           <div className={displayBannerUrl ? 'grid lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.78fr)]' : ''}>
             <div className="flex flex-col justify-center p-5 sm:p-8 lg:p-10 xl:p-12">
               <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between lg:flex-col">
@@ -824,7 +824,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
 
         <div className={showDetailsColumn && layoutMode === 'split' ? 'mt-6 grid items-start gap-6 lg:mt-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-8' : 'mx-auto mt-6 max-w-3xl space-y-6 lg:mt-8'}>
           <div className={showDetailsColumn && layoutMode === 'split' ? 'min-w-0' : ''}>
-            <Card className="rounded-2xl border-stone-200 bg-white p-5 shadow-[0_18px_50px_-40px_rgba(28,25,23,0.45)] sm:rounded-3xl sm:p-8" contentClassName="p-0">
+            <Card className="rounded-2xl border-stone-200 bg-white p-5 shadow-[var(--shadow-xl)] sm:rounded-3xl sm:p-8" contentClassName="p-0">
               <div className="mb-7 border-b border-stone-200 pb-5">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-700">Your information</p>
                 <h2 className="mt-2 text-xl font-bold text-stone-950 sm:text-2xl">Please complete the form below</h2>

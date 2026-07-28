@@ -1,5 +1,5 @@
 import type { FormEmailCalendarEvent } from './formEmailTemplates';
-import type { EventData } from './types';
+import type { EventData } from '../types';
 
 type EventCalendarSource = Pick<
   EventData,

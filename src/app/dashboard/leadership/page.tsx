@@ -332,7 +332,7 @@ function LeadershipPage() {
         }
       />
 
-      <section className="relative overflow-hidden rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] p-6 text-[var(--color-text-inverse)] shadow-2xl shadow-black/25 ring-1 ring-inset ring-[var(--color-text-inverse)]/10 sm:p-8">
+      <section className="relative overflow-hidden rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] p-6 text-[var(--color-text-inverse)] shadow-[var(--shadow-md)] ring-1 ring-inset ring-[var(--color-text-inverse)]/10 sm:p-8">
         {/* Decorative glow + watermark — purely visual, no semantic content. */}
         <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[var(--brand-500)]/25 blur-[100px]" aria-hidden="true" />
         <div className="pointer-events-none absolute -bottom-24 left-1/4 h-64 w-64 rounded-full bg-[var(--brand-600)]/10 blur-[100px]" aria-hidden="true" />
@@ -572,7 +572,7 @@ function LeaderProfile({
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-[var(--color-text-primary)]/55 backdrop-blur-sm">
       <button type="button" aria-label="Close leadership profile" className="absolute inset-0 cursor-default" onClick={onClose} />
-      <aside className="relative h-full w-full max-w-xl overflow-y-auto bg-[var(--color-background-primary)] shadow-2xl animate-in slide-in-from-right duration-300">
+      <aside className="relative h-full w-full max-w-xl overflow-y-auto bg-[var(--color-background-primary)] shadow-[var(--shadow-2xl)] animate-in slide-in-from-right duration-300">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/95 px-5 py-4 backdrop-blur">
           <div><p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Leadership profile</p><h2 className="text-lg font-black text-[var(--color-text-primary)]">{leaderName(leader)}</h2></div>
           <div className="flex items-center gap-2">
@@ -657,7 +657,7 @@ function LeaderEditModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--color-text-primary)]/55 p-4 backdrop-blur-sm">
       <button type="button" aria-label="Close leadership editor" className="absolute inset-0 cursor-default" onClick={onClose} />
-      <form onSubmit={submit} className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-[var(--color-background-primary)] p-5 shadow-2xl">
+      <form onSubmit={submit} className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-[var(--color-background-primary)] p-5 shadow-[var(--shadow-2xl)]">
         <div className="flex flex-col gap-3 border-b border-[var(--color-border-secondary)] pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Edit leadership profile</p>
