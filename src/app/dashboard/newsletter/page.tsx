@@ -11,6 +11,7 @@ import type { EventData, Subscriber, SubscriberSummary } from '@/lib/types';
 import { Button } from '@/ui/Button';
 import { Badge } from '@/ui/Badge';
 import { Input } from '@/ui/Input';
+import { Select } from '@/ui/Select';
 import { Panel } from '@/ui/Panel';
 import { StatCard } from '@/ui/StatCard';
 
@@ -123,17 +124,17 @@ function NewsletterPage() {
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Type</label>
-              <select className="h-11 w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 text-sm text-[var(--color-text-primary)]" value={type} onChange={(e) => setType(e.target.value as 'update' | 'event')}>
+              <Select value={type} onChange={(e) => setType(e.target.value as 'update' | 'event')}>
                 <option value="update">General update</option>
                 <option value="event">Event update</option>
-              </select>
+              </Select>
             </div>
             <div>
               <label className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Event</label>
-              <select className="h-11 w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 text-sm text-[var(--color-text-primary)] disabled:opacity-50" value={eventId} onChange={(e) => setEventId(e.target.value)} disabled={type !== 'event'}>
+              <Select value={eventId} onChange={(e) => setEventId(e.target.value)} disabled={type !== 'event'}>
                 <option value="">Select event</option>
                 {events.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -155,11 +156,11 @@ function NewsletterPage() {
         <Panel>
           <h2 className="text-lg font-black text-[var(--color-text-primary)]">Subscribers</h2>
           <div className="mt-4 grid gap-2 sm:grid-cols-[160px_minmax(0,1fr)]">
-            <select className="h-11 rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 text-sm text-[var(--color-text-primary)]" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as 'all' | 'active' | 'unsubscribed'); setPage(1); }}>
+            <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as 'all' | 'active' | 'unsubscribed'); setPage(1); }}>
               <option value="all">All statuses</option>
               <option value="active">Active</option>
               <option value="unsubscribed">Unsubscribed</option>
-            </select>
+            </Select>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
               <Input className="pl-9" placeholder="Search by email or name" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />

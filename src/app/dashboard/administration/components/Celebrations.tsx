@@ -16,6 +16,7 @@ import {
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { EmptyState } from '@/ui/EmptyState';
+import { Select } from '@/ui/Select';
 import { Input } from '@/ui/Input';
 import { Modal } from '@/ui/Modal';
 import { SectionCard } from '@/ui/SectionCard';
@@ -214,16 +215,16 @@ export function TrackerModal({
                     <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input className="pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search people..." aria-label="Search celebrations" />
                   </div>
-                  <select value={segment} onChange={(event) => setSegment(event.target.value as SegmentKey | 'all')} className="h-11 rounded-xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 text-sm font-semibold text-[var(--color-text-primary)]" aria-label="Filter by people group">
+                  <Select value={segment} onChange={(event) => setSegment(event.target.value as SegmentKey | 'all')} aria-label="Filter by people group">
                     <option value="all">All groups</option>
                     <option value="leadership">Leadership</option>
                     <option value="members">Members</option>
                     <option value="workforce">Workforce</option>
-                  </select>
-                  <select value={month} onChange={(event) => setMonth(event.target.value === 'all' ? 'all' : Number(event.target.value))} className="h-11 rounded-xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 text-sm font-semibold text-[var(--color-text-primary)]" aria-label="Filter by month">
+                  </Select>
+                  <Select value={month} onChange={(event) => setMonth(event.target.value === 'all' ? 'all' : Number(event.target.value))} aria-label="Filter by month">
                     <option value="all">All months</option>
                     {MONTH_NAMES.map((name, index) => <option key={name} value={index + 1}>{name}</option>)}
-                  </select>
+                  </Select>
                 </div>
               </div>
 

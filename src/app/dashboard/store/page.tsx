@@ -489,7 +489,7 @@ function StoreDashboardPage() {
                 <option value="active">Active</option>
                 <option value="low">Low stock</option>
                 <option value="inactive">Inactive</option>
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -563,14 +563,13 @@ function StoreDashboardPage() {
           </div>
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-            <select
-              className="h-10 rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 text-sm text-[var(--color-text-primary)]"
+            <Select
               value={orderStatusFilter}
               onChange={(e) => setOrderStatusFilter((e.target.value as StoreOrderStatus) || '')}
             >
               <option value="">All statuses</option>
               {ORDER_STATUSES.map((status) => <option key={status} value={status}>{titleCase(status)}</option>)}
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -590,14 +589,13 @@ function StoreDashboardPage() {
                 <InfoTile label="Items" value={String(order.items?.length || 0)} />
                 <div>
                   <p className="mb-1 text-xs font-black uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Update</p>
-                  <select
-                    className="h-11 w-full rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 text-sm font-semibold text-[var(--color-text-primary)]"
+                  <Select
                     value={order.status}
                     onChange={(e) => updateOrderStatus(order.orderId, e.target.value as StoreOrderStatus)}
                     disabled={orderBusy === order.orderId}
                   >
                     {ORDER_STATUSES.map((status) => <option key={status} value={status}>{titleCase(status)}</option>)}
-                  </select>
+                  </Select>
                 </div>
               </div>
             </article>
