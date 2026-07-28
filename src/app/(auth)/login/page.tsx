@@ -490,7 +490,7 @@ function LoginInner() {
         </nav>
       </Container>
 
-      <main className="relative mx-auto grid w-full max-w-[var(--content-max-width-narrow)] gap-8 px-4 pb-12 pt-6 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
+      <Container as="main" size="narrow" className="relative grid gap-8 pb-12 pt-6 lg:grid-cols-[1.05fr_0.95fr]">
         <motion.section
           className="flex flex-col justify-center gap-6"
           variants={heroContainer}
@@ -738,7 +738,7 @@ function LoginInner() {
           </div>
         </Card>
         </motion.div>
-      </main>
+      </Container>
 
       <Footer />
 
