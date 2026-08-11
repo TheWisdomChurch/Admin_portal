@@ -4,38 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  BarChart3,
-  BellRing,
-  Calendar,
-  CalendarCheck,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  ClipboardList,
-  Crown,
-  FileText,
-  HandCoins,
-  HandHeart,
-  HeartHandshake,
-  IdCard,
-  LayoutDashboard,
-  LogOut,
-  Mail,
-  MapPin,
-  Menu,
-  MessageCircle,
-  MessageSquare,
-  Palette,
-  Settings,
-  Shield,
-  ShoppingBag,
-  UserCog,
-  UserPlus,
-  Users,
-  Video,
-  X,
-} from 'lucide-react';
+import { BarChart3, BellRing, Calendar, CalendarCheck, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Crown, FileText, HandCoins, HandHeart, HeartHandshake, IdCard, LayoutDashboard, LogOut, Mail, MapPin, Menu, MessageCircle, MessageSquare, Palette, Settings, Shield, ShoppingBag, UserCog, UserPlus, Users, Video, X } from 'lucide-react';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { LogoutModal } from '@/ui/LogoutModal';
@@ -58,61 +27,239 @@ type NavGroup = {
 const superConsole: NavGroup = {
   title: 'Super admin',
   items: [
-    { href: '/dashboard/super', label: 'Command Center', description: 'Authority overview', icon: Crown, roles: ['super_admin'] },
-    { href: '/dashboard/super/approvals', label: 'Approvals', description: 'Fast review queue', icon: CheckCircle2, roles: ['super_admin'] },
-    { href: '/dashboard/super/requests', label: 'Requests', description: 'Approval queue', icon: BellRing, roles: ['super_admin'] },
-    { href: '/dashboard/super/analytics', label: 'Analytics', description: 'Leadership metrics', icon: BarChart3, roles: ['super_admin'] },
-    { href: '/dashboard/super/reports', label: 'Reports', description: 'Exports and summaries', icon: FileText, roles: ['super_admin'] },
-    { href: '/dashboard/super/notifications', label: 'Notifications', description: 'Super-admin alerts', icon: BellRing, roles: ['super_admin'] },
-    { href: '/dashboard/super/users', label: 'Admin Users', description: 'Portal access & roles', icon: UserCog, roles: ['super_admin'] },
-    { href: '/dashboard/design-system', label: 'Design System', description: 'Tokens & component reference', icon: Palette, roles: ['super_admin'] },
+    {
+      href: '/dashboard/super',
+      label: 'Command Center',
+      description: 'Authority overview',
+      icon: Crown,
+      roles: ['super_admin'],
+    },
+    {
+      href: '/dashboard/super/approvals',
+      label: 'Approvals',
+      description: 'Fast review queue',
+      icon: CheckCircle2,
+      roles: ['super_admin'],
+    },
+    {
+      href: '/dashboard/super/requests',
+      label: 'Requests',
+      description: 'Approval queue',
+      icon: BellRing,
+      roles: ['super_admin'],
+    },
+    {
+      href: '/dashboard/super/analytics',
+      label: 'Analytics',
+      description: 'Leadership metrics',
+      icon: BarChart3,
+      roles: ['super_admin'],
+    },
+    {
+      href: '/dashboard/super/reports',
+      label: 'Reports',
+      description: 'Exports and summaries',
+      icon: FileText,
+      roles: ['super_admin'],
+    },
+    {
+      href: '/dashboard/super/notifications',
+      label: 'Notifications',
+      description: 'Super-admin alerts',
+      icon: BellRing,
+      roles: ['super_admin'],
+    },
+    {
+      href: '/dashboard/super/users',
+      label: 'Admin Users',
+      description: 'Portal access & roles',
+      icon: UserCog,
+      roles: ['super_admin'],
+    },
+    {
+      href: '/dashboard/design-system',
+      label: 'Design System',
+      description: 'Tokens & component reference',
+      icon: Palette,
+      roles: ['super_admin'],
+    },
   ],
 };
 
 const operations: NavGroup = {
   title: 'Operations',
   items: [
-    { href: '/dashboard', label: 'Dashboard', description: 'Admin overview', icon: LayoutDashboard },
-    { href: '/dashboard/administration', label: 'Administration', description: 'People intelligence', icon: Shield },
-    { href: '/dashboard/leadership', label: 'Leadership', description: 'Leadership profiles', icon: IdCard },
-    { href: '/dashboard/workforce', label: 'Workforce', description: 'Serving teams', icon: ClipboardList },
-    { href: '/dashboard/new-members', label: 'New Members', description: 'Membership intake', icon: UserPlus },
-    { href: '/dashboard/members', label: 'Members', description: 'Member records', icon: Users },
-    { href: '/dashboard/cell-groups', label: 'Cell Groups', description: 'Small groups & meetings', icon: MapPin },
-    { href: '/dashboard/ministries', label: 'Ministries', description: 'Teams & leaders', icon: HeartHandshake },
-    { href: '/dashboard/attendance', label: 'Attendance', description: 'Service check-ins', icon: CalendarCheck },
-    { href: '/dashboard/giving', label: 'Giving', description: 'Transactions & totals', icon: HandCoins },
-    { href: '/dashboard/analytics', label: 'Analytics', description: 'Trends and engagement', icon: BarChart3 },
+    {
+      href: '/dashboard',
+      label: 'Dashboard',
+      description: 'Admin overview',
+      icon: LayoutDashboard,
+    },
+    {
+      href: '/dashboard/administration',
+      label: 'Administration',
+      description: 'People intelligence',
+      icon: Shield,
+    },
+    {
+      href: '/dashboard/leadership',
+      label: 'Leadership',
+      description: 'Leadership profiles',
+      icon: IdCard,
+    },
+    {
+      href: '/dashboard/workforce',
+      label: 'Workforce',
+      description: 'Serving teams',
+      icon: ClipboardList,
+    },
+    {
+      href: '/dashboard/new-members',
+      label: 'New Members',
+      description: 'Membership intake',
+      icon: UserPlus,
+    },
+    {
+      href: '/dashboard/members',
+      label: 'Members',
+      description: 'Member records',
+      icon: Users,
+    },
+    {
+      href: '/dashboard/cell-groups',
+      label: 'Cell Groups',
+      description: 'Small groups & meetings',
+      icon: MapPin,
+    },
+    {
+      href: '/dashboard/ministries',
+      label: 'Ministries',
+      description: 'Teams & leaders',
+      icon: HeartHandshake,
+    },
+    {
+      href: '/dashboard/attendance',
+      label: 'Attendance',
+      description: 'Service check-ins',
+      icon: CalendarCheck,
+    },
+    {
+      href: '/dashboard/visits',
+      label: 'Planned Visits',
+      description: 'Welcome and follow-up pipeline',
+      icon: Calendar,
+    },
+    {
+      href: '/dashboard/giving',
+      label: 'Giving',
+      description: 'Transactions & totals',
+      icon: HandCoins,
+    },
+    {
+      href: '/dashboard/analytics',
+      label: 'Analytics',
+      description: 'Trends and engagement',
+      icon: BarChart3,
+    },
   ],
 };
 
 const ministries: NavGroup = {
   title: 'Ministry content',
   items: [
-    { href: '/dashboard/event', label: 'Events', description: 'Programs and banners', icon: Calendar },
-    { href: '/dashboard/reels', label: 'Reels', description: 'Video content', icon: Video },
-    { href: '/dashboard/testimonials', label: 'Testimonials', description: 'Stories and approvals', icon: MessageSquare },
-    { href: '/dashboard/forms', label: 'Forms', description: 'Registration workflows', icon: ClipboardList },
-    { href: '/dashboard/registrations', label: 'Registrations', description: 'Form & event sign-ups', icon: CheckCircle2 },
-    { href: '/dashboard/store', label: 'Store', description: 'Products and orders', icon: ShoppingBag },
-    { href: '/dashboard/content', label: 'Website Content', description: 'Public content blocks', icon: FileText },
+    {
+      href: '/dashboard/event',
+      label: 'Events',
+      description: 'Programs and banners',
+      icon: Calendar,
+    },
+    {
+      href: '/dashboard/reels',
+      label: 'Reels',
+      description: 'Video content',
+      icon: Video,
+    },
+    {
+      href: '/dashboard/testimonials',
+      label: 'Testimonials',
+      description: 'Stories and approvals',
+      icon: MessageSquare,
+    },
+    {
+      href: '/dashboard/forms',
+      label: 'Forms',
+      description: 'Registration workflows',
+      icon: ClipboardList,
+    },
+    {
+      href: '/dashboard/registrations',
+      label: 'Registrations',
+      description: 'Form & event sign-ups',
+      icon: CheckCircle2,
+    },
+    {
+      href: '/dashboard/store',
+      label: 'Store',
+      description: 'Products and orders',
+      icon: ShoppingBag,
+    },
+    {
+      href: '/dashboard/content',
+      label: 'Website Content',
+      description: 'Public content blocks',
+      icon: FileText,
+    },
   ],
 };
 
 const communication: NavGroup = {
   title: 'Communication',
   items: [
-    { href: '/dashboard/email-marketing', label: 'Email Marketing', description: 'Targeted campaigns', icon: Mail },
-    { href: '/dashboard/newsletter', label: 'Newsletter', description: 'Subscribers and sends', icon: Mail },
-    { href: '/dashboard/notifications', label: 'Notifications', description: 'Inbox and alerts', icon: BellRing },
-    { href: '/dashboard/prayer-requests', label: 'Prayer Requests', description: 'Pastoral triage and follow-up', icon: HandHeart, roles: ['super_admin'] },
-    { href: '/dashboard/contact-messages', label: 'Contact Messages', description: 'Public contact form inbox', icon: MessageCircle },
-    { href: '/dashboard/settings', label: 'Settings', description: 'Portal preferences', icon: Settings },
+    {
+      href: '/dashboard/email-marketing',
+      label: 'Email Marketing',
+      description: 'Targeted campaigns',
+      icon: Mail,
+    },
+    {
+      href: '/dashboard/newsletter',
+      label: 'Newsletter',
+      description: 'Subscribers and sends',
+      icon: Mail,
+    },
+    {
+      href: '/dashboard/notifications',
+      label: 'Notifications',
+      description: 'Inbox and alerts',
+      icon: BellRing,
+    },
+    {
+      href: '/dashboard/prayer-requests',
+      label: 'Prayer Requests',
+      description: 'Pastoral triage and follow-up',
+      icon: HandHeart,
+      roles: ['super_admin'],
+    },
+    {
+      href: '/dashboard/contact-messages',
+      label: 'Contact Messages',
+      description: 'Public contact form inbox',
+      icon: MessageCircle,
+    },
+    {
+      href: '/dashboard/settings',
+      label: 'Settings',
+      description: 'Portal preferences',
+      icon: Settings,
+    },
   ],
 };
 
 function normalizeRole(role?: string | null): 'admin' | 'super_admin' | '' {
-  const normalized = (role || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
+  const normalized = (role || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[-\s]+/g, '_');
   if (normalized === 'admin' || normalized === 'super_admin') return normalized;
   return '';
 }
@@ -207,29 +354,17 @@ export function Sidebar() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setIsMobileOpen(true)}
-        className="fixed left-4 top-4 z-50 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] shadow-lg md:hidden"
-        aria-label="Open navigation menu"
-      >
+      <button type="button" onClick={() => setIsMobileOpen(true)} className="fixed left-4 top-4 z-50 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] shadow-lg md:hidden" aria-label="Open navigation menu">
         <Menu className="h-5 w-5 text-[var(--color-text-primary)]" />
       </button>
 
-      {isMobileOpen && (
-        <button
-          type="button"
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
-          onClick={() => setIsMobileOpen(false)}
-          aria-label="Close navigation backdrop"
-        />
-      )}
+      {isMobileOpen && <button type="button" className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden" onClick={() => setIsMobileOpen(false)} aria-label="Close navigation backdrop" />}
 
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] shadow-2xl transition-all duration-300 ${
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        }`}
-        style={{ width: isCollapsed && !isMobileOpen ? 'var(--sidebar-width-collapsed)' : 'var(--sidebar-width-expanded)' }}
+        className={`fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] shadow-2xl transition-all duration-300 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+        style={{
+          width: isCollapsed && !isMobileOpen ? 'var(--sidebar-width-collapsed)' : 'var(--sidebar-width-expanded)',
+        }}
       >
         <div className="border-b border-[var(--color-border-secondary)] p-4">
           <div className="flex items-center justify-between gap-3">
@@ -240,19 +375,12 @@ export function Sidebar() {
               {showLabels && (
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold tracking-tight text-[var(--color-text-primary)]">Wisdom Church</p>
-                  <p className="truncate text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">
-                    {isSuperAdmin ? 'Authority Console' : 'Admin Portal'}
-                  </p>
+                  <p className="truncate text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">{isSuperAdmin ? 'Authority Console' : 'Admin Portal'}</p>
                 </div>
               )}
             </Link>
 
-            <button
-              type="button"
-              onClick={() => setIsMobileOpen(false)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-hover)] md:hidden"
-              aria-label="Close navigation menu"
-            >
+            <button type="button" onClick={() => setIsMobileOpen(false)} className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-hover)] md:hidden" aria-label="Close navigation menu">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -260,9 +388,7 @@ export function Sidebar() {
           {showLabels && auth.user && (
             <div className="mt-4 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-700 text-sm font-bold text-white shadow-sm">
-                  {userInitials}
-                </div>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-700 text-sm font-bold text-white shadow-sm">{userInitials}</div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{fullName}</p>
                   <p className="truncate text-xs text-[var(--color-text-tertiary)]">{auth.user.email}</p>
@@ -282,43 +408,20 @@ export function Sidebar() {
         <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
           {groups.map((group) => (
             <div key={group.title}>
-              {showLabels && (
-                <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">
-                  {group.title}
-                </p>
-              )}
+              {showLabels && <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">{group.title}</p>}
               <div className="space-y-1">
                 {group.items.map((item) => {
                   const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                   const Icon = item.icon;
                   return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      title={item.label}
-                      aria-current={active ? 'page' : undefined}
-                      onClick={() => setIsMobileOpen(false)}
-                      className={`group relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-all ${
-                        showLabels ? '' : 'justify-center'
-                      } ${
-                        active
-                          ? 'bg-[var(--color-accent-primary)] text-[var(--color-text-onprimary)] shadow-md'
-                          : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)]'
-                      }`}
-                    >
-                      <span
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                          active ? 'bg-white/15 text-current' : 'bg-[var(--color-background-tertiary)] text-current'
-                        }`}
-                      >
+                    <Link key={item.href} href={item.href} title={item.label} aria-current={active ? 'page' : undefined} onClick={() => setIsMobileOpen(false)} className={`group relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-all ${showLabels ? '' : 'justify-center'} ${active ? 'bg-[var(--color-accent-primary)] text-[var(--color-text-onprimary)] shadow-md' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)]'}`}>
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active ? 'bg-white/15 text-current' : 'bg-[var(--color-background-tertiary)] text-current'}`}>
                         <Icon className="h-4 w-4" />
                       </span>
                       {showLabels && (
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-semibold">{item.label}</span>
-                          <span className={`block truncate text-xs ${active ? 'text-white/75' : 'text-[var(--color-text-tertiary)]'}`}>
-                            {item.description}
-                          </span>
+                          <span className={`block truncate text-xs ${active ? 'text-white/75' : 'text-[var(--color-text-tertiary)]'}`}>{item.description}</span>
                         </span>
                       )}
                     </Link>
@@ -331,23 +434,10 @@ export function Sidebar() {
 
         <div className="border-t border-[var(--color-border-secondary)] p-3">
           <div className={`flex items-center gap-2 ${showLabels ? 'justify-between' : 'justify-center'}`}>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsCollapsed((value) => !value)}
-              className="hidden md:inline-flex"
-              aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={() => setIsCollapsed((value) => !value)} className="hidden md:inline-flex" aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
               {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowLogoutModal(true)}
-              className={showLabels ? 'flex-1' : ''}
-            >
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowLogoutModal(true)} className={showLabels ? 'flex-1' : ''}>
               <LogOut className="h-4 w-4" />
               {showLabels && <span className="ml-2">Logout</span>}
             </Button>
@@ -355,13 +445,7 @@ export function Sidebar() {
         </div>
       </aside>
 
-      <LogoutModal
-        isOpen={showLogoutModal}
-        onClose={() => setShowLogoutModal(false)}
-        onConfirm={confirmLogout}
-        userName={fullName}
-        loading={isLoggingOut}
-      />
+      <LogoutModal isOpen={showLogoutModal} onClose={() => setShowLogoutModal(false)} onConfirm={confirmLogout} userName={fullName} loading={isLoggingOut} />
     </>
   );
 }

@@ -53,9 +53,7 @@ export interface LoginChallenge {
   email: string;
 }
 
-export type LoginResult =
-  | { user: User; otp_required?: false }
-  | LoginChallenge;
+export type LoginResult = { user: User; otp_required?: false } | LoginChallenge;
 
 export interface AuthSecurityProfile {
   preferredMfaMethod: MFAMethod;
@@ -127,13 +125,7 @@ export interface SimplePaginatedResponse<T> {
    EVENTS
 ========================= */
 
-export type EventCategory =
-  | 'Outreach'
-  | 'Conference'
-  | 'Workshop'
-  | 'Prayer'
-  | 'Revival'
-  | 'Summit';
+export type EventCategory = 'Outreach' | 'Conference' | 'Workshop' | 'Prayer' | 'Revival' | 'Summit';
 
 export type EventStatus = 'upcoming' | 'ongoing' | 'completed' | 'happening' | 'past';
 
@@ -541,22 +533,7 @@ export interface VerifyOTPResponse {
    FORMS
 ========================= */
 
-export type FormFieldType =
-  | 'text'
-  | 'email'
-  | 'tel'
-  | 'textarea'
-  | 'select'
-  | 'checkbox'
-  | 'radio'
-  | 'number'
-  | 'date'
-  | 'image'
-  | 'file'
-  | 'upload'
-  | 'video'
-  | 'audio'
-  | 'document';
+export type FormFieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'number' | 'date' | 'image' | 'file' | 'upload' | 'video' | 'audio' | 'document';
 
 export interface FormFieldOption {
   label: string;
@@ -726,13 +703,7 @@ export type UploadedFormAssetValue = {
   status?: string;
 };
 
-export type SubmittedFormValue =
-  | string
-  | boolean
-  | number
-  | string[]
-  | UploadedFormAssetValue
-  | null;
+export type SubmittedFormValue = string | boolean | number | string[] | UploadedFormAssetValue | null;
 export interface SubmitFormRequest {
   values: Record<string, SubmittedFormValue>;
 }
@@ -1187,12 +1158,7 @@ export interface WorkforceStatsResponse {
    LEADERSHIP
 ========================= */
 
-export type LeadershipRole =
-  | 'senior_pastor'
-  | 'associate_pastor'
-  | 'deacon'
-  | 'deaconess'
-  | 'reverend';
+export type LeadershipRole = 'senior_pastor' | 'associate_pastor' | 'deacon' | 'deaconess' | 'reverend';
 
 export type LeadershipStatus = 'pending' | 'awaiting_super_admin_approval' | 'approved' | 'declined';
 
@@ -1305,12 +1271,7 @@ export interface ApprovalRequestsTimeline {
    STORE
 ========================= */
 
-export type StoreOrderStatus =
-  | 'pending'
-  | 'processing'
-  | 'shipped'
-  | 'delivered'
-  | 'cancelled';
+export type StoreOrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
 
 export interface StoreProductAdmin {
   id: number;
@@ -1616,6 +1577,44 @@ export interface ContactMessageAdmin {
   metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+}
+
+export type VisitStatus = 'new' | 'confirmed' | 'contacted' | 'arrived' | 'no_show' | 'completed' | 'cancelled';
+
+export interface VisitRequestAdmin {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  serviceDate: string;
+  serviceAt: string;
+  serviceType: string;
+  attendance: number;
+  notes?: string;
+  reminderOptIn: boolean;
+  status: VisitStatus;
+  assignedTo?: string;
+  nextFollowUpAt?: string;
+  followUpNotifiedAt?: string;
+  lastContactAt?: string;
+  confirmationSentAt?: string;
+  reminderSentAt?: string;
+  checkedInAt?: string;
+  sourceChannel: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VisitActivityAdmin {
+  id: string;
+  visitId: string;
+  eventType: string;
+  fromStatus?: string;
+  toStatus?: string;
+  actorId?: string;
+  notes?: string;
+  createdAt: string;
 }
 
 /* =========================

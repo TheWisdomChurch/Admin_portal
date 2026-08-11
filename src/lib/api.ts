@@ -1,113 +1,5 @@
-import type {
-  User,
-  LoginCredentials,
-  RegisterData,
-  ApiResponse,
-  MessageResponse,
-  PaginatedResponse,
-  SimplePaginatedResponse,
-  Testimonial,
-  CreateTestimonialData,
-  UpdateTestimonialData,
-  EventData,
-  EventPayload,
-  DashboardAnalytics,
-  DecisionInsights,
-  AdminAuditLog,
-  SecurityOverview,
-  ReelData,
-  CreateReelData,
-  AdminForm,
-  CreateFormRequest,
-  UpdateFormRequest,
-  PublicFormPayload,
-  SubmitFormRequest,
-  FormSubmission,
-  FormStatsResponse,
-  FormStatus,
-  FormSubmissionDailyStat,
-  Subscriber,
-  SubscribeRequest,
-  UnsubscribeRequest,
-  SendNotificationRequest,
-  SendNotificationResult,
-  SubscriberSummary,
-  SendOTPRequest,
-  VerifyOTPRequest,
-  SendOTPResponse,
-  VerifyOTPResponse,
-  WorkforceMember,
-  CreateWorkforceRequest,
-  UpdateWorkforceRequest,
-  WorkforceStatsResponse,
-  Member,
-  MemberStatsResponse,
-  NewMemberDashboardResponse,
-  NewMemberSubmission,
-  NewMemberWorkflow,
-  NewMemberContact,
-  NewMemberWorkflowHistory,
-  CreateMemberRequest,
-  UpdateMemberRequest,
-  LeadershipMember,
-  CreateLeadershipRequest,
-  UpdateLeadershipRequest,
-  PasswordResetRequestPayload,
-  PasswordResetConfirmPayload,
-  LoginResult,
-  LoginChallenge,
-  AuthSecurityProfile,
-  ChangePasswordData,
-  HealthCheckResponse,
-  UploadPresignRequest,
-  UploadPresignResponse,
-  UploadAssetData,
-  UploadImageResponse,
-  EmailTemplate,
-  CreateEmailTemplateRequest,
-  UpdateEmailTemplateRequest,
-  AdminNotificationInbox,
-  ApprovalRequest,
-  ApprovalRequestsTimeline,
-  TOTPSetupResponse,
-  FormReportLinkPayload,
-  AdminEmailMarketingFormItem,
-  AdminEmailMarketingSummary,
-  AdminEmailAudiencePreview,
-  SendAdminComposeEmailRequest,
-  SendAdminComposeEmailResponse,
-  AdminEmailDeliveryHistoryItem,
-  HomepageAdContent,
-  ConfessionPopupContent,
-  PastoralCareRequestAdmin,
-  PrayerRequestAdmin,
-  PrayerRequestStatus,
-  GivingIntentAdmin,
-  StoreProductAdmin,
-  UpsertStoreProductRequest,
-  StoreOrdersPaginated,
-  StoreOrderAdmin,
-  StoreOrderStatus,
-  MFAMethod,
-  ServiceTypeAdmin,
-  AttendanceSessionAdmin,
-  AttendanceRecordAdmin,
-  CreateSessionRequest,
-  CheckInRequest,
-  CellGroupAdmin,
-  CellGroupMemberAdmin,
-  CellGroupMeetingAdmin,
-  MinistryAdmin,
-  MinistryMemberAdmin,
-  MinistryStructure,
-  MinistryWorkforceRole,
-  GivingTransactionAdmin,
-  GivingMonthlySummaryRow,
-  ContactMessageAdmin,
-  AdminUserAdmin,
-  CreateAdminUserRequest,
-  UpdateAdminUserRequest,
-} from './types';
+import type { User, LoginCredentials, RegisterData, ApiResponse, MessageResponse, PaginatedResponse, SimplePaginatedResponse, Testimonial, CreateTestimonialData, UpdateTestimonialData, EventData, EventPayload, DashboardAnalytics, DecisionInsights, AdminAuditLog, SecurityOverview, ReelData, CreateReelData, AdminForm, CreateFormRequest, UpdateFormRequest, PublicFormPayload, SubmitFormRequest, FormSubmission, FormStatsResponse, FormStatus, FormSubmissionDailyStat, Subscriber, SubscribeRequest, UnsubscribeRequest, SendNotificationRequest, SendNotificationResult, SubscriberSummary, SendOTPRequest, VerifyOTPRequest, SendOTPResponse, VerifyOTPResponse, WorkforceMember, CreateWorkforceRequest, UpdateWorkforceRequest, WorkforceStatsResponse, Member, MemberStatsResponse, NewMemberDashboardResponse, NewMemberSubmission, NewMemberWorkflow, NewMemberContact, NewMemberWorkflowHistory, CreateMemberRequest, UpdateMemberRequest, LeadershipMember, CreateLeadershipRequest, UpdateLeadershipRequest, PasswordResetRequestPayload, PasswordResetConfirmPayload, LoginResult, LoginChallenge, AuthSecurityProfile, ChangePasswordData, HealthCheckResponse, UploadPresignRequest, UploadPresignResponse, UploadAssetData, UploadImageResponse, EmailTemplate, CreateEmailTemplateRequest, UpdateEmailTemplateRequest, AdminNotificationInbox, ApprovalRequest, ApprovalRequestsTimeline, TOTPSetupResponse, FormReportLinkPayload, AdminEmailMarketingFormItem, AdminEmailMarketingSummary, AdminEmailAudiencePreview, SendAdminComposeEmailRequest, SendAdminComposeEmailResponse, AdminEmailDeliveryHistoryItem, HomepageAdContent, ConfessionPopupContent, PastoralCareRequestAdmin, PrayerRequestAdmin, PrayerRequestStatus, GivingIntentAdmin, StoreProductAdmin, UpsertStoreProductRequest, StoreOrdersPaginated, StoreOrderAdmin, StoreOrderStatus, MFAMethod, ServiceTypeAdmin, AttendanceSessionAdmin, AttendanceRecordAdmin, CreateSessionRequest, CheckInRequest, CellGroupAdmin, CellGroupMemberAdmin, CellGroupMeetingAdmin, MinistryAdmin, MinistryMemberAdmin, MinistryStructure, MinistryWorkforceRole, GivingTransactionAdmin, GivingMonthlySummaryRow, ContactMessageAdmin, VisitRequestAdmin, VisitStatus, AdminUserAdmin, CreateAdminUserRequest, UpdateAdminUserRequest } from './types';
+import type { VisitActivityAdmin } from './types';
 
 /* ============================================================================
    API CLIENT CONFIG
@@ -115,9 +7,7 @@ import type {
 
 function normalizeOrigin(raw?: string | null): string {
   if (!raw || !raw.trim()) {
-    throw new Error(
-      '[api] Missing API origin. Set NEXT_PUBLIC_API_URL or NEXT_PUBLIC_BACKEND_URL, or use the same-origin proxy.'
-    );
+    throw new Error('[api] Missing API origin. Set NEXT_PUBLIC_API_URL or NEXT_PUBLIC_BACKEND_URL, or use the same-origin proxy.');
   }
 
   let base = raw.trim().replace(/\/+$/, '');
@@ -134,29 +24,15 @@ function requireOrigin(origin: string, message: string): string {
 
 const USE_API_PROXY = process.env.NEXT_PUBLIC_API_PROXY !== 'false';
 
-const RAW_API_ORIGIN =
-  process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL;
+const RAW_API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL;
 const API_ORIGIN = RAW_API_ORIGIN ? normalizeOrigin(RAW_API_ORIGIN) : '';
 
-const API_V1_BASE_URL = USE_API_PROXY
-  ? '/api/v1'
-  : `${requireOrigin(
-      API_ORIGIN,
-      '[api] Missing NEXT_PUBLIC_API_URL or NEXT_PUBLIC_BACKEND_URL while NEXT_PUBLIC_API_PROXY=false.'
-    )}/api/v1`;
+const API_V1_BASE_URL = USE_API_PROXY ? '/api/v1' : `${requireOrigin(API_ORIGIN, '[api] Missing NEXT_PUBLIC_API_URL or NEXT_PUBLIC_BACKEND_URL while NEXT_PUBLIC_API_PROXY=false.')}/api/v1`;
 
-const RAW_UPLOAD_ORIGIN =
-  process.env.NEXT_PUBLIC_UPLOAD_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  process.env.NEXT_PUBLIC_BACKEND_URL;
+const RAW_UPLOAD_ORIGIN = process.env.NEXT_PUBLIC_UPLOAD_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL;
 const UPLOAD_ORIGIN = RAW_UPLOAD_ORIGIN ? normalizeOrigin(RAW_UPLOAD_ORIGIN) : '';
 
-const UPLOAD_V1_BASE_URL = USE_API_PROXY
-  ? '/api/v1'
-  : `${requireOrigin(
-      UPLOAD_ORIGIN,
-      '[api] Missing NEXT_PUBLIC_UPLOAD_BASE_URL or API origin while NEXT_PUBLIC_API_PROXY=false.'
-    )}/api/v1`;
+const UPLOAD_V1_BASE_URL = USE_API_PROXY ? '/api/v1' : `${requireOrigin(UPLOAD_ORIGIN, '[api] Missing NEXT_PUBLIC_UPLOAD_BASE_URL or API origin while NEXT_PUBLIC_API_PROXY=false.')}/api/v1`;
 
 let authUserCache: User | null = null;
 let authRememberPreference = false;
@@ -179,12 +55,7 @@ export interface ApiError extends Error {
   validationErrors?: ValidationFieldError[];
 }
 
-export function createApiError(
-  message: string,
-  statusCode?: number,
-  details?: unknown,
-  validationErrors?: ValidationFieldError[]
-): ApiError {
+export function createApiError(message: string, statusCode?: number, details?: unknown, validationErrors?: ValidationFieldError[]): ApiError {
   const error = new Error(message) as ApiError;
   error.statusCode = statusCode;
   error.details = details;
@@ -222,14 +93,7 @@ export function isSlugConflictError(err: unknown): boolean {
   const statusCode = getApiStatusCode(err);
   const message = getErrorMessage(err).toLowerCase();
 
-  return (
-    statusCode === 409 ||
-    ((statusCode === 400 || statusCode === 422) && message.includes('slug')) ||
-    message.includes('slug already') ||
-    message.includes('slug already in use') ||
-    message.includes('duplicate slug') ||
-    message.includes('already exists')
-  );
+  return statusCode === 409 || ((statusCode === 400 || statusCode === 422) && message.includes('slug')) || message.includes('slug already') || message.includes('slug already in use') || message.includes('duplicate slug') || message.includes('already exists');
 }
 
 export function isMfaRequiredError(err: unknown): boolean {
@@ -240,16 +104,9 @@ export function isMfaRequiredError(err: unknown): boolean {
   if (!isRecord(details)) return false;
 
   const message = getMessageFromPayload(details)?.toLowerCase() ?? '';
-  const code =
-    typeof details.code === 'string' ? details.code.toLowerCase() : '';
+  const code = typeof details.code === 'string' ? details.code.toLowerCase() : '';
 
-  return (
-    code.includes('mfa') ||
-    message.includes('mfa') ||
-    message.includes('multi-factor') ||
-    message.includes('totp') ||
-    message.includes('2fa')
-  );
+  return code.includes('mfa') || message.includes('mfa') || message.includes('multi-factor') || message.includes('totp') || message.includes('2fa');
 }
 
 export function isPermissionDeniedError(err: unknown): boolean {
@@ -258,14 +115,8 @@ export function isPermissionDeniedError(err: unknown): boolean {
   return !isMfaRequiredError(err);
 }
 
-export function isValidationError(
-  err: unknown
-): err is ApiError & { validationErrors: ValidationFieldError[] } {
-  return (
-    isApiError(err) &&
-    Array.isArray((err as ApiError).validationErrors) &&
-    (err as ApiError).validationErrors!.length > 0
-  );
+export function isValidationError(err: unknown): err is ApiError & { validationErrors: ValidationFieldError[] } {
+  return isApiError(err) && Array.isArray((err as ApiError).validationErrors) && (err as ApiError).validationErrors!.length > 0;
 }
 
 export function mapValidationErrors(err: unknown): Record<string, string> | null {
@@ -302,14 +153,8 @@ function extractValidationErrors(payload: unknown): ValidationFieldError[] | und
     if (!isRecord(item)) continue;
 
     const field = typeof item.field === 'string' ? item.field.trim() : '';
-    const message =
-      typeof item.message === 'string' && item.message.trim()
-        ? item.message.trim()
-        : 'Invalid value';
-    const code =
-      typeof item.code === 'string' && item.code.trim()
-        ? item.code.trim()
-        : undefined;
+    const message = typeof item.message === 'string' && item.message.trim() ? item.message.trim() : 'Invalid value';
+    const code = typeof item.code === 'string' && item.code.trim() ? item.code.trim() : undefined;
 
     normalized.push({ field, code, message });
   }
@@ -366,13 +211,7 @@ function shouldAttachCsrf(endpoint: string, method: string): boolean {
   const normalized = endpoint.trim();
   if (!normalized.startsWith('/')) return false;
 
-  const unauthenticatedPrefixes = [
-    '/auth/login',
-    '/auth/register',
-    '/auth/password-reset',
-    '/auth/otp',
-    '/otp/',
-  ];
+  const unauthenticatedPrefixes = ['/auth/login', '/auth/register', '/auth/password-reset', '/auth/otp', '/otp/'];
 
   if (unauthenticatedPrefixes.some((prefix) => normalized.startsWith(prefix))) {
     return false;
@@ -386,9 +225,7 @@ function resetCsrfCache(): void {
   csrfHeaderNameCache = 'X-CSRF-Token';
 }
 
-async function requestCsrfFromUrl(
-  url: string
-): Promise<{ token: string; header: string } | null> {
+async function requestCsrfFromUrl(url: string): Promise<{ token: string; header: string } | null> {
   const response = await fetch(url, {
     method: 'GET',
     credentials: 'include',
@@ -401,15 +238,10 @@ async function requestCsrfFromUrl(
     if (response.status === 401 || response.status === 403 || response.status === 404) {
       return null;
     }
-    const payload =
-      (await safeParseJson(response)) ?? {
-        message: await response.text().catch(() => ''),
-      };
-    throw createApiError(
-      getMessageFromPayload(payload) || 'Failed to initialize CSRF token',
-      response.status,
-      payload
-    );
+    const payload = (await safeParseJson(response)) ?? {
+      message: await response.text().catch(() => ''),
+    };
+    throw createApiError(getMessageFromPayload(payload) || 'Failed to initialize CSRF token', response.status, payload);
   }
 
   const payload = (await safeParseJson(response)) as unknown;
@@ -417,18 +249,13 @@ async function requestCsrfFromUrl(
   if (!isRecord(data)) return null;
 
   const token = typeof data.token === 'string' ? data.token.trim() : '';
-  const header =
-    typeof data.header === 'string' && data.header.trim()
-      ? data.header.trim()
-      : 'X-CSRF-Token';
+  const header = typeof data.header === 'string' && data.header.trim() ? data.header.trim() : 'X-CSRF-Token';
 
   if (!token) return null;
   return { token, header };
 }
 
-async function ensureCsrfToken(
-  forceRefresh = false
-): Promise<{ token: string; header: string }> {
+async function ensureCsrfToken(forceRefresh = false): Promise<{ token: string; header: string }> {
   if (!forceRefresh && csrfTokenCache) {
     return { token: csrfTokenCache, header: csrfHeaderNameCache };
   }
@@ -462,18 +289,8 @@ function normalizeDailyStats(payload: unknown): FormSubmissionDailyStat[] {
 
   rows.forEach((row) => {
     if (!isRecord(row)) return;
-    const dateRaw =
-      row.date ??
-      row.day ??
-      row.label ??
-      row.createdAt ??
-      row.created_at;
-    const countRaw =
-      row.count ??
-      row.total ??
-      row.value ??
-      row.registrations ??
-      row.submissions;
+    const dateRaw = row.date ?? row.day ?? row.label ?? row.createdAt ?? row.created_at;
+    const countRaw = row.count ?? row.total ?? row.value ?? row.registrations ?? row.submissions;
 
     const date = typeof dateRaw === 'string' ? dateRaw : dateRaw ? String(dateRaw) : '';
     const count = typeof countRaw === 'number' ? countRaw : Number(countRaw);
@@ -509,9 +326,7 @@ function normalizeAbsoluteHttpUrl(value: unknown): string | undefined {
   }
 }
 
-function sanitizeScalarVisibilityValue(
-  value: unknown
-): string | number | boolean | undefined {
+function sanitizeScalarVisibilityValue(value: unknown): string | number | boolean | undefined {
   if (typeof value === 'string') {
     const trimmed = value.trim();
     return trimmed ? trimmed : undefined;
@@ -535,27 +350,13 @@ function sanitizeVisibilityShape(value: unknown): Record<string, unknown> | unde
   const rules = rawRules.reduce<Record<string, unknown>[]>((acc, rule) => {
     if (!rule || typeof rule !== 'object') return acc;
     const rawRule = rule as Record<string, unknown>;
-    const fieldKey =
-      typeof rawRule.fieldKey === 'string' ? rawRule.fieldKey.trim() : '';
+    const fieldKey = typeof rawRule.fieldKey === 'string' ? rawRule.fieldKey.trim() : '';
     if (!fieldKey) return acc;
 
-    const operator =
-      rawRule.operator === 'equals' ||
-      rawRule.operator === 'not_equals' ||
-      rawRule.operator === 'in' ||
-      rawRule.operator === 'not_in'
-        ? rawRule.operator
-        : 'equals';
+    const operator = rawRule.operator === 'equals' || rawRule.operator === 'not_equals' || rawRule.operator === 'in' || rawRule.operator === 'not_in' ? rawRule.operator : 'equals';
 
     if (operator === 'in' || operator === 'not_in') {
-      const values = Array.isArray(rawRule.values)
-        ? rawRule.values
-            .map((item) => sanitizeScalarVisibilityValue(item))
-            .filter(
-              (item): item is string | number | boolean =>
-                typeof item !== 'undefined'
-            )
-        : [];
+      const values = Array.isArray(rawRule.values) ? rawRule.values.map((item) => sanitizeScalarVisibilityValue(item)).filter((item): item is string | number | boolean => typeof item !== 'undefined') : [];
       if (values.length === 0) return acc;
       acc.push({ fieldKey, operator, values });
       return acc;
@@ -575,9 +376,7 @@ function sanitizeVisibilityShape(value: unknown): Record<string, unknown> | unde
   };
 }
 
-function sanitizeFormPayload<T extends CreateFormRequest | UpdateFormRequest>(
-  payload: T
-): T {
+function sanitizeFormPayload<T extends CreateFormRequest | UpdateFormRequest>(payload: T): T {
   if (!payload || typeof payload !== 'object') return payload;
 
   const nextPayload = { ...payload } as T;
@@ -586,9 +385,7 @@ function sanitizeFormPayload<T extends CreateFormRequest | UpdateFormRequest>(
     const nextSettings = { ...(payload.settings as Record<string, unknown>) };
 
     if ('responseEmailTemplateUrl' in nextSettings) {
-      const normalized = normalizeAbsoluteHttpUrl(
-        nextSettings.responseEmailTemplateUrl
-      );
+      const normalized = normalizeAbsoluteHttpUrl(nextSettings.responseEmailTemplateUrl);
       if (normalized) {
         nextSettings.responseEmailTemplateUrl = normalized;
       } else {
@@ -597,9 +394,7 @@ function sanitizeFormPayload<T extends CreateFormRequest | UpdateFormRequest>(
     }
 
     if ('campaignEmailTemplateUrl' in nextSettings) {
-      const normalized = normalizeAbsoluteHttpUrl(
-        nextSettings.campaignEmailTemplateUrl
-      );
+      const normalized = normalizeAbsoluteHttpUrl(nextSettings.campaignEmailTemplateUrl);
       if (normalized) {
         nextSettings.campaignEmailTemplateUrl = normalized;
       } else {
@@ -607,55 +402,46 @@ function sanitizeFormPayload<T extends CreateFormRequest | UpdateFormRequest>(
       }
     }
 
-    (nextPayload as T & { settings?: typeof nextSettings }).settings =
-      nextSettings;
+    (nextPayload as T & { settings?: typeof nextSettings }).settings = nextSettings;
   }
 
   if ('fields' in payload && Array.isArray(payload.fields)) {
-    (nextPayload as unknown as { fields?: unknown[] }).fields = payload.fields.map(
-      (field) => {
-        if (!field || typeof field !== 'object') return field;
-        const rawField = field as Record<string, unknown>;
-        const nextField: Record<string, unknown> = {
-          id: typeof rawField.id === 'string' ? rawField.id : undefined,
-          key: typeof rawField.key === 'string' ? rawField.key.trim() : undefined,
-          label: typeof rawField.label === 'string' ? rawField.label.trim() : rawField.label,
-          type: rawField.type,
-          required: rawField.required === true,
-          order: typeof rawField.order === 'number' ? rawField.order : undefined,
-        };
+    (nextPayload as unknown as { fields?: unknown[] }).fields = payload.fields.map((field) => {
+      if (!field || typeof field !== 'object') return field;
+      const rawField = field as Record<string, unknown>;
+      const nextField: Record<string, unknown> = {
+        id: typeof rawField.id === 'string' ? rawField.id : undefined,
+        key: typeof rawField.key === 'string' ? rawField.key.trim() : undefined,
+        label: typeof rawField.label === 'string' ? rawField.label.trim() : rawField.label,
+        type: rawField.type,
+        required: rawField.required === true,
+        order: typeof rawField.order === 'number' ? rawField.order : undefined,
+      };
 
-        if (Array.isArray(rawField.options)) {
-          nextField.options = rawField.options
-            .map((option) => {
-              if (!option || typeof option !== 'object') return null;
-              const rawOption = option as Record<string, unknown>;
-              return {
-                label:
-                  typeof rawOption.label === 'string'
-                    ? rawOption.label.trim()
-                    : rawOption.label,
-                value:
-                  typeof rawOption.value === 'string'
-                    ? rawOption.value.trim()
-                    : rawOption.value,
-              };
-            })
-            .filter(Boolean);
-        }
-
-        if (rawField.validation && typeof rawField.validation === 'object') {
-          nextField.validation = rawField.validation;
-        }
-
-        const nextVisibility = sanitizeVisibilityShape(rawField.visibility);
-        if (nextVisibility) {
-          nextField.visibility = nextVisibility;
-        }
-
-        return nextField;
+      if (Array.isArray(rawField.options)) {
+        nextField.options = rawField.options
+          .map((option) => {
+            if (!option || typeof option !== 'object') return null;
+            const rawOption = option as Record<string, unknown>;
+            return {
+              label: typeof rawOption.label === 'string' ? rawOption.label.trim() : rawOption.label,
+              value: typeof rawOption.value === 'string' ? rawOption.value.trim() : rawOption.value,
+            };
+          })
+          .filter(Boolean);
       }
-    );
+
+      if (rawField.validation && typeof rawField.validation === 'object') {
+        nextField.validation = rawField.validation;
+      }
+
+      const nextVisibility = sanitizeVisibilityShape(rawField.visibility);
+      if (nextVisibility) {
+        nextField.visibility = nextVisibility;
+      }
+
+      return nextField;
+    });
   }
 
   return nextPayload;
@@ -702,14 +488,10 @@ async function safeParseJson(response: Response): Promise<unknown | null> {
   }
 }
 
-export async function apiFetch<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
+export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const proxyUrl = API_V1_BASE_URL + endpoint;
   const method = String(options.method || 'GET').toUpperCase();
-  const isFormData =
-    typeof FormData !== 'undefined' && options.body instanceof FormData;
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
 
   const headers: Record<string, string> = {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
@@ -722,10 +504,7 @@ export async function apiFetch<T>(
     headers[csrf.header] = csrf.token;
   }
 
-  const execute = async (
-    url: string,
-    requestHeaders: HeadersInit
-  ): Promise<{ response: Response; payload: unknown }> => {
+  const execute = async (url: string, requestHeaders: HeadersInit): Promise<{ response: Response; payload: unknown }> => {
     const response = await fetch(url, {
       ...options,
       headers: requestHeaders,
@@ -734,8 +513,9 @@ export async function apiFetch<T>(
     });
 
     const json = await safeParseJson(response);
-    const payload: unknown =
-      json ?? { message: await response.text().catch(() => '') };
+    const payload: unknown = json ?? {
+      message: await response.text().catch(() => ''),
+    };
 
     return { response, payload };
   };
@@ -756,12 +536,7 @@ export async function apiFetch<T>(
         window.location.href = '/login?reason=session_expired';
       }
       const validationErrors = extractValidationErrors(payload);
-      throw createApiError(
-        getMessageFromPayload(payload) || 'Request failed',
-        response.status,
-        payload,
-        validationErrors
-      );
+      throw createApiError(getMessageFromPayload(payload) || 'Request failed', response.status, payload, validationErrors);
     }
 
     return payload as T;
@@ -771,14 +546,10 @@ export async function apiFetch<T>(
   }
 }
 
-async function uploadFetch<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function uploadFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const proxyUrl = `${UPLOAD_V1_BASE_URL}${endpoint}`;
   const method = String(options.method || 'GET').toUpperCase();
-  const isFormData =
-    typeof FormData !== 'undefined' && options.body instanceof FormData;
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
 
   const baseHeaders: Record<string, string> = {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
@@ -787,10 +558,7 @@ async function uploadFetch<T>(
 
   const csrfRequired = shouldAttachCsrf(endpoint, method);
 
-  const execute = async (
-    url: string,
-    requestHeaders: Record<string, string>
-  ): Promise<{ response: Response; payload: unknown }> => {
+  const execute = async (url: string, requestHeaders: Record<string, string>): Promise<{ response: Response; payload: unknown }> => {
     const response = await fetch(url, {
       ...options,
       headers: requestHeaders,
@@ -799,8 +567,9 @@ async function uploadFetch<T>(
     });
 
     const json = await safeParseJson(response);
-    const payload: unknown =
-      json ?? { message: await response.text().catch(() => '') };
+    const payload: unknown = json ?? {
+      message: await response.text().catch(() => ''),
+    };
 
     return { response, payload };
   };
@@ -827,12 +596,7 @@ async function uploadFetch<T>(
     if (!response.ok) {
       const validationErrors = extractValidationErrors(payload);
 
-      throw createApiError(
-        getMessageFromPayload(payload) || 'Request failed',
-        response.status,
-        payload,
-        validationErrors
-      );
+      throw createApiError(getMessageFromPayload(payload) || 'Request failed', response.status, payload, validationErrors);
     }
 
     return payload as T;
@@ -842,18 +606,12 @@ async function uploadFetch<T>(
   }
 }
 
-function appendOptionalFormValue(
-  form: FormData,
-  key: string,
-  value?: string | null
-): void {
+function appendOptionalFormValue(form: FormData, key: string, value?: string | null): void {
   const normalized = typeof value === 'string' ? value.trim() : '';
   if (normalized) form.append(key, normalized);
 }
 
-function normalizeUploadImageResponse(
-  raw: UploadImageResponse
-): UploadImageResponse {
+function normalizeUploadImageResponse(raw: UploadImageResponse): UploadImageResponse {
   const record = raw as UploadImageResponse & {
     public_url?: string;
     object_key?: string;
@@ -867,11 +625,7 @@ function normalizeUploadImageResponse(
   const objectKey = record.objectKey || record.object_key || record.key;
 
   if (!publicUrl) {
-    throw createApiError(
-      'Upload succeeded but no public URL was returned',
-      400,
-      raw
-    );
+    throw createApiError('Upload succeeded but no public URL was returned', 400, raw);
   }
 
   return {
@@ -887,13 +641,8 @@ function normalizeUploadImageResponse(
   };
 }
 
-function unwrapUploadImageResponse(
-  res: unknown,
-  errorMessage: string
-): UploadImageResponse {
-  return normalizeUploadImageResponse(
-    unwrapData<UploadImageResponse>(res, errorMessage)
-  );
+function unwrapUploadImageResponse(res: unknown, errorMessage: string): UploadImageResponse {
+  return normalizeUploadImageResponse(unwrapData<UploadImageResponse>(res, errorMessage));
 }
 
 const DATA_URL_VALUE_RE = /^data:([^;,]+);base64,/i;
@@ -928,22 +677,12 @@ function assertNoDataUrlValues(value: unknown): void {
   const path = findDataUrlValuePath(value);
 
   if (path) {
-    throw createApiError(
-      `Upload did not finish for ${path}. Please reselect the file and submit again.`,
-      400,
-      { field: path, code: 'data_url_upload_not_completed' }
-    );
+    throw createApiError(`Upload did not finish for ${path}. Please reselect the file and submit again.`, 400, { field: path, code: 'data_url_upload_not_completed' });
   }
 }
 
-async function rootFetch<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const url = `${requireOrigin(
-    API_ORIGIN,
-    '[api] Missing NEXT_PUBLIC_API_URL or NEXT_PUBLIC_BACKEND_URL for direct root requests.'
-  )}${endpoint}`;
+async function rootFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const url = `${requireOrigin(API_ORIGIN, '[api] Missing NEXT_PUBLIC_API_URL or NEXT_PUBLIC_BACKEND_URL for direct root requests.')}${endpoint}`;
 
   const headers: HeadersInit = { ...(options.headers || {}) };
 
@@ -956,17 +695,13 @@ async function rootFetch<T>(
     });
 
     const json = await safeParseJson(response);
-    const payload: unknown =
-      json ?? { message: await response.text().catch(() => '') };
+    const payload: unknown = json ?? {
+      message: await response.text().catch(() => ''),
+    };
 
     if (!response.ok) {
       const validationErrors = extractValidationErrors(payload);
-      throw createApiError(
-        getMessageFromPayload(payload) || 'Request failed',
-        response.status,
-        payload,
-        validationErrors
-      );
+      throw createApiError(getMessageFromPayload(payload) || 'Request failed', response.status, payload, validationErrors);
     }
 
     return payload as T;
@@ -991,10 +726,7 @@ function isMFAMethod(value: unknown): value is MFAMethod {
 }
 
 function extractUser(response: unknown): User {
-  const data =
-    isRecord(response) && 'data' in response
-      ? (response as { data?: unknown }).data
-      : response;
+  const data = isRecord(response) && 'data' in response ? (response as { data?: unknown }).data : response;
 
   if (isRecord(data) && isUserLike((data as { user?: unknown }).user)) {
     return (data as { user: User }).user;
@@ -1015,24 +747,14 @@ function unwrapData<T>(res: unknown, errorMessage: string): T {
   throw createApiError(errorMessage, 400, res);
 }
 
-function parseApprovalType(
-  value: unknown
-): ApprovalRequest['type'] {
-  if (
-    value === 'testimonial' ||
-    value === 'event' ||
-    value === 'admin_user' ||
-    value === 'leadership_delete' ||
-    value === 'workforce_delete'
-  ) {
+function parseApprovalType(value: unknown): ApprovalRequest['type'] {
+  if (value === 'testimonial' || value === 'event' || value === 'admin_user' || value === 'leadership_delete' || value === 'workforce_delete') {
     return value;
   }
   return 'admin_user';
 }
 
-function parseApprovalStatus(
-  value: unknown
-): ApprovalRequest['status'] {
+function parseApprovalStatus(value: unknown): ApprovalRequest['status'] {
   if (value === 'pending' || value === 'approved' || value === 'rejected' || value === 'deleted') {
     return value;
   }
@@ -1053,9 +775,7 @@ function normalizePrayerRequest(value: Record<string, unknown>): PrayerRequestAd
     request: str(value.request),
     category: optionalStr(value.category),
     isAnonymous: Boolean(value.is_anonymous ?? value.isAnonymous),
-    status: (['pending', 'praying', 'answered', 'closed'] as const).includes(status as PrayerRequestStatus)
-      ? (status as PrayerRequestStatus)
-      : 'pending',
+    status: (['pending', 'praying', 'answered', 'closed'] as const).includes(status as PrayerRequestStatus) ? (status as PrayerRequestStatus) : 'pending',
     assignedTo: optionalStr(value.assigned_to ?? value.assignedTo),
     notes: optionalStr(value.notes),
     createdAt: str(value.created_at ?? value.createdAt),
@@ -1068,12 +788,8 @@ function normalizeApprovalRequest(value: unknown): ApprovalRequest | null {
   const id = typeof value.id === 'string' ? value.id : '';
   if (!id) return null;
 
-  const createdAt =
-    typeof value.createdAt === 'string'
-      ? value.createdAt
-      : new Date().toISOString();
-  const updatedAt =
-    typeof value.updatedAt === 'string' ? value.updatedAt : createdAt;
+  const createdAt = typeof value.createdAt === 'string' ? value.createdAt : new Date().toISOString();
+  const updatedAt = typeof value.updatedAt === 'string' ? value.updatedAt : createdAt;
 
   return {
     id,
@@ -1081,32 +797,14 @@ function normalizeApprovalRequest(value: unknown): ApprovalRequest | null {
     type: parseApprovalType(value.type),
     status: parseApprovalStatus(value.status),
     entityId: typeof value.entityId === 'string' ? value.entityId : undefined,
-    entityLabel:
-      typeof value.entityLabel === 'string' ? value.entityLabel : undefined,
-    requestedById:
-      typeof value.requestedById === 'string'
-        ? value.requestedById
-        : undefined,
-    requestedByName:
-      typeof value.requestedByName === 'string'
-        ? value.requestedByName
-        : undefined,
-    requestedByEmail:
-      typeof value.requestedByEmail === 'string'
-        ? value.requestedByEmail
-        : undefined,
-    approvedById:
-      typeof value.approvedById === 'string' ? value.approvedById : undefined,
-    approvedByName:
-      typeof value.approvedByName === 'string'
-        ? value.approvedByName
-        : undefined,
-    approvedByEmail:
-      typeof value.approvedByEmail === 'string'
-        ? value.approvedByEmail
-        : undefined,
-    approvedAt:
-      typeof value.approvedAt === 'string' ? value.approvedAt : undefined,
+    entityLabel: typeof value.entityLabel === 'string' ? value.entityLabel : undefined,
+    requestedById: typeof value.requestedById === 'string' ? value.requestedById : undefined,
+    requestedByName: typeof value.requestedByName === 'string' ? value.requestedByName : undefined,
+    requestedByEmail: typeof value.requestedByEmail === 'string' ? value.requestedByEmail : undefined,
+    approvedById: typeof value.approvedById === 'string' ? value.approvedById : undefined,
+    approvedByName: typeof value.approvedByName === 'string' ? value.approvedByName : undefined,
+    approvedByEmail: typeof value.approvedByEmail === 'string' ? value.approvedByEmail : undefined,
+    approvedAt: typeof value.approvedAt === 'string' ? value.approvedAt : undefined,
     createdAt,
     updatedAt,
   };
@@ -1141,10 +839,7 @@ function normalizeApprovalTimeline(payload: unknown): ApprovalRequestsTimeline {
   };
 }
 
-function unwrapSimplePaginated<T>(
-  res: unknown,
-  errorMessage: string
-): SimplePaginatedResponse<T> {
+function unwrapSimplePaginated<T>(res: unknown, errorMessage: string): SimplePaginatedResponse<T> {
   const toNumber = (v: unknown): number | undefined => {
     if (typeof v === 'number') return v;
     if (typeof v === 'string') {
@@ -1158,35 +853,18 @@ function unwrapSimplePaginated<T>(
     const data = Array.isArray(record.data) ? (record.data as T[]) : undefined;
     const meta = isRecord(record.meta) ? (record.meta as Record<string, unknown>) : undefined;
 
-    const total =
-      toNumber(record.total) ??
-      toNumber(record.total_items) ??
-      toNumber(record.count) ??
-      (meta
-        ? toNumber(meta.total) ??
-          toNumber(meta.total_items) ??
-          toNumber(meta.count)
-        : undefined);
+    const total = toNumber(record.total) ?? toNumber(record.total_items) ?? toNumber(record.count) ?? (meta ? (toNumber(meta.total) ?? toNumber(meta.total_items) ?? toNumber(meta.count)) : undefined);
 
     const page = toNumber(record.page) ?? (meta ? toNumber(meta.page) : undefined);
-    const limit =
-      toNumber(record.limit) ??
-      toNumber(record.per_page) ??
-      (meta ? toNumber(meta.limit) ?? toNumber(meta.per_page) : undefined);
+    const limit = toNumber(record.limit) ?? toNumber(record.per_page) ?? (meta ? (toNumber(meta.limit) ?? toNumber(meta.per_page)) : undefined);
 
-    const totalPages =
-      toNumber(record.totalPages) ??
-      toNumber(record.total_pages) ??
-      (meta
-        ? toNumber(meta.totalPages) ?? toNumber(meta.total_pages)
-        : undefined);
+    const totalPages = toNumber(record.totalPages) ?? toNumber(record.total_pages) ?? (meta ? (toNumber(meta.totalPages) ?? toNumber(meta.total_pages)) : undefined);
 
     if (!data || total === undefined) return null;
 
     const safeLimit = limit ?? Math.max(data.length, 1);
     const safePage = page ?? 1;
-    const safeTotalPages =
-      totalPages ?? Math.max(1, Math.ceil(total / safeLimit));
+    const safeTotalPages = totalPages ?? Math.max(1, Math.ceil(total / safeLimit));
 
     return {
       data,
@@ -1202,9 +880,7 @@ function unwrapSimplePaginated<T>(
     if (direct) return direct;
 
     if ('data' in res && isRecord((res as Record<string, unknown>).data)) {
-      const inner = build(
-        (res as Record<string, unknown>).data as Record<string, unknown>
-      );
+      const inner = build((res as Record<string, unknown>).data as Record<string, unknown>);
       if (inner) return inner;
     }
   }
@@ -1213,8 +889,7 @@ function unwrapSimplePaginated<T>(
 }
 
 function extractLoginResult(res: unknown): LoginResult {
-  const data =
-    isRecord(res) && 'data' in res ? (res as { data?: unknown }).data : res;
+  const data = isRecord(res) && 'data' in res ? (res as { data?: unknown }).data : res;
 
   if (isRecord(data) && isUserLike((data as Record<string, unknown>).user)) {
     return { user: (data as { user: User }).user };
@@ -1226,10 +901,8 @@ function extractLoginResult(res: unknown): LoginResult {
       otp_required: true,
       mfa_method: isMFAMethod(d.mfa_method) ? d.mfa_method : 'email_otp',
       purpose: typeof d.purpose === 'string' ? d.purpose : 'login',
-      expires_at:
-        typeof d.expires_at === 'string' ? d.expires_at : undefined,
-      action_url:
-        typeof d.action_url === 'string' ? d.action_url : undefined,
+      expires_at: typeof d.expires_at === 'string' ? d.expires_at : undefined,
+      action_url: typeof d.action_url === 'string' ? d.action_url : undefined,
       email: typeof d.email === 'string' ? d.email : '',
     } as LoginChallenge;
   }
@@ -1272,13 +945,7 @@ export const apiClient = {
     return extractLoginResult(res);
   },
 
-  async verifyLoginOtp(payload: {
-    email: string;
-    code: string;
-    purpose: string;
-    method?: MFAMethod;
-    rememberMe?: boolean;
-  }): Promise<User> {
+  async verifyLoginOtp(payload: { email: string; code: string; purpose: string; method?: MFAMethod; rememberMe?: boolean }): Promise<User> {
     const res = await apiFetch<ApiResponse<unknown>>('/auth/login/verify-otp', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -1298,7 +965,7 @@ export const apiClient = {
     throw createApiError('Invalid login challenge payload', 400, res);
   },
 
-   async register(data: RegisterData): Promise<User> {
+  async register(data: RegisterData): Promise<User> {
     const raw = data as RegisterData & {
       firstName?: unknown;
       lastName?: unknown;
@@ -1311,9 +978,13 @@ export const apiClient = {
 
     const firstName = String(raw.first_name ?? raw.firstName ?? '').trim();
     const lastName = String(raw.last_name ?? raw.lastName ?? '').trim();
-    const email = String(raw.email ?? '').trim().toLowerCase();
+    const email = String(raw.email ?? '')
+      .trim()
+      .toLowerCase();
     const password = String(raw.password ?? '');
-    const roleInput = String(raw.role ?? 'admin').trim().toLowerCase();
+    const roleInput = String(raw.role ?? 'admin')
+      .trim()
+      .toLowerCase();
     const role = roleInput === 'super_admin' ? 'super_admin' : 'admin';
 
     const validationErrors: ValidationFieldError[] = [];
@@ -1351,12 +1022,7 @@ export const apiClient = {
     }
 
     if (validationErrors.length > 0) {
-      throw createApiError(
-        'Please complete the required account fields.',
-        400,
-        { source: 'client_register_payload_validation' },
-        validationErrors
-      );
+      throw createApiError('Please complete the required account fields.', 400, { source: 'client_register_payload_validation' }, validationErrors);
     }
 
     // Backend contract: internal/handlers/auth.go Register expects snake_case names
@@ -1377,20 +1043,12 @@ export const apiClient = {
     return extractUser(res);
   },
 
-
-  async requestPasswordReset(
-    payload: PasswordResetRequestPayload
-  ): Promise<SendOTPResponse> {
-    const res = await apiFetch<ApiResponse<SendOTPResponse>>(
-      '/auth/password-reset/request',
-      { method: 'POST', body: JSON.stringify(payload) }
-    );
+  async requestPasswordReset(payload: PasswordResetRequestPayload): Promise<SendOTPResponse> {
+    const res = await apiFetch<ApiResponse<SendOTPResponse>>('/auth/password-reset/request', { method: 'POST', body: JSON.stringify(payload) });
     return unwrapData<SendOTPResponse>(res, 'Invalid password reset response');
   },
 
-  async confirmPasswordReset(
-    payload: PasswordResetConfirmPayload
-  ): Promise<MessageResponse> {
+  async confirmPasswordReset(payload: PasswordResetConfirmPayload): Promise<MessageResponse> {
     return apiFetch('/auth/password-reset/confirm', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -1412,10 +1070,7 @@ export const apiClient = {
         method: 'GET',
       });
 
-      const data =
-        isRecord(res) && 'data' in res
-          ? (res as { data?: unknown }).data
-          : undefined;
+      const data = isRecord(res) && 'data' in res ? (res as { data?: unknown }).data : undefined;
 
       if (data == null) {
         return null;
@@ -1443,10 +1098,7 @@ export const apiClient = {
       const res = await apiFetch<ApiResponse<AuthSecurityProfile>>('/auth/mfa', {
         method: 'GET',
       });
-      return unwrapData<AuthSecurityProfile>(
-        res,
-        'Invalid MFA security profile payload'
-      );
+      return unwrapData<AuthSecurityProfile>(res, 'Invalid MFA security profile payload');
     } catch (err) {
       if (isUnauthorizedError(err)) {
         return null;
@@ -1456,58 +1108,34 @@ export const apiClient = {
   },
 
   async beginTotpSetup(): Promise<TOTPSetupResponse> {
-    const res = await apiFetch<ApiResponse<TOTPSetupResponse>>(
-      '/auth/mfa/totp/setup',
-      {
-        method: 'POST',
-      }
-    );
-    return unwrapData<TOTPSetupResponse>(
-      res,
-      'Invalid authenticator setup payload'
-    );
+    const res = await apiFetch<ApiResponse<TOTPSetupResponse>>('/auth/mfa/totp/setup', {
+      method: 'POST',
+    });
+    return unwrapData<TOTPSetupResponse>(res, 'Invalid authenticator setup payload');
   },
 
   async enableTotp(code: string): Promise<AuthSecurityProfile> {
-    const res = await apiFetch<ApiResponse<AuthSecurityProfile>>(
-      '/auth/mfa/totp/enable',
-      {
-        method: 'POST',
-        body: JSON.stringify({ code }),
-      }
-    );
-    return unwrapData<AuthSecurityProfile>(
-      res,
-      'Invalid authenticator enable payload'
-    );
+    const res = await apiFetch<ApiResponse<AuthSecurityProfile>>('/auth/mfa/totp/enable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+    return unwrapData<AuthSecurityProfile>(res, 'Invalid authenticator enable payload');
   },
 
   async disableTotp(code: string): Promise<AuthSecurityProfile> {
-    const res = await apiFetch<ApiResponse<AuthSecurityProfile>>(
-      '/auth/mfa/totp/disable',
-      {
-        method: 'POST',
-        body: JSON.stringify({ code }),
-      }
-    );
-    return unwrapData<AuthSecurityProfile>(
-      res,
-      'Invalid authenticator disable payload'
-    );
+    const res = await apiFetch<ApiResponse<AuthSecurityProfile>>('/auth/mfa/totp/disable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+    return unwrapData<AuthSecurityProfile>(res, 'Invalid authenticator disable payload');
   },
 
   async setPreferredMfaMethod(method: MFAMethod): Promise<AuthSecurityProfile> {
-    const res = await apiFetch<ApiResponse<AuthSecurityProfile>>(
-      '/auth/mfa/method',
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ method }),
-      }
-    );
-    return unwrapData<AuthSecurityProfile>(
-      res,
-      'Invalid MFA preference payload'
-    );
+    const res = await apiFetch<ApiResponse<AuthSecurityProfile>>('/auth/mfa/method', {
+      method: 'PATCH',
+      body: JSON.stringify({ method }),
+    });
+    return unwrapData<AuthSecurityProfile>(res, 'Invalid MFA preference payload');
   },
 
   async updateProfile(userData: Partial<User>): Promise<User> {
@@ -1529,7 +1157,7 @@ export const apiClient = {
           email?: string;
           otpCode?: string;
         }
-      | ChangePasswordData
+      | ChangePasswordData,
   ): Promise<MessageResponse> {
     return apiFetch('/auth/change-password', {
       method: 'POST',
@@ -1551,31 +1179,22 @@ export const apiClient = {
 
   async getAllTestimonials(params?: { approved?: boolean }): Promise<Testimonial[]> {
     if (params?.approved === false) {
-      const res = await apiFetch<ApiResponse<Testimonial[]>>(
-        '/admin/testimonials/pending'
-      );
+      const res = await apiFetch<ApiResponse<Testimonial[]>>('/admin/testimonials/pending');
       return unwrapData<Testimonial[]>(res, 'Invalid testimonials payload');
     }
 
-    const qs =
-      params?.approved !== undefined ? `?approved=${params.approved}` : '';
-    const res = await apiFetch<ApiResponse<Testimonial[]>>(
-      `/testimonials/all${qs}`
-    );
+    const qs = params?.approved !== undefined ? `?approved=${params.approved}` : '';
+    const res = await apiFetch<ApiResponse<Testimonial[]>>(`/testimonials/all${qs}`);
     return unwrapData<Testimonial[]>(res, 'Invalid testimonials payload');
   },
 
-  getPaginatedTestimonials(
-    params?: Record<string, string>
-  ): Promise<PaginatedResponse<Testimonial>> {
+  getPaginatedTestimonials(params?: Record<string, string>): Promise<PaginatedResponse<Testimonial>> {
     const qs = params ? `?${new URLSearchParams(params)}` : '';
     return apiFetch(`/testimonials${qs}`);
   },
 
   async getTestimonialById(id: string): Promise<Testimonial> {
-    const res = await apiFetch<ApiResponse<Testimonial>>(
-      `/testimonials/${encodeURIComponent(id)}`
-    );
+    const res = await apiFetch<ApiResponse<Testimonial>>(`/testimonials/${encodeURIComponent(id)}`);
     return unwrapData<Testimonial>(res, 'Invalid testimonial payload');
   },
 
@@ -1587,17 +1206,11 @@ export const apiClient = {
     return unwrapData<Testimonial>(res, 'Invalid testimonial payload');
   },
 
-  async updateTestimonial(
-    id: string,
-    data: UpdateTestimonialData
-  ): Promise<Testimonial> {
-    const res = await apiFetch<ApiResponse<Testimonial>>(
-      `/admin/testimonials/${encodeURIComponent(id)}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }
-    );
+  async updateTestimonial(id: string, data: UpdateTestimonialData): Promise<Testimonial> {
+    const res = await apiFetch<ApiResponse<Testimonial>>(`/admin/testimonials/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
     return unwrapData<Testimonial>(res, 'Invalid testimonial payload');
   },
 
@@ -1619,13 +1232,8 @@ export const apiClient = {
   },
 
   async getSecurityOverview(): Promise<SecurityOverview> {
-    const res = await apiFetch<ApiResponse<SecurityOverview>>(
-      '/admin/security/overview'
-    );
-    return unwrapData<SecurityOverview>(
-      res,
-      'Invalid security overview payload'
-    );
+    const res = await apiFetch<ApiResponse<SecurityOverview>>('/admin/security/overview');
+    return unwrapData<SecurityOverview>(res, 'Invalid security overview payload');
   },
 
   approveAdminUser(id: string): Promise<MessageResponse> {
@@ -1634,56 +1242,37 @@ export const apiClient = {
     });
   },
 
-  async getAnalytics(
-    params?: Record<string, unknown>
-  ): Promise<DashboardAnalytics> {
+  async getAnalytics(params?: Record<string, unknown>): Promise<DashboardAnalytics> {
     const qs = toQueryString(params);
-    const res = await apiFetch<ApiResponse<DashboardAnalytics>>(
-      `/admin/analytics${qs}`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<ApiResponse<DashboardAnalytics>>(`/admin/analytics${qs}`, { method: 'GET' });
     return unwrapData<DashboardAnalytics>(res, 'Invalid analytics payload');
   },
 
   async getDecisionInsights(): Promise<DecisionInsights> {
-    const res = await apiFetch<ApiResponse<DecisionInsights>>(
-      '/admin/analytics/insights',
-      { method: 'GET' }
-    );
+    const res = await apiFetch<ApiResponse<DecisionInsights>>('/admin/analytics/insights', { method: 'GET' });
     return unwrapData<DecisionInsights>(res, 'Invalid decision insights payload');
   },
 
   async listAuditLogs(params?: Record<string, unknown>): Promise<AdminAuditLog[]> {
     const qs = toQueryString(params);
-    const res = await apiFetch<ApiResponse<AdminAuditLog[]> | AdminAuditLog[]>(
-      `/admin/audit-logs${qs}`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<ApiResponse<AdminAuditLog[]> | AdminAuditLog[]>(`/admin/audit-logs${qs}`, { method: 'GET' });
     const data = Array.isArray(res) ? res : res.data;
     return Array.isArray(data) ? data : [];
   },
 
-  async getEvents(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<EventData>> {
+  async getEvents(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<EventData>> {
     const qs = toQueryString(params);
     const res = await apiFetch(`/admin/events${qs}`, { method: 'GET' });
     return unwrapSimplePaginated<EventData>(res, 'Invalid events payload');
   },
 
   async getEvent(id: string): Promise<EventData> {
-    const res = await apiFetch<{ data: EventData }>(
-      `/events/${encodeURIComponent(id)}`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<{ data: EventData }>(`/events/${encodeURIComponent(id)}`, { method: 'GET' });
     return unwrapData<EventData>(res, 'Invalid event payload');
   },
 
   async getAdminEvent(id: string): Promise<EventData> {
-    const res = await apiFetch<{ data: EventData }>(
-      `/admin/events/${encodeURIComponent(id)}`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<{ data: EventData }>(`/admin/events/${encodeURIComponent(id)}`, { method: 'GET' });
     return unwrapData<EventData>(res, 'Invalid admin event payload');
   },
 
@@ -1696,13 +1285,10 @@ export const apiClient = {
   },
 
   async updateEvent(id: string, data: EventPayload): Promise<EventData> {
-    const res = await apiFetch<{ data: EventData }>(
-      `/admin/events/${encodeURIComponent(id)}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }
-    );
+    const res = await apiFetch<{ data: EventData }>(`/admin/events/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
     return unwrapData<EventData>(res, 'Invalid event payload');
   },
 
@@ -1733,32 +1319,24 @@ export const apiClient = {
   async uploadEventImage(id: string, file: File): Promise<EventData> {
     const form = new FormData();
     form.append('file', file);
-    const res = await uploadFetch<{ data: EventData }>(
-      `/admin/events/${encodeURIComponent(id)}/image`,
-      {
-        method: 'POST',
-        body: form,
-      }
-    );
+    const res = await uploadFetch<{ data: EventData }>(`/admin/events/${encodeURIComponent(id)}/image`, {
+      method: 'POST',
+      body: form,
+    });
     return unwrapData<EventData>(res, 'Invalid upload image payload');
   },
 
   async uploadEventBanner(id: string, file: File): Promise<EventData> {
     const form = new FormData();
     form.append('file', file);
-    const res = await uploadFetch<{ data: EventData }>(
-      `/admin/events/${encodeURIComponent(id)}/banner`,
-      {
-        method: 'POST',
-        body: form,
-      }
-    );
+    const res = await uploadFetch<{ data: EventData }>(`/admin/events/${encodeURIComponent(id)}/banner`, {
+      method: 'POST',
+      body: form,
+    });
     return unwrapData<EventData>(res, 'Invalid upload banner payload');
   },
 
-  async getReels(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<ReelData>> {
+  async getReels(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<ReelData>> {
     const qs = toQueryString(params);
     const res = await apiFetch(`/admin/reels${qs}`, { method: 'GET' });
     return unwrapSimplePaginated<ReelData>(res, 'Invalid reels payload');
@@ -1778,35 +1356,21 @@ export const apiClient = {
     });
   },
 
-  async createUploadPresign(
-    payload: UploadPresignRequest
-  ): Promise<UploadPresignResponse> {
+  async createUploadPresign(payload: UploadPresignRequest): Promise<UploadPresignResponse> {
     const normalizedPayload: UploadPresignRequest = {
       ...payload,
       sizeBytes: payload.sizeBytes ?? payload.size,
     };
-    const res = await apiFetch<{ data: UploadPresignResponse }>(
-      '/admin/uploads/presign',
-      {
-        method: 'POST',
-        body: JSON.stringify(normalizedPayload),
-      }
-    );
-    return unwrapData<UploadPresignResponse>(
-      res,
-      'Invalid upload presign payload'
-    );
+    const res = await apiFetch<{ data: UploadPresignResponse }>('/admin/uploads/presign', {
+      method: 'POST',
+      body: JSON.stringify(normalizedPayload),
+    });
+    return unwrapData<UploadPresignResponse>(res, 'Invalid upload presign payload');
   },
 
   async completeUploadAsset(assetId: string): Promise<UploadAssetData> {
-    const res = await apiFetch<{ data: UploadAssetData }>(
-      `/admin/uploads/${encodeURIComponent(assetId)}/complete`,
-      { method: 'POST' }
-    );
-    return unwrapData<UploadAssetData>(
-      res,
-      'Invalid upload completion payload'
-    );
+    const res = await apiFetch<{ data: UploadAssetData }>(`/admin/uploads/${encodeURIComponent(assetId)}/complete`, { method: 'POST' });
+    return unwrapData<UploadAssetData>(res, 'Invalid upload completion payload');
   },
 
   async uploadAsset(
@@ -1817,7 +1381,7 @@ export const apiClient = {
       folder?: string;
       ownerType?: string;
       ownerId?: string;
-    }
+    },
   ): Promise<UploadImageResponse> {
     const form = new FormData();
     form.append('file', file);
@@ -1827,10 +1391,10 @@ export const apiClient = {
     appendOptionalFormValue(form, 'ownerType', options?.ownerType);
     appendOptionalFormValue(form, 'ownerId', options?.ownerId);
 
-    const res = await uploadFetch<{ data: UploadImageResponse }>(
-      '/uploads',
-      { method: 'POST', body: form }
-    );
+    const res = await uploadFetch<{ data: UploadImageResponse }>('/uploads', {
+      method: 'POST',
+      body: form,
+    });
 
     return unwrapUploadImageResponse(res, 'Invalid upload asset payload');
   },
@@ -1843,13 +1407,10 @@ export const apiClient = {
     form.append('ownerType', 'public-form');
     form.append('folder', 'public-forms/images');
 
-    const res = await uploadFetch<{ data: UploadImageResponse }>(
-      '/uploads',
-      {
-        method: 'POST',
-        body: form,
-      }
-    );
+    const res = await uploadFetch<{ data: UploadImageResponse }>('/uploads', {
+      method: 'POST',
+      body: form,
+    });
 
     return unwrapData<UploadImageResponse>(res, 'Invalid public image upload payload');
   },
@@ -1860,85 +1421,57 @@ export const apiClient = {
     form.append('kind', 'image');
     form.append('module', 'admin');
     form.append('folder', folder);
-    const res = await uploadFetch<{ data: UploadImageResponse }>(
-      '/uploads',
-      {
-        method: 'POST',
-        body: form,
-      }
-    );
+    const res = await uploadFetch<{ data: UploadImageResponse }>('/uploads', {
+      method: 'POST',
+      body: form,
+    });
     return unwrapUploadImageResponse(res, 'Invalid image upload payload');
   },
 
-  async createAdminEmailTemplate(
-    payload: CreateEmailTemplateRequest
-  ): Promise<EmailTemplate> {
-    const res = await apiFetch<{ data: EmailTemplate }>(
-      '/admin/email/templates',
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }
-    );
+  async createAdminEmailTemplate(payload: CreateEmailTemplateRequest): Promise<EmailTemplate> {
+    const res = await apiFetch<{ data: EmailTemplate }>('/admin/email/templates', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
     return unwrapData<EmailTemplate>(res, 'Invalid email template payload');
   },
 
-  async listAdminEmailTemplates(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<EmailTemplate>> {
+  async listAdminEmailTemplates(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<EmailTemplate>> {
     const qs = toQueryString(params);
-    const res = await apiFetch(`/admin/email/templates${qs}`, { method: 'GET' });
-    return unwrapSimplePaginated<EmailTemplate>(
-      res,
-      'Invalid email templates payload'
-    );
+    const res = await apiFetch(`/admin/email/templates${qs}`, {
+      method: 'GET',
+    });
+    return unwrapSimplePaginated<EmailTemplate>(res, 'Invalid email templates payload');
   },
 
   async getAdminEmailTemplate(id: string): Promise<EmailTemplate> {
-    const res = await apiFetch<{ data: EmailTemplate }>(
-      `/admin/email/templates/${encodeURIComponent(id)}`,
-      {
-        method: 'GET',
-      }
-    );
+    const res = await apiFetch<{ data: EmailTemplate }>(`/admin/email/templates/${encodeURIComponent(id)}`, {
+      method: 'GET',
+    });
     return unwrapData<EmailTemplate>(res, 'Invalid email template payload');
   },
 
-  async updateAdminEmailTemplate(
-    id: string,
-    payload: UpdateEmailTemplateRequest
-  ): Promise<EmailTemplate> {
-    const res = await apiFetch<{ data: EmailTemplate }>(
-      `/admin/email/templates/${encodeURIComponent(id)}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      }
-    );
+  async updateAdminEmailTemplate(id: string, payload: UpdateEmailTemplateRequest): Promise<EmailTemplate> {
+    const res = await apiFetch<{ data: EmailTemplate }>(`/admin/email/templates/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
     return unwrapData<EmailTemplate>(res, 'Invalid email template payload');
   },
 
   async activateAdminEmailTemplate(id: string): Promise<EmailTemplate> {
-    const res = await apiFetch<{ data: EmailTemplate }>(
-      `/admin/email/templates/${encodeURIComponent(id)}/activate`,
-      { method: 'POST' }
-    );
+    const res = await apiFetch<{ data: EmailTemplate }>(`/admin/email/templates/${encodeURIComponent(id)}/activate`, { method: 'POST' });
     return unwrapData<EmailTemplate>(res, 'Invalid email template payload');
   },
 
-  async getAdminForms(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<AdminForm>> {
+  async getAdminForms(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<AdminForm>> {
     const qs = toQueryString(params);
     const res = await apiFetch(`/admin/forms${qs}`, { method: 'GET' });
     return unwrapSimplePaginated<AdminForm>(res, 'Invalid forms payload');
   },
 
   async getAdminForm(id: string): Promise<AdminForm> {
-    const res = await apiFetch<{ data: AdminForm }>(
-      `/admin/forms/${encodeURIComponent(id)}`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<{ data: AdminForm }>(`/admin/forms/${encodeURIComponent(id)}`, { method: 'GET' });
     return unwrapData<AdminForm>(res, 'Invalid form payload');
   },
 
@@ -1954,49 +1487,35 @@ export const apiClient = {
       return unwrapData<AdminForm>(res, 'Invalid form payload');
     } catch (err) {
       if (isSlugConflictError(err)) {
-        throw createApiError(
-          'slug already in use',
-          getApiStatusCode(err) ?? 409,
-          err,
-          [
-            {
-              field: 'slug',
-              code: 'duplicate',
-              message: 'This form link name is already in use.',
-            },
-          ]
-        );
+        throw createApiError('slug already in use', getApiStatusCode(err) ?? 409, err, [
+          {
+            field: 'slug',
+            code: 'duplicate',
+            message: 'This form link name is already in use.',
+          },
+        ]);
       }
 
       throw err;
     }
   },
 
-  async updateAdminForm(
-    id: string,
-    payload: UpdateFormRequest
-  ): Promise<AdminForm> {
+  async updateAdminForm(id: string, payload: UpdateFormRequest): Promise<AdminForm> {
     const sanitizedPayload = sanitizeFormPayload(payload);
-    const res = await apiFetch<{ data: AdminForm }>(
-      `/admin/forms/${encodeURIComponent(id)}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify(sanitizedPayload),
-      }
-    );
+    const res = await apiFetch<{ data: AdminForm }>(`/admin/forms/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(sanitizedPayload),
+    });
     return unwrapData<AdminForm>(res, 'Invalid form payload');
   },
 
   async uploadFormBanner(id: string, file: File): Promise<AdminForm> {
     const form = new FormData();
     form.append('file', file);
-    const res = await uploadFetch<{ data: AdminForm }>(
-      `/admin/forms/${encodeURIComponent(id)}/banner`,
-      {
-        method: 'POST',
-        body: form,
-      }
-    );
+    const res = await uploadFetch<{ data: AdminForm }>(`/admin/forms/${encodeURIComponent(id)}/banner`, {
+      method: 'POST',
+      body: form,
+    });
     return unwrapData<AdminForm>(res, 'Invalid upload banner payload');
   },
 
@@ -2006,9 +1525,7 @@ export const apiClient = {
     });
   },
 
-  async publishAdminForm(
-    id: string
-  ): Promise<{
+  async publishAdminForm(id: string): Promise<{
     slug: string;
     publicUrl?: string;
     publishedAt?: string;
@@ -2034,78 +1551,41 @@ export const apiClient = {
   },
 
   async getAdminFormReportLink(id: string): Promise<FormReportLinkPayload> {
-    const res = await apiFetch<ApiResponse<FormReportLinkPayload>>(
-      `/admin/forms/${encodeURIComponent(id)}/report-link`,
-      { method: 'GET' }
-    );
-    return unwrapData<FormReportLinkPayload>(
-      res,
-      'Invalid report link payload'
-    );
+    const res = await apiFetch<ApiResponse<FormReportLinkPayload>>(`/admin/forms/${encodeURIComponent(id)}/report-link`, { method: 'GET' });
+    return unwrapData<FormReportLinkPayload>(res, 'Invalid report link payload');
   },
 
-  async getFormSubmissions(
-    id: string,
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<FormSubmission>> {
+  async getFormSubmissions(id: string, params?: Record<string, unknown>): Promise<SimplePaginatedResponse<FormSubmission>> {
     const qs = toQueryString(params);
-    const res = await apiFetch(
-      `/admin/forms/${encodeURIComponent(id)}/submissions${qs}`,
-      { method: 'GET' }
-    );
-    return unwrapSimplePaginated<FormSubmission>(
-      res,
-      'Invalid submissions payload'
-    );
+    const res = await apiFetch(`/admin/forms/${encodeURIComponent(id)}/submissions${qs}`, { method: 'GET' });
+    return unwrapSimplePaginated<FormSubmission>(res, 'Invalid submissions payload');
   },
 
   async getFormSubmissionStats(id: string): Promise<FormSubmissionDailyStat[]> {
-    const res = await apiFetch<unknown>(
-      `/admin/forms/${encodeURIComponent(id)}/submissions/stats`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<unknown>(`/admin/forms/${encodeURIComponent(id)}/submissions/stats`, { method: 'GET' });
     return normalizeDailyStats(res);
   },
 
-  async getFormStats(
-    params?: Record<string, unknown>
-  ): Promise<FormStatsResponse> {
+  async getFormStats(params?: Record<string, unknown>): Promise<FormStatsResponse> {
     const qs = toQueryString(params);
-    const res = await apiFetch<ApiResponse<FormStatsResponse>>(
-      `/admin/forms/stats${qs}`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<ApiResponse<FormStatsResponse>>(`/admin/forms/stats${qs}`, { method: 'GET' });
     return unwrapData<FormStatsResponse>(res, 'Invalid form stats payload');
   },
 
   async getEmailMarketingSummary(): Promise<AdminEmailMarketingSummary> {
-    const res = await apiFetch<ApiResponse<AdminEmailMarketingSummary>>(
-      '/admin/email/marketing/summary',
-      { method: 'GET' }
-    );
-    return unwrapData<AdminEmailMarketingSummary>(
-      res,
-      'Invalid email marketing summary payload'
-    );
+    const res = await apiFetch<ApiResponse<AdminEmailMarketingSummary>>('/admin/email/marketing/summary', { method: 'GET' });
+    return unwrapData<AdminEmailMarketingSummary>(res, 'Invalid email marketing summary payload');
   },
 
-  async listEmailMarketingForms(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<AdminEmailMarketingFormItem>> {
+  async listEmailMarketingForms(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<AdminEmailMarketingFormItem>> {
     const qs = toQueryString(params);
     const res = await apiFetch(`/admin/email/marketing/forms${qs}`, {
       method: 'GET',
     });
-    return unwrapSimplePaginated<AdminEmailMarketingFormItem>(
-      res,
-      'Invalid email marketing forms payload'
-    );
+    return unwrapSimplePaginated<AdminEmailMarketingFormItem>(res, 'Invalid email marketing forms payload');
   },
 
-  async previewEmailMarketingAudience(
-    formIds: string[],
-    limit = 25
-  ): Promise<AdminEmailAudiencePreview> {
+  async previewEmailMarketingAudience(formIds: string[], limit = 25): Promise<AdminEmailAudiencePreview> {
     const params = new URLSearchParams();
     formIds.forEach((formId) => {
       const normalized = formId.trim();
@@ -2115,68 +1595,40 @@ export const apiClient = {
       params.set('limit', String(limit));
     }
     const qs = params.toString();
-    const res = await apiFetch<ApiResponse<AdminEmailAudiencePreview>>(
-      `/admin/email/marketing/audience/preview${qs ? `?${qs}` : ''}`,
-      { method: 'GET' }
-    );
-    return unwrapData<AdminEmailAudiencePreview>(
-      res,
-      'Invalid email marketing audience preview payload'
-    );
+    const res = await apiFetch<ApiResponse<AdminEmailAudiencePreview>>(`/admin/email/marketing/audience/preview${qs ? `?${qs}` : ''}`, { method: 'GET' });
+    return unwrapData<AdminEmailAudiencePreview>(res, 'Invalid email marketing audience preview payload');
   },
 
-  async sendAdminComposeEmail(
-    payload: SendAdminComposeEmailRequest
-  ): Promise<SendAdminComposeEmailResponse> {
-    const res = await apiFetch<ApiResponse<SendAdminComposeEmailResponse>>(
-      '/admin/email/compose/send',
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }
-    );
-    return unwrapData<SendAdminComposeEmailResponse>(
-      res,
-      'Invalid admin compose email payload'
-    );
+  async sendAdminComposeEmail(payload: SendAdminComposeEmailRequest): Promise<SendAdminComposeEmailResponse> {
+    const res = await apiFetch<ApiResponse<SendAdminComposeEmailResponse>>('/admin/email/compose/send', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<SendAdminComposeEmailResponse>(res, 'Invalid admin compose email payload');
   },
 
-  async listAdminComposeHistory(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<AdminEmailDeliveryHistoryItem>> {
+  async listAdminComposeHistory(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<AdminEmailDeliveryHistoryItem>> {
     const qs = toQueryString(params);
     const res = await apiFetch(`/admin/email/compose/history${qs}`, {
       method: 'GET',
     });
-    return unwrapSimplePaginated<AdminEmailDeliveryHistoryItem>(
-      res,
-      'Invalid admin compose history payload'
-    );
+    return unwrapSimplePaginated<AdminEmailDeliveryHistoryItem>(res, 'Invalid admin compose history payload');
   },
 
   async getPublicForm(slug: string): Promise<PublicFormPayload> {
-    const res = await apiFetch<{ data: PublicFormPayload }>(
-      `/forms/${encodeURIComponent(slug)}`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<{ data: PublicFormPayload }>(`/forms/${encodeURIComponent(slug)}`, { method: 'GET' });
     return unwrapData<PublicFormPayload>(res, 'Invalid public form payload');
   },
 
-  async submitPublicForm(
-    slug: string,
-    body: SubmitFormRequest
-  ): Promise<MessageResponse> {
+  async submitPublicForm(slug: string, body: SubmitFormRequest): Promise<MessageResponse> {
     assertNoDataUrlValues(body.values);
 
-    const res = await apiFetch<ApiResponse<unknown>>(
-      `/forms/${encodeURIComponent(slug)}/submissions`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          values: body.values,
-        }),
-      }
-    );
+    const res = await apiFetch<ApiResponse<unknown>>(`/forms/${encodeURIComponent(slug)}/submissions`, {
+      method: 'POST',
+      body: JSON.stringify({
+        values: body.values,
+      }),
+    });
 
     return {
       status: res.status,
@@ -2188,13 +1640,10 @@ export const apiClient = {
   },
 
   async subscribe(payload: SubscribeRequest): Promise<Subscriber> {
-    const res = await apiFetch<ApiResponse<Subscriber>>(
-      '/notifications/subscribe',
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }
-    );
+    const res = await apiFetch<ApiResponse<Subscriber>>('/notifications/subscribe', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
     return unwrapData<Subscriber>(res, 'Invalid subscriber payload');
   },
 
@@ -2205,9 +1654,7 @@ export const apiClient = {
     });
   },
 
-  async listSubscribers(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<Subscriber>> {
+  async listSubscribers(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<Subscriber>> {
     const qs = toQueryString(params);
     const res = await apiFetch(`/admin/notifications/subscribers${qs}`, {
       method: 'GET',
@@ -2216,43 +1663,23 @@ export const apiClient = {
   },
 
   async getSubscriberSummary(): Promise<SubscriberSummary> {
-    const res = await apiFetch<ApiResponse<SubscriberSummary>>(
-      '/admin/notifications/subscribers/summary',
-      {
-        method: 'GET',
-      }
-    );
-    return unwrapData<SubscriberSummary>(
-      res,
-      'Invalid subscriber summary payload'
-    );
+    const res = await apiFetch<ApiResponse<SubscriberSummary>>('/admin/notifications/subscribers/summary', {
+      method: 'GET',
+    });
+    return unwrapData<SubscriberSummary>(res, 'Invalid subscriber summary payload');
   },
 
-  async sendNotification(
-    payload: SendNotificationRequest
-  ): Promise<SendNotificationResult> {
-    const res = await apiFetch<ApiResponse<SendNotificationResult>>(
-      '/admin/notifications/send',
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }
-    );
-    return unwrapData<SendNotificationResult>(
-      res,
-      'Invalid notification payload'
-    );
+  async sendNotification(payload: SendNotificationRequest): Promise<SendNotificationResult> {
+    const res = await apiFetch<ApiResponse<SendNotificationResult>>('/admin/notifications/send', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<SendNotificationResult>(res, 'Invalid notification payload');
   },
 
   async listAdminNotifications(limit = 50): Promise<AdminNotificationInbox> {
-    const res = await apiFetch<ApiResponse<AdminNotificationInbox>>(
-      `/admin/notifications/inbox?limit=${encodeURIComponent(String(limit))}`,
-      { method: 'GET' }
-    );
-    return unwrapData<AdminNotificationInbox>(
-      res,
-      'Invalid admin notifications payload'
-    );
+    const res = await apiFetch<ApiResponse<AdminNotificationInbox>>(`/admin/notifications/inbox?limit=${encodeURIComponent(String(limit))}`, { method: 'GET' });
+    return unwrapData<AdminNotificationInbox>(res, 'Invalid admin notifications payload');
   },
 
   async markAdminNotificationRead(id: string): Promise<MessageResponse> {
@@ -2265,34 +1692,17 @@ export const apiClient = {
     return apiFetch('/admin/notifications/read-all', { method: 'POST' });
   },
 
-  async listApprovalRequests(params?: {
-    type?: string;
-    status?: string;
-    limit?: number;
-    start?: string;
-    end?: string;
-  }): Promise<ApprovalRequest[]> {
+  async listApprovalRequests(params?: { type?: string; status?: string; limit?: number; start?: string; end?: string }): Promise<ApprovalRequest[]> {
     const qs = toQueryString(params as Record<string, unknown> | undefined);
-    const res = await apiFetch<ApiResponse<ApprovalRequest[]> | ApprovalRequest[]>(
-      `/admin/requests${qs}`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<ApiResponse<ApprovalRequest[]> | ApprovalRequest[]>(`/admin/requests${qs}`, { method: 'GET' });
 
-    const source = Array.isArray(res)
-      ? res
-      : isRecord(res) && Array.isArray(res.data)
-      ? res.data
-      : [];
+    const source = Array.isArray(res) ? res : isRecord(res) && Array.isArray(res.data) ? res.data : [];
 
-    return source
-      .map(normalizeApprovalRequest)
-      .filter((item): item is ApprovalRequest => item !== null);
+    return source.map(normalizeApprovalRequest).filter((item): item is ApprovalRequest => item !== null);
   },
 
   async getApprovalRequestsTimeline(days = 14): Promise<ApprovalRequestsTimeline> {
-    const res = await apiFetch<
-      ApiResponse<ApprovalRequestsTimeline> | ApprovalRequestsTimeline
-    >(`/admin/requests/timeline?days=${encodeURIComponent(String(days))}`, {
+    const res = await apiFetch<ApiResponse<ApprovalRequestsTimeline> | ApprovalRequestsTimeline>(`/admin/requests/timeline?days=${encodeURIComponent(String(days))}`, {
       method: 'GET',
     });
     return normalizeApprovalTimeline(res);
@@ -2315,86 +1725,50 @@ export const apiClient = {
   },
 
   async getHomepageAdContent(): Promise<HomepageAdContent> {
-    const res = await apiFetch<ApiResponse<HomepageAdContent>>(
-      '/admin/content/homepage-ad',
-      { method: 'GET' }
-    );
-    return unwrapData<HomepageAdContent>(
-      res,
-      'Invalid homepage ad content payload'
-    );
+    const res = await apiFetch<ApiResponse<HomepageAdContent>>('/admin/content/homepage-ad', { method: 'GET' });
+    return unwrapData<HomepageAdContent>(res, 'Invalid homepage ad content payload');
   },
 
-  async updateHomepageAdContent(
-    payload: HomepageAdContent
-  ): Promise<HomepageAdContent> {
-    const res = await apiFetch<ApiResponse<HomepageAdContent>>(
-      '/admin/content/homepage-ad',
-      {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      }
-    );
-    return unwrapData<HomepageAdContent>(
-      res,
-      'Invalid homepage ad content payload'
-    );
+  async updateHomepageAdContent(payload: HomepageAdContent): Promise<HomepageAdContent> {
+    const res = await apiFetch<ApiResponse<HomepageAdContent>>('/admin/content/homepage-ad', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<HomepageAdContent>(res, 'Invalid homepage ad content payload');
   },
 
   async getConfessionPopupContent(): Promise<ConfessionPopupContent> {
-    const res = await apiFetch<ApiResponse<ConfessionPopupContent>>(
-      '/admin/content/confession-popup',
-      { method: 'GET' }
-    );
-    return unwrapData<ConfessionPopupContent>(
-      res,
-      'Invalid confession popup content payload'
-    );
+    const res = await apiFetch<ApiResponse<ConfessionPopupContent>>('/admin/content/confession-popup', { method: 'GET' });
+    return unwrapData<ConfessionPopupContent>(res, 'Invalid confession popup content payload');
   },
 
-  async updateConfessionPopupContent(
-    payload: ConfessionPopupContent
-  ): Promise<ConfessionPopupContent> {
-    const res = await apiFetch<ApiResponse<ConfessionPopupContent>>(
-      '/admin/content/confession-popup',
-      {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      }
-    );
-    return unwrapData<ConfessionPopupContent>(
-      res,
-      'Invalid confession popup content payload'
-    );
+  async updateConfessionPopupContent(payload: ConfessionPopupContent): Promise<ConfessionPopupContent> {
+    const res = await apiFetch<ApiResponse<ConfessionPopupContent>>('/admin/content/confession-popup', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return unwrapData<ConfessionPopupContent>(res, 'Invalid confession popup content payload');
   },
 
-  async listPastoralCareRequests(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<PastoralCareRequestAdmin>> {
+  async listPastoralCareRequests(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<PastoralCareRequestAdmin>> {
     const qs = toQueryString(params);
     const res = await apiFetch(`/admin/pastoral-care/requests${qs}`, {
       method: 'GET',
     });
-    return unwrapSimplePaginated<PastoralCareRequestAdmin>(
-      res,
-      'Invalid pastoral care requests payload'
-    );
+    return unwrapSimplePaginated<PastoralCareRequestAdmin>(res, 'Invalid pastoral care requests payload');
   },
 
-  async listPrayerRequests(
-    params?: { status?: string; category?: string; page?: number; limit?: number }
-  ): Promise<SimplePaginatedResponse<PrayerRequestAdmin>> {
+  async listPrayerRequests(params?: { status?: string; category?: string; page?: number; limit?: number }): Promise<SimplePaginatedResponse<PrayerRequestAdmin>> {
     const qs = toQueryString(params as Record<string, unknown> | undefined);
-    const res = await apiFetch(`/admin/prayer-requests${qs}`, { method: 'GET' });
+    const res = await apiFetch(`/admin/prayer-requests${qs}`, {
+      method: 'GET',
+    });
     const paginated = unwrapSimplePaginated<Record<string, unknown>>(res, 'Invalid prayer requests payload');
     return { ...paginated, data: paginated.data.map(normalizePrayerRequest) };
   },
 
   async getPrayerRequest(id: string): Promise<PrayerRequestAdmin> {
-    const res = await apiFetch<ApiResponse<Record<string, unknown>>>(
-      `/admin/prayer-requests/${encodeURIComponent(id)}`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<ApiResponse<Record<string, unknown>>>(`/admin/prayer-requests/${encodeURIComponent(id)}`, { method: 'GET' });
     return normalizePrayerRequest(unwrapData<Record<string, unknown>>(res, 'Invalid prayer request payload'));
   },
 
@@ -2452,7 +1826,9 @@ export const apiClient = {
 
   async listAttendanceSessions(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<AttendanceSessionAdmin>> {
     const qs = toQueryString(params);
-    const res = await apiFetch(`/admin/attendance/sessions${qs}`, { method: 'GET' });
+    const res = await apiFetch(`/admin/attendance/sessions${qs}`, {
+      method: 'GET',
+    });
     return unwrapSimplePaginated<AttendanceSessionAdmin>(res, 'Invalid attendance sessions payload');
   },
 
@@ -2520,7 +1896,9 @@ export const apiClient = {
   },
 
   async deleteCellGroup(id: string): Promise<MessageResponse> {
-    return apiFetch(`/admin/cell-groups/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    return apiFetch(`/admin/cell-groups/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
   },
 
   async listCellGroupMembers(groupId: string): Promise<CellGroupMemberAdmin[]> {
@@ -2545,7 +1923,15 @@ export const apiClient = {
     return unwrapData<CellGroupMeetingAdmin[]>(res, 'Invalid cell group meetings payload');
   },
 
-  async logCellGroupMeeting(groupId: string, payload: { date: string; attendee_count?: number; notes?: string; led_by_id?: string }): Promise<CellGroupMeetingAdmin> {
+  async logCellGroupMeeting(
+    groupId: string,
+    payload: {
+      date: string;
+      attendee_count?: number;
+      notes?: string;
+      led_by_id?: string;
+    },
+  ): Promise<CellGroupMeetingAdmin> {
     const res = await apiFetch<ApiResponse<CellGroupMeetingAdmin>>(`/admin/cell-groups/${encodeURIComponent(groupId)}/meetings`, {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -2585,7 +1971,9 @@ export const apiClient = {
   },
 
   async deleteMinistry(id: string): Promise<MessageResponse> {
-    return apiFetch(`/admin/ministries/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    return apiFetch(`/admin/ministries/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
   },
 
   async listMinistryMembers(ministryId: string): Promise<MinistryMemberAdmin[]> {
@@ -2610,12 +1998,22 @@ export const apiClient = {
     return unwrapData<MinistryStructure>(res, 'Invalid ministry structure payload');
   },
 
-  async assignMinistryWorkforceMember(ministryId: string, payload: { workforceMemberId: string; role: MinistryWorkforceRole; title?: string }): Promise<MessageResponse> {
+  async assignMinistryWorkforceMember(
+    ministryId: string,
+    payload: {
+      workforceMemberId: string;
+      role: MinistryWorkforceRole;
+      title?: string;
+    },
+  ): Promise<MessageResponse> {
     return apiFetch(`/admin/ministries/${encodeURIComponent(ministryId)}/workforce`, { method: 'POST', body: JSON.stringify(payload) });
   },
 
   async updateMinistryWorkforceAssignment(ministryId: string, workforceMemberId: string, payload: { role: MinistryWorkforceRole; title?: string }): Promise<MessageResponse> {
-    return apiFetch(`/admin/ministries/${encodeURIComponent(ministryId)}/workforce/${encodeURIComponent(workforceMemberId)}`, { method: 'PATCH', body: JSON.stringify({ workforceMemberId, ...payload }) });
+    return apiFetch(`/admin/ministries/${encodeURIComponent(ministryId)}/workforce/${encodeURIComponent(workforceMemberId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ workforceMemberId, ...payload }),
+    });
   },
 
   async removeMinistryWorkforceMember(ministryId: string, workforceMemberId: string): Promise<MessageResponse> {
@@ -2644,9 +2042,75 @@ export const apiClient = {
 
   async listContactMessages(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<ContactMessageAdmin>> {
     const qs = toQueryString(params);
-    const res = await apiFetch<ApiResponse<{ data: ContactMessageAdmin[]; total: number; page: number; limit: number; totalPages: number }>>(`/admin/contact/messages${qs}`, { method: 'GET' });
-    const inner = unwrapData<{ data: ContactMessageAdmin[]; total: number; page: number; limit: number; totalPages: number }>(res, 'Invalid contact messages payload');
-    return { data: inner.data ?? [], total: inner.total ?? 0, page: inner.page ?? 1, limit: inner.limit ?? 20, totalPages: inner.totalPages ?? 0 };
+    const res = await apiFetch<
+      ApiResponse<{
+        data: ContactMessageAdmin[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+      }>
+    >(`/admin/contact/messages${qs}`, { method: 'GET' });
+    const inner = unwrapData<{
+      data: ContactMessageAdmin[];
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    }>(res, 'Invalid contact messages payload');
+    return {
+      data: inner.data ?? [],
+      total: inner.total ?? 0,
+      page: inner.page ?? 1,
+      limit: inner.limit ?? 20,
+      totalPages: inner.totalPages ?? 0,
+    };
+  },
+
+  async listVisits(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<VisitRequestAdmin>> {
+    const qs = toQueryString(params);
+    const res = await apiFetch<
+      ApiResponse<{
+        data: VisitRequestAdmin[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+      }>
+    >(`/admin/visits${qs}`, { method: 'GET' });
+    const inner = unwrapData<{
+      data: VisitRequestAdmin[];
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    }>(res, 'Invalid visits payload');
+    return {
+      data: inner.data ?? [],
+      total: inner.total ?? 0,
+      page: inner.page ?? 1,
+      limit: inner.limit ?? 20,
+      totalPages: inner.totalPages ?? 0,
+    };
+  },
+
+  async updateVisit(
+    id: string,
+    payload: {
+      status?: VisitStatus;
+      assignedTo?: string;
+      nextFollowUpAt?: string;
+      contacted?: boolean;
+      activityNotes?: string;
+    },
+  ): Promise<VisitRequestAdmin> {
+    const res = await apiFetch<ApiResponse<VisitRequestAdmin>>(`/admin/visits/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(payload) });
+    return unwrapData<VisitRequestAdmin>(res, 'Invalid visit payload');
+  },
+
+  async listVisitActivities(id: string): Promise<VisitActivityAdmin[]> {
+    const res = await apiFetch<ApiResponse<VisitActivityAdmin[]>>(`/admin/visits/${encodeURIComponent(id)}/activities`, { method: 'GET' });
+    return unwrapData<VisitActivityAdmin[]>(res, 'Invalid visit history payload');
   },
 
   /* -----------------------------
@@ -2654,7 +2118,9 @@ export const apiClient = {
      ----------------------------- */
 
   async listAdminUsers(): Promise<AdminUserAdmin[]> {
-    const res = await apiFetch<ApiResponse<AdminUserAdmin[]>>('/admin/users', { method: 'GET' });
+    const res = await apiFetch<ApiResponse<AdminUserAdmin[]>>('/admin/users', {
+      method: 'GET',
+    });
     return unwrapData<AdminUserAdmin[]>(res, 'Invalid admin users payload');
   },
 
@@ -2669,7 +2135,7 @@ export const apiClient = {
       body: JSON.stringify(payload),
     });
     const user = unwrapData<AdminUserAdmin>(res, 'Invalid admin user payload');
-    const message = isRecord(res) && typeof (res as Record<string, unknown>).message === 'string' ? (res as Record<string, unknown>).message as string : 'User created';
+    const message = isRecord(res) && typeof (res as Record<string, unknown>).message === 'string' ? ((res as Record<string, unknown>).message as string) : 'User created';
     return { user, message };
   },
 
@@ -2682,59 +2148,40 @@ export const apiClient = {
   },
 
   async deleteAdminUser(id: string): Promise<MessageResponse> {
-    return apiFetch(`/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    return apiFetch(`/admin/users/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
   },
   // approveAdminUser already exists above (near getAllUsers' old spot) —
   // reused as-is by the admin-users page rather than duplicated here.
 
-  async listGivingIntents(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<GivingIntentAdmin>> {
+  async listGivingIntents(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<GivingIntentAdmin>> {
     const qs = toQueryString(params);
     const res = await apiFetch(`/admin/giving/intents${qs}`, {
       method: 'GET',
     });
-    return unwrapSimplePaginated<GivingIntentAdmin>(
-      res,
-      'Invalid giving intents payload'
-    );
+    return unwrapSimplePaginated<GivingIntentAdmin>(res, 'Invalid giving intents payload');
   },
 
-  async listWorkforce(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<WorkforceMember>> {
+  async listWorkforce(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<WorkforceMember>> {
     const qs = toQueryString(params);
     const res = await apiFetch(`/admin/workforce${qs}`, { method: 'GET' });
-    return unwrapSimplePaginated<WorkforceMember>(
-      res,
-      'Invalid workforce payload'
-    );
+    return unwrapSimplePaginated<WorkforceMember>(res, 'Invalid workforce payload');
   },
 
-  async createWorkforce(
-    payload: CreateWorkforceRequest
-  ): Promise<WorkforceMember> {
-    const res = await apiFetch<ApiResponse<WorkforceMember>>(
-      '/admin/workforce',
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }
-    );
+  async createWorkforce(payload: CreateWorkforceRequest): Promise<WorkforceMember> {
+    const res = await apiFetch<ApiResponse<WorkforceMember>>('/admin/workforce', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
     return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
   },
 
-  async updateWorkforce(
-    id: string,
-    payload: UpdateWorkforceRequest
-  ): Promise<WorkforceMember> {
-    const res = await apiFetch<ApiResponse<WorkforceMember>>(
-      `/admin/workforce/${encodeURIComponent(id)}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      }
-    );
+  async updateWorkforce(id: string, payload: UpdateWorkforceRequest): Promise<WorkforceMember> {
+    const res = await apiFetch<ApiResponse<WorkforceMember>>(`/admin/workforce/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
     return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
   },
 
@@ -2746,28 +2193,19 @@ export const apiClient = {
     return unwrapData<ApprovalRequest>(res, 'Invalid delete request payload');
   },
 
-  async approveWorkforce(
-    id: string,
-    payload?: Record<string, unknown>
-  ): Promise<WorkforceMember> {
-    const res = await apiFetch<ApiResponse<WorkforceMember>>(
-      `/admin/workforce/${encodeURIComponent(id)}/approve`,
-      {
-        method: 'POST',
-        body: JSON.stringify(payload || {}),
-      }
-    );
+  async approveWorkforce(id: string, payload?: Record<string, unknown>): Promise<WorkforceMember> {
+    const res = await apiFetch<ApiResponse<WorkforceMember>>(`/admin/workforce/${encodeURIComponent(id)}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(payload || {}),
+    });
     return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
   },
 
   async rejectWorkforceRegistration(id: string, reason: string): Promise<WorkforceMember> {
-    const res = await apiFetch<ApiResponse<WorkforceMember>>(
-      `/admin/workforce/${encodeURIComponent(id)}/registration/reject`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ reason }),
-      }
-    );
+    const res = await apiFetch<ApiResponse<WorkforceMember>>(`/admin/workforce/${encodeURIComponent(id)}/registration/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
     return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
   },
 
@@ -2777,87 +2215,90 @@ export const apiClient = {
     });
   },
 
-  async applyToWorkforce(
-    payload: CreateWorkforceRequest
-  ): Promise<WorkforceMember> {
-    const res = await apiFetch<ApiResponse<WorkforceMember>>(
-      '/workforce/apply',
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }
-    );
+  async applyToWorkforce(payload: CreateWorkforceRequest): Promise<WorkforceMember> {
+    const res = await apiFetch<ApiResponse<WorkforceMember>>('/workforce/apply', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
     return unwrapData<WorkforceMember>(res, 'Invalid workforce payload');
   },
 
   async getWorkforceStats(): Promise<WorkforceStatsResponse> {
-    const res = await apiFetch<ApiResponse<WorkforceStatsResponse>>(
-      '/admin/workforce/stats',
-      { method: 'GET' }
-    );
-    return unwrapData<WorkforceStatsResponse>(
-      res,
-      'Invalid workforce stats payload'
-    );
+    const res = await apiFetch<ApiResponse<WorkforceStatsResponse>>('/admin/workforce/stats', { method: 'GET' });
+    return unwrapData<WorkforceStatsResponse>(res, 'Invalid workforce stats payload');
   },
 
-  async listMembers(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<Member>> {
+  async listMembers(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<Member>> {
     const qs = toQueryString(params);
     const res = await apiFetch(`/admin/members${qs}`, { method: 'GET' });
     return unwrapSimplePaginated<Member>(res, 'Invalid members payload');
   },
 
   async getMemberStats(): Promise<MemberStatsResponse> {
-    const res = await apiFetch<ApiResponse<MemberStatsResponse>>(
-      '/admin/members/stats',
-      { method: 'GET' }
-    );
+    const res = await apiFetch<ApiResponse<MemberStatsResponse>>('/admin/members/stats', { method: 'GET' });
     return unwrapData<MemberStatsResponse>(res, 'Invalid member stats payload');
   },
 
   async getNewMemberDashboard(): Promise<NewMemberDashboardResponse> {
-    const res = await apiFetch<ApiResponse<NewMemberDashboardResponse>>(
-      '/admin/new-members/dashboard',
-      { method: 'GET' }
-    );
-    return unwrapData<NewMemberDashboardResponse>(
-      res,
-      'Invalid new member dashboard payload'
-    );
+    const res = await apiFetch<ApiResponse<NewMemberDashboardResponse>>('/admin/new-members/dashboard', { method: 'GET' });
+    return unwrapData<NewMemberDashboardResponse>(res, 'Invalid new member dashboard payload');
   },
 
-  async listNewMemberSubmissions(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<NewMemberSubmission>> {
+  async listNewMemberSubmissions(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<NewMemberSubmission>> {
     const qs = toQueryString(params);
     const res = await apiFetch(`/admin/new-members/submissions${qs}`, {
       method: 'GET',
     });
-    return unwrapSimplePaginated<NewMemberSubmission>(
-      res,
-      'Invalid new member submissions payload'
-    );
+    return unwrapSimplePaginated<NewMemberSubmission>(res, 'Invalid new member submissions payload');
   },
 
   async listNewMemberWorkflows(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<NewMemberWorkflow>> {
     const qs = toQueryString(params);
-    const res = await apiFetch(`/admin/new-members/workflows${qs}`, { method: 'GET' });
+    const res = await apiFetch(`/admin/new-members/workflows${qs}`, {
+      method: 'GET',
+    });
     return unwrapSimplePaginated<NewMemberWorkflow>(res, 'Invalid new-member workflow payload');
   },
 
-  async getNewMemberWorkflow(id: string): Promise<{ workflow: NewMemberWorkflow; contacts: NewMemberContact[]; history: NewMemberWorkflowHistory[] }> {
-    const res = await apiFetch<ApiResponse<{ workflow: NewMemberWorkflow; contacts: NewMemberContact[]; history: NewMemberWorkflowHistory[] }>>(`/admin/new-members/workflows/${encodeURIComponent(id)}`, { method: 'GET' });
+  async getNewMemberWorkflow(id: string): Promise<{
+    workflow: NewMemberWorkflow;
+    contacts: NewMemberContact[];
+    history: NewMemberWorkflowHistory[];
+  }> {
+    const res = await apiFetch<
+      ApiResponse<{
+        workflow: NewMemberWorkflow;
+        contacts: NewMemberContact[];
+        history: NewMemberWorkflowHistory[];
+      }>
+    >(`/admin/new-members/workflows/${encodeURIComponent(id)}`, {
+      method: 'GET',
+    });
     return unwrapData(res, 'Invalid new-member workflow payload');
   },
 
-  async updateNewMemberWorkflow(id: string, payload: { stage?: NewMemberWorkflow['stage']; assignedOwnerId?: string | null; nextActionAt?: string | null }): Promise<NewMemberWorkflow> {
+  async updateNewMemberWorkflow(
+    id: string,
+    payload: {
+      stage?: NewMemberWorkflow['stage'];
+      assignedOwnerId?: string | null;
+      nextActionAt?: string | null;
+    },
+  ): Promise<NewMemberWorkflow> {
     const res = await apiFetch<ApiResponse<NewMemberWorkflow>>(`/admin/new-members/workflows/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(payload) });
     return unwrapData(res, 'Invalid new-member workflow payload');
   },
 
-  async addNewMemberContact(id: string, payload: { channel: NewMemberContact['channel']; outcome: string; notes?: string; contactedAt?: string; nextActionAt?: string }): Promise<NewMemberContact> {
+  async addNewMemberContact(
+    id: string,
+    payload: {
+      channel: NewMemberContact['channel'];
+      outcome: string;
+      notes?: string;
+      contactedAt?: string;
+      nextActionAt?: string;
+    },
+  ): Promise<NewMemberContact> {
     const res = await apiFetch<ApiResponse<NewMemberContact>>(`/admin/new-members/workflows/${encodeURIComponent(id)}/contacts`, { method: 'POST', body: JSON.stringify(payload) });
     return unwrapData(res, 'Invalid new-member contact payload');
   },
@@ -2870,17 +2311,11 @@ export const apiClient = {
     return unwrapData<Member>(res, 'Invalid member payload');
   },
 
-  async updateMember(
-    id: string,
-    payload: UpdateMemberRequest
-  ): Promise<Member> {
-    const res = await apiFetch<ApiResponse<Member>>(
-      `/admin/members/${encodeURIComponent(id)}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      }
-    );
+  async updateMember(id: string, payload: UpdateMemberRequest): Promise<Member> {
+    const res = await apiFetch<ApiResponse<Member>>(`/admin/members/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
     return unwrapData<Member>(res, 'Invalid member payload');
   },
 
@@ -2890,55 +2325,33 @@ export const apiClient = {
     });
   },
 
-  async listLeadership(
-    params?: Record<string, unknown>
-  ): Promise<SimplePaginatedResponse<LeadershipMember>> {
+  async listLeadership(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<LeadershipMember>> {
     const qs = toQueryString(params);
     const res = await apiFetch(`/admin/leadership${qs}`, { method: 'GET' });
-    return unwrapSimplePaginated<LeadershipMember>(
-      res,
-      'Invalid leadership payload'
-    );
+    return unwrapSimplePaginated<LeadershipMember>(res, 'Invalid leadership payload');
   },
 
-  async createLeadership(
-    payload: CreateLeadershipRequest
-  ): Promise<LeadershipMember> {
-    const res = await apiFetch<ApiResponse<LeadershipMember>>(
-      '/admin/leadership',
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }
-    );
+  async createLeadership(payload: CreateLeadershipRequest): Promise<LeadershipMember> {
+    const res = await apiFetch<ApiResponse<LeadershipMember>>('/admin/leadership', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
     return unwrapData<LeadershipMember>(res, 'Invalid leadership payload');
   },
 
-  async updateLeadership(
-    id: string,
-    payload: UpdateLeadershipRequest
-  ): Promise<LeadershipMember> {
-    const res = await apiFetch<ApiResponse<LeadershipMember>>(
-      `/admin/leadership/${encodeURIComponent(id)}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      }
-    );
+  async updateLeadership(id: string, payload: UpdateLeadershipRequest): Promise<LeadershipMember> {
+    const res = await apiFetch<ApiResponse<LeadershipMember>>(`/admin/leadership/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
     return unwrapData<LeadershipMember>(res, 'Invalid leadership payload');
   },
 
-  async deleteLeadership(
-    id: string,
-    reason: string
-  ): Promise<ApprovalRequest | { deleted: true }> {
-    const res = await apiFetch<ApiResponse<ApprovalRequest | { deleted: true }>>(
-      `/admin/leadership/${encodeURIComponent(id)}`,
-      {
-        method: 'DELETE',
-        body: JSON.stringify({ reason }),
-      }
-    );
+  async deleteLeadership(id: string, reason: string): Promise<ApprovalRequest | { deleted: true }> {
+    const res = await apiFetch<ApiResponse<ApprovalRequest | { deleted: true }>>(`/admin/leadership/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ reason }),
+    });
     return unwrapData<ApprovalRequest | { deleted: true }>(res, 'Invalid delete request payload');
   },
 
@@ -2949,39 +2362,24 @@ export const apiClient = {
   },
 
   async approveLeadership(id: string): Promise<LeadershipMember> {
-    const res = await apiFetch<ApiResponse<LeadershipMember>>(
-      `/admin/leadership/${encodeURIComponent(id)}/approve`,
-      {
-        method: 'POST',
-      }
-    );
-    return unwrapData<LeadershipMember>(
-      res,
-      'Invalid leadership approval payload'
-    );
+    const res = await apiFetch<ApiResponse<LeadershipMember>>(`/admin/leadership/${encodeURIComponent(id)}/approve`, {
+      method: 'POST',
+    });
+    return unwrapData<LeadershipMember>(res, 'Invalid leadership approval payload');
   },
 
   async declineLeadership(id: string): Promise<LeadershipMember> {
-    const res = await apiFetch<ApiResponse<LeadershipMember>>(
-      `/admin/leadership/${encodeURIComponent(id)}/decline`,
-      {
-        method: 'POST',
-      }
-    );
-    return unwrapData<LeadershipMember>(
-      res,
-      'Invalid leadership decline payload'
-    );
+    const res = await apiFetch<ApiResponse<LeadershipMember>>(`/admin/leadership/${encodeURIComponent(id)}/decline`, {
+      method: 'POST',
+    });
+    return unwrapData<LeadershipMember>(res, 'Invalid leadership decline payload');
   },
 
   async listStoreProductsAdmin(includeInactive = true): Promise<StoreProductAdmin[]> {
     const qs = toQueryString({ includeInactive });
-    const res = await apiFetch<ApiResponse<StoreProductAdmin[]> | StoreProductAdmin[]>(
-      `/admin/store/products${qs}`,
-      {
-        method: 'GET',
-      }
-    );
+    const res = await apiFetch<ApiResponse<StoreProductAdmin[]> | StoreProductAdmin[]>(`/admin/store/products${qs}`, {
+      method: 'GET',
+    });
     if (Array.isArray(res)) return res;
     const payload = unwrapData<unknown>(res, 'Invalid store products payload');
     if (Array.isArray(payload)) return payload as StoreProductAdmin[];
@@ -2991,122 +2389,65 @@ export const apiClient = {
     return [];
   },
 
-  async createStoreProduct(
-    payload: UpsertStoreProductRequest
-  ): Promise<StoreProductAdmin> {
-    const res = await apiFetch<ApiResponse<StoreProductAdmin>>(
-      '/admin/store/products',
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }
-    );
+  async createStoreProduct(payload: UpsertStoreProductRequest): Promise<StoreProductAdmin> {
+    const res = await apiFetch<ApiResponse<StoreProductAdmin>>('/admin/store/products', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
     return unwrapData<StoreProductAdmin>(res, 'Invalid store product payload');
   },
 
-  async updateStoreProduct(
-    id: number,
-    payload: UpsertStoreProductRequest
-  ): Promise<StoreProductAdmin> {
-    const res = await apiFetch<ApiResponse<StoreProductAdmin>>(
-      `/admin/store/products/${encodeURIComponent(String(id))}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      }
-    );
+  async updateStoreProduct(id: number, payload: UpsertStoreProductRequest): Promise<StoreProductAdmin> {
+    const res = await apiFetch<ApiResponse<StoreProductAdmin>>(`/admin/store/products/${encodeURIComponent(String(id))}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
     return unwrapData<StoreProductAdmin>(res, 'Invalid store product payload');
   },
 
-  async updateStoreProductStock(
-    id: number,
-    stock: number
-  ): Promise<StoreProductAdmin> {
-    const res = await apiFetch<ApiResponse<StoreProductAdmin>>(
-      `/admin/store/products/${encodeURIComponent(String(id))}/stock`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ stock }),
-      }
-    );
-    return unwrapData<StoreProductAdmin>(
-      res,
-      'Invalid store stock payload'
-    );
+  async updateStoreProductStock(id: number, stock: number): Promise<StoreProductAdmin> {
+    const res = await apiFetch<ApiResponse<StoreProductAdmin>>(`/admin/store/products/${encodeURIComponent(String(id))}/stock`, {
+      method: 'PATCH',
+      body: JSON.stringify({ stock }),
+    });
+    return unwrapData<StoreProductAdmin>(res, 'Invalid store stock payload');
   },
 
-  async updateStoreProductActive(
-    id: number,
-    isActive: boolean
-  ): Promise<StoreProductAdmin> {
-    const res = await apiFetch<ApiResponse<StoreProductAdmin>>(
-      `/admin/store/products/${encodeURIComponent(String(id))}/active`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ isActive }),
-      }
-    );
-    return unwrapData<StoreProductAdmin>(
-      res,
-      'Invalid store product active payload'
-    );
+  async updateStoreProductActive(id: number, isActive: boolean): Promise<StoreProductAdmin> {
+    const res = await apiFetch<ApiResponse<StoreProductAdmin>>(`/admin/store/products/${encodeURIComponent(String(id))}/active`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isActive }),
+    });
+    return unwrapData<StoreProductAdmin>(res, 'Invalid store product active payload');
   },
 
-  async listStoreOrders(params?: {
-    page?: number;
-    limit?: number;
-    status?: StoreOrderStatus | '';
-  }): Promise<StoreOrdersPaginated> {
+  async listStoreOrders(params?: { page?: number; limit?: number; status?: StoreOrderStatus | '' }): Promise<StoreOrdersPaginated> {
     const qs = toQueryString(params || {});
-    const res = await apiFetch<ApiResponse<StoreOrdersPaginated> | StoreOrdersPaginated>(
-      `/admin/store/orders${qs}`,
-      {
-        method: 'GET',
-      }
-    );
+    const res = await apiFetch<ApiResponse<StoreOrdersPaginated> | StoreOrdersPaginated>(`/admin/store/orders${qs}`, {
+      method: 'GET',
+    });
     return unwrapData<StoreOrdersPaginated>(res, 'Invalid store orders payload');
   },
 
-  async updateStoreOrderStatus(
-    orderId: string,
-    status: StoreOrderStatus
-  ): Promise<StoreOrderAdmin> {
-    const res = await apiFetch<ApiResponse<StoreOrderAdmin>>(
-      `/admin/store/orders/${encodeURIComponent(orderId)}/status`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      }
-    );
-    return unwrapData<StoreOrderAdmin>(
-      res,
-      'Invalid store order status payload'
-    );
+  async updateStoreOrderStatus(orderId: string, status: StoreOrderStatus): Promise<StoreOrderAdmin> {
+    const res = await apiFetch<ApiResponse<StoreOrderAdmin>>(`/admin/store/orders/${encodeURIComponent(orderId)}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+    return unwrapData<StoreOrderAdmin>(res, 'Invalid store order status payload');
   },
 
   async getWorkforceBirthdayStats(): Promise<Record<string, unknown>> {
-    const res = await apiFetch<ApiResponse<Record<string, unknown>>>(
-      '/admin/workforce/birthdays/stats',
-      {
-        method: 'GET',
-      }
-    );
-    return unwrapData<Record<string, unknown>>(
-      res,
-      'Invalid birthday stats payload'
-    );
+    const res = await apiFetch<ApiResponse<Record<string, unknown>>>('/admin/workforce/birthdays/stats', {
+      method: 'GET',
+    });
+    return unwrapData<Record<string, unknown>>(res, 'Invalid birthday stats payload');
   },
 
   async getWorkforceBirthdaysByMonth(month: number): Promise<WorkforceMember[]> {
-    const res = await apiFetch<ApiResponse<unknown> | WorkforceMember[]>(
-      `/admin/workforce/birthdays/month/${encodeURIComponent(String(month))}`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<ApiResponse<unknown> | WorkforceMember[]>(`/admin/workforce/birthdays/month/${encodeURIComponent(String(month))}`, { method: 'GET' });
     if (Array.isArray(res)) return res;
-    const payload = unwrapData<unknown>(
-      res,
-      'Invalid birthdays by month payload'
-    );
+    const payload = unwrapData<unknown>(res, 'Invalid birthdays by month payload');
     if (Array.isArray(payload)) return payload as WorkforceMember[];
     if (isRecord(payload) && Array.isArray(payload.data)) {
       return payload.data as WorkforceMember[];
@@ -3115,10 +2456,7 @@ export const apiClient = {
   },
 
   async getWorkforceBirthdaysToday(): Promise<WorkforceMember[]> {
-    const res = await apiFetch<ApiResponse<unknown> | WorkforceMember[]>(
-      '/admin/workforce/birthdays/today',
-      { method: 'GET' }
-    );
+    const res = await apiFetch<ApiResponse<unknown> | WorkforceMember[]>('/admin/workforce/birthdays/today', { method: 'GET' });
     if (Array.isArray(res)) return res;
     const payload = unwrapData<unknown>(res, 'Invalid birthdays today payload');
     if (Array.isArray(payload)) return payload as WorkforceMember[];
@@ -3129,28 +2467,16 @@ export const apiClient = {
   },
 
   async sendWorkforceBirthdaysToday(): Promise<Record<string, number>> {
-    const res = await apiFetch<ApiResponse<Record<string, number>>>(
-      '/admin/workforce/birthdays/send-today',
-      {
-        method: 'POST',
-      }
-    );
-    return unwrapData<Record<string, number>>(
-      res,
-      'Invalid birthday send payload'
-    );
+    const res = await apiFetch<ApiResponse<Record<string, number>>>('/admin/workforce/birthdays/send-today', {
+      method: 'POST',
+    });
+    return unwrapData<Record<string, number>>(res, 'Invalid birthday send payload');
   },
 
   async getMemberBirthdaysByMonth(month: number): Promise<Member[]> {
-    const res = await apiFetch<ApiResponse<unknown> | Member[]>(
-      `/admin/members/birthdays/month/${encodeURIComponent(String(month))}`,
-      { method: 'GET' }
-    );
+    const res = await apiFetch<ApiResponse<unknown> | Member[]>(`/admin/members/birthdays/month/${encodeURIComponent(String(month))}`, { method: 'GET' });
     if (Array.isArray(res)) return res;
-    const payload = unwrapData<unknown>(
-      res,
-      'Invalid member birthdays by month payload'
-    );
+    const payload = unwrapData<unknown>(res, 'Invalid member birthdays by month payload');
     if (Array.isArray(payload)) return payload as Member[];
     if (isRecord(payload) && Array.isArray(payload.data)) {
       return payload.data as Member[];
@@ -3158,18 +2484,10 @@ export const apiClient = {
     return [];
   },
 
-  async getLeadershipBirthdaysByMonth(
-    month: number
-  ): Promise<LeadershipMember[]> {
-    const res = await apiFetch<ApiResponse<unknown> | LeadershipMember[]>(
-      `/admin/leadership/birthdays/month/${encodeURIComponent(String(month))}`,
-      { method: 'GET' }
-    );
+  async getLeadershipBirthdaysByMonth(month: number): Promise<LeadershipMember[]> {
+    const res = await apiFetch<ApiResponse<unknown> | LeadershipMember[]>(`/admin/leadership/birthdays/month/${encodeURIComponent(String(month))}`, { method: 'GET' });
     if (Array.isArray(res)) return res;
-    const payload = unwrapData<unknown>(
-      res,
-      'Invalid leadership birthdays by month payload'
-    );
+    const payload = unwrapData<unknown>(res, 'Invalid leadership birthdays by month payload');
     if (Array.isArray(payload)) return payload as LeadershipMember[];
     if (isRecord(payload) && Array.isArray(payload.data)) {
       return payload.data as LeadershipMember[];
@@ -3177,20 +2495,10 @@ export const apiClient = {
     return [];
   },
 
-  async getLeadershipAnniversariesByMonth(
-    month: number
-  ): Promise<LeadershipMember[]> {
-    const res = await apiFetch<ApiResponse<unknown> | LeadershipMember[]>(
-      `/admin/leadership/anniversaries/month/${encodeURIComponent(
-        String(month)
-      )}`,
-      { method: 'GET' }
-    );
+  async getLeadershipAnniversariesByMonth(month: number): Promise<LeadershipMember[]> {
+    const res = await apiFetch<ApiResponse<unknown> | LeadershipMember[]>(`/admin/leadership/anniversaries/month/${encodeURIComponent(String(month))}`, { method: 'GET' });
     if (Array.isArray(res)) return res;
-    const payload = unwrapData<unknown>(
-      res,
-      'Invalid leadership anniversaries by month payload'
-    );
+    const payload = unwrapData<unknown>(res, 'Invalid leadership anniversaries by month payload');
     if (Array.isArray(payload)) return payload as LeadershipMember[];
     if (isRecord(payload) && Array.isArray(payload.data)) {
       return payload.data as LeadershipMember[];
