@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
@@ -15,6 +16,7 @@ import {
   Megaphone,
   RefreshCw,
   ShieldCheck,
+  Settings2,
   Store,
   UserRound,
   Users,
@@ -24,9 +26,9 @@ import { PageHeader } from '@/layouts';
 import { Button } from '@/ui/Button';
 import { StatCard, type StatCardTone } from '@/ui/StatCard';
 import { withAuth } from '@/providers/withAuth';
+import { apiClient } from '@/lib/api';
 
 import {
-  apiPost,
   countThisYear,
   countUpcomingEvents,
   extractSubmissionTotal,
@@ -75,20 +77,10 @@ function AdminDashboardPage() {
   }, []);
 
   const sendToday = useCallback(
-    async (mode: TrackerMode, segment?: SegmentKey) => {
-      const requests: string[] = [];
-
-      if (mode === 'birthdays') {
-        if (!segment || segment === 'leadership') requests.push('/api/v1/admin/leadership/birthdays/send-today');
-        if (!segment || segment === 'members') requests.push('/api/v1/admin/members/birthdays/send-today');
-        if (!segment || segment === 'workforce') requests.push('/api/v1/admin/workforce/birthdays/send-today');
-      }
-
-      if (mode === 'anniversaries') requests.push('/api/v1/admin/leadership/anniversaries/send-today');
-
+    async (mode: TrackerMode, _segment?: SegmentKey) => {
       try {
-        await Promise.all(requests.map((path) => apiPost(path)));
-        toast.success(mode === 'birthdays' ? 'Birthday greetings triggered successfully.' : 'Anniversary greetings triggered successfully.');
+        const run = await apiClient.runCelebrationAutomationNow();
+        toast.success(`${mode === 'birthdays' ? 'Celebrations' : 'Anniversaries'} processed: ${run.sent} sent, ${run.suppressed} suppressed, ${run.failed} failed.`);
         await refetch();
       } catch (sendError) {
         toast.error(sendError instanceof Error ? sendError.message : 'Failed to trigger greetings.');
@@ -130,6 +122,7 @@ function AdminDashboardPage() {
             <Button variant="outline" onClick={() => setTrackerMode('anniversaries')} icon={<Heart className="h-4 w-4" />}>
               Anniversaries
             </Button>
+            <Link href="/dashboard/administration/automations"><Button variant="outline" icon={<Settings2 className="h-4 w-4" />}>Automation</Button></Link>
             <Button variant="outline" onClick={() => void refetch()} loading={isFetching} icon={<RefreshCw className="h-4 w-4" />}>
               Refresh
             </Button>

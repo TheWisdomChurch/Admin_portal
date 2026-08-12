@@ -1,5 +1,7 @@
-import type { User, LoginCredentials, RegisterData, ApiResponse, MessageResponse, PaginatedResponse, SimplePaginatedResponse, Testimonial, CreateTestimonialData, UpdateTestimonialData, EventData, EventPayload, DashboardAnalytics, DecisionInsights, AdminAuditLog, SecurityOverview, ReelData, CreateReelData, AdminForm, CreateFormRequest, UpdateFormRequest, PublicFormPayload, SubmitFormRequest, FormSubmission, FormStatsResponse, FormStatus, FormSubmissionDailyStat, Subscriber, SubscribeRequest, UnsubscribeRequest, SendNotificationRequest, SendNotificationResult, SubscriberSummary, SendOTPRequest, VerifyOTPRequest, SendOTPResponse, VerifyOTPResponse, WorkforceMember, CreateWorkforceRequest, UpdateWorkforceRequest, WorkforceStatsResponse, Member, MemberStatsResponse, NewMemberDashboardResponse, NewMemberSubmission, NewMemberWorkflow, NewMemberContact, NewMemberWorkflowHistory, CreateMemberRequest, UpdateMemberRequest, LeadershipMember, CreateLeadershipRequest, UpdateLeadershipRequest, PasswordResetRequestPayload, PasswordResetConfirmPayload, LoginResult, LoginChallenge, AuthSecurityProfile, ChangePasswordData, HealthCheckResponse, UploadPresignRequest, UploadPresignResponse, UploadAssetData, UploadImageResponse, EmailTemplate, CreateEmailTemplateRequest, UpdateEmailTemplateRequest, AdminNotificationInbox, ApprovalRequest, ApprovalRequestsTimeline, TOTPSetupResponse, FormReportLinkPayload, AdminEmailMarketingFormItem, AdminEmailMarketingSummary, AdminEmailAudiencePreview, SendAdminComposeEmailRequest, SendAdminComposeEmailResponse, AdminEmailDeliveryHistoryItem, HomepageAdContent, ConfessionPopupContent, PastoralCareRequestAdmin, PrayerRequestAdmin, PrayerRequestStatus, GivingIntentAdmin, StoreProductAdmin, UpsertStoreProductRequest, StoreOrdersPaginated, StoreOrderAdmin, StoreOrderStatus, MFAMethod, ServiceTypeAdmin, AttendanceSessionAdmin, AttendanceRecordAdmin, CreateSessionRequest, CheckInRequest, CellGroupAdmin, CellGroupMemberAdmin, CellGroupMeetingAdmin, MinistryAdmin, MinistryMemberAdmin, MinistryStructure, MinistryWorkforceRole, GivingTransactionAdmin, GivingMonthlySummaryRow, ContactMessageAdmin, VisitRequestAdmin, VisitStatus, AdminUserAdmin, CreateAdminUserRequest, UpdateAdminUserRequest } from './types';
+import type { User, LoginCredentials, RegisterData, ApiResponse, MessageResponse, PaginatedResponse, SimplePaginatedResponse, Testimonial, CreateTestimonialData, UpdateTestimonialData, EventData, EventPayload, DashboardAnalytics, DecisionInsights, AdminAuditLog, SecurityOverview, ReelData, CreateReelData, AdminForm, CreateFormRequest, UpdateFormRequest, PublicFormPayload, SubmitFormRequest, FormSubmission, FormStatsResponse, FormStatus, FormSubmissionDailyStat, Subscriber, SubscribeRequest, UnsubscribeRequest, SendNotificationRequest, SendNotificationResult, SubscriberSummary, SendOTPRequest, VerifyOTPRequest, SendOTPResponse, VerifyOTPResponse, WorkforceMember, CreateWorkforceRequest, UpdateWorkforceRequest, WorkforceStatsResponse, Member, MemberStatsResponse, NewMemberDashboardResponse, NewMemberSubmission, NewMemberWorkflow, NewMemberContact, NewMemberWorkflowHistory, CreateMemberRequest, UpdateMemberRequest, LeadershipMember, CreateLeadershipRequest, UpdateLeadershipRequest, PasswordResetRequestPayload, PasswordResetConfirmPayload, LoginResult, LoginChallenge, AuthSecurityProfile, ChangePasswordData, HealthCheckResponse, UploadPresignRequest, UploadPresignResponse, UploadAssetData, UploadImageResponse, EmailTemplate, CreateEmailTemplateRequest, UpdateEmailTemplateRequest, AdminNotificationInbox, ApprovalRequest, ApprovalRequestsTimeline, TOTPSetupResponse, FormReportLinkPayload, AdminEmailMarketingFormItem, AdminEmailMarketingSummary, AdminEmailAudiencePreview, SendAdminComposeEmailRequest, SendAdminComposeEmailResponse, AdminEmailDeliveryHistoryItem, HomepageAdContent, ConfessionPopupContent, AboutPageContent, PastoralCareRequestAdmin, PrayerRequestAdmin, PrayerRequestStatus, GivingIntentAdmin, StoreProductAdmin, UpsertStoreProductRequest, StoreOrdersPaginated, StoreOrderAdmin, StoreOrderStatus, MFAMethod, ServiceTypeAdmin, AttendanceSessionAdmin, AttendanceRecordAdmin, CreateSessionRequest, CheckInRequest, CellGroupAdmin, CellGroupMemberAdmin, CellGroupMeetingAdmin, MinistryAdmin, MinistryMemberAdmin, MinistryStructure, MinistryWorkforceRole, GivingTransactionAdmin, GivingMonthlySummaryRow, ContactMessageAdmin, VisitRequestAdmin, VisitStatus, AdminUserAdmin, CreateAdminUserRequest, UpdateAdminUserRequest } from './types';
 import type { VisitActivityAdmin } from './types';
+import type { AdminEmailSchedule, AdminEmailScheduleDetail, AdminEmailScheduleRun, AdminEmailScheduleStatus, UpsertAdminEmailScheduleRequest } from './types';
+import type { CelebrationAutomationConfig, CelebrationAutomationRun, CelebrationAutomationStatus, CelebrationDelivery } from './types';
 
 /* ============================================================================
    API CLIENT CONFIG
@@ -1615,6 +1617,65 @@ export const apiClient = {
     return unwrapSimplePaginated<AdminEmailDeliveryHistoryItem>(res, 'Invalid admin compose history payload');
   },
 
+  async listAdminEmailSchedules(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<AdminEmailSchedule>> {
+    const res = await apiFetch(`/admin/email/schedules${toQueryString(params)}`, { method: 'GET' });
+    return unwrapSimplePaginated<AdminEmailSchedule>(res, 'Invalid email schedules payload');
+  },
+
+  async getAdminEmailSchedule(id: string): Promise<AdminEmailScheduleDetail> {
+    const res = await apiFetch<ApiResponse<AdminEmailScheduleDetail>>(`/admin/email/schedules/${encodeURIComponent(id)}`, { method: 'GET' });
+    return unwrapData<AdminEmailScheduleDetail>(res, 'Invalid email schedule payload');
+  },
+
+  async createAdminEmailSchedule(payload: UpsertAdminEmailScheduleRequest): Promise<AdminEmailScheduleDetail> {
+    const res = await apiFetch<ApiResponse<AdminEmailScheduleDetail>>('/admin/email/schedules', { method: 'POST', body: JSON.stringify(payload) });
+    return unwrapData<AdminEmailScheduleDetail>(res, 'Invalid email schedule payload');
+  },
+
+  async updateAdminEmailSchedule(id: string, payload: UpsertAdminEmailScheduleRequest): Promise<AdminEmailScheduleDetail> {
+    const res = await apiFetch<ApiResponse<AdminEmailScheduleDetail>>(`/admin/email/schedules/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(payload) });
+    return unwrapData<AdminEmailScheduleDetail>(res, 'Invalid email schedule payload');
+  },
+
+  async setAdminEmailScheduleStatus(id: string, status: Extract<AdminEmailScheduleStatus, 'active' | 'paused' | 'draft'>): Promise<AdminEmailScheduleDetail> {
+    const res = await apiFetch<ApiResponse<AdminEmailScheduleDetail>>(`/admin/email/schedules/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+    return unwrapData<AdminEmailScheduleDetail>(res, 'Invalid email schedule status payload');
+  },
+
+  async deleteAdminEmailSchedule(id: string): Promise<void> {
+    await apiFetch(`/admin/email/schedules/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+
+  async listAdminEmailScheduleRuns(id: string, limit = 20): Promise<AdminEmailScheduleRun[]> {
+    const res = await apiFetch<ApiResponse<AdminEmailScheduleRun[]>>(`/admin/email/schedules/${encodeURIComponent(id)}/runs?limit=${limit}`, { method: 'GET' });
+    return unwrapData<AdminEmailScheduleRun[]>(res, 'Invalid email schedule runs payload');
+  },
+
+  async getCelebrationAutomationStatus(): Promise<CelebrationAutomationStatus> {
+    const res = await apiFetch<ApiResponse<CelebrationAutomationStatus>>('/admin/automations/celebrations', { method: 'GET' });
+    return unwrapData<CelebrationAutomationStatus>(res, 'Invalid celebration automation status');
+  },
+
+  async updateCelebrationAutomationConfig(payload: Omit<CelebrationAutomationConfig, 'id' | 'updatedAt' | 'updatedByEmail'>): Promise<CelebrationAutomationConfig> {
+    const res = await apiFetch<ApiResponse<CelebrationAutomationConfig>>('/admin/automations/celebrations', { method: 'PUT', body: JSON.stringify(payload) });
+    return unwrapData<CelebrationAutomationConfig>(res, 'Invalid celebration automation configuration');
+  },
+
+  async runCelebrationAutomationNow(): Promise<CelebrationAutomationRun> {
+    const res = await apiFetch<ApiResponse<CelebrationAutomationRun>>('/admin/automations/celebrations/run', { method: 'POST', body: '{}' });
+    return unwrapData<CelebrationAutomationRun>(res, 'Invalid celebration automation run');
+  },
+
+  async listCelebrationAutomationRuns(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<CelebrationAutomationRun>> {
+    const res = await apiFetch(`/admin/automations/celebrations/runs${toQueryString(params)}`, { method: 'GET' });
+    return unwrapSimplePaginated<CelebrationAutomationRun>(res, 'Invalid celebration automation runs');
+  },
+
+  async listCelebrationDeliveries(runId: string, params?: Record<string, unknown>): Promise<SimplePaginatedResponse<CelebrationDelivery>> {
+    const res = await apiFetch(`/admin/automations/celebrations/runs/${encodeURIComponent(runId)}/deliveries${toQueryString(params)}`, { method: 'GET' });
+    return unwrapSimplePaginated<CelebrationDelivery>(res, 'Invalid celebration deliveries');
+  },
+
   async getPublicForm(slug: string): Promise<PublicFormPayload> {
     const res = await apiFetch<{ data: PublicFormPayload }>(`/forms/${encodeURIComponent(slug)}`, { method: 'GET' });
     return unwrapData<PublicFormPayload>(res, 'Invalid public form payload');
@@ -1748,6 +1809,18 @@ export const apiClient = {
       body: JSON.stringify(payload),
     });
     return unwrapData<ConfessionPopupContent>(res, 'Invalid confession popup content payload');
+  },
+
+  async getAboutPageContent(): Promise<AboutPageContent> {
+    const res = await apiFetch<ApiResponse<AboutPageContent>>('/admin/content/about', { method: 'GET' });
+    return unwrapData<AboutPageContent>(res, 'Invalid about page content payload');
+  },
+
+  async updateAboutPageContent(payload: AboutPageContent): Promise<AboutPageContent> {
+    const res = await apiFetch<ApiResponse<AboutPageContent>>('/admin/content/about', {
+      method: 'PUT', body: JSON.stringify(payload),
+    });
+    return unwrapData<AboutPageContent>(res, 'Invalid about page content payload');
   },
 
   async listPastoralCareRequests(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<PastoralCareRequestAdmin>> {

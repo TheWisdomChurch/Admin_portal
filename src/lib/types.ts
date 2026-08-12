@@ -836,6 +836,128 @@ export interface SendAdminComposeEmailRequest {
   attachments?: AdminEmailAttachmentInput[];
 }
 
+export type AdminEmailScheduleStatus = 'draft' | 'active' | 'paused' | 'completed' | 'failed';
+export type AdminEmailRecurrence = 'once' | 'weekly' | 'monthly';
+
+export interface UpsertAdminEmailScheduleRequest {
+  name: string;
+  description?: string;
+  status?: 'draft' | 'active' | 'paused';
+  recurrence: AdminEmailRecurrence;
+  timezone: string;
+  sendTime: string;
+  startDate: string;
+  endDate?: string;
+  weekdays?: number[];
+  monthDays?: number[];
+  startAt?: string;
+  endAt?: string;
+  audienceLabel?: string;
+  compose: SendAdminComposeEmailRequest;
+}
+
+export interface AdminEmailSchedule {
+  id: string;
+  name: string;
+  description: string;
+  status: AdminEmailScheduleStatus;
+  recurrence: AdminEmailRecurrence;
+  timezone: string;
+  sendTime: string;
+  startDate: string;
+  endDate?: string;
+  weekdays: number[];
+  monthDays: number[];
+  startAt: string;
+  endAt?: string;
+  nextRunAt?: string;
+  lastRunAt?: string;
+  subject: string;
+  audienceLabel: string;
+  runCount: number;
+  consecutiveErrors: number;
+  lastError?: string;
+  createdByEmail?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminEmailScheduleDetail extends AdminEmailSchedule {
+  compose: SendAdminComposeEmailRequest;
+}
+
+export interface AdminEmailScheduleRun {
+  id: string;
+  scheduleId: string;
+  scheduledFor: string;
+  status: 'running' | 'completed' | 'partial' | 'failed';
+  attempt: number;
+  deliveryId?: string;
+  sent: number;
+  failed: number;
+  error?: string;
+  startedAt: string;
+  completedAt?: string;
+}
+
+export interface CelebrationAutomationConfig {
+  id: string;
+  enabled: boolean;
+  birthdayEnabled: boolean;
+  anniversaryEnabled: boolean;
+  timezone: string;
+  sendTime: string;
+  feb29Policy: 'feb28' | 'mar1' | 'leap_only';
+  maxAttempts: number;
+  retryMinutes: number;
+  birthdaySubject: string;
+  anniversarySubject: string;
+  birthdayTemplateKey: string;
+  anniversaryTemplateKey: string;
+  updatedByEmail?: string;
+  updatedAt: string;
+}
+
+export interface CelebrationAutomationRun {
+  id: string;
+  runDate: string;
+  timezone: string;
+  status: 'pending' | 'running' | 'partial' | 'completed' | 'failed';
+  attempt: number;
+  targeted: number;
+  sent: number;
+  suppressed: number;
+  skipped: number;
+  failed: number;
+  lastError?: string;
+  nextAttemptAt?: string;
+  trigger: 'scheduler' | 'manual';
+  startedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CelebrationAutomationStatus {
+  config: CelebrationAutomationConfig;
+  todayRun?: CelebrationAutomationRun;
+  nextRunAt?: string;
+  workerHealthy: boolean;
+}
+
+export interface CelebrationDelivery {
+  id: string;
+  runId: string;
+  kind: 'birthday' | 'anniversary';
+  recipientEmail: string;
+  recipientName: string;
+  sources: Array<{ type: string; id: string }>;
+  status: 'pending' | 'sent' | 'suppressed' | 'skipped' | 'failed';
+  attempt: number;
+  error?: string;
+  sentAt?: string;
+}
+
 export interface SendAdminComposeEmailResponse {
   deliveryId?: string;
   subject: string;
@@ -905,6 +1027,17 @@ export interface ConfessionPopupContent {
   welcomeMessage: string;
   confessionText: string;
   motto: string;
+}
+
+export interface AboutPageContent {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  storyTitle: string;
+  storyBody: string;
+  storyImage: string;
+  cultureTitle: string;
+  pillars: Array<{ title: string; body: string }>;
 }
 
 export interface PastoralCareRequestAdmin {

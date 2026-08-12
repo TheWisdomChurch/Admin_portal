@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
+  CalendarClock,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
@@ -42,6 +43,7 @@ import { EmptyState } from '@/ui/EmptyState';
 import { withAuth } from '@/providers/withAuth';
 
 import styles from './email-marketing.module.scss';
+import { ScheduleCampaignModal } from './ScheduleCampaignModal';
 
 // Design tokens mirror internal/email/theme.go on the backend (the single
 // source of truth for what a Wisdom Church email looks like). Keep these in
@@ -401,6 +403,7 @@ function EmailMarketingPage() {
   const [uploadingEflier, setUploadingEflier] = useState(false);
   const [step, setStep] = useState<WizardStep>(1);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const hasLoadedRef = useRef(false);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const eflierInputRef = useRef<HTMLInputElement>(null);
@@ -628,6 +631,15 @@ function EmailMarketingPage() {
     }
   }
 
+  const currentComposePayload: SendAdminComposeEmailRequest = {
+    subject: subject.trim(),
+    htmlBody,
+    textBody: textBody.trim() || undefined,
+    manualRecipients: parsedManualRecipients.length > 0 ? parsedManualRecipients : undefined,
+    formIds: selectedFormIds.length > 0 ? selectedFormIds : undefined,
+    attachments: attachments.length > 0 ? attachments.map((item) => ({ url: item.url, filename: item.filename })) : undefined,
+  };
+
   if (loading) {
     return <div className={styles.loadingShell}><div className={styles.loadingCard}><div className={styles.loadingOrb} /><h1>Loading email marketing workspace</h1><p>Preparing audiences, composer, preview, and delivery history.</p></div></div>;
   }
@@ -800,8 +812,8 @@ function EmailMarketingPage() {
                 <span>{attachments.length} attachment{attachments.length === 1 ? '' : 's'}</span>
                 <span>{eflierUrl ? 'Eflier included' : 'No eflier'}</span>
               </div>
-              <div className={styles.previewFrame}><div><span>Subject</span><strong>{subject || 'No subject'}</strong></div><div className={styles.previewCanvas} dangerouslySetInnerHTML={{ __html: renderPreviewHtml(htmlBody) }} /></div>
-              <div className={styles.sendRow}><p>Overlapping recipients are deduplicated before delivery.</p><Button type="button" onClick={handleSendCampaign} loading={sending} icon={<Send className="h-4 w-4" />}>Send campaign</Button></div>
+              <div className={styles.previewFrame}><div><span>Subject</span><strong>{subject || 'No subject'}</strong></div><div className={styles.previewCanvas}><iframe title="Sandboxed email campaign preview" sandbox="" srcDoc={renderPreviewHtml(htmlBody)} /></div></div>
+              <div className={styles.sendRow}><p>Overlapping recipients are deduplicated before delivery.</p><div className="flex flex-wrap gap-2"><Link href="/dashboard/email-marketing/schedules"><Button type="button" variant="ghost" icon={<CalendarClock className="h-4 w-4" />}>Manage schedules</Button></Link><Button type="button" variant="outline" onClick={() => setScheduleOpen(true)} icon={<Clock3 className="h-4 w-4" />}>Schedule</Button><Button type="button" onClick={handleSendCampaign} loading={sending} icon={<Send className="h-4 w-4" />}>Send campaign</Button></div></div>
             </section>
           </div>
         )}
@@ -837,6 +849,7 @@ function EmailMarketingPage() {
           )
         ) : null}
       </section>
+      <ScheduleCampaignModal open={scheduleOpen} onClose={() => setScheduleOpen(false)} compose={currentComposePayload} estimatedRecipients={estimatedReach} />
     </main>
   );
 }

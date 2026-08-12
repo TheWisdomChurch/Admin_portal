@@ -30,6 +30,7 @@ import { uploadAsset } from '@/lib/uploads';
 import { withAuth } from '@/providers/withAuth';
 import type {
   ConfessionPopupContent,
+  AboutPageContent,
   EmailTemplate,
   GivingIntentAdmin,
   HomepageAdContent,
@@ -93,7 +94,21 @@ const AUTOMATION_TEMPLATE_DEFS = [
 ] as const;
 
 type TemplateStatus = { id?: string; active: boolean; version?: number };
-type TabKey = 'homepage' | 'confession' | 'requests' | 'automation';
+type TabKey = 'homepage' | 'about' | 'confession' | 'requests' | 'automation';
+
+const defaultAbout: AboutPageContent = {
+  eyebrow: 'About Wisdom Church', title: 'Raising complete believers.',
+  subtitle: 'A Spirit-filled community built on Word, worship, and intentional discipleship.',
+  storyTitle: 'A church where people grow in Christ.',
+  storyBody: 'The Wisdom Church is a trans-generational community in Lagos, committed to forming complete believers through sound teaching, worshipful community, and faithful pastoral care.',
+  storyImage: '', cultureTitle: 'What shapes everything we do.',
+  pillars: [
+    { title: 'Presence-driven worship', body: 'We gather to host the presence of God with reverence, expectation, and joy.' },
+    { title: 'Word-shaped discipleship', body: 'Teaching is practical and biblical, aimed at forming complete believers.' },
+    { title: 'People-first community', body: 'Hospitality, accountability, and care are central to how we build family.' },
+    { title: 'Excellence with integrity', body: 'We steward people and service moments with clarity, order, and consistency.' },
+  ],
+};
 
 function asArray<T>(value: unknown): T[] {
   if (Array.isArray(value)) return value as T[];
@@ -186,11 +201,13 @@ function StatusPill({ active }: { active: boolean }) {
 function ContentPage() {
   const [homepageAd, setHomepageAd] = useState<HomepageAdContent>(defaultHomepageAd);
   const [confession, setConfession] = useState<ConfessionPopupContent>(defaultConfession);
+  const [about, setAbout] = useState<AboutPageContent>(defaultAbout);
   const [pastoralRequests, setPastoralRequests] = useState<PastoralCareRequestAdmin[]>([]);
   const [givingIntents, setGivingIntents] = useState<GivingIntentAdmin[]>([]);
   const [loading, setLoading] = useState(false);
   const [savingAd, setSavingAd] = useState(false);
   const [savingConfession, setSavingConfession] = useState(false);
+  const [savingAbout, setSavingAbout] = useState(false);
   const [homepageAdImageFile, setHomepageAdImageFile] = useState<File | null>(null);
   const [homepageAdImagePreview, setHomepageAdImagePreview] = useState<string | null>(null);
   const [templateStatus, setTemplateStatus] = useState<Record<string, TemplateStatus>>({});
@@ -201,8 +218,9 @@ function ContentPage() {
   const loadContent = useCallback(async () => {
     setLoading(true);
     try {
-      const [adRes, confessionRes, pastoralRes, givingRes, templateStatusMap] = await Promise.all([
+      const [adRes, aboutRes, confessionRes, pastoralRes, givingRes, templateStatusMap] = await Promise.all([
         apiClient.getHomepageAdContent(),
+        apiClient.getAboutPageContent(),
         apiClient.getConfessionPopupContent(),
         apiClient.listPastoralCareRequests({ page: 1, limit: 10 }),
         apiClient.listGivingIntents({ page: 1, limit: 10 }),
@@ -210,6 +228,7 @@ function ContentPage() {
       ]);
 
       setHomepageAd({ ...defaultHomepageAd, ...(adRes || {}) });
+      setAbout({ ...defaultAbout, ...(aboutRes || {}) });
       setConfession({ ...defaultConfession, ...(confessionRes || {}) });
       setPastoralRequests(asArray<PastoralCareRequestAdmin>(pastoralRes));
       setGivingIntents(asArray<GivingIntentAdmin>(givingRes));
@@ -274,6 +293,17 @@ function ContentPage() {
     } finally {
       setSavingConfession(false);
     }
+  };
+
+  const saveAbout = async () => {
+    setSavingAbout(true);
+    try {
+      const saved = await apiClient.updateAboutPageContent(about);
+      setAbout(saved);
+      toast.success('About page published');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to save about page'));
+    } finally { setSavingAbout(false); }
   };
 
   const ensureTemplate = async (key: string) => {
@@ -358,6 +388,7 @@ function ContentPage() {
       <section className="sticky top-2 z-20 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/85 p-2 shadow-sm backdrop-blur">
         <div className="flex gap-2 overflow-x-auto">
           <TabButton active={activeTab === 'homepage'} onClick={() => setActiveTab('homepage')}>Homepage ad</TabButton>
+          <TabButton active={activeTab === 'about'} onClick={() => setActiveTab('about')}>About page</TabButton>
           <TabButton active={activeTab === 'confession'} onClick={() => setActiveTab('confession')}>Confession popup</TabButton>
           <TabButton active={activeTab === 'requests'} onClick={() => setActiveTab('requests')}>Requests</TabButton>
           <TabButton active={activeTab === 'automation'} onClick={() => setActiveTab('automation')}>Automation</TabButton>
@@ -419,6 +450,21 @@ function ContentPage() {
               <div className="mt-5 rounded-3xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-4"><p className="text-sm font-bold leading-7 text-[var(--color-text-inverse)]">{confession.confessionText}</p></div>
               <p className="mt-4 text-xs font-semibold leading-6 text-[var(--color-text-inverse)]/45">{confession.motto}</p>
             </div>
+          </div>
+        </SectionCard>
+      ) : null}
+
+      {activeTab === 'about' ? (
+        <SectionCard title="About page" subtitle="Publish the church story and culture shown on the public website." icon={<Sparkles className="h-5 w-5" />} actions={<Button icon={<Save className="h-4 w-4" />} onClick={() => void saveAbout()} loading={savingAbout}>Publish About</Button>}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Eyebrow" value={about.eyebrow} onChange={(value) => setAbout((state) => ({ ...state, eyebrow: value }))} />
+            <Field label="Page title" value={about.title} onChange={(value) => setAbout((state) => ({ ...state, title: value }))} />
+            <div className="md:col-span-2"><TextArea label="Page subtitle" value={about.subtitle} onChange={(value) => setAbout((state) => ({ ...state, subtitle: value }))} /></div>
+            <Field label="Story heading" value={about.storyTitle} onChange={(value) => setAbout((state) => ({ ...state, storyTitle: value }))} />
+            <Field label="Story image URL" value={about.storyImage} onChange={(value) => setAbout((state) => ({ ...state, storyImage: value }))} />
+            <div className="md:col-span-2"><TextArea label="Story" value={about.storyBody} onChange={(value) => setAbout((state) => ({ ...state, storyBody: value }))} rows={5} /></div>
+            <div className="md:col-span-2"><Field label="Culture heading" value={about.cultureTitle} onChange={(value) => setAbout((state) => ({ ...state, cultureTitle: value }))} /></div>
+            {about.pillars.map((pillar, index) => <div key={index} className="rounded-2xl border border-[var(--color-border-secondary)] p-4 md:col-span-2"><div className="grid gap-3 md:grid-cols-2"><Field label={`Pillar ${index + 1} title`} value={pillar.title} onChange={(value) => setAbout((state) => ({ ...state, pillars: state.pillars.map((item, i) => i === index ? { ...item, title: value } : item) }))} /><TextArea label="Description" value={pillar.body} onChange={(value) => setAbout((state) => ({ ...state, pillars: state.pillars.map((item, i) => i === index ? { ...item, body: value } : item) }))} rows={3} /></div></div>)}
           </div>
         </SectionCard>
       ) : null}
