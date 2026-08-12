@@ -326,10 +326,14 @@ const PREVIEW_TOKEN_VALUES: Record<string, string> = {
 };
 
 function renderPreviewHtml(html: string): string {
-  return Object.entries(PREVIEW_TOKEN_VALUES).reduce(
+	const rendered = Object.entries(PREVIEW_TOKEN_VALUES).reduce(
     (acc, [token, value]) => acc.replaceAll(`{{ .${token} }}`, value).replaceAll(`{{.${token}}}`, value),
     html
   );
+	if (rendered.includes('class="wc-frame"')) return rendered;
+	const bodyMatch = rendered.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+	const content = bodyMatch?.[1] || rendered;
+	return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#eef0f3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#0e1420}.outer{padding:32px 20px}.frame{width:100%;max-width:680px;margin:auto;background:white;border:1px solid #dadfe6;border-radius:20px;overflow:hidden}.header,.body,.footer{padding-left:48px;padding-right:48px}.header{padding-top:38px;padding-bottom:30px;border-top:3px solid #8a6d2f}.body{padding-top:38px;padding-bottom:44px}.footer{padding-top:26px;padding-bottom:32px;border-top:1px solid #dadfe6;color:#8a93a3;font-size:12px}@media(max-width:700px){.outer{padding:20px 12px}.header,.body,.footer{padding-left:30px;padding-right:30px}}@media(max-width:480px){.outer{padding:8px}.frame{border-radius:14px}.header,.body,.footer{padding-left:20px;padding-right:20px}.header{padding-top:25px}.body{padding-top:28px}}</style></head><body><div class="outer"><div class="frame"><div class="header"><strong>The Wisdom Church</strong><div style="margin-top:6px;color:#8a6d2f;font-size:12px">Official communication</div></div><div class="body">${content}</div><div class="footer">The Wisdom Church · Secure recipient communication</div></div></div></body></html>`;
 }
 
 function getHistoryDate(item: AdminEmailDeliveryHistoryItem): string | undefined {

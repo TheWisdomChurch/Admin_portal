@@ -658,7 +658,7 @@ export interface FormConsentSettings {
   version?: string;
 }
 
-export type FormStatus = 'draft' | 'published' | 'invalid';
+export type FormStatus = 'draft' | 'published' | 'invalid' | 'archived';
 
 export interface AdminForm {
   id: string;
@@ -670,6 +670,7 @@ export interface AdminForm {
   isPublished: boolean;
   status?: FormStatus;
   publishedAt?: string;
+  archivedAt?: string;
   settings?: FormSettings;
   fields: FormField[];
 

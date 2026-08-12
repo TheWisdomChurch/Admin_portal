@@ -33,6 +33,7 @@ function formatDate(value?: string): string {
 }
 
 function getFormStatus(form: AdminForm): FormStatus {
+  if (form.archivedAt) return 'archived';
   if (form.status) return form.status;
   return form.isPublished ? 'published' : 'draft';
 }
@@ -45,6 +46,7 @@ const statusBadgeVariant: Record<FormStatus, 'success' | 'default' | 'danger'> =
   published: 'success',
   draft: 'default',
   invalid: 'danger',
+  archived: 'danger',
 };
 
 function fieldOptionsLabel(field: FormField): string {
@@ -197,7 +199,11 @@ function FormAccordionRow({ form, deleting, onDelete }: { form: AdminForm; delet
 
       <div className="border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-4">
         {fields.length > 0 ? (
-          <div className="overflow-x-auto rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]">
+          <div>
+            <div className="grid gap-3 lg:hidden">
+              {fields.map((field, index) => <article key={field.id || `${form.id}-mobile-field-${index}`} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Field {field.order ?? index + 1}</p><h3 className="mt-1 break-words text-sm font-semibold text-[var(--color-text-primary)]">{field.label || 'Untitled field'}</h3></div><Badge variant={field.required ? 'success' : 'default'}>{field.required ? 'Required' : 'Optional'}</Badge></div><dl className="mt-4 grid grid-cols-2 gap-3 text-xs"><div><dt className="text-[var(--color-text-tertiary)]">Type</dt><dd className="mt-1 font-semibold text-[var(--color-text-secondary)]">{field.type || 'text'}</dd></div><div><dt className="text-[var(--color-text-tertiary)]">Options</dt><dd className="mt-1 font-semibold text-[var(--color-text-secondary)]">{fieldOptionsLabel(field)}</dd></div><div className="col-span-2"><dt className="text-[var(--color-text-tertiary)]">Data key</dt><dd className="mt-1 break-all font-mono text-[var(--color-text-secondary)]">{field.key || '—'}</dd></div></dl></article>)}
+            </div>
+            <div className="hidden overflow-x-auto rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] lg:block">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="border-b border-[var(--color-border-secondary)] text-xs uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">
                 <tr>
@@ -222,6 +228,7 @@ function FormAccordionRow({ form, deleting, onDelete }: { form: AdminForm; delet
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         ) : (
           <EmptyState title="This form has no fields yet." description="Open the forms editor to add fields." />
@@ -234,6 +241,7 @@ function FormAccordionRow({ form, deleting, onDelete }: { form: AdminForm; delet
 function FormsManagerPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | FormStatus>('all');
 
   const { data: forms = [], isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ['forms', 'list'],
@@ -274,19 +282,19 @@ function FormsManagerPage() {
 
   const filteredForms = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return forms;
-
     return forms.filter((form) => {
+      if (statusFilter !== 'all' && getFormStatus(form) !== statusFilter) return false;
+      if (!query) return true;
       const searchable = [form.title, form.slug, form.description, getFormStatus(form), ...(form.fields || []).flatMap((field) => [field.label, field.key, field.type])]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
       return searchable.includes(query);
     });
-  }, [forms, search]);
+  }, [forms, search, statusFilter]);
 
   const publishedCount = forms.filter((form) => getFormStatus(form) === 'published').length;
-  const totalFields = forms.reduce((total, form) => total + (form.fields?.length || 0), 0);
+  const archivedCount = forms.filter((form) => getFormStatus(form) === 'archived').length;
   const totalSubmissions = forms.reduce((total, form) => total + getFormSubmissionCount(form), 0);
 
   return (
@@ -309,7 +317,7 @@ function FormsManagerPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Forms" value={formatNumber(forms.length)} icon={<FileText className="h-5 w-5" />} tone="info" />
         <StatCard label="Published" value={formatNumber(publishedCount)} icon={<FileText className="h-5 w-5" />} tone="success" />
-        <StatCard label="Fields" value={formatNumber(totalFields)} icon={<FileText className="h-5 w-5" />} />
+        <StatCard label="Archived" value={formatNumber(archivedCount)} icon={<FileText className="h-5 w-5" />} tone="warning" />
         <StatCard label="Submissions" value={formatNumber(totalSubmissions)} icon={<FileText className="h-5 w-5" />} tone="warning" />
       </div>
 
@@ -319,7 +327,12 @@ function FormsManagerPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
             <Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search forms, fields, status..." />
           </div>
+          <div className="flex flex-wrap gap-2" aria-label="Filter forms by status">
+            {(['all', 'published', 'draft', 'archived'] as const).map((status) => <button key={status} type="button" onClick={() => setStatusFilter(status)} className={`rounded-full border px-3 py-2 text-xs font-semibold capitalize transition ${statusFilter === status ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-text-primary)]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-hover)]'}`}>{status}{status === 'archived' && archivedCount > 0 ? ` (${archivedCount})` : ''}</button>)}
+          </div>
         </div>
+
+        {archivedCount > 0 ? <div className="mx-5 mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"><strong>{archivedCount} archived form{archivedCount === 1 ? '' : 's'} recovered.</strong> Archived forms remain editable and retain their submissions. Update the closing or expiry date and publish again when they are ready to reopen.</div> : null}
 
         <div className="overflow-hidden border-t border-[var(--color-border-secondary)]">
           <div className="hidden grid-cols-[1.4fr_1fr_0.7fr_0.7fr_0.8fr_0.7fr] gap-3 border-b border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
