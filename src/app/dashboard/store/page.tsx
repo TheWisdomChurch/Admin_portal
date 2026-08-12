@@ -25,6 +25,7 @@ import { uploadAsset } from '@/lib/uploads';
 import type {
   StoreOrderAdmin,
   StoreOrderStatus,
+	StorePaymentStatus,
   StoreProductAdmin,
   UpsertStoreProductRequest,
 } from '@/lib/types';
@@ -40,6 +41,7 @@ import { withAuth } from '@/providers/withAuth';
 
 const PAGE_SIZE = 10;
 const ORDER_STATUSES: StoreOrderStatus[] = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+const PAYMENT_STATUSES: StorePaymentStatus[] = ['unpaid', 'proof_submitted', 'paid', 'failed', 'refunded'];
 
 const emptyProductForm: UpsertStoreProductRequest = {
   name: '',
@@ -364,6 +366,17 @@ function StoreDashboardPage() {
     }
   };
 
+	const updatePaymentStatus = async (orderId: string, status: StorePaymentStatus) => {
+		try {
+			setOrderBusy(orderId);
+			await apiClient.updateStoreOrderPaymentStatus(orderId, status);
+			await loadData();
+			toast.success('Payment status updated');
+		} catch (err: unknown) {
+			toast.error(getErrorMessage(err, 'Unable to update payment status'));
+		} finally { setOrderBusy(null); }
+	};
+
   if (loading && products.length === 0 && orders.length === 0) {
     return (
       <div className="flex min-h-[360px] items-center justify-center">
@@ -584,9 +597,16 @@ function StoreDashboardPage() {
                 <Badge variant={statusVariant(order.status)}>{titleCase(order.status)}</Badge>
               </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+			  <div className="mt-4 grid gap-3 sm:grid-cols-4">
                 <InfoTile label="Total" value={`₦${order.total.toLocaleString()}`} />
                 <InfoTile label="Items" value={String(order.items?.length || 0)} />
+				<div>
+				  <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Payment</p>
+				  <Select value={order.paymentStatus} onChange={(e) => updatePaymentStatus(order.orderId, e.target.value as StorePaymentStatus)} disabled={orderBusy === order.orderId}>
+					{PAYMENT_STATUSES.map((status) => <option key={status} value={status}>{titleCase(status)}</option>)}
+				  </Select>
+				  {order.paymentSlipUrl ? <a className="mt-2 inline-block text-xs font-semibold text-[var(--color-accent-primary)] underline" href={order.paymentSlipUrl} target="_blank" rel="noreferrer">Review proof</a> : null}
+				</div>
                 <div>
                   <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Update</p>
                   <Select

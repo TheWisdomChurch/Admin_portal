@@ -358,6 +358,13 @@ function formatFileSize(bytes: number): string {
 }
 
 type WizardStep = 1 | 2 | 3;
+type DirectoryAudience = 'members' | 'workforce' | 'leadership' | 'subscribers';
+const DIRECTORY_AUDIENCES: Array<{ id: DirectoryAudience; label: string; description: string }> = [
+  { id: 'members', label: 'Active members', description: 'Current active membership records' },
+  { id: 'workforce', label: 'Serving workforce', description: 'People currently marked as serving' },
+  { id: 'leadership', label: 'Approved leadership', description: 'Approved leadership records' },
+  { id: 'subscribers', label: 'Newsletter subscribers', description: 'Active opted-in subscribers' },
+];
 const WIZARD_STEPS: { id: WizardStep; label: string; description: string }[] = [
   { id: 1, label: 'Audience', description: 'Forms and manual recipients' },
   { id: 2, label: 'Compose', description: 'Subject, attachments, body' },
@@ -386,6 +393,7 @@ function EmailMarketingPage() {
   const [formTotalPages, setFormTotalPages] = useState(1);
   const [history, setHistory] = useState<AdminEmailDeliveryHistoryItem[]>([]);
   const [selectedFormIds, setSelectedFormIds] = useState<string[]>([]);
+  const [selectedAudienceTypes, setSelectedAudienceTypes] = useState<DirectoryAudience[]>([]);
   const [preview, setPreview] = useState<AdminEmailAudiencePreview | null>(null);
 
   const [subject, setSubject] = useState('A New Update from The Wisdom Church');
@@ -437,10 +445,10 @@ function EmailMarketingPage() {
   useEffect(() => {
     let active = true;
     async function loadPreview() {
-      if (selectedFormIds.length === 0) { setPreview(null); return; }
+      if (selectedFormIds.length === 0 && selectedAudienceTypes.length === 0) { setPreview(null); return; }
       setPreviewLoading(true);
       try {
-        const data = await apiClient.previewEmailMarketingAudience(selectedFormIds, 18);
+        const data = await apiClient.previewEmailMarketingAudience(selectedFormIds, selectedAudienceTypes, 18);
         if (active) setPreview(data);
       } catch (error) {
         if (active) toast.error(getServerErrorMessage(error, 'Failed to load audience preview.'));
@@ -450,7 +458,7 @@ function EmailMarketingPage() {
     }
     void loadPreview();
     return () => { active = false; };
-  }, [selectedFormIds]);
+  }, [selectedAudienceTypes, selectedFormIds]);
 
   const parsedManualRecipients = useMemo(() => parseManualRecipients(manualRecipientsRaw), [manualRecipientsRaw]);
   const filteredForms = useMemo(() => {
@@ -468,7 +476,7 @@ function EmailMarketingPage() {
   // step before it actually has the minimum data `handleSendCampaign` will
   // require at send time.
   function isStepComplete(target: WizardStep): boolean {
-    if (target === 1) return selectedFormIds.length > 0 || parsedManualRecipients.length > 0;
+    if (target === 1) return selectedFormIds.length > 0 || selectedAudienceTypes.length > 0 || parsedManualRecipients.length > 0;
     if (target === 2) return subject.trim().length > 0 && htmlBody.trim().length > 0;
     return true;
   }
@@ -503,6 +511,7 @@ function EmailMarketingPage() {
 
   function clearAudience() {
     setSelectedFormIds([]);
+    setSelectedAudienceTypes([]);
     setManualRecipientsRaw('');
     setPreview(null);
   }
@@ -601,7 +610,7 @@ function EmailMarketingPage() {
   }
 
   async function handleSendCampaign() {
-    if (selectedFormIds.length === 0 && parsedManualRecipients.length === 0) { toast.error('Select at least one form or add manual recipients.'); return; }
+    if (selectedFormIds.length === 0 && selectedAudienceTypes.length === 0 && parsedManualRecipients.length === 0) { toast.error('Select at least one audience or add manual recipients.'); return; }
     if (!subject.trim()) { toast.error('Add a subject line before sending.'); return; }
     if (!htmlBody.trim()) { toast.error('Add the HTML body before sending.'); return; }
 
@@ -617,13 +626,14 @@ function EmailMarketingPage() {
         textBody: textBody.trim() || undefined,
         manualRecipients: parsedManualRecipients.length > 0 ? parsedManualRecipients : undefined,
         formIds: selectedFormIds.length > 0 ? selectedFormIds : undefined,
+        audienceTypes: selectedAudienceTypes.length > 0 ? selectedAudienceTypes : undefined,
         attachments: attachmentPayload.length > 0 ? attachmentPayload : undefined,
       };
       const result = await apiClient.sendAdminComposeEmail(payload);
       setLastResult(result);
       setAttachments([]);
       setRefreshKey((current) => current + 1);
-      toast.success(`Campaign sent: ${result.sent} delivered, ${result.failed} failed.`);
+      toast.success(`Provider accepted ${result.sent}; ${result.duplicateRecipients} duplicate source entries were consolidated; ${result.failed} failed.`);
     } catch (error) {
       toast.error(getServerErrorMessage(error, 'Failed to send campaign.'));
     } finally {
@@ -637,6 +647,7 @@ function EmailMarketingPage() {
     textBody: textBody.trim() || undefined,
     manualRecipients: parsedManualRecipients.length > 0 ? parsedManualRecipients : undefined,
     formIds: selectedFormIds.length > 0 ? selectedFormIds : undefined,
+    audienceTypes: selectedAudienceTypes.length > 0 ? selectedAudienceTypes : undefined,
     attachments: attachments.length > 0 ? attachments.map((item) => ({ url: item.url, filename: item.filename })) : undefined,
   };
 
@@ -694,6 +705,12 @@ function EmailMarketingPage() {
             <div className={styles.audienceGrid}>
               <section className={styles.panel}>
                 <div className={styles.panelHeader}><div><p>Audience source</p><h2>Recipient forms</h2><span>Select forms whose submitted emails should receive this campaign.</span></div><strong>{formatNumber(formTotal)}</strong></div>
+                <div className="mb-4 grid gap-2 sm:grid-cols-2">
+                  {DIRECTORY_AUDIENCES.map((audience) => {
+                    const active = selectedAudienceTypes.includes(audience.id);
+                    return <button key={audience.id} type="button" className={styles.formCard} data-active={active} onClick={() => setSelectedAudienceTypes((current) => active ? current.filter((item) => item !== audience.id) : [...current, audience.id])}><div className={styles.formCardTop}><StatusChip status={active ? 'selected' : 'available'} /></div><h3>{audience.label}</h3><p>{audience.description}</p></button>;
+                  })}
+                </div>
                 {/* eslint-disable-next-line no-restricted-syntax -- icon-prefixed search box styled via this page's CSS module (email-marketing.module.scss), not the Tailwind-utility <Input> */}
                 <div className={styles.searchBox}><Search className="h-4 w-4" /><input value={formSearch} onChange={(event) => setFormSearch(event.target.value)} placeholder="Search forms..." />{formSearch ? <button type="button" onClick={() => setFormSearch('')}><X className="h-4 w-4" /></button> : null}</div>
                 <div className={styles.audienceActions}><Button type="button" variant="outline" onClick={toggleCurrentPage} disabled={forms.length === 0}>{currentPageAllSelected ? 'Unselect page' : 'Select page'}</Button><Button type="button" variant="ghost" onClick={useTopAudiences}>Top</Button><Button type="button" variant="ghost" onClick={clearAudience}>Clear</Button></div>
@@ -711,8 +728,8 @@ function EmailMarketingPage() {
               <section className={styles.panel}>
                 <div className={styles.panelHeader}><div><p>Manual contacts</p><h2>Add recipients by hand</h2><span>One per line, or paste a comma separated list.</span></div>{previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}</div>
                 <textarea className={styles.manualTextarea} value={manualRecipientsRaw} onChange={(event) => setManualRecipientsRaw(event.target.value)} placeholder={'person@example.com\nJane Doe <jane@example.com>'} />
-                <div className={styles.previewStats}><article><span>Unique</span><strong>{formatNumber(preview?.uniqueRecipients ?? 0)}</strong></article><article><span>Valid</span><strong>{formatNumber(preview?.validRecipients ?? 0)}</strong></article><article><span>Skipped</span><strong>{formatNumber(preview?.skipped ?? 0)}</strong></article></div>
-                {previewLoading ? <div className={styles.loadingInline}><Loader2 className="h-4 w-4 animate-spin" /><span>Building audience preview...</span></div> : preview ? <div className={styles.recipientList}>{preview.recipients.map((recipient) => <article key={recipient.email}><strong>{recipient.name || recipient.email}</strong>{recipient.name ? <span>{recipient.email}</span> : null}</article>)}</div> : <EmptyState icon={<Users className="h-5 w-5" />} title="No audience selected" description="Select forms to preview the collated audience." />}
+                <div className={styles.previewStats}><article><span>Unique</span><strong>{formatNumber(preview?.uniqueRecipients ?? 0)}</strong></article><article><span>Duplicates merged</span><strong>{formatNumber(preview?.duplicateRecipients ?? 0)}</strong></article><article><span>Invalid</span><strong>{formatNumber(preview?.invalidRecipients ?? 0)}</strong></article></div>
+                {previewLoading ? <div className={styles.loadingInline}><Loader2 className="h-4 w-4 animate-spin" /><span>Building audience preview...</span></div> : preview ? <div className={styles.recipientList}>{preview.recipients.map((recipient) => <article key={recipient.email}><strong>{recipient.name || recipient.email}</strong>{recipient.name ? <span>{recipient.email}</span> : null}<span>{(recipient.sources || recipient.sourceForms || []).map((source) => source.name || source.formTitle).filter(Boolean).join(' · ') || 'Selected audience'}{recipient.duplicate ? ' · duplicate consolidated' : ''}</span></article>)}</div> : <EmptyState icon={<Users className="h-5 w-5" />} title="No audience selected" description="Select directories or forms to preview the consolidated audience." />}
               </section>
             </div>
           </div>

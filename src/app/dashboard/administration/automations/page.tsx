@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Cake, CalendarClock, CheckCircle2, Heart, History, Play, RefreshCw, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, Cake, CalendarClock, CheckCircle2, History, Play, RefreshCw, ShieldCheck, TriangleAlert } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
@@ -18,7 +18,7 @@ import { Input } from '@/ui/Input';
 import { Select } from '@/ui/Select';
 import { StatCard } from '@/ui/StatCard';
 
-type ConfigDraft = Omit<CelebrationAutomationConfig, 'id' | 'updatedAt' | 'updatedByEmail'>;
+type ConfigDraft = Omit<CelebrationAutomationConfig, 'id' | 'updatedAt' | 'updatedByEmail' | 'lastWorkerHeartbeat' | 'lastWorkerId'>;
 
 function AutomationPage() {
   const queryClient = useQueryClient();
@@ -27,8 +27,8 @@ function AutomationPage() {
   const [draft, setDraft] = useState<ConfigDraft | null>(null);
   useEffect(() => {
     if (!draft && statusQuery.data?.config) {
-      const { id: _id, updatedAt: _updatedAt, updatedByEmail: _updatedByEmail, ...editable } = statusQuery.data.config;
-      setDraft(editable);
+      const config = statusQuery.data.config;
+      setDraft({ enabled: config.enabled, birthdayEnabled: config.birthdayEnabled, anniversaryEnabled: config.anniversaryEnabled, timezone: config.timezone, sendTime: config.sendTime, feb29Policy: config.feb29Policy, maxAttempts: config.maxAttempts, retryMinutes: config.retryMinutes, birthdaySubject: config.birthdaySubject, anniversarySubject: config.anniversarySubject, birthdayTemplateKey: config.birthdayTemplateKey, anniversaryTemplateKey: config.anniversaryTemplateKey });
     }
   }, [draft, statusQuery.data]);
 
@@ -54,7 +54,7 @@ function AutomationPage() {
         <StatCard label="Automation" value={draft.enabled ? 'Active' : 'Paused'} icon={draft.enabled ? <CheckCircle2 className="h-5 w-5" /> : <TriangleAlert className="h-5 w-5" />} tone={draft.enabled ? 'success' : 'warning'} />
         <StatCard label="Next run" value={statusQuery.data?.nextRunAt ? new Date(statusQuery.data.nextRunAt).toLocaleString() : '—'} icon={<CalendarClock className="h-5 w-5" />} />
         <StatCard label="Latest sent" value={latest?.sent ?? 0} icon={<Cake className="h-5 w-5" />} tone="info" />
-        <StatCard label="Latest failures" value={latest?.failed ?? 0} icon={<ShieldCheck className="h-5 w-5" />} tone={(latest?.failed ?? 0) > 0 ? 'danger' : 'success'} />
+        <StatCard label="Worker health" value={statusQuery.data?.workerHealthy ? 'Healthy' : 'No heartbeat'} trend={statusQuery.data?.config.lastWorkerHeartbeat ? `Last seen ${new Date(statusQuery.data.config.lastWorkerHeartbeat).toLocaleString()}` : 'Worker has not checked in'} icon={<ShieldCheck className="h-5 w-5" />} tone={statusQuery.data?.workerHealthy ? 'success' : 'danger'} />
       </div>
 
       <section className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-[var(--shadow-sm)]">

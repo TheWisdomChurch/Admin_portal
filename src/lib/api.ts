@@ -1587,11 +1587,15 @@ export const apiClient = {
     return unwrapSimplePaginated<AdminEmailMarketingFormItem>(res, 'Invalid email marketing forms payload');
   },
 
-  async previewEmailMarketingAudience(formIds: string[], limit = 25): Promise<AdminEmailAudiencePreview> {
+  async previewEmailMarketingAudience(formIds: string[], audienceTypes: string[] = [], limit = 25): Promise<AdminEmailAudiencePreview> {
     const params = new URLSearchParams();
     formIds.forEach((formId) => {
       const normalized = formId.trim();
       if (normalized) params.append('formIds', normalized);
+    });
+    audienceTypes.forEach((audienceType) => {
+      const normalized = audienceType.trim();
+      if (normalized) params.append('audienceTypes', normalized);
     });
     if (limit > 0) {
       params.set('limit', String(limit));
@@ -1656,7 +1660,7 @@ export const apiClient = {
     return unwrapData<CelebrationAutomationStatus>(res, 'Invalid celebration automation status');
   },
 
-  async updateCelebrationAutomationConfig(payload: Omit<CelebrationAutomationConfig, 'id' | 'updatedAt' | 'updatedByEmail'>): Promise<CelebrationAutomationConfig> {
+  async updateCelebrationAutomationConfig(payload: Omit<CelebrationAutomationConfig, 'id' | 'updatedAt' | 'updatedByEmail' | 'lastWorkerHeartbeat' | 'lastWorkerId'>): Promise<CelebrationAutomationConfig> {
     const res = await apiFetch<ApiResponse<CelebrationAutomationConfig>>('/admin/automations/celebrations', { method: 'PUT', body: JSON.stringify(payload) });
     return unwrapData<CelebrationAutomationConfig>(res, 'Invalid celebration automation configuration');
   },
@@ -2510,6 +2514,13 @@ export const apiClient = {
     return unwrapData<StoreOrderAdmin>(res, 'Invalid store order status payload');
   },
 
+	async updateStoreOrderPaymentStatus(orderId: string, status: import('./types').StorePaymentStatus): Promise<StoreOrderAdmin> {
+		const res = await apiFetch<ApiResponse<StoreOrderAdmin>>(`/admin/store/orders/${encodeURIComponent(orderId)}/payment-status`, {
+			method: 'PATCH', body: JSON.stringify({ status }),
+		});
+		return unwrapData<StoreOrderAdmin>(res, 'Invalid store payment status payload');
+	},
+
   async getWorkforceBirthdayStats(): Promise<Record<string, unknown>> {
     const res = await apiFetch<ApiResponse<Record<string, unknown>>>('/admin/workforce/birthdays/stats', {
       method: 'GET',
@@ -2537,13 +2548,6 @@ export const apiClient = {
       return payload.data as WorkforceMember[];
     }
     return [];
-  },
-
-  async sendWorkforceBirthdaysToday(): Promise<Record<string, number>> {
-    const res = await apiFetch<ApiResponse<Record<string, number>>>('/admin/workforce/birthdays/send-today', {
-      method: 'POST',
-    });
-    return unwrapData<Record<string, number>>(res, 'Invalid birthday send payload');
   },
 
   async getMemberBirthdaysByMonth(month: number): Promise<Member[]> {

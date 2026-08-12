@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -242,6 +243,7 @@ function StepButton({ active, children, onClick }: { active: boolean; children: 
 }
 
 export default withAuth(function NewFormPage() {
+	const queryClient = useQueryClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const auth = useAuthContext();
@@ -640,6 +642,8 @@ export default withAuth(function NewFormPage() {
         toast.success('Form created');
         toast.error(publishError || 'Publish the form to get a live link.');
       }
+
+	  await queryClient.invalidateQueries({ queryKey: ['forms'] });
 
       router.push(`/dashboard/forms/${created.id}/edit`);
     } catch (err) {

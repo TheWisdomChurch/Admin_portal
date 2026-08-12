@@ -37,7 +37,6 @@ import {
   loadOverviewData,
   type DashboardTab,
   type PersonRecord,
-  type SegmentKey,
   type TrackerMode,
 } from './lib';
 import { DashboardCharts } from './components/Charts';
@@ -77,7 +76,7 @@ function AdminDashboardPage() {
   }, []);
 
   const sendToday = useCallback(
-    async (mode: TrackerMode, _segment?: SegmentKey) => {
+    async (mode: TrackerMode) => {
       try {
         const run = await apiClient.runCelebrationAutomationNow();
         toast.success(`${mode === 'birthdays' ? 'Celebrations' : 'Anniversaries'} processed: ${run.sent} sent, ${run.suppressed} suppressed, ${run.failed} failed.`);

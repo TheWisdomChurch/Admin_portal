@@ -107,7 +107,7 @@ export function TrackerModal({
   mode: TrackerMode | null;
   items: TrackerItem[];
   onClose: () => void;
-  onSendToday: (mode: TrackerMode, segment?: SegmentKey) => Promise<void>;
+  onSendToday: (mode: TrackerMode) => Promise<void>;
   onOpen: (item: TrackerItem) => void;
 }) {
   const [sending, setSending] = useState<string>('');
@@ -135,11 +135,11 @@ export function TrackerModal({
   const Icon = isBirthday ? Cake : Gem;
   const title = isBirthday ? 'Birthday care centre' : 'Wedding anniversary care centre';
 
-  const runSend = async (target?: SegmentKey) => {
-    const key = `${mode}-${target || 'all'}`;
+  const runSend = async () => {
+    const key = `${mode}-all`;
     setSending(key);
     try {
-      await onSendToday(mode, target);
+      await onSendToday(mode);
     } finally {
       setSending('');
     }
@@ -185,17 +185,9 @@ export function TrackerModal({
                   <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Only profiles celebrating today are included. The backend records and sends the approved greeting template.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {isBirthday ? (
-                    (['leadership', 'members', 'workforce'] as SegmentKey[]).map((target) => (
-                      <Button key={target} size="sm" variant={target === 'members' ? 'primary' : 'outline'} icon={<Send className="h-4 w-4" />} loading={sending === `${mode}-${target}`} disabled={!today.some((item) => item.segment === target) || Boolean(sending)} onClick={() => void runSend(target)}>
-                        {segmentMeta[target].label}
-                      </Button>
-                    ))
-                  ) : (
-                    <Button size="sm" icon={<Send className="h-4 w-4" />} loading={sending === `${mode}-leadership`} disabled={!today.some((item) => item.segment === 'leadership') || Boolean(sending)} onClick={() => void runSend('leadership')}>
-                      Send today&apos;s greetings
-                    </Button>
-                  )}
+                  <Button size="sm" icon={<Send className="h-4 w-4" />} loading={sending === `${mode}-all`} disabled={today.length === 0 || Boolean(sending)} onClick={() => void runSend()}>
+                    Process all due celebrations
+                  </Button>
                 </div>
               </div>
               <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">

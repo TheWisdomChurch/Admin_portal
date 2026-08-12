@@ -794,14 +794,19 @@ export interface AdminEmailMarketingSummary {
 }
 
 export interface AdminEmailAudienceRecipientSource {
-  formId: string;
-  formTitle: string;
+  type: "form" | "members" | "workforce" | "leadership" | "subscribers" | "manual";
+  id?: string;
+  name: string;
+  formId?: string;
+  formTitle?: string;
 }
 
 export interface AdminEmailAudiencePreviewRecipient {
   email: string;
   name?: string;
   sourceForms?: AdminEmailAudienceRecipientSource[];
+  sources?: AdminEmailAudienceRecipientSource[];
+  duplicate?: boolean;
 }
 
 export interface AdminEmailAudiencePreview {
@@ -811,6 +816,8 @@ export interface AdminEmailAudiencePreview {
   validRecipients: number;
   uniqueRecipients: number;
   skipped: number;
+  duplicateRecipients: number;
+  invalidRecipients: number;
   previewCount: number;
   recipients: AdminEmailAudiencePreviewRecipient[];
 }
@@ -833,6 +840,7 @@ export interface SendAdminComposeEmailRequest {
   templateKey?: string;
   manualRecipients?: AdminEmailRecipientInput[];
   formIds?: string[];
+  audienceTypes?: Array<"members" | "workforce" | "leadership" | "subscribers">;
   attachments?: AdminEmailAttachmentInput[];
 }
 
@@ -915,6 +923,8 @@ export interface CelebrationAutomationConfig {
   birthdayTemplateKey: string;
   anniversaryTemplateKey: string;
   updatedByEmail?: string;
+  lastWorkerHeartbeat?: string;
+  lastWorkerId?: string;
   updatedAt: string;
 }
 
@@ -970,6 +980,9 @@ export interface SendAdminComposeEmailResponse {
   targeted: number;
   sent: number;
   skipped: number;
+  duplicateRecipients: number;
+  unsubscribedRecipients: number;
+  invalidRecipients: number;
   failed: number;
   failedRecipients?: string[];
   startedAt: string;
@@ -1405,6 +1418,7 @@ export interface ApprovalRequestsTimeline {
 ========================= */
 
 export type StoreOrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+export type StorePaymentStatus = 'unpaid' | 'proof_submitted' | 'paid' | 'failed' | 'refunded';
 
 export interface StoreProductAdmin {
   id: number;
@@ -1454,6 +1468,8 @@ export interface StoreOrderAdmin {
   orderDate: string;
   status: StoreOrderStatus;
   paymentMethod: string;
+	paymentStatus: StorePaymentStatus;
+	paymentSlipUrl?: string | null;
   subtotal: number;
   deliveryFee: number;
   total: number;

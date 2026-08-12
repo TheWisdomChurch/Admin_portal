@@ -237,7 +237,16 @@ function FormsManagerPage() {
 
   const { data: forms = [], isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ['forms', 'list'],
-    queryFn: async () => (await apiClient.getAdminForms({ page: 1, limit: 100 })).data || [],
+    queryFn: async () => {
+      const first = await apiClient.getAdminForms({ page: 1, limit: 300 });
+      if (first.totalPages <= 1) return first.data || [];
+      const remaining = await Promise.all(
+        Array.from({ length: first.totalPages - 1 }, (_, index) =>
+          apiClient.getAdminForms({ page: index + 2, limit: first.limit }),
+        ),
+      );
+      return [first, ...remaining].flatMap((page) => page.data || []);
+    },
   });
 
   const [deleteTarget, setDeleteTarget] = useState<AdminForm | null>(null);
