@@ -526,6 +526,8 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const [successTokens, setSuccessTokens] = useState<Record<string, string>>({});
   const [shouldAutoReturn, setShouldAutoReturn] = useState(false);
   const [bannerLoadFailed, setBannerLoadFailed] = useState(false);
+  const [consentAccepted, setConsentAccepted] = useState(false);
+  const [consentTouched, setConsentTouched] = useState(false);
 
   const fields = useMemo<FormField[]>(() => payload?.form?.fields ?? [], [payload]);
   const sortedFields = useMemo<FormField[]>(() => fields.slice().sort((a, b) => a.order - b.order), [fields]);
@@ -545,6 +547,8 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
     setFieldErrors({});
     setTouchedFields({});
     setFormError('');
+    setConsentAccepted(false);
+    setConsentTouched(false);
   }, []);
 
   useEffect(() => {
@@ -698,6 +702,7 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
   const showDetailsColumn = contentSections.length > 0;
   const submitButtonLabel = settings?.submitButtonText?.trim() || settings?.design?.ctaButtonLabel?.trim() || 'Submit Registration';
   const privacyCopy = settings?.design?.privacyCopy ?? 'By submitting, you confirm your details are accurate.';
+  const consent = settings?.consent;
   const siteName = process.env.NEXT_PUBLIC_SITE_NAME?.trim() || 'The Wisdom Church';
   const siteSubtitle = process.env.NEXT_PUBLIC_SITE_SUBTITLE?.trim() || 'Online Registration';
   const siteHomeUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || process.env.NEXT_PUBLIC_PUBLIC_URL?.trim() || (typeof window !== 'undefined' && window.location.origin ? window.location.origin : '/');
@@ -727,6 +732,10 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
       const error = validateFieldValue(field, value);
       if (error) nextErrors[field.key] = error;
     });
+    if (consent?.required !== false && !consentAccepted) {
+      setConsentTouched(true);
+      nextErrors._consentAccepted = 'You must review and accept the consent and privacy notice.';
+    }
     setTouchedFields((prev) => ({ ...prev, ...Object.fromEntries(visibleFields.map((field) => [field.key, true])) }));
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) { const message = 'Please review the highlighted fields and try again.'; setFormError(message); return { isValid: false, message }; }
@@ -748,6 +757,8 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
         if (value === undefined || value === null) return;
         if (isFileValue(value) || typeof value === 'string' || typeof value === 'boolean' || typeof value === 'number' || Array.isArray(value)) rawValuesPayload[field.key] = value;
       });
+      rawValuesPayload._consentAccepted = consentAccepted;
+      rawValuesPayload._consentVersion = consent?.version || '2026.1';
       const uploadedValuesPayload = await prepareUploadPayload({ fields: visibleFields, values: rawValuesPayload, module: 'public-forms', ownerType: 'public-form', ownerId: payload.form.id, slug, folderPrefix: 'public-forms', addImageAliases: shouldNormalizeLeadershipValues(slug) });
       const normalizedValuesPayload = await prepareLeadershipPublicSubmissionValues(slug, uploadedValuesPayload);
       await apiClient.submitPublicForm(slug, { values: normalizedValuesPayload });
@@ -844,6 +855,15 @@ export default function PublicFormClient({ slug }: PublicFormClientProps) {
                   );
                 })}
               </div>
+              <section className="mt-8 rounded-2xl border border-stone-200 bg-stone-50 p-4 sm:p-6" aria-labelledby="form-consent-title">
+                <div className="flex items-start gap-3"><ShieldCheck className="mt-1 h-5 w-5 shrink-0 text-emerald-700" /><div><h2 id="form-consent-title" className="text-base font-bold text-stone-950 sm:text-lg">{consent?.title || 'Consent, privacy and responsible use of your information'}</h2><p className="mt-3 text-sm leading-6 text-stone-700">{consent?.introduction}</p></div></div>
+                {(consent?.purposes?.length || 0) > 0 ? <div className="mt-5"><h3 className="text-sm font-bold text-stone-900">How your information may be used</h3><ul className="mt-3 space-y-2">{consent?.purposes?.map((purpose) => <li key={purpose} className="flex items-start gap-2 text-sm leading-6 text-stone-700"><Check className="mt-1 h-4 w-4 shrink-0 text-emerald-700" />{purpose}</li>)}</ul></div> : null}
+                <div className="mt-5 space-y-4 text-sm leading-6 text-stone-700"><div><h3 className="font-bold text-stone-900">Responsible access and sharing</h3><p>{consent?.dataUse}</p></div><div><h3 className="font-bold text-stone-900">Retention</h3><p>{consent?.retention}</p></div><div><h3 className="font-bold text-stone-900">Your choices and rights</h3><p>{consent?.rights}</p></div><div><h3 className="font-bold text-stone-900">Questions and corrections</h3><p>{consent?.contact}</p></div></div>
+                {/* eslint-disable-next-line no-restricted-syntax -- native checkbox semantics are required inside the full consent label */}
+                <label className={`mt-6 flex cursor-pointer items-start gap-3 rounded-xl border bg-white p-4 text-sm leading-6 ${consentTouched && !consentAccepted ? 'border-red-400 ring-2 ring-red-100' : 'border-stone-300'}`}><input type="checkbox" className="mt-1 h-4 w-4 rounded border-stone-400 text-amber-600 focus:ring-amber-500" checked={consentAccepted} onChange={(event) => { setConsentAccepted(event.target.checked); setConsentTouched(true); if (event.target.checked) setFieldErrors((current) => { const next = { ...current }; delete next._consentAccepted; return next; }); }} /><span><span className="font-semibold text-stone-900">Required acknowledgement</span><span className="mt-1 block text-stone-700">{consent?.acknowledgementLabel}</span></span></label>
+                {consentTouched && !consentAccepted ? <p className="mt-2 text-xs font-semibold text-red-600" role="alert">You must accept this notice before submitting.</p> : null}
+                <p className="mt-3 text-xs text-stone-500">Notice version: {consent?.version || '2026.1'}</p>
+              </section>
               <div className="mt-8 border-t border-stone-200 pt-6">
                 {formError ? <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">{formError}</div> : null}
                 <Button className="min-h-12 w-full rounded-xl bg-amber-600 text-sm font-bold text-white shadow-sm hover:bg-amber-700 focus-visible:ring-amber-600 sm:w-auto sm:min-w-52" loading={submitting} disabled={submitting || isClosed} onClick={submit} icon={submitting ? undefined : submitButtonIcon}>{submitting ? 'Submitting securely...' : submitButtonLabel}</Button>

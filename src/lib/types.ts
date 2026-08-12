@@ -602,6 +602,7 @@ export interface FormContentSection {
 }
 
 export interface FormSettings {
+  rendererVersion?: number;
   capacity?: number;
   closesAt?: string;
   expiresAt?: string;
@@ -638,8 +639,23 @@ export interface FormSettings {
   submitButtonTextColor?: string;
   submitButtonIcon?: 'check' | 'send' | 'calendar' | 'cursor' | 'none';
   formHeaderNote?: string;
+  consent?: FormConsentSettings;
 
   design?: FormDesignSettings;
+}
+
+export interface FormConsentSettings {
+  enabled?: boolean;
+  required?: boolean;
+  title?: string;
+  introduction?: string;
+  purposes?: string[];
+  dataUse?: string;
+  retention?: string;
+  rights?: string;
+  contact?: string;
+  acknowledgementLabel?: string;
+  version?: string;
 }
 
 export type FormStatus = 'draft' | 'published' | 'invalid';

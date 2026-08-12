@@ -366,6 +366,10 @@ function EditFormPage() {
     });
   };
 
+  const updateConsent = (updates: Partial<NonNullable<FormSettings['consent']>>) => {
+    updateSettings({ consent: { ...form?.settings?.consent, ...updates, enabled: true, required: true } });
+  };
+
   const addField = () => {
     const order = fields.length + 1;
 
@@ -669,6 +673,14 @@ function EditFormPage() {
             error={fieldErrors.title}
           />
 
+          <Input
+            label="Public form link"
+            value={form.slug || ''}
+            onChange={(event) => { clearFieldError('slug'); setForm({ ...form, slug: event.target.value }); }}
+            error={fieldErrors.slug}
+            helperText="Edit the final part of the link. Existing published links remain active as redirects after you save."
+          />
+
           <div className="space-y-1">
             <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Description</label>
             <textarea
@@ -758,6 +770,23 @@ function EditFormPage() {
               placeholder="Your submission has been received."
             />
           </div>
+        </div>
+      </Card>
+
+      <Card title="Consent and privacy notice">
+        <div className="space-y-4">
+          <p className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 text-sm leading-6 text-[var(--color-text-secondary)]">Every public form requires affirmative consent. The notice is versioned and the accepted version and timestamp are stored with each submission. Review this wording with your organisation&apos;s privacy adviser for jurisdiction-specific requirements.</p>
+          <Input label="Consent heading" value={form.settings?.consent?.title || ''} onChange={(event) => updateConsent({ title: event.target.value })} />
+          {([
+            ['Introduction', 'introduction', 7],
+            ['Responsible access and sharing', 'dataUse', 5],
+            ['Retention', 'retention', 4],
+            ['Rights and choices', 'rights', 4],
+            ['Privacy contact', 'contact', 3],
+            ['Required acknowledgement', 'acknowledgementLabel', 4],
+          ] as const).map(([label, key, rows]) => <div key={key} className="space-y-1"><label className="block text-sm font-medium text-[var(--color-text-secondary)]">{label}</label><textarea className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)]" rows={rows} value={form.settings?.consent?.[key] || ''} onChange={(event) => updateConsent({ [key]: event.target.value })} /></div>)}
+          <div className="space-y-1"><label className="block text-sm font-medium text-[var(--color-text-secondary)]">Purposes — one per line</label><textarea className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)]" rows={7} value={(form.settings?.consent?.purposes || []).join('\n')} onChange={(event) => updateConsent({ purposes: event.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })} /></div>
+          <Input label="Notice version" value={form.settings?.consent?.version || '2026.1'} onChange={(event) => updateConsent({ version: event.target.value })} helperText="Increase this when the meaning of the notice changes so future submissions record the new version." />
         </div>
       </Card>
 
