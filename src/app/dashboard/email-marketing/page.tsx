@@ -859,7 +859,12 @@ function EmailMarketingPage() {
         {historyOpen ? (
           history.length > 0 ? (
             <div className={styles.historyList}>
-              {history.map((item) => <article key={item.id}><div><strong>{item.subject}</strong><p>{formatNumber(item.targeted)} targeted · {formatNumber(item.sent)} sent · {formatNumber(item.failed)} failed</p><span>{formatDateTime(getHistoryDate(item))}</span></div><StatusChip status={item.status} /></article>)}
+              {history.map((item) => {
+                const results = item.recipientResults || [];
+                const suppressed = results.filter((result) => result.status === 'suppressed').length;
+                const multiSource = results.filter((result) => (result.sources?.length || 0) > 1).length;
+                return <article key={item.id}><div><strong>{item.subject}</strong><p>{formatNumber(item.sent)} provider accepted · {formatNumber(multiSource)} duplicate identities consolidated · {formatNumber(suppressed)} suppressed · {formatNumber(item.failed)} failed</p><span>{formatDateTime(getHistoryDate(item))}</span>{results.length > 0 ? <details className="mt-2"><summary className="cursor-pointer text-xs font-semibold">Recipient confirmation ledger ({formatNumber(results.length)})</summary><div className="mt-2 max-h-48 overflow-auto text-xs">{results.map((result) => <p key={`${item.id}-${result.email}`}><strong>{result.email}</strong> — {result.status.replaceAll('_', ' ')}{result.reason ? ` (${result.reason.replaceAll('_', ' ')})` : ''}{result.sources?.length ? ` · ${result.sources.map((source) => source.name).join(', ')}` : ''}</p>)}</div></details> : null}</div><StatusChip status={item.status} /></article>;
+              })}
             </div>
           ) : (
             <EmptyState icon={<Mail className="h-5 w-5" />} title="No campaigns yet" description="Sent campaigns appear here after delivery." />

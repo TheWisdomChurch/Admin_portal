@@ -989,6 +989,15 @@ export interface SendAdminComposeEmailResponse {
   completedAt: string;
   sentAt: string;
   confirmationStatus: "provider_accepted" | "delivered" | "bounced" | "unknown";
+  recipientResults: AdminEmailRecipientResult[];
+}
+
+export interface AdminEmailRecipientResult {
+  email: string;
+  name?: string;
+  status: "provider_accepted" | "delivered" | "bounced" | "suppressed" | "failed";
+  reason?: string;
+  sources?: AdminEmailAudienceRecipientSource[];
 }
 
 export interface AdminEmailDeliveryHistoryItem {
@@ -1008,6 +1017,7 @@ export interface AdminEmailDeliveryHistoryItem {
   skipped: number;
   failed: number;
   failedRecipients?: string[];
+  recipientResults?: AdminEmailRecipientResult[];
   startedAt: string;
   completedAt?: string;
   createdByUserId?: string;
