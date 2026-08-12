@@ -823,7 +823,7 @@ function EmailMarketingPage() {
           <div className={styles.stepPanel}>
             <section className={styles.previewPanel}>
               <div className={styles.panelHeader}><div><p>Live email</p><h2>Rendered preview</h2><span>Sample merge tags are replaced for preview only.</span></div><Eye className="h-4 w-4" /></div>
-              {lastResult ? <div className={styles.resultBanner}><CheckCircle2 className="h-4 w-4" /><span>Delivered {formatNumber(lastResult.sent)}, skipped {formatNumber(lastResult.skipped)}, failed {formatNumber(lastResult.failed)}.</span></div> : null}
+              {lastResult ? <div className={styles.resultBanner}><CheckCircle2 className="h-4 w-4" /><span>Provider accepted {formatNumber(lastResult.sent)} unique messages; {formatNumber(lastResult.duplicateRecipients)} duplicate source entries consolidated, {formatNumber(lastResult.unsubscribedRecipients)} unsubscribed, {formatNumber(lastResult.invalidRecipients)} invalid, and {formatNumber(lastResult.failed)} failed. Inbox delivery requires provider event tracking.</span></div> : null}
               <div className={styles.recapChips}>
                 <span>{formatNumber(estimatedReach)} recipient{estimatedReach === 1 ? '' : 's'}</span>
                 <span>{attachments.length} attachment{attachments.length === 1 ? '' : 's'}</span>

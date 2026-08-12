@@ -988,6 +988,7 @@ export interface SendAdminComposeEmailResponse {
   startedAt: string;
   completedAt: string;
   sentAt: string;
+  confirmationStatus: "provider_accepted" | "delivered" | "bounced" | "unknown";
 }
 
 export interface AdminEmailDeliveryHistoryItem {
