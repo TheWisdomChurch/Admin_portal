@@ -4,7 +4,6 @@ import './globals.css';
 import { AuthProvider } from '@/providers/AuthProviders';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { ThemeProvider } from '@/providers/ThemeProviders';
-import { bodyFont, fontVariables } from '@/styles/fonts';
 import { ToastProvider } from '@/components/Toast';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://admin-portal.example.com';
@@ -83,7 +82,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${bodyFont.className} ${fontVariables}`}>
+      <body>
         <ThemeProvider defaultTheme="light">
           <QueryProvider>
             <AuthProvider>{children}</AuthProvider>

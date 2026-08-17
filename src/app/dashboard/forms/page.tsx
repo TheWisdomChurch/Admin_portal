@@ -136,7 +136,7 @@ function FormAccordionRow({ form, deleting, onDelete }: { form: AdminForm; delet
       {/* Mobile / tablet: a labeled stacked card — the desktop grid row below
           relies on column position to convey meaning, which breaks down once
           columns wrap, so this is a distinct layout, not a squeezed one. */}
-      <summary className="flex cursor-pointer list-none flex-col gap-3 px-4 py-4 transition hover:bg-[var(--color-background-hover)] lg:hidden">
+      <summary className="flex cursor-pointer list-none flex-col gap-3 px-4 py-5 transition hover:bg-[var(--color-background-hover)] sm:px-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -168,33 +168,6 @@ function FormAccordionRow({ form, deleting, onDelete }: { form: AdminForm; delet
         </dl>
 
         <div className="pl-6">{actions}</div>
-      </summary>
-
-      {/* Desktop: the compact grid row. */}
-      <summary className="hidden cursor-pointer list-none grid-cols-[1.4fr_1fr_0.7fr_0.7fr_0.8fr_0.7fr] items-center gap-3 px-4 py-4 transition hover:bg-[var(--color-background-hover)] lg:grid">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <ChevronDown className="h-4 w-4 shrink-0 text-[var(--color-text-tertiary)] transition group-open:rotate-180" />
-            <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{form.title || 'Untitled form'}</p>
-          </div>
-          <p className="mt-1 line-clamp-1 pl-6 text-xs text-[var(--color-text-tertiary)]">{form.description || 'No description provided.'}</p>
-        </div>
-
-        <div className="min-w-0"><SlugPill form={form} /></div>
-
-        <Badge variant={statusBadgeVariant[getFormStatus(form)]}>{getFormStatus(form)}</Badge>
-
-        <div className="text-sm font-semibold text-[var(--color-text-primary)]">
-          {formatNumber(fields.length)}
-          <span className="ml-1 text-xs font-normal text-[var(--color-text-tertiary)]">fields</span>
-        </div>
-
-        <div className="text-xs text-[var(--color-text-tertiary)]">
-          {formatDate(form.updatedAt || form.createdAt)}
-          <p className="mt-1">{formatNumber(getFormSubmissionCount(form))} submissions</p>
-        </div>
-
-        <div className="flex justify-end">{actions}</div>
       </summary>
 
       <div className="border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-4">
@@ -335,14 +308,7 @@ function FormsManagerPage() {
         {archivedCount > 0 ? <div className="mx-5 mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"><strong>{archivedCount} archived form{archivedCount === 1 ? '' : 's'} recovered.</strong> Archived forms remain editable and retain their submissions. Update the closing or expiry date and publish again when they are ready to reopen.</div> : null}
 
         <div className="overflow-hidden border-t border-[var(--color-border-secondary)]">
-          <div className="hidden grid-cols-[1.4fr_1fr_0.7fr_0.7fr_0.8fr_0.7fr] gap-3 border-b border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
-            <span>Form</span>
-            <span>Slug</span>
-            <span>Status</span>
-            <span>Fields</span>
-            <span>Updated</span>
-            <span className="text-right">Action</span>
-          </div>
+          <div className="border-b border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Saved forms · select a card to inspect its field architecture</div>
 
           <div className="divide-y divide-[var(--color-border-secondary)]">
             {isLoading ? (

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart3, BellRing, Calendar, CalendarCheck, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Crown, FileText, HandCoins, HandHeart, HeartHandshake, IdCard, LayoutDashboard, LogOut, Mail, MapPin, Menu, MessageCircle, MessageSquare, Palette, Settings, Shield, ShoppingBag, UserCog, UserPlus, Users, Video, X } from 'lucide-react';
+import { BarChart3, BellRing, Calendar, CalendarCheck, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Crown, FileText, HandCoins, HandHeart, HeartHandshake, IdCard, LayoutDashboard, LogOut, Mail, MapPin, Menu, MessageCircle, MessageSquare, Palette, Settings, Settings2, Shield, ShoppingBag, UserCog, UserPlus, Users, Video, X } from 'lucide-react';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { LogoutModal } from '@/ui/LogoutModal';
@@ -220,6 +220,18 @@ const communication: NavGroup = {
       label: 'Email Marketing',
       description: 'Targeted campaigns',
       icon: Mail,
+    },
+    {
+      href: '/dashboard/email-marketing/schedules',
+      label: 'Email Schedules',
+      description: 'Recurring campaign automation',
+      icon: CalendarClock,
+    },
+    {
+      href: '/dashboard/administration/automations',
+      label: 'Automations',
+      description: 'Worker health & celebrations',
+      icon: Settings2,
     },
     {
       href: '/dashboard/newsletter',
