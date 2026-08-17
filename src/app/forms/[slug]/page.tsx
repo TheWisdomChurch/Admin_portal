@@ -1,4 +1,10 @@
-import PublicFormClient from './PublicFormClient';
+import { permanentRedirect } from 'next/navigation';
+
+const PUBLIC_SITE_ORIGIN = (
+  process.env.NEXT_PUBLIC_PUBLIC_URL ||
+  process.env.NEXT_PUBLIC_FRONTEND_URL ||
+  'https://wisdomchurchhq.org'
+).replace(/\/+$/, '');
 
 export default async function PublicFormPage({
   params,
@@ -7,5 +13,5 @@ export default async function PublicFormPage({
 }) {
   const resolvedParams = await Promise.resolve(params);
   const slug = resolvedParams?.slug ?? '';
-  return <PublicFormClient slug={slug} />;
+  permanentRedirect(`${PUBLIC_SITE_ORIGIN}/forms/${encodeURIComponent(slug)}`);
 }
