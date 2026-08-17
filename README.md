@@ -59,6 +59,27 @@ already there.
 Run `npm run precommit` before publishing changes. It validates lint rules,
 TypeScript, and the optimized production build.
 
+## Production configuration
+
+The browser should use the same-origin `/api/v1` BFF (`NEXT_PUBLIC_API_PROXY=true`).
+Keep the private service address in the runtime-only `API_INTERNAL_URL`; do not expose
+database credentials, provider keys, or internal hostnames through `NEXT_PUBLIC_*`
+variables.
+
+- `API_INTERNAL_URL`: backend address reachable only from the admin container.
+- `ADMIN_PUBLIC_ORIGIN`: canonical HTTPS admin origin used for trusted forwarding
+  headers, for example `https://admin.wisdomchurchhq.org`.
+- `NEXT_PUBLIC_SITE_URL`: public site URL used for links and metadata.
+- `CSRF_HEADER_NAME`: optional custom backend CSRF header. It must match the backend
+  configuration; the default is `X-CSRF-Token`.
+- `NEXT_PUBLIC_PRIVACY_NOTICE_VERSION`: stable version recorded with form consent.
+  Increment it only after the meaning of the privacy notice changes.
+
+The production image runs as an unprivileged user and includes a health check. The
+Compose development and production profiles build explicit Dockerfile stages; run
+`docker compose --profile dev --profile prod config --quiet` when changing deployment
+configuration.
+
 ## Adding a New Page
 
 1. **Reuse `src/ui/` primitives** (`Button`, `Card`, `Panel`, `SectionCard`, `StatCard`,

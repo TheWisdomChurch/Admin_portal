@@ -45,6 +45,21 @@ const FORWARDED_REQUEST_HEADERS = new Set([
   'x-request-id',
 ]);
 
+const configuredCsrfHeader = process.env.CSRF_HEADER_NAME?.trim().toLowerCase();
+if (configuredCsrfHeader && /^[a-z0-9-]{1,64}$/.test(configuredCsrfHeader)) {
+  FORWARDED_REQUEST_HEADERS.add(configuredCsrfHeader);
+}
+
+function getTrustedPublicOrigin(): URL | null {
+  const raw = process.env.ADMIN_PUBLIC_ORIGIN || process.env.NEXT_PUBLIC_SITE_URL || '';
+  try {
+    const parsed = new URL(raw);
+    return parsed.protocol === 'https:' || process.env.NODE_ENV !== 'production' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function getBackendBaseURL(): string {
   const raw =
     process.env.API_INTERNAL_URL ||
@@ -82,15 +97,13 @@ function buildForwardHeaders(request: NextRequest): Headers {
   // x-forwarded-* values supplied by the browser are deliberately discarded.
   // The reverse proxy/API gateway owns client-IP attribution and must append it
   // at the trusted infrastructure boundary.
-  const host = request.headers.get('host');
-  if (host) {
-    headers.set('x-forwarded-host', host);
+  const publicOrigin = getTrustedPublicOrigin();
+  if (publicOrigin) {
+    headers.set('x-forwarded-host', publicOrigin.host);
+    headers.set('x-forwarded-proto', publicOrigin.protocol.replace(':', ''));
+  } else {
+    headers.set('x-forwarded-proto', request.nextUrl.protocol.replace(':', '') || 'https');
   }
-
-  headers.set(
-    'x-forwarded-proto',
-    request.nextUrl.protocol.replace(':', '') || 'https'
-  );
 
   return headers;
 }

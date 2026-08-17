@@ -30,6 +30,19 @@ RUN npm pkg delete scripts.prepare || true
 
 RUN npm ci --no-audit --no-fund
 
+# ===== DEVELOPMENT =====
+FROM base AS development
+WORKDIR /app
+
+ENV NODE_ENV=development
+ENV NEXT_TELEMETRY_DISABLED=1
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+EXPOSE 3000
+CMD ["npm", "run", "dev"]
+
 # ===== BUILDER =====
 FROM base AS builder
 WORKDIR /app
@@ -44,8 +57,8 @@ ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_API_PROXY
 ARG APP_ADMIN_PORTAL_URL
 
-# ✅ Hard defaults so build never fails even if secrets are missing
-# Change these if your API base differs (e.g. remove /api/v1 if your client appends it already)
+# Public values are intentionally non-secret build configuration. Browser API
+# traffic uses the same-origin BFF by default; API_INTERNAL_URL is runtime-only.
 ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-https://api.wisdomchurchhq.org}
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.wisdomchurchhq.org}
 ENV NEXT_PUBLIC_API_PROXY=${NEXT_PUBLIC_API_PROXY:-true}
@@ -64,6 +77,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 EXPOSE 3000
 
 RUN addgroup --system --gid 1001 nodejs \
@@ -76,4 +90,6 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
 USER nextjs
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3000/login').then(r=>{if(r.status>=500)process.exit(1)}).catch(()=>process.exit(1))"
 CMD ["node", "server.js"]
