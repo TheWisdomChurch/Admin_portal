@@ -34,23 +34,27 @@ function extractString(record: LooseRecord, ...keys: string[]): string | undefin
 
 function extractSetupValues(payload: TOTPSetupResponse | unknown): {
   qrCodeDataUrl?: string;
-  qrCodeSvg?: string;
   secret?: string;
   otpauthUrl?: string;
 } {
   const record = asRecord(payload);
   if (!record) return {};
 
-  const qrCodeDataUrl =
+  const candidateDataUrl =
     extractString(record, 'qrCodeDataUrl', 'qr_code_data_url') ??
     (() => {
       const rawQrCode = record.qrCode;
       return typeof rawQrCode === 'string' && rawQrCode.startsWith('data:image') ? rawQrCode : undefined;
     })();
 
+  // Only accept a raster QR image. Rendering server-provided SVG markup would
+  // create a stored-XSS boundary inside the privileged admin origin.
+  const qrCodeDataUrl = candidateDataUrl && /^data:image\/png;base64,[a-z0-9+/=\s]+$/i.test(candidateDataUrl)
+    ? candidateDataUrl
+    : undefined;
+
   return {
     qrCodeDataUrl,
-    qrCodeSvg: extractString(record, 'qrCodeSvg', 'qr_code_svg'),
     secret: extractString(record, 'secret', 'totpSecret', 'totp_secret', 'manualEntryKey', 'manual_entry_key'),
     otpauthUrl: extractString(record, 'otpauthUrl', 'otpauth_url'),
   };
@@ -109,7 +113,6 @@ export default function MfaSetupPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [code, setCode] = useState('');
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
-  const [qrCodeSvg, setQrCodeSvg] = useState('');
   const [secret, setSecret] = useState('');
   const [otpauthUrl, setOtpauthUrl] = useState('');
   const [qrBuildError, setQrBuildError] = useState('');
@@ -125,7 +128,7 @@ export default function MfaSetupPage() {
   }, [accessStatus, bootstrapped, isInitialized, router]);
 
   const alreadyEnabled = useMemo(() => isMfaEnabled(mfaProfile), [mfaProfile]);
-  const hasSetup = Boolean(qrCodeDataUrl || qrCodeSvg || secret || otpauthUrl);
+  const hasSetup = Boolean(qrCodeDataUrl || secret || otpauthUrl);
 
   useEffect(() => {
     if (hasSetup) codeInputRef.current?.focus();
@@ -134,7 +137,7 @@ export default function MfaSetupPage() {
   useEffect(() => {
     let cancelled = false;
     const renderQrFromOtpAuthUrl = async () => {
-      if (qrCodeDataUrl || qrCodeSvg || !otpauthUrl) return;
+      if (qrCodeDataUrl || !otpauthUrl) return;
       setQrBuildError('');
       try {
         const dataUrl = await QRCode.toDataURL(otpauthUrl, { width: 320, margin: 1, errorCorrectionLevel: 'M' });
@@ -147,7 +150,7 @@ export default function MfaSetupPage() {
     return () => {
       cancelled = true;
     };
-  }, [otpauthUrl, qrCodeDataUrl, qrCodeSvg]);
+  }, [otpauthUrl, qrCodeDataUrl]);
 
   const generateSetup = async () => {
     setLoadingSetup(true);
@@ -158,7 +161,6 @@ export default function MfaSetupPage() {
       const payload = await beginTotpSetup();
       const extracted = extractSetupValues(payload);
       setQrCodeDataUrl(extracted.qrCodeDataUrl ?? '');
-      setQrCodeSvg(extracted.qrCodeSvg ?? '');
       setSecret(extracted.secret ?? '');
       setOtpauthUrl(extracted.otpauthUrl ?? '');
     } catch (error) {
@@ -266,7 +268,6 @@ export default function MfaSetupPage() {
                     <img src={qrCodeDataUrl} alt="MFA QR code" className="max-w-full rounded-3xl bg-white p-4 shadow-sm" />
                   </div>
                 ) : null}
-                {!qrCodeDataUrl && qrCodeSvg ? <div className="mx-auto flex max-w-[320px] justify-center rounded-3xl bg-white p-4 shadow-sm" dangerouslySetInnerHTML={{ __html: qrCodeSvg }} /> : null}
                 {qrBuildError ? <Notice type="warning">{qrBuildError}</Notice> : null}
                 {secret ? (
                   <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">

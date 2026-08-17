@@ -38,6 +38,7 @@ import { FieldEditor, type FieldDraft } from '../_shared/FieldEditor';
 import { buildPublicFormUrl } from '@/lib/utils';
 import { createFormSchema } from '@/lib/validation/forms';
 import { normalizeFieldOptions, sanitizeFieldVisibility } from '@/lib/forms/formFields';
+import { DEFAULT_FORM_CONSENT } from '@/lib/forms/formConsent';
 import type { CreateFormRequest, EventData, FormSettings } from '@/lib/types';
 import { normalizeOrderedFields } from '@/lib/forms/formFieldOrdering';
 
@@ -520,6 +521,7 @@ export default withAuth(function NewFormPage() {
         order: index + 1,
       })),
       settings: {
+        consent: DEFAULT_FORM_CONSENT,
         formType: formType || undefined,
         capacity: capacity ? Number(capacity) : undefined,
         closesAt: toIso(closesAt),

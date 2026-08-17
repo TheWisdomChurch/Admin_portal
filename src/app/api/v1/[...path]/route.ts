@@ -25,6 +25,26 @@ const HOP_BY_HOP_HEADERS = new Set([
   'upgrade',
 ]);
 
+// This route is a security boundary. Never pass arbitrary browser-controlled
+// headers to the internal API: doing so would allow callers to spoof identity,
+// forwarding, tracing, or infrastructure-only headers understood by the API.
+const FORWARDED_REQUEST_HEADERS = new Set([
+  'accept',
+  'accept-language',
+  'authorization',
+  'content-type',
+  'cookie',
+  'if-match',
+  'if-none-match',
+  'idempotency-key',
+  'origin',
+  'range',
+  'referer',
+  'user-agent',
+  'x-csrf-token',
+  'x-request-id',
+]);
+
 function getBackendBaseURL(): string {
   const raw =
     process.env.API_INTERNAL_URL ||
@@ -52,22 +72,16 @@ function buildForwardHeaders(request: NextRequest): Headers {
   request.headers.forEach((value, key) => {
     const lower = key.toLowerCase();
 
-    if (HOP_BY_HOP_HEADERS.has(lower)) {
+    if (HOP_BY_HOP_HEADERS.has(lower) || !FORWARDED_REQUEST_HEADERS.has(lower)) {
       return;
     }
 
     headers.set(key, value);
   });
 
-  const forwardedFor = request.headers.get('x-forwarded-for');
-  const realIp = request.headers.get('x-real-ip');
-
-  if (forwardedFor) {
-    headers.set('x-forwarded-for', forwardedFor);
-  } else if (realIp) {
-    headers.set('x-forwarded-for', realIp);
-  }
-
+  // x-forwarded-* values supplied by the browser are deliberately discarded.
+  // The reverse proxy/API gateway owns client-IP attribution and must append it
+  // at the trusted infrastructure boundary.
   const host = request.headers.get('host');
   if (host) {
     headers.set('x-forwarded-host', host);

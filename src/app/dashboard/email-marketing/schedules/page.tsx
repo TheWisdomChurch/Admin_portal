@@ -3,12 +3,12 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CalendarClock, CheckCircle2, Clock3, History, Mail, Pause, Play, RefreshCw, Send, Trash2, TriangleAlert, X } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CheckCircle2, Clock3, History, Mail, Pause, Pencil, Play, RefreshCw, Send, Trash2, TriangleAlert, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
 import { getServerErrorMessage } from '@/lib/serverValidation';
-import type { AdminEmailSchedule, AdminEmailScheduleStatus } from '@/lib/types';
+import type { AdminEmailSchedule, AdminEmailScheduleDetail, AdminEmailScheduleStatus } from '@/lib/types';
 import { withAuth } from '@/providers/withAuth';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
@@ -17,6 +17,7 @@ import { EmptyState } from '@/ui/EmptyState';
 import { Modal } from '@/ui/Modal';
 import { Select } from '@/ui/Select';
 import { StatCard } from '@/ui/StatCard';
+import { ScheduleCampaignModal } from '../ScheduleCampaignModal';
 
 const STATUS_TONE: Record<AdminEmailScheduleStatus, 'success' | 'warning' | 'default' | 'danger' | 'info'> = {
   active: 'success', paused: 'warning', draft: 'default', completed: 'info', failed: 'danger',
@@ -36,6 +37,8 @@ function EmailSchedulesPage() {
   const [status, setStatus] = useState('');
   const [selected, setSelected] = useState<AdminEmailSchedule | null>(null);
   const [deleting, setDeleting] = useState<AdminEmailSchedule | null>(null);
+  const [editing, setEditing] = useState<AdminEmailScheduleDetail | null>(null);
+  const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ['admin-email-schedules', status], queryFn: () => apiClient.listAdminEmailSchedules({ page: 1, limit: 100, status: status || undefined }) });
   const statusMutation = useMutation({
@@ -49,6 +52,17 @@ function EmailSchedulesPage() {
   const active = schedules.filter((item) => item.status === 'active').length;
   const failures = schedules.filter((item) => item.status === 'failed').length;
   const totalRuns = schedules.reduce((sum, item) => sum + item.runCount, 0);
+
+  async function openEditor(schedule: AdminEmailSchedule) {
+    setLoadingEditId(schedule.id);
+    try {
+      setEditing(await apiClient.getAdminEmailSchedule(schedule.id));
+    } catch (error) {
+      toast.error(getServerErrorMessage(error, 'Could not load this schedule for editing.'));
+    } finally {
+      setLoadingEditId(null);
+    }
+  }
 
   return (
     <main className="mx-auto w-full max-w-7xl space-y-7 p-4 sm:p-6 lg:p-8">
@@ -71,7 +85,7 @@ function EmailSchedulesPage() {
           <article key={schedule.id} className="grid gap-5 p-5 transition-colors hover:bg-[var(--color-background-secondary)] lg:grid-cols-[1.4fr_1fr_auto] lg:items-center">
             <div className="min-w-0"><div className="mb-2 flex flex-wrap items-center gap-2"><h3 className="truncate font-semibold text-[var(--color-text-primary)]">{schedule.name}</h3><Badge variant={STATUS_TONE[schedule.status]}>{schedule.status}</Badge></div><p className="truncate text-sm text-[var(--color-text-secondary)]">{schedule.subject || 'Untitled campaign'}</p><p className="mt-2 text-xs text-[var(--color-text-tertiary)]">{schedule.audienceLabel || 'Campaign audience'} · {schedule.timezone}</p>{schedule.lastError && <p className="mt-2 line-clamp-2 text-xs text-[var(--color-text-error)]">{schedule.lastError}</p>}</div>
             <div><p className="text-sm font-medium text-[var(--color-text-primary)]">{recurrenceLabel(schedule)} at {schedule.sendTime}</p><p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]"><Clock3 className="h-3.5 w-3.5" />Next: {displayDate(schedule.nextRunAt)}</p><p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--color-text-tertiary)]"><Send className="h-3.5 w-3.5" />{schedule.runCount} completed run{schedule.runCount === 1 ? '' : 's'}</p></div>
-            <div className="flex flex-wrap gap-2"><Button variant="ghost" onClick={() => setSelected(schedule)} icon={<History className="h-4 w-4" />}>Runs</Button>{schedule.status === 'active' ? <Button variant="outline" loading={statusMutation.isPending} onClick={() => statusMutation.mutate({ id: schedule.id, next: 'paused' })} icon={<Pause className="h-4 w-4" />}>Pause</Button> : ['paused', 'draft', 'failed'].includes(schedule.status) ? <Button loading={statusMutation.isPending} onClick={() => statusMutation.mutate({ id: schedule.id, next: 'active' })} icon={<Play className="h-4 w-4" />}>Activate</Button> : null}{schedule.status !== 'active' && <Button variant="ghost" aria-label={`Delete ${schedule.name}`} onClick={() => setDeleting(schedule)} icon={<Trash2 className="h-4 w-4" />}>Delete</Button>}</div>
+            <div className="flex flex-wrap gap-2"><Button variant="ghost" onClick={() => setSelected(schedule)} icon={<History className="h-4 w-4" />}>Runs</Button>{schedule.status !== 'completed' ? <Button variant="ghost" loading={loadingEditId === schedule.id} onClick={() => void openEditor(schedule)} icon={<Pencil className="h-4 w-4" />}>Edit</Button> : null}{schedule.status === 'active' ? <Button variant="outline" loading={statusMutation.isPending} onClick={() => statusMutation.mutate({ id: schedule.id, next: 'paused' })} icon={<Pause className="h-4 w-4" />}>Pause</Button> : ['paused', 'draft', 'failed'].includes(schedule.status) ? <Button loading={statusMutation.isPending} onClick={() => statusMutation.mutate({ id: schedule.id, next: 'active' })} icon={<Play className="h-4 w-4" />}>Activate</Button> : null}{schedule.status !== 'active' && <Button variant="ghost" aria-label={`Delete ${schedule.name}`} onClick={() => setDeleting(schedule)} icon={<Trash2 className="h-4 w-4" />}>Delete</Button>}</div>
           </article>
         ))}</div>}
       </section>
@@ -80,6 +94,7 @@ function EmailSchedulesPage() {
         <div className="p-5">{runsQuery.isLoading ? <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">Loading delivery runs…</p> : (runsQuery.data?.length ?? 0) === 0 ? <EmptyState icon={<History className="h-5 w-5" />} title="No runs yet" description="Execution attempts will appear here after the first scheduled time." /> : <div className="space-y-3">{runsQuery.data?.map((run) => <div key={run.id} className="rounded-xl border border-[var(--color-border-secondary)] p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Badge variant={run.status === 'completed' ? 'success' : run.status === 'partial' ? 'warning' : run.status === 'failed' ? 'danger' : 'info'}>{run.status}</Badge><span className="text-xs text-[var(--color-text-tertiary)]">Attempt {run.attempt}</span></div><span className="text-xs text-[var(--color-text-secondary)]">{displayDate(run.scheduledFor)}</span></div><p className="mt-3 text-sm text-[var(--color-text-secondary)]">Delivered {run.sent.toLocaleString()} · Failed {run.failed.toLocaleString()}</p>{run.error && <p className="mt-2 text-xs text-[var(--color-text-error)]">{run.error}</p>}</div>)}</div>}</div>
       </Modal>
       <ConfirmationModal isOpen={Boolean(deleting)} onClose={() => setDeleting(null)} onConfirm={() => deleting && deleteMutation.mutate(deleting.id)} title="Delete email schedule?" description={`This permanently removes “${deleting?.name ?? ''}” and its automation configuration. Delivery records remain available in campaign history.`} confirmText="Delete schedule" variant="danger" loading={deleteMutation.isPending} />
+      {editing ? <ScheduleCampaignModal open onClose={() => setEditing(null)} schedule={editing} compose={editing.compose} estimatedRecipients={0} onSaved={() => queryClient.invalidateQueries({ queryKey: ['admin-email-schedules'] })} /> : null}
     </main>
   );
 }

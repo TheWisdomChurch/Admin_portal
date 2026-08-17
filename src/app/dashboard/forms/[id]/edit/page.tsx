@@ -17,6 +17,7 @@ import FormFieldOrderBuilder from '../../FormFieldOrderBuilder';
 import { FieldEditor, type FieldDraft } from '../../_shared/FieldEditor';
 import { apiClient } from '@/lib/api';
 import { ensureFieldOptions, isOptionFieldType, normalizeFieldOptions, sanitizeFieldVisibility } from '@/lib/forms/formFields';
+import { getEffectiveFormConsent } from '@/lib/forms/formConsent';
 
 import { normalizeOrderedFields } from '@/lib/forms/formFieldOrdering';
 import {
@@ -284,7 +285,7 @@ function EditFormPage() {
     const loadForm = async () => {
       try {
         const res = await apiClient.getAdminForm(formId);
-        setForm(res);
+        setForm({ ...res, settings: { ...res.settings, consent: getEffectiveFormConsent(res.settings?.consent) } });
         setFields(normalizeOrderedFields(applyImplicitYesVisibilityDefaults(res.fields || []).map(ensureFieldOptions)));
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Failed to load form');
@@ -448,6 +449,7 @@ function EditFormPage() {
       ? {
           ...form.settings,
           contentSections: sanitizeContentSections(form.settings.contentSections),
+          consent: getEffectiveFormConsent(form.settings.consent),
         }
       : undefined;
 
