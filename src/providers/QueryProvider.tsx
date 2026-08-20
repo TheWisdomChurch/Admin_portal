@@ -21,8 +21,12 @@ function createQueryClient() {
                 ? (error as { status?: unknown }).status
                 : 0)
             : 0;
-          if ([400, 401, 403, 404, 409, 422].includes(status)) return false;
-          return failureCount < 2;
+          // Validation/authentication failures never become successful by
+          // repetition. Retry a transient/network/server failure only once;
+          // this avoids the three identical 500 requests React Query's
+          // default policy can produce while still recovering from a blip.
+          if (status >= 400 && status < 500 && ![408, 429].includes(status)) return false;
+          return failureCount < 1;
         },
         retryDelay: (attempt) => Math.min(1_000 * 2 ** attempt, 8_000),
       },

@@ -386,7 +386,7 @@ export function Sidebar() {
               </div>
               {showLabels && (
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold tracking-tight text-[var(--color-text-primary)]">Wisdom Church</p>
+                  <p className="truncate text-sm font-semibold tracking-tight text-[var(--color-text-primary)]">Wisdom Church</p>
                   <p className="truncate text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">{isSuperAdmin ? 'Authority Console' : 'Admin Portal'}</p>
                 </div>
               )}
@@ -400,7 +400,7 @@ export function Sidebar() {
           {showLabels && auth.user && (
             <div className="mt-4 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-700 text-sm font-bold text-white shadow-sm">{userInitials}</div>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-700 text-sm font-semibold text-white shadow-sm">{userInitials}</div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{fullName}</p>
                   <p className="truncate text-xs text-[var(--color-text-tertiary)]">{auth.user.email}</p>
@@ -420,7 +420,7 @@ export function Sidebar() {
         <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
           {groups.map((group) => (
             <div key={group.title}>
-              {showLabels && <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">{group.title}</p>}
+              {showLabels && <p className="mb-2 px-3 text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">{group.title}</p>}
               <div className="space-y-1">
                 {group.items.map((item) => {
                   const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -432,7 +432,7 @@ export function Sidebar() {
                       </span>
                       {showLabels && (
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate font-semibold">{item.label}</span>
+                          <span className="block truncate font-medium">{item.label}</span>
                           <span className={`block truncate text-xs ${active ? 'text-white/75' : 'text-[var(--color-text-tertiary)]'}`}>{item.description}</span>
                         </span>
                       )}

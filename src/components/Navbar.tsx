@@ -115,7 +115,7 @@ export function Navbar() {
         <div className="mx-auto flex min-h-[72px] w-full max-w-[var(--content-max-width)] items-center justify-between gap-4 px-4 py-3 md:px-6 lg:px-8">
           <div className="min-w-0 flex-1 pl-12 md:pl-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-lg font-bold tracking-tight md:text-xl">{pageTitle}</h1>
+              <h1 className="truncate text-lg font-semibold tracking-tight md:text-xl">{pageTitle}</h1>
               {isSuperAdmin && (
                 <Badge variant="warning" className="gap-1">
                   <ShieldCheck className="h-3 w-3" />
@@ -158,14 +158,14 @@ export function Navbar() {
             <Button type="button" variant="ghost" size="sm" onClick={openNotifications} aria-label="Open notifications" className="relative">
               <Bell className="h-5 w-5" />
               {unread > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
                   {unread > 9 ? '9+' : unread}
                 </span>
               )}
             </Button>
 
             <div className="hidden items-center gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 md:flex">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-700 text-xs font-bold text-white shadow-sm">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-700 text-xs font-semibold text-white shadow-sm">
                 {userInitials}
               </div>
               <div className="min-w-0 text-right">

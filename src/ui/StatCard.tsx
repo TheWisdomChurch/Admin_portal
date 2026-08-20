@@ -32,10 +32,10 @@ export function StatCard({ label, value, icon, tone = 'default', trend, classNam
     <Panel className={cn('transition duration-200 hover:-translate-y-0.5 hover:shadow-md', className)}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
             {label}
           </p>
-          <p className="mt-2 text-2xl font-bold text-[var(--color-text-primary)]">{value}</p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight text-[var(--color-text-primary)]">{value}</p>
           {trend && <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{trend}</p>}
         </div>
         {icon && (

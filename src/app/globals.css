@@ -94,8 +94,10 @@
   --color-background-hover: var(--stone-100);
   --color-background-active: var(--stone-200);
 
-  --color-text-primary: var(--stone-950);
-  --color-text-secondary: var(--stone-700);
+  /* Stone 950 is reserved for deliberate high-emphasis surfaces. Using it
+     for every line of copy made dense admin screens look visually heavy. */
+  --color-text-primary: var(--stone-900);
+  --color-text-secondary: var(--stone-600);
   --color-text-tertiary: var(--stone-500);
   --color-text-inverse: #ffffff;
   --color-text-disabled: var(--stone-400);
@@ -212,9 +214,9 @@
 
   .heading-page {
     font-size: var(--font-size-heading-lg);
-    font-weight: var(--font-weight-bold);
-    line-height: 1.08;
-    letter-spacing: -0.035em;
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.12;
+    letter-spacing: -0.025em;
   }
 
   .heading-display {
@@ -295,10 +297,12 @@ body {
   background-color: var(--color-background-primary);
   color: var(--color-text-primary);
   font-family: var(--font-body);
+  font-weight: var(--font-weight-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.3s ease, color 0.3s ease;
   line-height: 1.6;
+  text-rendering: optimizeLegibility;
 }
 
 html {
