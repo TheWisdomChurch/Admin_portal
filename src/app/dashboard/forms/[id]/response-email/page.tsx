@@ -27,15 +27,12 @@ import {
 import type { AdminForm, EmailTemplate, UpdateFormRequest } from '@/lib/types';
 import { getServerErrorMessage } from '@/lib/serverValidation';
 
-// Must point at the backend's own logo asset route (served from an embedded
-// file — see internal/email/embedded.go and cmd/api/router.go), never the
-// admin portal's own domain: email clients render this HTML standalone with
-// no app context, so a same-origin path like `${window.location.origin}/...`
-// resolves to the admin portal, not the backend, and 404s.
+// Email clients render outside the application, so use the absolute URL of
+// the public logo that ships with the admin portal.
 function defaultEmailLogoUrl() {
-  const raw = process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL;
-  const origin = raw ? raw.trim().replace(/\/+$/, '').replace(/\/api\/v1$/, '') : '';
-  return `${origin || 'https://api.wisdomchurchhq.org'}/assets/logo.webp`;
+  const raw = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_FRONTEND_URL;
+  const origin = raw?.trim().replace(/\/+$/, '') || 'https://admin.wisdomchurchhq.org';
+  return `${origin}/OIP.webp`;
 }
 
 function ResponseEmailEditorPage() {
@@ -401,7 +398,7 @@ function ResponseEmailEditorPage() {
               label="Logo URL"
               value={logoUrl}
               onChange={(e) => setLogoUrl(e.target.value)}
-              placeholder="https://api.wisdomchurchhq.org/assets/logo.webp"
+              placeholder="https://admin.wisdomchurchhq.org/OIP.webp"
               helperText="Used in the branded header beside THE / WISDOM / CHURCH."
             />
             <Input
