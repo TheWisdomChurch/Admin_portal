@@ -22,8 +22,8 @@ type ConfigDraft = Omit<CelebrationAutomationConfig, 'id' | 'updatedAt' | 'updat
 
 function AutomationPage() {
   const queryClient = useQueryClient();
-  const statusQuery = useQuery({ queryKey: ['celebration-automation-status'], queryFn: () => apiClient.getCelebrationAutomationStatus() });
-  const runsQuery = useQuery({ queryKey: ['celebration-automation-runs'], queryFn: () => apiClient.listCelebrationAutomationRuns({ page: 1, limit: 30 }) });
+  const statusQuery = useQuery({ queryKey: ['celebration-automation-status'], queryFn: () => apiClient.getCelebrationAutomationStatus(), retry: false });
+  const runsQuery = useQuery({ queryKey: ['celebration-automation-runs'], queryFn: () => apiClient.listCelebrationAutomationRuns({ page: 1, limit: 30 }), retry: false });
   const [draft, setDraft] = useState<ConfigDraft | null>(null);
   useEffect(() => {
     if (!draft && statusQuery.data?.config) {
@@ -41,7 +41,23 @@ function AutomationPage() {
   const runs = runsQuery.data?.data ?? [];
   const latest = runs[0];
 
-  if (statusQuery.isLoading || !draft) return <main className="p-8 text-center text-sm text-[var(--color-text-secondary)]">Loading automation control centre…</main>;
+  if (statusQuery.isLoading) return <main className="p-8 text-center text-sm text-[var(--color-text-secondary)]">Loading automation control centre…</main>;
+
+  if (statusQuery.isError || !draft) {
+    return (
+      <main className="mx-auto w-full max-w-3xl p-4 sm:p-8">
+        <section className="rounded-2xl border border-[var(--color-danger-border)] bg-[var(--color-background-primary)] p-5 shadow-[var(--shadow-sm)] sm:p-7">
+          <TriangleAlert className="h-7 w-7 text-[var(--color-text-error)]" />
+          <h1 className="mt-4 text-xl font-bold text-[var(--color-text-primary)]">Celebration automation is unavailable</h1>
+          <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">The server could not load the birthday and anniversary automation configuration. No greeting was sent or changed.</p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Button onClick={() => void statusQuery.refetch()} loading={statusQuery.isFetching} icon={<RefreshCw className="h-4 w-4" />}>Try again</Button>
+            <Link href="/dashboard/administration"><Button variant="outline">Back to administration</Button></Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto w-full max-w-7xl space-y-7 p-4 sm:p-6 lg:p-8">
