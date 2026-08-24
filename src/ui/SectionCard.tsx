@@ -20,13 +20,13 @@ export function SectionCard({ title, subtitle, icon, actions, children, classNam
     <Card
       className={className}
       title={
-        <div className="flex items-start gap-3">
+        <div className="flex min-w-0 items-start gap-3">
           {icon && (
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] text-[var(--color-warning-text)] ring-1 ring-inset ring-[var(--color-warning-border)]">
               {icon}
             </div>
           )}
-          <div>
+          <div className="min-w-0">
             <h2 className="text-base font-semibold text-[var(--color-text-primary)]">{title}</h2>
             {subtitle && <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--color-text-tertiary)]">{subtitle}</p>}
           </div>

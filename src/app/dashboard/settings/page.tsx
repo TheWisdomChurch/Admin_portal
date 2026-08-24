@@ -525,7 +525,7 @@ function SettingsPage() {
             {/* Security Settings */}
             <Card>
               <div id="security" className="p-6 pb-0">
-                <div className="grid gap-3 md:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
                     <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Security Score</p>
                     <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{securityOverview?.securityScore ?? 0}%</p>

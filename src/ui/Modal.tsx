@@ -21,7 +21,7 @@ const sizes = {
   sm: 'max-w-sm',
   md: 'max-w-md',
   lg: 'max-w-lg',
-  xl: 'max-w-2xl',
+  xl: 'max-w-5xl',
 };
 
 const FOCUSABLE_SELECTOR =
@@ -95,7 +95,7 @@ export function Modal({
   return (
     <div
       className={cn(
-        'fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-text-primary)]/50 px-4 py-6 backdrop-blur-sm',
+        'fixed inset-0 z-50 flex items-end justify-center bg-[var(--color-text-primary)]/50 p-0 backdrop-blur-sm sm:items-center sm:px-4 sm:py-6',
         overlayClassName
       )}
       onClick={closeOnBackdrop ? onClose : undefined}
@@ -108,7 +108,7 @@ export function Modal({
         tabIndex={-1}
         onClick={(event) => event.stopPropagation()}
         className={cn(
-          'w-full overflow-hidden rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-[var(--shadow-2xl)] outline-none',
+          'max-h-[96dvh] w-full overflow-hidden rounded-t-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-[var(--shadow-2xl)] outline-none sm:max-h-[92dvh] sm:rounded-2xl',
           sizes[size],
           className
         )}

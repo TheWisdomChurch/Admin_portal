@@ -70,14 +70,14 @@ export function Table<T>({
   return (
     <div className={cn('max-w-full overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border-primary)]', className)}>
       <div className="max-w-full overflow-x-auto">
-      <table className={cn('w-full border-collapse text-sm', tableClassName)}>
+      <table className={cn('w-full min-w-[680px] border-collapse text-sm', tableClassName)}>
         <thead>
           <tr className="border-b border-[var(--color-border-primary)]">
             {columns.map((column) => (
               <th
                 key={String(column.key)}
                 className={cn(
-                  'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]',
+                  'whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]',
                   column.headerClassName
                 )}
               >

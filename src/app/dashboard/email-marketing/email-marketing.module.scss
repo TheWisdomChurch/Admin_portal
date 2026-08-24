@@ -892,3 +892,10 @@
   .stepNav { flex-direction: column-reverse; }
   .stepNav > * { width: 100%; justify-content: center; }
 }
+
+/* Keep hierarchy clear without turning every heading and value into a black
+   visual block. The studio uses weight and contrast sparingly. */
+.page h1,
+.page h2 { font-weight: 650; }
+.page h3,
+.page strong { font-weight: 600; }

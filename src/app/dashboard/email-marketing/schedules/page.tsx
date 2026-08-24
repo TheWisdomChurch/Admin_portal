@@ -65,7 +65,7 @@ function EmailSchedulesPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-7 p-4 sm:p-6 lg:p-8">
+    <main className="w-full min-w-0 space-y-6 sm:space-y-7">
       <section className="overflow-hidden rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-[var(--shadow-sm)]">
         <div className="border-b border-[var(--color-border-secondary)] p-6 sm:p-8">
           <Link href="/dashboard/email-marketing" className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"><ArrowLeft className="h-4 w-4" />Email marketing studio</Link>

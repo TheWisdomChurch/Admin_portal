@@ -597,7 +597,7 @@ function StoreDashboardPage() {
                 <Badge variant={statusVariant(order.status)}>{titleCase(order.status)}</Badge>
               </div>
 
-			  <div className="mt-4 grid gap-3 sm:grid-cols-4">
+			  <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <InfoTile label="Total" value={`₦${order.total.toLocaleString()}`} />
                 <InfoTile label="Items" value={String(order.items?.length || 0)} />
 				<div>

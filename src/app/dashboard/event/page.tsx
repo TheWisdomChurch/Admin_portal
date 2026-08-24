@@ -640,7 +640,7 @@ function EventPage() {
                 <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">Search, filter, inspect, and manage events by lifecycle status.</p>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_160px_160px] lg:min-w-[680px]">
+              <div className="grid w-full gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_160px_160px] xl:min-w-[620px]">
                 <div className="flex items-center gap-2 rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-3 py-2">
                   <Search className="h-4 w-4 text-[var(--color-text-tertiary)]" />
                   {/* eslint-disable-next-line no-restricted-syntax -- borderless icon-prefixed search field; the shared <Input>'s boxed border/background can't be cleanly overridden here */}

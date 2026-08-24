@@ -352,7 +352,7 @@ function RequestsPage() {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Total tickets</p>
           <p className="mt-2 text-3xl font-bold text-[var(--color-text-primary)]">{counts.total || 0}</p>
@@ -375,7 +375,7 @@ function RequestsPage() {
         {timelinePoints.length === 0 ? (
           <p className="text-sm text-[var(--color-text-tertiary)]">No timeline data is available yet.</p>
         ) : (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-7">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
             {timelinePoints.map((point: TimelinePoint) => {
               const createdHeight = Math.max(8, Math.round((point.created / timelineMax) * 72));
               const approvedHeight = Math.max(8, Math.round((point.approved / timelineMax) * 72));
@@ -415,7 +415,7 @@ function RequestsPage() {
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative min-w-[240px] flex-1">
+            <div className="relative min-w-0 flex-1 sm:min-w-[240px]">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
               <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} className="pl-10" placeholder="Search ticket, requester, label..." />
             </div>

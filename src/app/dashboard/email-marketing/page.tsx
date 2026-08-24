@@ -72,7 +72,7 @@ const EMAIL_BRAND_HEADER = `<table role="presentation" cellpadding="0" cellspaci
 <td style="width:1px;padding:0 10px;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="1" height="52" style="width:1px;font-size:0;line-height:0;background:${EMAIL_COLOR_LINE};">&nbsp;</td></tr></table></td>
 <td style="vertical-align:middle;font-family:${EMAIL_FONT_STACK};">
 <div style="font-size:13px;font-weight:400;color:${EMAIL_COLOR_MUTED};line-height:1.3;">The</div>
-<div style="font-size:18px;font-weight:800;letter-spacing:-.01em;color:${EMAIL_COLOR_INK};line-height:1.25;">Wisdom Church</div>
+<div style="font-size:18px;font-weight:700;letter-spacing:-.01em;color:${EMAIL_COLOR_INK};line-height:1.25;">Wisdom Church</div>
 <div style="font-size:10.5px;font-style:italic;font-weight:500;color:${EMAIL_COLOR_ACCENT};letter-spacing:.01em;margin-top:5px;">Equipped. Empowered for Greatness</div>
 </td>
 </tr></table>`;
@@ -90,7 +90,7 @@ function buildEmailHTML(heading: string, bodyHTML: string): string {
 <tr><td style="padding:36px 40px 28px;">${EMAIL_BRAND_HEADER}</td></tr>
 <tr><td style="padding:0 40px;"><div style="border-top:1px solid ${EMAIL_COLOR_LINE};"></div></td></tr>
 <tr><td style="padding:32px 40px;font-family:${EMAIL_FONT_STACK};color:${EMAIL_COLOR_BODY};font-size:15px;line-height:1.7;">
-<h1 style="margin:0 0 20px;color:${EMAIL_COLOR_INK};font-size:24px;line-height:1.3;font-weight:800;">${heading}</h1>
+<h1 style="margin:0 0 20px;color:${EMAIL_COLOR_INK};font-size:23px;line-height:1.35;font-weight:700;">${heading}</h1>
 ${bodyHTML}
 </td></tr>
 ${EMAIL_FOOTER}
