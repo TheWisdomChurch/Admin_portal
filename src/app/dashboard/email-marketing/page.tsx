@@ -41,6 +41,7 @@ import type {
 import { Button } from '@/ui/Button';
 import { EmptyState } from '@/ui/EmptyState';
 import { withAuth } from '@/providers/withAuth';
+import { CANONICAL_EMAIL_FRAME_CLASS } from '@/lib/forms/formEmailTemplates';
 
 import styles from './email-marketing.module.scss';
 import { ScheduleCampaignModal } from './ScheduleCampaignModal';
@@ -76,23 +77,22 @@ const EMAIL_BRAND_HEADER = `<table role="presentation" cellpadding="0" cellspaci
 <td style="vertical-align:middle;font-family:${EMAIL_FONT_STACK};">
 <div style="font-size:13px;font-weight:400;color:${EMAIL_COLOR_MUTED};line-height:1.3;">The</div>
 <div style="font-size:18px;font-weight:800;letter-spacing:-.01em;color:${EMAIL_COLOR_INK};line-height:1.25;">Wisdom Church</div>
-<div style="font-size:10.5px;font-style:italic;font-weight:500;color:${EMAIL_COLOR_ACCENT};letter-spacing:.01em;margin-top:5px;">Equipped. Empowered for Greatness</div>
 </td>
 </tr></table>`;
 
-const EMAIL_FOOTER = `<tr><td style="padding:0 40px;"><div style="border-top:1px solid ${EMAIL_COLOR_LINE};"></div></td></tr>
-<tr><td style="padding:24px 40px 32px;font-family:${EMAIL_FONT_STACK};">
+const EMAIL_FOOTER = `<tr><td style="padding:0 48px;"><div style="border-top:1px solid ${EMAIL_COLOR_LINE};"></div></td></tr>
+<tr><td style="padding:26px 48px 36px;font-family:${EMAIL_FONT_STACK};">
 <p style="margin:0 0 4px;font-size:12px;color:${EMAIL_COLOR_FAINT};">The Wisdom Church</p>
 <p style="margin:0;font-size:12px;color:${EMAIL_COLOR_FAINT};">Prefer not to receive these emails? <a href="{{ .UnsubscribeURL }}" style="color:${EMAIL_COLOR_ACCENT};text-decoration:none;">Unsubscribe here</a>.</p>
 </td></tr>`;
 
 function buildEmailHTML(heading: string, bodyHTML: string): string {
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_COLOR_GROUND};"><tr><td align="center" style="padding:40px 16px;">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background:${EMAIL_COLOR_PAPER};border:1px solid ${EMAIL_COLOR_LINE};font-family:${EMAIL_FONT_STACK};">
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_COLOR_GROUND};"><tr><td align="center" style="padding:32px 20px;">
+<table class="${CANONICAL_EMAIL_FRAME_CLASS}" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:680px;background:${EMAIL_COLOR_PAPER};border:1px solid ${EMAIL_COLOR_LINE};border-radius:20px;overflow:hidden;font-family:${EMAIL_FONT_STACK};">
 <tr><td style="height:3px;line-height:3px;font-size:0;background:${EMAIL_COLOR_ACCENT};">&nbsp;</td></tr>
-<tr><td style="padding:36px 40px 28px;">${EMAIL_BRAND_HEADER}</td></tr>
-<tr><td style="padding:0 40px;"><div style="border-top:1px solid ${EMAIL_COLOR_LINE};"></div></td></tr>
-<tr><td style="padding:32px 40px;font-family:${EMAIL_FONT_STACK};color:${EMAIL_COLOR_BODY};font-size:15px;line-height:1.7;">
+<tr><td style="padding:38px 48px 30px;">${EMAIL_BRAND_HEADER}</td></tr>
+<tr><td style="padding:0 48px;"><div style="border-top:1px solid ${EMAIL_COLOR_LINE};"></div></td></tr>
+<tr><td style="padding:38px 48px 44px;font-family:${EMAIL_FONT_STACK};color:${EMAIL_COLOR_BODY};font-size:15px;line-height:1.7;">
 <h1 style="margin:0 0 20px;color:${EMAIL_COLOR_INK};font-size:24px;line-height:1.3;font-weight:800;">${heading}</h1>
 ${bodyHTML}
 </td></tr>
@@ -108,7 +108,7 @@ ${EMAIL_FOOTER}
 const EFLIER_MARKER_START = '<!-- EFLIER:START -->';
 const EFLIER_MARKER_END = '<!-- EFLIER:END -->';
 const EFLIER_BLOCK_RE = /<!-- EFLIER:START -->[\s\S]*?<!-- EFLIER:END -->/;
-const EMAIL_CARD_OPEN_TAG = '<table role="presentation" width="600"';
+const EMAIL_CARD_OPEN_TAG = `<table class="${CANONICAL_EMAIL_FRAME_CLASS}"`;
 
 function buildEflierRow(url: string): string {
   return `${EFLIER_MARKER_START}<tr><td style="padding:0;line-height:0;font-size:0;"><img src="${url}" width="600" alt="" style="display:block;width:100%;max-width:600px;height:auto;border:0;" /></td></tr>${EFLIER_MARKER_END}`;
@@ -166,7 +166,7 @@ const TEMPLATE_PRESETS = [
     label: 'Service Invite',
     subject: 'An Invitation for This Sunday',
     html: `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_COLOR_GROUND};"><tr><td align="center" style="padding:40px 16px;">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background:${EMAIL_COLOR_PAPER};border:1px solid ${EMAIL_COLOR_LINE};font-family:${EMAIL_FONT_STACK};">
+<table class="${CANONICAL_EMAIL_FRAME_CLASS}" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:680px;background:${EMAIL_COLOR_PAPER};border:1px solid ${EMAIL_COLOR_LINE};border-radius:20px;overflow:hidden;font-family:${EMAIL_FONT_STACK};">
 <tr><td style="height:3px;line-height:3px;font-size:0;background:${EMAIL_COLOR_ACCENT};">&nbsp;</td></tr>
 <tr><td style="padding:36px 40px 28px;">${EMAIL_BRAND_HEADER}</td></tr>
 <tr><td style="padding:0 40px;"><div style="border-top:1px solid ${EMAIL_COLOR_LINE};"></div></td></tr>
@@ -330,7 +330,7 @@ function renderPreviewHtml(html: string): string {
     (acc, [token, value]) => acc.replaceAll(`{{ .${token} }}`, value).replaceAll(`{{.${token}}}`, value),
     html
   );
-	if (rendered.includes('class="wc-frame"')) return rendered;
+	if (rendered.includes(`class="${CANONICAL_EMAIL_FRAME_CLASS}"`)) return rendered;
 	const bodyMatch = rendered.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
 	const content = bodyMatch?.[1] || rendered;
 	return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#eef0f3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#0e1420}.outer{padding:32px 20px}.frame{width:100%;max-width:680px;margin:auto;background:white;border:1px solid #dadfe6;border-radius:20px;overflow:hidden}.header,.body,.footer{padding-left:48px;padding-right:48px}.header{padding-top:38px;padding-bottom:30px;border-top:3px solid #8a6d2f}.body{padding-top:38px;padding-bottom:44px}.footer{padding-top:26px;padding-bottom:32px;border-top:1px solid #dadfe6;color:#8a93a3;font-size:12px}@media(max-width:700px){.outer{padding:20px 12px}.header,.body,.footer{padding-left:30px;padding-right:30px}}@media(max-width:480px){.outer{padding:8px}.frame{border-radius:14px}.header,.body,.footer{padding-left:20px;padding-right:20px}.header{padding-top:25px}.body{padding-top:28px}}</style></head><body><div class="outer"><div class="frame"><div class="header"><strong>The Wisdom Church</strong></div><div class="body">${content}</div><div class="footer">The Wisdom Church</div></div></div></body></html>`;

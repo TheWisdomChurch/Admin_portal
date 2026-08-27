@@ -8,6 +8,10 @@ export const ACCEPTED_EMAIL_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/web
 // amber one.
 export const DEFAULT_EMAIL_ACCENT_COLOR = '#8a6d2f';
 export const DEFAULT_EMAIL_SURFACE_COLOR = '#f7f5f0';
+// The backend uses this marker to recognize HTML that already owns the
+// canonical Wisdom Church shell. Without it, a complete admin-built email is
+// wrapped in a second header/card/footer before delivery.
+export const CANONICAL_EMAIL_FRAME_CLASS = 'wc-frame';
 
 // Design tokens shared with the header/card chrome below — mirrors
 // internal/email/theme.go on the backend and the email-marketing compose
@@ -556,7 +560,7 @@ export function buildFormEmailHTML(opts: {
   const messageBlock = formattedMessageHtml || plainTextToHtmlParagraphs(opts.message || 'Thank you for registering.');
 
   // Mirrors internal/email/theme.go's renderHeaderBlock: logo, a vertical
-  // hairline divider, then "The" / "Wisdom Church" stacked with a tagline —
+  // hairline divider, then "The" / "Wisdom Church" stacked —
   // on the card's paper background, not a dark filled block.
   const brandHeader = `
     <table role="presentation" cellpadding="0" cellspacing="0"><tr>
@@ -571,7 +575,6 @@ export function buildFormEmailHTML(opts: {
       <td style="vertical-align:middle;">
         <div style="font-size:13px;font-weight:400;color:${MUTED};line-height:1.3;">The</div>
         <div style="font-size:18px;font-weight:800;letter-spacing:-.01em;color:${INK};line-height:1.25;">Wisdom Church</div>
-        <div style="font-size:10.5px;font-style:italic;font-weight:500;color:${accentColor};letter-spacing:.01em;margin-top:5px;">Equipped. Empowered for Greatness</div>
       </td>
     </tr></table>`;
 
@@ -594,7 +597,7 @@ export function buildFormEmailHTML(opts: {
       ${safePreheader || safeHeading}
     </div>
     <table width="100%" cellpadding="0" cellspacing="0" style="background:${GROUND};"><tr><td align="center" style="padding:40px 16px;">
-      <table width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background:${PAPER};border:1px solid ${LINE};">
+      <table class="${CANONICAL_EMAIL_FRAME_CLASS}" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:680px;background:${PAPER};border:1px solid ${LINE};border-radius:20px;overflow:hidden;">
         <tr><td style="height:3px;line-height:3px;font-size:0;background:${accentColor};">&nbsp;</td></tr>
         <tr><td style="padding:36px 40px 28px;">${brandHeader}</td></tr>
         <tr><td style="padding:0 40px;"><div style="border-top:1px solid ${LINE};"></div></td></tr>
