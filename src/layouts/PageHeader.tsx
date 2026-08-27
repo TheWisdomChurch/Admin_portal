@@ -11,12 +11,12 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, actions, className }: PageHeaderProps) {
   return (
-    <div className={cn('flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between', className)}>
-      <div className="max-w-3xl">
+    <div className={cn('flex min-w-0 flex-col gap-4 md:flex-row md:items-end md:justify-between', className)}>
+      <div className="min-w-0 max-w-3xl">
         <h1 className={`${textStyles.pageTitle} leading-tight`}>{title}</h1>
         {subtitle && <p className={`${textStyles.subtitle} mt-1`}>{subtitle}</p>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2 justify-start sm:justify-end">{actions}</div>}
+      {actions && <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 md:shrink-0 md:justify-end">{actions}</div>}
     </div>
   );
 }

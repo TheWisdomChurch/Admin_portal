@@ -22,15 +22,15 @@ export function Card({ children, className, title, actions, headerClassName, con
       {(title || actions) && (
         <div
           className={cn(
-            'flex flex-col gap-3 border-b border-[var(--color-border-secondary)] p-5 sm:flex-row sm:items-center sm:justify-between',
+            'flex min-w-0 flex-col gap-3 border-b border-[var(--color-border-secondary)] p-4 sm:p-5 md:flex-row md:items-center md:justify-between',
             headerClassName
           )}
         >
           {title && <h3 className="text-sm md:text-base font-medium text-[var(--color-text-primary)]">{title}</h3>}
-          {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+          {actions && <div className="flex min-w-0 flex-wrap items-center gap-2">{actions}</div>}
         </div>
       )}
-      <div className={cn('p-5', contentClassName)}>{children}</div>
+      <div className={cn('min-w-0 p-4 sm:p-5', contentClassName)}>{children}</div>
     </div>
   );
 }

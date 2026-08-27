@@ -211,7 +211,7 @@ export function NotificationInbox({ title, subtitle }: Props) {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total inbox" value={items.length} trend="All super-admin notifications loaded." />
         <StatCard label="Unread" value={unread} trend="Items requiring attention." tone="warning" />
         <StatCard label="Approval signals" value={approvalCount} trend="Tickets, requests, and actions." tone="info" />

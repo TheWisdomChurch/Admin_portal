@@ -68,14 +68,15 @@ function PrayerRequestsPage() {
   const [actionId, setActionId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PrayerRequestAdmin | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await apiClient.listPrayerRequests({ page: 1, limit: 200 });
       const items = Array.isArray(res.data) ? res.data : [];
-      setRequests(items);
-      setSelected((prev) => (prev ? items.find((item) => item.id === prev.id) || null : prev));
+      setRequests(items.map((item) => ({ ...item, request: '', email: undefined, notes: undefined })));
+      setSelected((prev) => (prev && items.some((item) => item.id === prev.id) ? prev : null));
     } catch (error) {
       console.error('Failed to load prayer requests:', error);
       toast.error('Unable to load prayer requests');
@@ -84,6 +85,18 @@ function PrayerRequestsPage() {
       setLoading(false);
     }
   }, []);
+
+  const openRequest = async (item: PrayerRequestAdmin) => {
+    setOpeningId(item.id);
+    try {
+      setSelected(await apiClient.getPrayerRequest(item.id));
+    } catch (error) {
+      console.error('Failed to open prayer request:', error);
+      toast.error(error instanceof Error ? error.message : 'Unable to open prayer request');
+    } finally {
+      setOpeningId(null);
+    }
+  };
 
   useEffect(() => { void loadData(); }, [loadData]);
 
@@ -107,7 +120,7 @@ function PrayerRequestsPage() {
     return requests.filter((item) => {
       if (statusFilter !== 'all' && item.status !== statusFilter) return false;
       if (!needle) return true;
-      return `${requesterName(item)} ${item.email || ''} ${item.request} ${item.category || ''}`.toLowerCase().includes(needle);
+      return `${requesterName(item)} ${item.category || ''}`.toLowerCase().includes(needle);
     });
   }, [requests, query, statusFilter]);
 
@@ -175,7 +188,7 @@ function PrayerRequestsPage() {
     <main className="space-y-6">
       <PageHeader
         title="Prayer Requests"
-        subtitle="Review, triage, and follow up on prayer requests submitted from the website."
+        subtitle="Restricted pastoral inbox. Sensitive details are revealed only when a request is intentionally opened."
         actions={
           <Button variant="outline" icon={<RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />} onClick={() => void loadData()} loading={loading}>
             Refresh
@@ -192,7 +205,7 @@ function PrayerRequestsPage() {
 
       <SectionCard
         title="Requests"
-        subtitle="Confidential — request text is decrypted for authorized staff only."
+        subtitle="Confidential metadata only — request text and contact details stay hidden until opened."
         icon={<HandHeart className="h-5 w-5" />}
         actions={
           <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_170px]">
@@ -214,7 +227,8 @@ function PrayerRequestsPage() {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setSelected(item)}
+                onClick={() => void openRequest(item)}
+                disabled={openingId === item.id}
                 className="block w-full rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 text-left transition hover:shadow-md"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -224,7 +238,7 @@ function PrayerRequestsPage() {
                       <Badge variant={statusVariant[item.status]}>{statusLabels[item.status] || item.status}</Badge>
                       {item.category ? <Badge variant="outline">{item.category}</Badge> : null}
                     </div>
-                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-[var(--color-text-secondary)]">{item.request}</p>
+                    <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">{openingId === item.id ? 'Opening securely…' : 'Confidential request — open to view details'}</p>
                     <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">Submitted {formatDate(item.createdAt)}</p>
                   </div>
                 </div>

@@ -119,8 +119,8 @@ export default function DashboardLayoutClient({ children }: DashboardLayoutClien
       <div className="dashboard-shell min-h-screen">
         <Navbar />
         <SessionTimeout />
-        <main className="flex-1 overflow-auto">
-          <div className="mx-auto w-full max-w-[var(--content-max-width)] px-4 py-5 sm:px-6 sm:py-7 lg:px-8 xl:px-10">{children}</div>
+        <main className="min-w-0 flex-1 overflow-x-auto overflow-y-auto">
+          <div className="mx-auto w-full max-w-[var(--content-max-width)] px-3 py-4 sm:px-5 sm:py-6 lg:px-7 xl:px-8">{children}</div>
         </main>
       </div>
     </div>

@@ -74,7 +74,7 @@ export function TrackerList({
             key={item.id}
             type="button"
             onClick={() => onOpen(item)}
-            className="group flex w-full items-center gap-3 rounded-2xl border border-transparent bg-[var(--color-background-secondary)] p-3 text-left transition hover:border-[var(--color-border-primary)] hover:bg-[var(--color-background-hover)]"
+            className="group grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-transparent bg-[var(--color-background-secondary)] p-3 text-left transition hover:border-[var(--color-border-primary)] hover:bg-[var(--color-background-hover)] sm:flex"
           >
             <div className="relative">
               <Avatar person={item} size="sm" />
@@ -88,7 +88,7 @@ export function TrackerList({
               <div className="text-xs font-bold text-[var(--color-text-primary)]">{item.dateLabel}</div>
               <div className={`mt-0.5 text-[11px] font-semibold ${item.daysUntil === 0 ? 'text-[var(--color-success-text)]' : 'text-[var(--color-text-tertiary)]'}`}>{timingLabel(item.daysUntil)}</div>
             </div>
-            <ArrowRight className="h-4 w-4 shrink-0 text-[var(--color-text-tertiary)] transition group-hover:translate-x-0.5 group-hover:text-[var(--color-text-primary)]" />
+            <ArrowRight className="hidden h-4 w-4 shrink-0 text-[var(--color-text-tertiary)] transition group-hover:translate-x-0.5 group-hover:text-[var(--color-text-primary)] sm:block" />
           </button>
         ))}
         {items.length === 0 ? <EmptyState title="No celebrations in the next 45 days" description="Add dates to people profiles to include them automatically." /> : null}
@@ -146,13 +146,13 @@ export function TrackerModal({
   };
 
   return (
-    <Modal open onClose={onClose} size="xl" labelledBy="celebration-centre-title">
-      <div className="flex max-h-[88vh] flex-col overflow-hidden bg-[var(--color-background-primary)]">
-        <header className="relative overflow-hidden border-b border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-5 py-5 md:px-7 md:py-6">
+    <Modal open onClose={onClose} size="xl" labelledBy="celebration-centre-title" className="max-w-6xl rounded-xl sm:rounded-2xl" overlayClassName="px-2 py-2 sm:px-4 sm:py-6">
+      <div className="flex max-h-[96vh] flex-col overflow-hidden bg-[var(--color-background-primary)] sm:max-h-[90vh]">
+        <header className="relative overflow-hidden border-b border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-4 sm:px-5 sm:py-5 md:px-7 md:py-6">
           <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full bg-[var(--color-accent-primary)] opacity-[0.07]" />
           <div className="relative flex items-start justify-between gap-4">
-            <div className="flex min-w-0 items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-primary)] text-[var(--color-text-inverse)] shadow-sm">
+            <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+              <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-primary)] text-[var(--color-text-inverse)] shadow-sm sm:flex">
                 <Icon className="h-6 w-6" />
               </div>
               <div className="min-w-0">
@@ -160,8 +160,8 @@ export function TrackerModal({
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">People care</p>
                   <Badge variant={today.length ? 'success' : 'secondary'}>{today.length} today</Badge>
                 </div>
-                <h2 id="celebration-centre-title" className="mt-1 text-xl font-bold tracking-tight text-[var(--color-text-primary)] md:text-2xl">{title}</h2>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)]">Plan timely, personal recognition from profile data and keep every celebration visible to the care team.</p>
+                <h2 id="celebration-centre-title" className="mt-1 text-lg font-bold tracking-tight text-[var(--color-text-primary)] sm:text-xl md:text-2xl">{title}</h2>
+                <p className="mt-1 hidden max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)] sm:block">Plan timely, personal recognition from profile data and keep every celebration visible to the care team.</p>
               </div>
             </div>
             <button type="button" onClick={onClose} className="shrink-0 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-2 text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-primary)]" aria-label="Close celebration centre">
@@ -171,8 +171,8 @@ export function TrackerModal({
         </header>
 
         <div className="overflow-y-auto">
-          <div className="space-y-6 p-5 md:p-7">
-            <section className="grid gap-3 sm:grid-cols-3">
+          <div className="space-y-5 p-3 sm:p-5 md:space-y-6 md:p-7">
+            <section className="grid gap-3 min-[480px]:grid-cols-3">
               <Metric icon={<Sparkles className="h-4 w-4" />} label="Celebrating today" value={today.length} detail={today.length ? 'Ready for recognition' : 'No action due today'} />
               <Metric icon={<CalendarDays className="h-4 w-4" />} label="Next seven days" value={nextSevenDays} detail="Plan communications early" />
               <Metric icon={<Users className="h-4 w-4" />} label="Annual records" value={items.length} detail={`${withEmail}/${today.length || 0} today have email`} />
@@ -202,7 +202,7 @@ export function TrackerModal({
                   <h3 className="text-lg font-bold text-[var(--color-text-primary)]">Annual celebration calendar</h3>
                   <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Search, filter, and open the corresponding people profile.</p>
                 </div>
-                <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_150px_150px]">
+                <div className="grid w-full gap-2 sm:grid-cols-2 lg:w-auto lg:grid-cols-[minmax(220px,1fr)_150px_150px]">
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                     <Input className="pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search people..." aria-label="Search celebrations" />

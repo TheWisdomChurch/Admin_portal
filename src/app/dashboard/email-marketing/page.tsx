@@ -58,16 +58,13 @@ const EMAIL_COLOR_MUTED = '#5B6472';
 const EMAIL_COLOR_FAINT = '#8A93A3';
 const EMAIL_COLOR_BODY = '#3A414D';
 const EMAIL_FONT_STACK = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
-// Served by the backend from an embedded asset — see internal/email/embedded.go
-// and the GET route for email.LogoAssetPath in cmd/api/router.go. This must
-// always be an absolute URL to the *backend's* own origin (never a relative
-// or same-origin-proxied path): email clients render this HTML standalone,
-// with no Next.js app context to resolve a relative path against. Not the
-// admin portal's own domain, and not the old pre-redesign /OIP.webp path.
+// Email clients need a public, absolute image URL. Keep this on the admin
+// origin, where the asset is deployed with this application, instead of
+// depending on a backend-only asset route that is not available everywhere.
 function resolveEmailLogoURL(): string {
-  const raw = process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL;
-  const origin = raw ? raw.trim().replace(/\/+$/, '').replace(/\/api\/v1$/, '') : '';
-  return `${origin || 'https://api.wisdomchurchhq.org'}/assets/logo.webp`;
+  const raw = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_FRONTEND_URL;
+  const origin = raw?.trim().replace(/\/+$/, '') || 'https://admin.wisdomchurchhq.org';
+  return `${origin}/OIP.webp`;
 }
 const EMAIL_LOGO_URL = resolveEmailLogoURL();
 
@@ -326,14 +323,16 @@ const PREVIEW_TOKEN_VALUES: Record<string, string> = {
 };
 
 function renderPreviewHtml(html: string): string {
-	const rendered = Object.entries(PREVIEW_TOKEN_VALUES).reduce(
+  const rendered = Object.entries(PREVIEW_TOKEN_VALUES).reduce(
     (acc, [token, value]) => acc.replaceAll(`{{ .${token} }}`, value).replaceAll(`{{.${token}}}`, value),
     html
   );
-	if (rendered.includes(`class="${CANONICAL_EMAIL_FRAME_CLASS}"`)) return rendered;
-	const bodyMatch = rendered.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-	const content = bodyMatch?.[1] || rendered;
-	return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#eef0f3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#0e1420}.outer{padding:32px 20px}.frame{width:100%;max-width:680px;margin:auto;background:white;border:1px solid #dadfe6;border-radius:20px;overflow:hidden}.header,.body,.footer{padding-left:48px;padding-right:48px}.header{padding-top:38px;padding-bottom:30px;border-top:3px solid #8a6d2f}.body{padding-top:38px;padding-bottom:44px}.footer{padding-top:26px;padding-bottom:32px;border-top:1px solid #dadfe6;color:#8a93a3;font-size:12px}@media(max-width:700px){.outer{padding:20px 12px}.header,.body,.footer{padding-left:30px;padding-right:30px}}@media(max-width:480px){.outer{padding:8px}.frame{border-radius:14px}.header,.body,.footer{padding-left:20px;padding-right:20px}.header{padding-top:25px}.body{padding-top:28px}}</style></head><body><div class="outer"><div class="frame"><div class="header"><strong>The Wisdom Church</strong></div><div class="body">${content}</div><div class="footer">The Wisdom Church</div></div></div></body></html>`;
+  if (/<html[\s>]/i.test(rendered)) return rendered;
+
+  // The composer already owns the complete branded email. The preview shell
+  // must only provide a document context; adding another card/header here
+  // produces the unprofessional nested-email effect and duplicate church name.
+  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;min-height:100%;background:#eef0f3}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:#0e1420}img{max-width:100%}@media(max-width:640px){table[width="600"]{width:100%!important}.email-preview-root{padding:0!important}}</style></head><body><div class="email-preview-root">${rendered}</div></body></html>`;
 }
 
 function getHistoryDate(item: AdminEmailDeliveryHistoryItem): string | undefined {

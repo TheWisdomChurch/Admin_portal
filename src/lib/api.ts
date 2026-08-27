@@ -769,12 +769,12 @@ function normalizePrayerRequest(value: Record<string, unknown>): PrayerRequestAd
   const status = str(value.status);
 
   return {
-    id: str(value.id),
+    id: str(value.id ?? value.uuid),
     memberId: optionalStr(value.member_id ?? value.memberId),
     firstName: str(value.first_name ?? value.firstName),
     lastName: str(value.last_name ?? value.lastName),
     email: optionalStr(value.email),
-    request: str(value.request),
+    request: str(value.request ?? value.prayer_request ?? value.prayerRequest ?? value.message ?? value.details),
     category: optionalStr(value.category),
     isAnonymous: Boolean(value.is_anonymous ?? value.isAnonymous),
     status: (['pending', 'praying', 'answered', 'closed'] as const).includes(status as PrayerRequestStatus) ? (status as PrayerRequestStatus) : 'pending',
@@ -852,8 +852,10 @@ function unwrapSimplePaginated<T>(res: unknown, errorMessage: string): SimplePag
   };
 
   const build = (record: Record<string, unknown>): SimplePaginatedResponse<T> | null => {
-    const data = Array.isArray(record.data) ? (record.data as T[]) : undefined;
-    const meta = isRecord(record.meta) ? (record.meta as Record<string, unknown>) : undefined;
+    const collection = record.data ?? record.items ?? record.results ?? record.requests ?? record.prayer_requests;
+    const data = Array.isArray(collection) ? (collection as T[]) : undefined;
+    const metaValue = record.meta ?? record.pagination;
+    const meta = isRecord(metaValue) ? (metaValue as Record<string, unknown>) : undefined;
 
     const total = toNumber(record.total) ?? toNumber(record.total_items) ?? toNumber(record.count) ?? (meta ? (toNumber(meta.total) ?? toNumber(meta.total_items) ?? toNumber(meta.count)) : undefined);
 
@@ -862,15 +864,17 @@ function unwrapSimplePaginated<T>(res: unknown, errorMessage: string): SimplePag
 
     const totalPages = toNumber(record.totalPages) ?? toNumber(record.total_pages) ?? (meta ? (toNumber(meta.totalPages) ?? toNumber(meta.total_pages)) : undefined);
 
-    if (!data || total === undefined) return null;
+    if (!data) return null;
+
+    const safeTotal = total ?? data.length;
 
     const safeLimit = limit ?? Math.max(data.length, 1);
     const safePage = page ?? 1;
-    const safeTotalPages = totalPages ?? Math.max(1, Math.ceil(total / safeLimit));
+    const safeTotalPages = totalPages ?? Math.max(1, Math.ceil(safeTotal / safeLimit));
 
     return {
       data,
-      total,
+      total: safeTotal,
       page: safePage,
       limit: safeLimit,
       totalPages: safeTotalPages,
@@ -1846,7 +1850,9 @@ export const apiClient = {
 
   async getPrayerRequest(id: string): Promise<PrayerRequestAdmin> {
     const res = await apiFetch<ApiResponse<Record<string, unknown>>>(`/admin/prayer-requests/${encodeURIComponent(id)}`, { method: 'GET' });
-    return normalizePrayerRequest(unwrapData<Record<string, unknown>>(res, 'Invalid prayer request payload'));
+    const data = unwrapData<Record<string, unknown>>(res, 'Invalid prayer request payload');
+    const nested = data.prayer_request ?? data.prayerRequest ?? data.request;
+    return normalizePrayerRequest(isRecord(nested) ? nested : data);
   },
 
   async updatePrayerRequestStatus(id: string, status: PrayerRequestStatus): Promise<MessageResponse> {

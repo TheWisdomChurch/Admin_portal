@@ -227,7 +227,7 @@ function TestimonialsPage() {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending review</p>
           <p className="mt-2 text-3xl font-bold text-[var(--color-warning-text)]">{pending.length}</p>

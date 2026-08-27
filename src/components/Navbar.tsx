@@ -112,10 +112,10 @@ export function Navbar() {
   return (
     <>
       <header className="sticky top-0 z-40 border-b border-[var(--color-border-primary)] bg-[var(--color-background-primary)]/95 text-[var(--color-text-primary)] shadow-[var(--shadow-sm)] backdrop-blur-xl">
-        <div className="mx-auto flex min-h-[72px] w-full max-w-[var(--content-max-width)] items-center justify-between gap-4 px-4 py-3 md:px-6 lg:px-8">
+        <div className="mx-auto flex min-h-16 w-full max-w-[var(--content-max-width)] items-center justify-between gap-2 px-3 py-2.5 sm:min-h-[72px] sm:gap-4 sm:px-5 sm:py-3 lg:px-7 xl:px-8">
           <div className="min-w-0 flex-1 pl-12 md:pl-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-lg font-semibold tracking-tight md:text-xl">{pageTitle}</h1>
+              <h1 className="truncate text-base font-semibold tracking-[-0.02em] sm:text-lg lg:text-xl">{pageTitle}</h1>
               {isSuperAdmin && (
                 <Badge variant="warning" className="gap-1">
                   <ShieldCheck className="h-3 w-3" />
@@ -123,7 +123,7 @@ export function Navbar() {
                 </Badge>
               )}
             </div>
-            <div className="mt-1 flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+            <div className="mt-1 hidden items-center gap-2 text-xs text-[var(--color-text-tertiary)] sm:flex">
               <CalendarDays className="h-3.5 w-3.5" />
               <span>{currentDate}</span>
             </div>
@@ -150,7 +150,7 @@ export function Navbar() {
             </div>
           </form>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <Button type="button" variant="ghost" size="sm" onClick={cycleTheme} aria-label={themeLabel} title={themeLabel}>
               <ThemeIcon className="h-4 w-4" />
             </Button>
