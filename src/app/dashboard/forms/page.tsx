@@ -232,6 +232,15 @@ function FormsManagerPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<AdminForm | null>(null);
 
+  const upgradeMutation = useMutation({
+    mutationFn: () => apiClient.upgradeFormPresentation(),
+    onSuccess: ({ updated }) => {
+      toast.success(updated === 0 ? 'All forms already use the current design' : `${updated} form${updated === 1 ? '' : 's'} upgraded to the current design`);
+      void queryClient.invalidateQueries({ queryKey: ['forms', 'list'] });
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to upgrade forms'),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (form: AdminForm) => apiClient.deleteAdminForm(form.id),
     onSuccess: (_result, form) => {
@@ -277,6 +286,9 @@ function FormsManagerPage() {
         subtitle="Review every form created in the system, inspect its fields, and manage submissions."
         actions={
           <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => upgradeMutation.mutate()} loading={upgradeMutation.isPending} icon={<RefreshCw className="h-4 w-4" />}>
+              Upgrade all forms
+            </Button>
             <Button variant="outline" onClick={() => void refetch()} loading={isFetching} icon={<RefreshCw className="h-4 w-4" />}>
               Refresh
             </Button>

@@ -1481,6 +1481,11 @@ export const apiClient = {
     return unwrapData<AdminForm>(res, 'Invalid form payload');
   },
 
+  async upgradeFormPresentation(): Promise<{ updated: number }> {
+    const res = await apiFetch<{ data: { updated: number } }>('/admin/forms/upgrade-presentation', { method: 'POST' });
+    return unwrapData<{ updated: number }>(res, 'Invalid form upgrade payload');
+  },
+
   async createAdminForm(payload: CreateFormRequest): Promise<AdminForm> {
     const sanitizedPayload = sanitizeFormPayload(payload);
 
