@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Copy, Download, Send, ArrowLeft, RefreshCw, Users, CalendarDays } from 'lucide-react';
+import { Copy, Download, Send, ArrowLeft, RefreshCw, Users, CalendarDays, Paperclip, Eye } from 'lucide-react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -31,7 +31,9 @@ import {
   filterFormSubmissions,
   resolveFormSubmissionEmail,
   resolveFormSubmissionName,
+  submissionHasMedia,
 } from '@/lib/forms/formSubmissions';
+import { SubmissionDetailModal } from './SubmissionDetailModal';
 import type { AdminForm, FormSubmission, FormSubmissionDailyStat } from '@/lib/types';
 import { useTheme } from '@/providers/ThemeProviders';
 import { withAuth } from '@/providers/withAuth';
@@ -91,6 +93,7 @@ function SubmissionsPage() {
   const [range, setRange] = useState<RangeOption>(7);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
+  const [selectedSubmission, setSelectedSubmission] = useState<FormSubmission | null>(null);
 
   const load = useCallback(async () => {
     if (!formId) return;
@@ -132,10 +135,18 @@ function SubmissionsPage() {
   const latestSubmissions = sortedSubmissions.slice(0, 5);
 
   const columns = useMemo<TableColumn<FormSubmission>[]>(() => [
-    { key: 'name' as keyof FormSubmission, header: 'Name', cell: (row: FormSubmission) => <span className="font-bold text-[var(--color-text-primary)]">{resolveFormSubmissionName(row, '—')}</span> },
+    { key: 'name' as keyof FormSubmission, header: 'Name', cell: (row: FormSubmission) => (
+      <span className="flex items-center gap-2 font-bold text-[var(--color-text-primary)]">
+        {resolveFormSubmissionName(row, '—')}
+        {submissionHasMedia(row) ? <Paperclip className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" aria-label="Has attachment" /> : null}
+      </span>
+    ) },
     { key: 'email' as keyof FormSubmission, header: 'Email', cell: (row: FormSubmission) => <span className="break-all text-[var(--color-text-secondary)]">{resolveFormSubmissionEmail(row) || '—'}</span> },
     { key: 'registrationCode' as keyof FormSubmission, header: 'Registration Code', cell: (row: FormSubmission) => row.registrationCode || '—' },
     { key: 'createdAt' as keyof FormSubmission, header: 'Submitted', cell: (row: FormSubmission) => new Date(row.createdAt).toLocaleString() },
+    { key: 'id' as keyof FormSubmission, header: '', cell: () => (
+      <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-accent-primary)]"><Eye className="h-3.5 w-3.5" /> View</span>
+    ) },
   ], []);
 
   const handleCopyLink = useCallback(async () => {
@@ -197,11 +208,19 @@ function SubmissionsPage() {
           <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Latest registrations</h2>
           <div className="mt-4 space-y-3">
             {latestSubmissions.length > 0 ? latestSubmissions.map((submission) => (
-              <article key={submission.id} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                <p className="truncate text-sm font-bold text-[var(--color-text-primary)]">{resolveFormSubmissionName(submission, 'Anonymous')}</p>
+              <button
+                type="button"
+                key={submission.id}
+                onClick={() => setSelectedSubmission(submission)}
+                className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 text-left transition hover:border-[var(--color-accent-primary)]"
+              >
+                <p className="flex items-center gap-2 truncate text-sm font-bold text-[var(--color-text-primary)]">
+                  {resolveFormSubmissionName(submission, 'Anonymous')}
+                  {submissionHasMedia(submission) ? <Paperclip className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" /> : null}
+                </p>
                 <p className="mt-1 truncate text-xs text-[var(--color-text-secondary)]">{resolveFormSubmissionEmail(submission) || submission.contactNumber || 'No contact information'}</p>
                 <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">{new Date(submission.createdAt).toLocaleString()}</p>
-              </article>
+              </button>
             )) : <p className="text-sm text-[var(--color-text-tertiary)]">No registrations yet.</p>}
           </div>
         </Panel>
@@ -217,8 +236,15 @@ function SubmissionsPage() {
 
       <Panel>
         <h2 className="mb-4 text-lg font-bold text-[var(--color-text-primary)]">All submissions</h2>
-        <Table data={sortedSubmissions} columns={columns} rowKey={(row) => row.id} total={total} page={page} pageSize={limit} onPageChange={setPage} onPageSizeChange={setLimit} emptyTitle="No submissions found" />
+        <Table data={sortedSubmissions} columns={columns} rowKey={(row) => row.id} total={total} page={page} pageSize={limit} onPageChange={setPage} onPageSizeChange={setLimit} onRowClick={setSelectedSubmission} emptyTitle="No submissions found" />
       </Panel>
+
+      <SubmissionDetailModal
+        isOpen={selectedSubmission !== null}
+        onClose={() => setSelectedSubmission(null)}
+        submission={selectedSubmission}
+        form={form}
+      />
     </div>
   );
 }

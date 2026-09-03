@@ -18,7 +18,7 @@ export type FormCampaignRecipient = {
 
 type SubmissionValues = FormSubmission['values'];
 type SubmissionIdentitySource = Pick<FormSubmission, 'name' | 'email' | 'values'>;
-type ExportFormField = Pick<FormField, 'key' | 'label' | 'order'>;
+type ExportFormField = Pick<FormField, 'key' | 'label' | 'order' | 'type'>;
 
 const APP_BASE_URL = (
   process.env.NEXT_PUBLIC_PUBLIC_URL ?? process.env.NEXT_PUBLIC_FRONTEND_URL ?? ''
@@ -58,6 +58,124 @@ function downloadBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
 }
 
+const MEDIA_URL_KEYS = [
+  'url',
+  'publicUrl',
+  'public_url',
+  'secure_url',
+  'downloadUrl',
+  'src',
+];
+
+/**
+ * Public-form media fields are stored either as a hosted URL string (the
+ * backend materialises data URLs to storage) or, for older/asset payloads, as
+ * an object carrying a `url`/`publicUrl`. Resolve whichever to a usable link.
+ */
+export function resolveSubmissionMediaUrl(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:')) {
+      return trimmed;
+    }
+    return null;
+  }
+
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    for (const key of MEDIA_URL_KEYS) {
+      const candidate = record[key];
+      if (
+        typeof candidate === 'string' &&
+        (/^https?:\/\//i.test(candidate) || candidate.startsWith('data:'))
+      ) {
+        return candidate.trim();
+      }
+    }
+  }
+
+  return null;
+}
+
+export function isLikelyImageUrl(url: string): boolean {
+  if (url.startsWith('data:image/')) return true;
+  return /\.(png|jpe?g|webp|gif|avif|bmp|svg)(\?|#|$)/i.test(url);
+}
+
+export type SubmissionMediaEntry = {
+  key: string;
+  label: string;
+  url: string;
+  isImage: boolean;
+};
+
+/** All uploaded-media answers on a submission, resolved to links. */
+export function getSubmissionMediaEntries(
+  submission: Pick<FormSubmission, 'values'>,
+  fields?: ExportFormField[]
+): SubmissionMediaEntry[] {
+  const labelMap = buildFieldLabelMap(fields);
+  const typeMap = new Map<string, string>();
+  (fields || []).forEach((field) => {
+    if (field.key) typeMap.set(field.key, String(field.type || ''));
+  });
+
+  const entries: SubmissionMediaEntry[] = [];
+  Object.entries(submission.values || {}).forEach(([key, value]) => {
+    if (key.startsWith('_')) return;
+    const url = resolveSubmissionMediaUrl(value);
+    if (!url) return;
+    entries.push({
+      key,
+      label: resolveExportFieldLabel(key, labelMap),
+      url,
+      isImage: typeMap.get(key) === 'image' || isLikelyImageUrl(url),
+    });
+  });
+
+  return entries;
+}
+
+export function submissionHasMedia(
+  submission: Pick<FormSubmission, 'values'>
+): boolean {
+  return Object.entries(submission.values || {}).some(
+    ([key, value]) =>
+      !key.startsWith('_') && resolveSubmissionMediaUrl(value) !== null
+  );
+}
+
+/** Fetch a (usually cross-origin, public) media URL and inline it as a data URL
+ *  so it can be embedded into a generated PDF. Returns null on any failure. */
+async function fetchAsDataUrl(url: string): Promise<string | null> {
+  if (url.startsWith('data:')) return url;
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    if (!blob.type.startsWith('image/')) return null;
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+function dataUrlImageFormat(dataUrl: string): 'PNG' | 'JPEG' | null {
+  const match = /^data:image\/([a-z0-9.+-]+)/i.exec(dataUrl);
+  if (!match) return null;
+  const kind = match[1].toLowerCase();
+  if (kind === 'png') return 'PNG';
+  if (kind === 'jpeg' || kind === 'jpg') return 'JPEG';
+  // jsPDF addImage only reliably supports PNG/JPEG; other formats fall back to
+  // the plain URL line already written above.
+  return null;
+}
+
 function serializeSubmissionValue(value: unknown): string {
   if (Array.isArray(value)) {
     return value
@@ -72,7 +190,12 @@ function serializeSubmissionValue(value: unknown): string {
     return Number.isFinite(value) ? String(value) : '';
   }
   if (typeof value === 'string') {
-    return value.trim();
+    const trimmed = value.trim();
+    return trimmed.startsWith('data:') ? '[embedded file]' : trimmed;
+  }
+  if (value && typeof value === 'object') {
+    const media = resolveSubmissionMediaUrl(value);
+    if (media) return media.startsWith('data:') ? '[embedded file]' : media;
   }
   return '';
 }
@@ -350,6 +473,10 @@ export async function exportFormSubmissionsPdf(
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const orderedValueKeys = buildOrderedValueKeys(orderedSubmissions, fields);
   const fieldLabelMap = buildFieldLabelMap(fields);
+  const fieldTypeMap = new Map<string, string>();
+  (fields || []).forEach((field) => {
+    if (field.key) fieldTypeMap.set(field.key, String(field.type || ''));
+  });
   const margin = 44;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -425,9 +552,27 @@ export async function exportFormSubmissionsPdf(
     });
   }
 
+  const embedImage = async (url: string) => {
+    const dataUrl = await fetchAsDataUrl(url);
+    if (!dataUrl) return false;
+    const format = dataUrlImageFormat(dataUrl);
+    if (!format) return false;
+    try {
+      const props = doc.getImageProperties(dataUrl);
+      const displayWidth = Math.min(140, maxWidth - 10);
+      const displayHeight = (props.height / props.width) * displayWidth;
+      ensureSpace(displayHeight + 10);
+      doc.addImage(dataUrl, format, margin + 10, y, displayWidth, displayHeight);
+      y += displayHeight + 10;
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   drawDivider();
 
-  orderedSubmissions.forEach((submission, index) => {
+  for (const [index, submission] of orderedSubmissions.entries()) {
     const resolvedName = resolveFormSubmissionName(submission, '');
     const resolvedEmail = resolveFormSubmissionEmail(submission);
     const heading = resolvedName || resolvedEmail || `Submission ${index + 1}`;
@@ -464,14 +609,24 @@ export async function exportFormSubmissionsPdf(
         gapAfter: 4,
       });
 
-      responseEntries.forEach(([key, value]) => {
-        writeText(`${resolveExportFieldLabel(key, fieldLabelMap)}: ${serializeSubmissionValue(value) || 'Not provided'}`, {
+      for (const [key, value] of responseEntries) {
+        const label = resolveExportFieldLabel(key, fieldLabelMap);
+        const mediaUrl = resolveSubmissionMediaUrl(value);
+        const isImageField =
+          mediaUrl != null &&
+          (fieldTypeMap.get(key) === 'image' || isLikelyImageUrl(mediaUrl));
+
+        writeText(`${label}: ${serializeSubmissionValue(value) || 'Not provided'}`, {
           fontSize: 10,
           color: [71, 85, 105],
           indent: 10,
-          gapAfter: 4,
+          gapAfter: isImageField ? 2 : 4,
         });
-      });
+
+        if (isImageField) {
+          await embedImage(mediaUrl);
+        }
+      }
     } else {
       writeText('Responses: No custom fields submitted.', {
         fontSize: 10,
@@ -483,7 +638,7 @@ export async function exportFormSubmissionsPdf(
     if (index < orderedSubmissions.length - 1) {
       drawDivider();
     }
-  });
+  }
 
   const pages = doc.getNumberOfPages();
   for (let page = 1; page <= pages; page += 1) {
