@@ -45,7 +45,7 @@ import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 
-type FormPreset = 'testimonial' | 'member' | 'leadership';
+type FormPreset = 'testimonial' | 'member' | 'leadership' | 'children';
 type BuilderStep = 'setup' | 'fields' | 'preview';
 
 const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; label: string }> = [
@@ -125,6 +125,53 @@ function buildPresetFields(preset: FormPreset): FieldDraft[] {
       { key: 'birthday', label: 'Birthday (DD/MM/YYYY)', type: 'text', required: false, order: 6 },
       { key: 'wedding_anniversary', label: 'Wedding Anniversary (DD/MM/YYYY)', type: 'text', required: false, order: 7 },
       { key: 'photo', label: 'Profile Photo', type: 'image', required: false, order: 8 },
+    ];
+  }
+
+  if (preset === 'children') {
+    // DOB is a text field, not `type: 'date'` — the backend collapses date
+    // fields to day+month and drops the year, which children's ministry needs
+    // for age grouping.
+    return [
+      { key: 'parent_guardian_name', label: 'Parent or guardian name', type: 'text', required: true, order: 1 },
+      { key: 'email', label: 'Parent or guardian email', type: 'email', required: true, order: 2 },
+      { key: 'primary_phone', label: 'Primary phone number', type: 'tel', required: true, order: 3 },
+      { key: 'child_full_name', label: "Child's full name", type: 'text', required: true, order: 4 },
+      {
+        key: 'child_date_of_birth',
+        label: "Child's date of birth (DD/MM/YYYY)",
+        type: 'text',
+        required: true,
+        order: 5,
+        validation: { pattern: '^\\d{2}/\\d{2}/\\d{4}$' },
+      },
+      {
+        key: 'child_gender',
+        label: "Child's gender",
+        type: 'radio',
+        required: true,
+        order: 6,
+        options: [
+          { label: 'Female', value: 'female' },
+          { label: 'Male', value: 'male' },
+        ],
+      },
+      { key: 'home_address', label: 'Home address', type: 'textarea', required: true, order: 7 },
+      { key: 'emergency_contact_name', label: 'Emergency contact name', type: 'text', required: true, order: 8 },
+      { key: 'emergency_contact_phone', label: 'Emergency contact phone', type: 'tel', required: true, order: 9 },
+      { key: 'authorized_pickup', label: 'Authorised pick-up name(s)', type: 'text', required: true, order: 10 },
+      { key: 'medical_condition', label: 'Medical condition or allergy', type: 'textarea', required: false, order: 11 },
+      {
+        key: 'photo_media_release',
+        label: 'May we use photos or videos of your child in church media?',
+        type: 'radio',
+        required: true,
+        order: 12,
+        options: [
+          { label: 'Yes, I permit it', value: 'yes' },
+          { label: 'No, keep my child out of media', value: 'no' },
+        ],
+      },
     ];
   }
 
@@ -394,6 +441,25 @@ export default withAuth(function NewFormPage() {
       return;
     }
 
+    if (preset === 'children') {
+      setTitle((current) => current || 'Register Your Child');
+      setDescription((current) => current || "Children's ministry registration for parents and guardians.");
+      setSlug((current) => current || 'register-child');
+      setFormType('general');
+      setSubmissionTarget('');
+      setSubmissionDepartment('');
+      setIntroTitle('Register your child');
+      setIntroSubtitle('A few details so our trained team can care for your child from their very first Sunday.');
+      setIntroBullets('Tell us about your child and who may collect them\nAdd an emergency contact and any medical needs\nYour details are kept confidential by the children’s ministry team');
+      setIntroBulletSubs('Helps us welcome and care for them safely\nSo we can reach you quickly if needed\nUsed only to care for your child');
+      setResponseEmailSubject((current) => current || 'Registration received: Register Your Child');
+      setResponseEmailHeading((current) => current || 'Registration received');
+      setResponseEmailMessage((current) => current || "Thank you. We have your child's details. Our team will welcome you both this Sunday.");
+      setSubmitButtonText('Submit registration');
+      setFields(normalizeOrderedFields(buildPresetFields('children')));
+      return;
+    }
+
     setTitle((current) => current || 'Add New Member');
     setDescription((current) => current || 'Collect new member details for follow-up and care.');
     setSlug((current) => current || 'add-new-member');
@@ -409,7 +475,12 @@ export default withAuth(function NewFormPage() {
 
   useEffect(() => {
     const preset = searchParams.get('preset');
-    if (preset === 'testimonial' || preset === 'member' || preset === 'leadership') {
+    if (
+      preset === 'testimonial' ||
+      preset === 'member' ||
+      preset === 'leadership' ||
+      preset === 'children'
+    ) {
       setSelectedPreset(preset);
       applyPreset(preset);
     }
@@ -721,6 +792,7 @@ export default withAuth(function NewFormPage() {
                 <option value="testimonial">Testimonial Intake</option>
                 <option value="member">New Member Intake</option>
                 <option value="leadership">Leadership Intake</option>
+                <option value="children">Children Intake</option>
               </Select>
               <Button type="button" variant="outline" icon={<Wand2 className="h-4 w-4" />} disabled={!selectedPreset} onClick={() => selectedPreset && applyPreset(selectedPreset)}>Apply Preset</Button>
               <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
