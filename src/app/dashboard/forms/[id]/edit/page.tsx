@@ -1114,31 +1114,6 @@ function EditFormPage() {
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Select
-              label="Layout"
-              value={form.settings?.layoutMode ?? 'split'}
-              onChange={(event) => updateSettings({ layoutMode: event.target.value === 'stack' ? 'stack' : 'split' })}
-            >
-              <option value="split">Two column layout</option>
-              <option value="stack">Single column layout</option>
-            </Select>
-
-            <Select
-              label="Date format"
-              value={form.settings?.dateFormat ?? 'dd/mm'}
-              onChange={(event) =>
-                updateSettings({
-                  dateFormat: event.target.value as NonNullable<FormSettings['dateFormat']>,
-                })
-              }
-            >
-              <option value="yyyy-mm-dd">YYYY-MM-DD</option>
-              <option value="mm/dd/yyyy">MM/DD/YYYY</option>
-              <option value="dd/mm/yyyy">DD/MM/YYYY</option>
-              <option value="dd/mm">DD/MM</option>
-            </Select>
-          </div>
         </div>
       </Card>
 

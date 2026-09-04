@@ -16,7 +16,6 @@ import {
   ImageIcon,
   LayoutTemplate,
   Loader2,
-  Palette,
   Plus,
   Save,
   Settings2,
@@ -47,13 +46,7 @@ import { useAuthContext } from '@/providers/AuthProviders';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 
 type FormPreset = 'testimonial' | 'member' | 'leadership';
-type BuilderStep = 'setup' | 'fields' | 'preview' | 'style';
-
-const dateFormats = ['dd/mm/yyyy', 'yyyy-mm-dd', 'mm/dd/yyyy', 'dd/mm', 'dd-mm'] as const;
-type DateFormat = (typeof dateFormats)[number];
-
-const submitButtonIcons = ['check', 'send', 'calendar', 'cursor', 'none'] as const;
-type SubmitButtonIcon = (typeof submitButtonIcons)[number];
+type BuilderStep = 'setup' | 'fields' | 'preview';
 
 const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; label: string }> = [
   { value: 'registration', label: 'Registration' },
@@ -65,23 +58,6 @@ const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; lab
   { value: 'contact', label: 'Contact' },
   { value: 'general', label: 'General' },
 ];
-
-const monthOptions = [
-  { value: '01', label: 'January' },
-  { value: '02', label: 'February' },
-  { value: '03', label: 'March' },
-  { value: '04', label: 'April' },
-  { value: '05', label: 'May' },
-  { value: '06', label: 'June' },
-  { value: '07', label: 'July' },
-  { value: '08', label: 'August' },
-  { value: '09', label: 'September' },
-  { value: '10', label: 'October' },
-  { value: '11', label: 'November' },
-  { value: '12', label: 'December' },
-];
-
-const dayOptions = Array.from({ length: 31 }, (_, index) => String(index + 1).padStart(2, '0'));
 
 const MAX_BANNER_MB = 5;
 const MAX_BANNER_BYTES = MAX_BANNER_MB * 1024 * 1024;
@@ -270,15 +246,7 @@ export default withAuth(function NewFormPage() {
   const [introSubtitle, setIntroSubtitle] = useState('Complete the form below with accurate information.');
   const [introBullets, setIntroBullets] = useState('Provide accurate details\nReview before submitting\nOur team will follow up');
   const [introBulletSubs, setIntroBulletSubs] = useState('Helps us process your response quickly\nPrevents errors in your record\nOnly authorized staff can access submissions');
-  const [layoutMode, setLayoutMode] = useState<'split' | 'stack'>('split');
-  const [dateFormat, setDateFormat] = useState<DateFormat>('dd-mm');
-  const [footerText, setFooterText] = useState('Powered by Wisdom House Registration');
-  const [footerBg, setFooterBg] = useState('#f5c400');
-  const [footerTextColor, setFooterTextColor] = useState('#111827');
-  const [submitButtonText, setSubmitButtonText] = useState('Submit Registration');
-  const [submitButtonBg, setSubmitButtonBg] = useState('#f59e0b');
-  const [submitButtonTextColor, setSubmitButtonTextColor] = useState('#111827');
-  const [submitButtonIcon, setSubmitButtonIcon] = useState<SubmitButtonIcon>('check');
+  const [submitButtonText, setSubmitButtonText] = useState('Submit form');
   const [formHeaderNote] = useState('Please ensure details are accurate before submitting.');
   const [coverImageUrl, setCoverImageUrl] = useState('');
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -404,7 +372,6 @@ export default withAuth(function NewFormPage() {
       setIntroSubtitle('Your testimony encourages others and strengthens faith.');
       setIntroBullets('Tell your story clearly\nShare key details\nOur team will review before publishing');
       setIntroBulletSubs('Be specific and truthful\nInclude names only if needed\nOnly approved testimonies go public');
-      setDateFormat('dd/mm/yyyy');
       setResponseEmailSubject((current) => current || 'Testimony received: Share Your Testimony');
       setResponseEmailHeading((current) => current || 'Testimony Received');
       setResponseEmailMessage((current) => current || 'Thank you for sharing your testimony. Our team will review it and contact you if we need clarification.');
@@ -423,7 +390,6 @@ export default withAuth(function NewFormPage() {
       setIntroSubtitle('Provide accurate details for leadership review.');
       setIntroBullets('Share valid contact details\nChoose the role you are applying for\nSubmissions are reviewed before display');
       setIntroBulletSubs('Used for direct follow-up\nHelps routing to the right team\nOnly approved profiles appear publicly');
-      setDateFormat('dd-mm');
       setFields(normalizeOrderedFields(buildPresetFields('leadership')));
       return;
     }
@@ -438,7 +404,6 @@ export default withAuth(function NewFormPage() {
     setIntroSubtitle('Complete this membership intake form with accurate details.');
     setIntroBullets('Provide valid contact details\nEnter accurate date of birth\nOptional prayer request up to 400 words');
     setIntroBulletSubs('Used for follow-up and communication\nHelps pastoral care and records\nOnly authorized staff can review');
-    setDateFormat('dd-mm');
     setFields(normalizeOrderedFields(buildPresetFields('member')));
   }, []);
 
@@ -539,15 +504,7 @@ export default withAuth(function NewFormPage() {
         introSubtitle,
         introBullets: introBullets.split('\n').filter(Boolean),
         introBulletSubtexts: introBulletSubs.split('\n').filter(Boolean),
-        layoutMode,
-        dateFormat,
-        footerText,
-        footerBg,
-        footerTextColor,
-        submitButtonText,
-        submitButtonBg,
-        submitButtonTextColor,
-        submitButtonIcon,
+        submitButtonText: submitButtonText.trim() || undefined,
         formHeaderNote,
         design: coverImageUrl.trim() ? { coverImageUrl: coverImageUrl.trim() } : undefined,
       },
@@ -698,8 +655,7 @@ export default withAuth(function NewFormPage() {
         <div className="flex gap-2 overflow-x-auto">
           <StepButton active={step === 'setup'} onClick={() => setStep('setup')}>Setup</StepButton>
           <StepButton active={step === 'fields'} onClick={() => setStep('fields')}>Fields</StepButton>
-          <StepButton active={step === 'preview'} onClick={() => setStep('preview')}>Preview</StepButton>
-          <StepButton active={step === 'style'} onClick={() => setStep('style')}>Style</StepButton>
+          <StepButton active={step === 'preview'} onClick={() => setStep('preview')}>Preview &amp; content</StepButton>
         </div>
       </section>
 
@@ -814,68 +770,50 @@ export default withAuth(function NewFormPage() {
       {step === 'preview' ? (
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_420px]">
           <FormPreview
-            layoutMode={layoutMode}
             introTitle={introTitle}
             introSubtitle={introSubtitle}
             formHeaderNote={formHeaderNote}
             introBullets={introBullets}
-            introBulletSubs={introBulletSubs}
             fields={orderedFields}
-            dateFormat={dateFormat}
             submitButtonText={submitButtonText}
-            submitButtonBg={submitButtonBg}
-            submitButtonTextColor={submitButtonTextColor}
-            submitButtonIcon={submitButtonIcon}
-            footerText={footerText}
-            footerBg={footerBg}
-            footerTextColor={footerTextColor}
+            coverImageUrl={bannerPreview || coverImageUrl.trim()}
           />
 
-          <SectionCard title="Media and success state" subtitle="Configure public header image, success modal copy, and response email image." icon={<ImageIcon className="h-5 w-5" />}>
-            <div className="space-y-4">
-              <Input label="Header image URL" value={coverImageUrl} onChange={(event) => setCoverImageUrl(event.target.value)} placeholder="https://..." />
-              <Input label="Or upload header image" type="file" accept="image/*" onChange={(event) => handleBannerFile(event.target.files?.[0])} />
-              {(bannerPreview || coverImageUrl.trim()) ? <div className="flex aspect-[16/7] w-full items-center justify-center overflow-hidden rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3"><Image src={bannerPreview || coverImageUrl.trim()} alt="Header artwork preview" width={1200} height={525} className="h-full w-full object-contain" unoptimized /></div> : <div className="rounded-2xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-8 text-center text-sm font-semibold text-[var(--color-text-tertiary)]">No header image selected.</div>}
-              <Input label="Success modal title" value={successTitle} onChange={(event) => setSuccessTitle(event.target.value)} placeholder="Thank you for registering" />
-              <Input label="Success modal subtitle" value={successSubtitle} onChange={(event) => setSuccessSubtitle(event.target.value)} placeholder="for {{formTitle}}" />
-              <Textarea label="Success modal message" rows={3} value={successMessage} onChange={(event) => setSuccessMessage(event.target.value)} />
-            </div>
-          </SectionCard>
-        </section>
-      ) : null}
+          <div className="space-y-6">
+            <SectionCard title="Heading & guidance" subtitle="The title, intro line, and points shown at the top of the public form." icon={<FileText className="h-5 w-5" />}>
+              <div className="space-y-4">
+                <Input label="Form heading" value={introTitle} onChange={(event) => setIntroTitle(event.target.value)} />
+                <Input label="Intro line" value={introSubtitle} onChange={(event) => setIntroSubtitle(event.target.value)} />
+                <Textarea label="Guidance points (one per line)" rows={4} value={introBullets} onChange={(event) => setIntroBullets(event.target.value)} />
+                <Textarea label="Point subtext (one per line, optional)" rows={4} value={introBulletSubs} onChange={(event) => setIntroBulletSubs(event.target.value)} />
+                <Input label="Submit button label" value={submitButtonText} onChange={(event) => setSubmitButtonText(event.target.value)} placeholder="Submit form" />
+              </div>
+            </SectionCard>
 
-      {step === 'style' ? (
-        <section className="grid gap-6 xl:grid-cols-2">
-          <SectionCard title="Public layout and copy" subtitle="Fine-tune the left-side information panel and field presentation." icon={<Palette className="h-5 w-5" />}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Input label="Left column title" value={introTitle} onChange={(event) => setIntroTitle(event.target.value)} />
-              <Input label="Left column subtitle" value={introSubtitle} onChange={(event) => setIntroSubtitle(event.target.value)} />
-              <Textarea label="Left column bullets" rows={4} value={introBullets} onChange={(event) => setIntroBullets(event.target.value)} />
-              <Textarea label="Bullet subtext" rows={4} value={introBulletSubs} onChange={(event) => setIntroBulletSubs(event.target.value)} />
-              <Select label="Layout" value={layoutMode} onChange={(event) => setLayoutMode(event.target.value as 'split' | 'stack')}><option value="split">Two column layout</option><option value="stack">Single column layout</option></Select>
-              <Select label="Date format" value={dateFormat} onChange={(event) => setDateFormat(event.target.value as DateFormat)}>{dateFormats.map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}</Select>
-            </div>
-          </SectionCard>
+            <SectionCard title="Header image & success message" subtitle="Optional hero image and the confirmation shown after submitting." icon={<ImageIcon className="h-5 w-5" />}>
+              <div className="space-y-4">
+                <Input label="Header image URL" value={coverImageUrl} onChange={(event) => setCoverImageUrl(event.target.value)} placeholder="https://..." />
+                <Input label="Or upload header image" type="file" accept="image/*" onChange={(event) => handleBannerFile(event.target.files?.[0])} />
+                {(bannerPreview || coverImageUrl.trim()) ? <div className="flex aspect-[16/7] w-full items-center justify-center overflow-hidden rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3"><Image src={bannerPreview || coverImageUrl.trim()} alt="Header artwork preview" width={1200} height={525} className="h-full w-full object-contain" unoptimized /></div> : <div className="rounded-2xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-8 text-center text-sm font-semibold text-[var(--color-text-tertiary)]">No header image selected.</div>}
+                <Input label="Success title" value={successTitle} onChange={(event) => setSuccessTitle(event.target.value)} placeholder="Thank you for registering" />
+                <Input label="Success subtitle" value={successSubtitle} onChange={(event) => setSuccessSubtitle(event.target.value)} placeholder="for {{formTitle}}" />
+                <Textarea label="Success message" rows={3} value={successMessage} onChange={(event) => setSuccessMessage(event.target.value)} />
+              </div>
+            </SectionCard>
 
-          <SectionCard title="Footer, submit button, and response email" subtitle="Control button styling and configure automatic confirmation." icon={<CheckCircle2 className="h-5 w-5" />}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Input label="Footer text" value={footerText} onChange={(event) => setFooterText(event.target.value)} />
-              <Input label="Submit button text" value={submitButtonText} onChange={(event) => setSubmitButtonText(event.target.value)} />
-              <ColorInput label="Footer background" value={footerBg} onChange={setFooterBg} />
-              <ColorInput label="Footer text" value={footerTextColor} onChange={setFooterTextColor} />
-              <ColorInput label="Button background" value={submitButtonBg} onChange={setSubmitButtonBg} />
-              <ColorInput label="Button text" value={submitButtonTextColor} onChange={setSubmitButtonTextColor} />
-              <Select label="Submit icon" value={submitButtonIcon} onChange={(event) => setSubmitButtonIcon(event.target.value as SubmitButtonIcon)}>{submitButtonIcons.map((icon) => <option key={icon} value={icon}>{icon}</option>)}</Select>
-              <Checkbox label="Enable response email" checked={responseEmailEnabled} onChange={(event) => setResponseEmailEnabled(event.target.checked)} className="min-h-11 rounded-[var(--radius-control)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3" />
-              <Input label="Email subject" value={responseEmailSubject} onChange={(event) => setResponseEmailSubject(event.target.value)} disabled={!responseEmailEnabled} />
-              <Input label="Template key" value={responseTemplateKeyPreview} disabled />
-              <Input label="Email heading" value={responseEmailHeading} onChange={(event) => setResponseEmailHeading(event.target.value)} disabled={!responseEmailEnabled} />
-              <Input label="Template image URL" value={responseTemplateUrl} onChange={(event) => setResponseTemplateUrl(event.target.value)} disabled={!responseEmailEnabled} />
-              <Input label="Or upload template image" type="file" accept="image/*" onChange={(event) => handleResponseTemplateFile(event.target.files?.[0])} disabled={!responseEmailEnabled} />
-              <div className="md:col-span-2"><Textarea label="Email body message" rows={3} value={responseEmailMessage} onChange={(event) => setResponseEmailMessage(event.target.value)} disabled={!responseEmailEnabled} /></div>
-              {(responseTemplatePreview || responseTemplateUrl.trim()) ? <Image src={responseTemplatePreview || responseTemplateUrl.trim()} alt="Response template preview" width={1200} height={400} className="max-h-64 w-full rounded-3xl border border-[var(--color-border-secondary)] object-cover md:col-span-2" unoptimized /> : null}
-            </div>
-          </SectionCard>
+            <SectionCard title="Response email" subtitle="Automatic confirmation email sent to the person who submitted." icon={<CheckCircle2 className="h-5 w-5" />}>
+              <div className="space-y-4">
+                <Checkbox label="Send a response email" checked={responseEmailEnabled} onChange={(event) => setResponseEmailEnabled(event.target.checked)} className="min-h-11 rounded-[var(--radius-control)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3" />
+                <Input label="Email subject" value={responseEmailSubject} onChange={(event) => setResponseEmailSubject(event.target.value)} disabled={!responseEmailEnabled} />
+                <Input label="Template key" value={responseTemplateKeyPreview} disabled />
+                <Input label="Email heading" value={responseEmailHeading} onChange={(event) => setResponseEmailHeading(event.target.value)} disabled={!responseEmailEnabled} />
+                <Input label="Template image URL" value={responseTemplateUrl} onChange={(event) => setResponseTemplateUrl(event.target.value)} disabled={!responseEmailEnabled} />
+                <Input label="Or upload template image" type="file" accept="image/*" onChange={(event) => handleResponseTemplateFile(event.target.files?.[0])} disabled={!responseEmailEnabled} />
+                <Textarea label="Email body message" rows={3} value={responseEmailMessage} onChange={(event) => setResponseEmailMessage(event.target.value)} disabled={!responseEmailEnabled} />
+                {(responseTemplatePreview || responseTemplateUrl.trim()) ? <Image src={responseTemplatePreview || responseTemplateUrl.trim()} alt="Response template preview" width={1200} height={400} className="max-h-64 w-full rounded-3xl border border-[var(--color-border-secondary)] object-cover" unoptimized /> : null}
+              </div>
+            </SectionCard>
+          </div>
         </section>
       ) : null}
 
@@ -921,103 +859,135 @@ export default withAuth(function NewFormPage() {
   );
 }, { requiredRole: 'admin' });
 
-function ColorInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return (
-    <label className="grid gap-1.5">
-      <span className="text-sm font-bold text-[var(--color-text-secondary)]">{label}</span>
-      <div className="flex items-center gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
-        {/* eslint-disable-next-line no-restricted-syntax -- color input, styled with tokens */}
-        <input type="color" value={value} onChange={(event) => onChange(event.target.value)} className="h-8 w-12 rounded border border-[var(--color-border-secondary)] bg-transparent" />
-        <span className="text-xs font-semibold text-[var(--color-text-tertiary)]">{value}</span>
-      </div>
-    </label>
-  );
-}
-
 function FormPreview({
-  layoutMode,
   introTitle,
   introSubtitle,
   formHeaderNote,
   introBullets,
-  introBulletSubs,
   fields,
-  dateFormat,
   submitButtonText,
-  submitButtonBg,
-  submitButtonTextColor,
-  submitButtonIcon,
-  footerText,
-  footerBg,
-  footerTextColor,
+  coverImageUrl,
 }: {
-  layoutMode: 'split' | 'stack';
   introTitle: string;
   introSubtitle: string;
   formHeaderNote: string;
   introBullets: string;
-  introBulletSubs: string;
   fields: FieldDraft[];
-  dateFormat: DateFormat;
   submitButtonText: string;
-  submitButtonBg: string;
-  submitButtonTextColor: string;
-  submitButtonIcon: SubmitButtonIcon;
-  footerText: string;
-  footerBg: string;
-  footerTextColor: string;
+  coverImageUrl?: string;
 }) {
-  const bulletSubtexts = introBulletSubs.split('\n');
+  const points = introBullets.split('\n').map((line) => line.trim()).filter(Boolean);
+  const questionCount = fields.length;
 
   return (
-    <SectionCard title="Live public preview" subtitle="This approximates what visitors will see on the published form." icon={<Eye className="h-5 w-5" />}>
-      <div className={`grid gap-6 ${layoutMode === 'split' ? 'lg:grid-cols-[1.1fr_1fr]' : 'grid-cols-1'}`}>
-        <div className="space-y-4 rounded-[1.5rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] p-5 text-[var(--color-text-inverse)]">
-          <div className="inline-flex items-center rounded-full border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-inverse)]/60">Preview</div>
-          <h2 className="heading-page">{introTitle || 'Form Details'}</h2>
-          <p className="text-sm leading-7 text-[var(--color-text-inverse)]/65">{introSubtitle || 'Secure your spot by registering below.'}</p>
-          {formHeaderNote ? <p className="rounded-2xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 p-3 text-xs font-semibold text-[var(--color-text-inverse)]/55">{formHeaderNote}</p> : null}
-          <div className="grid gap-3">
-            {introBullets.split('\n').filter(Boolean).map((item, index) => (
-              <div key={item} className="flex items-center gap-3 rounded-2xl border border-[var(--color-text-inverse)]/10 bg-[var(--color-text-inverse)]/10 px-4 py-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-accent-primary)] text-sm font-bold text-[var(--color-text-primary)]">{index + 1}</div>
-                <div className="text-sm leading-relaxed text-[var(--color-text-inverse)]/70">
-                  <div className="font-bold text-[var(--color-text-inverse)]">{item}</div>
-                  {bulletSubtexts[index] ? <div className="mt-1 text-xs text-[var(--color-text-inverse)]/45">{bulletSubtexts[index]}</div> : null}
-                </div>
-              </div>
-            ))}
-          </div>
+    <SectionCard title="Live public preview" subtitle="Approximates the published single-column form members see." icon={<Eye className="h-5 w-5" />}>
+      <div className="mx-auto w-full max-w-[34rem] rounded-[1.5rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 sm:p-6">
+        {coverImageUrl ? (
+          <Image src={coverImageUrl} alt="Header" width={1200} height={525} unoptimized className="mb-5 aspect-[16/7] w-full rounded-2xl border border-[var(--color-border-secondary)] object-cover" />
+        ) : null}
+
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--color-accent-primary)]">The Wisdom Church</p>
+        <h2 className="mt-2 text-xl font-bold tracking-tight text-[var(--color-text-primary)]">{introTitle || 'Form heading'}</h2>
+        {introSubtitle ? <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-secondary)]">{introSubtitle}</p> : null}
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <span className="rounded-full border border-[var(--color-border-secondary)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">{questionCount} question{questionCount === 1 ? '' : 's'}</span>
+          <span className="rounded-full border border-[var(--color-border-secondary)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">about {Math.max(1, Math.round(questionCount * 0.4))} min</span>
         </div>
 
-        <div className="space-y-4 rounded-[1.5rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5">
+        {formHeaderNote ? (
+          <p className="mt-5 rounded-xl border border-[var(--color-accent-primary)]/25 bg-[var(--color-accent-primary)]/10 p-3 text-xs font-semibold text-[var(--color-text-secondary)]">{formHeaderNote}</p>
+        ) : null}
+
+        {points.length > 0 ? (
+          <ul className="mt-5 space-y-2">
+            {points.map((item) => (
+              <li key={item} className="flex gap-2 text-sm leading-relaxed text-[var(--color-text-secondary)]">
+                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[var(--color-accent-primary)]" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        <div className="mt-6 space-y-5">
           {fields.map((field, index) => (
-            <div key={`${field.key}-${index}`} className="space-y-1">
-              {field.type !== 'checkbox' ? <label className="block text-sm font-bold text-[var(--color-text-secondary)]">{field.label} {field.required ? <span className="text-[var(--color-danger-text)]">*</span> : null}</label> : null}
-              {renderFieldPreview(field, dateFormat)}
-            </div>
+            <FieldPreview key={`${field.key}-${index}`} field={field} />
           ))}
-          <button type="button" disabled className="w-full rounded-2xl px-4 py-2.5 text-sm font-bold shadow-sm" style={{ background: submitButtonBg, color: submitButtonTextColor, opacity: 0.9 }}>
-            <span className="inline-flex items-center justify-center gap-2">{submitButtonIcon !== 'none' ? <span>{submitButtonIcon === 'check' ? '✔' : submitButtonIcon === 'send' ? '➜' : submitButtonIcon === 'calendar' ? '📅' : '✦'}</span> : null}{submitButtonText || 'Submit Registration'}</span>
-          </button>
-          <div className="rounded-2xl px-3 py-2 text-center text-xs font-semibold" style={{ background: footerBg, color: footerTextColor }}>{footerText}</div>
         </div>
+
+        <button type="button" disabled className="mt-7 w-full rounded-[var(--radius-button)] bg-[var(--color-accent-primary)] px-4 py-3 text-sm font-bold text-[var(--color-text-primary)] opacity-90">
+          {submitButtonText || 'Submit form'}
+        </button>
       </div>
     </SectionCard>
   );
 }
 
-/* eslint-disable no-restricted-syntax -- inert `disabled` preview mockups only (rendered read-only inside the live public-form preview), never a real interactive control */
-function renderFieldPreview(field: FieldDraft, dateFormat: DateFormat) {
-  const inputClass = 'w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-semibold text-[var(--color-text-secondary)]';
+/* eslint-disable no-restricted-syntax -- inert `disabled` preview mockups only, never a real interactive control */
+function FieldPreview({ field }: { field: FieldDraft }) {
+  const boxClass = 'w-full rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3.5 pb-2 pt-6 text-sm text-[var(--color-text-secondary)]';
+  const floatLabel = (
+    <span className="pointer-events-none absolute left-3.5 top-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
+      {field.label}{field.required ? ' *' : ''}
+    </span>
+  );
 
-  if (field.type === 'textarea') return <textarea disabled className={inputClass} rows={3} placeholder={field.label} />;
-  if (field.type === 'select') return <select disabled className={inputClass}><option value="">Select...</option>{(field.options || []).map((option) => <option key={option.value}>{option.label}</option>)}</select>;
-  if (field.type === 'checkbox') return (field.options?.length ? field.options : [{ label: field.label, value: field.key }]).map((option) => <label key={option.value} className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-secondary)]"><input type="checkbox" disabled className="h-4 w-4 rounded border-[var(--color-border-primary)]" />{option.label}</label>);
-  if (field.type === 'radio') return <div className="space-y-1">{(field.options || []).map((option) => <label key={option.value} className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-secondary)]"><input type="radio" disabled className="h-4 w-4 rounded-full border-[var(--color-border-primary)]" />{option.label}</label>)}</div>;
-  if (field.type === 'image') return <div className="space-y-1"><input disabled type="file" accept="image/jpeg,image/png,image/webp" className={inputClass} /><p className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">JPEG, PNG, WebP up to 5MB</p></div>;
-  if (field.type === 'date' && field.validation?.dateMode === 'day-month') return <div><div className="grid grid-cols-1 gap-2 sm:grid-cols-2"><select disabled className={inputClass}><option value="">Select day</option>{dayOptions.map((day) => <option key={day} value={day}>{day}</option>)}</select><select disabled className={inputClass}><option value="">Select month</option>{monthOptions.map((month) => <option key={month.value} value={month.value}>{month.label}</option>)}</select></div><p className="mt-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">Format: {dateFormat.toUpperCase()}</p></div>;
-  if (field.type === 'date') return <input disabled type="date" className={inputClass} />;
+  if (field.type === 'textarea') {
+    return <div className="relative">{floatLabel}<textarea disabled rows={3} className={boxClass} /></div>;
+  }
+  if (field.type === 'select') {
+    return (
+      <div className="relative">
+        {floatLabel}
+        <select disabled className={boxClass}><option>{(field.options?.[0]?.label) || 'Select…'}</option></select>
+      </div>
+    );
+  }
+  if (field.type === 'checkbox') {
+    const opts = field.options?.length ? field.options : [{ label: field.label, value: field.key }];
+    return (
+      <div className="space-y-2">
+        <p className="text-sm font-semibold text-[var(--color-text-secondary)]">{field.label}{field.required ? ' *' : ''}</p>
+        {opts.map((option) => (
+          <label key={option.value} className="flex items-center gap-2.5 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] px-3 py-2 text-sm text-[var(--color-text-secondary)]">
+            <span className="h-4 w-4 rounded-[5px] border border-[var(--color-border-primary)]" />{option.label}
+          </label>
+        ))}
+      </div>
+    );
+  }
+  if (field.type === 'radio') {
+    return (
+      <div className="space-y-2">
+        <p className="text-sm font-semibold text-[var(--color-text-secondary)]">{field.label}{field.required ? ' *' : ''}</p>
+        {(field.options || []).map((option) => (
+          <label key={option.value} className="flex items-center gap-2.5 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] px-3 py-2 text-sm text-[var(--color-text-secondary)]">
+            <span className="h-4 w-4 rounded-full border border-[var(--color-border-primary)]" />{option.label}
+          </label>
+        ))}
+      </div>
+    );
+  }
+  if (field.type === 'image') {
+    return (
+      <div className="space-y-2">
+        <p className="text-sm font-semibold text-[var(--color-text-secondary)]">{field.label}{field.required ? ' *' : ''}</p>
+        <div className="rounded-[var(--radius-button)] border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-6 text-center text-xs font-semibold text-[var(--color-text-tertiary)]">Tap to upload or drag an image here · JPEG, PNG, WebP up to 5MB</div>
+      </div>
+    );
+  }
+  if (field.type === 'date') {
+    return (
+      <div className="space-y-1.5">
+        <p className="text-sm font-semibold text-[var(--color-text-secondary)]">{field.label}{field.required ? ' *' : ''}</p>
+        <div className="grid grid-cols-2 gap-2">
+          <select disabled className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-secondary)]"><option>Day</option></select>
+          <select disabled className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-secondary)]"><option>Month</option></select>
+        </div>
+      </div>
+    );
+  }
 
-  return <input disabled type={field.type} className={inputClass} placeholder={field.label} />;
+  return <div className="relative">{floatLabel}<input disabled className={boxClass} /></div>;
 }

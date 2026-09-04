@@ -6,6 +6,10 @@ import type { FormFieldCondition, FormFieldOption, FormFieldType, FormFieldVisib
 // with no shared source, so a new field type added to one could silently
 // diverge from the others.
 
+// Only the field types the backend validates on submission AND the public
+// renderer can draw. `file/upload/video/audio/document` were previously
+// selectable but rendered as a plain text box and were not validated
+// server-side, so a form that used them silently collected nothing usable.
 export const ALL_FIELD_TYPES: readonly FormFieldType[] = [
   'text',
   'email',
@@ -17,11 +21,6 @@ export const ALL_FIELD_TYPES: readonly FormFieldType[] = [
   'radio',
   'checkbox',
   'image',
-  'file',
-  'upload',
-  'video',
-  'audio',
-  'document',
 ] as const;
 
 export const FIELD_TYPE_LABELS: Record<FormFieldType, string> = {
