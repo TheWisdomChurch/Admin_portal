@@ -19,7 +19,7 @@ import { apiClient } from '@/lib/api';
 import { ensureFieldOptions, isOptionFieldType, normalizeFieldOptions, sanitizeFieldVisibility } from '@/lib/forms/formFields';
 import { getEffectiveFormConsent } from '@/lib/forms/formConsent';
 
-import { normalizeOrderedFields } from '@/lib/forms/formFieldOrdering';
+import { nextUniqueFieldKey, normalizeOrderedFields } from '@/lib/forms/formFieldOrdering';
 import {
   buildFormSubmissionsReportPath,
   copyFormSubmissionsReportLink,
@@ -378,7 +378,7 @@ function EditFormPage() {
       normalizeOrderedFields([
         ...prev,
         {
-          key: `field_${order}`,
+          key: nextUniqueFieldKey(prev),
           label: 'New field',
           type: 'text',
           required: false,
@@ -427,7 +427,9 @@ function EditFormPage() {
 
     setFieldErrors({});
 
-    for (const field of fields) {
+    const seenKeys = new Set<string>();
+
+    for (const [index, field] of fields.entries()) {
       if (!field.label?.trim()) {
         toast.error('Every field must have a label.');
         return;
@@ -441,6 +443,13 @@ function EditFormPage() {
           return;
         }
       }
+
+      const key = normalizeFieldKey(field.key || `field_${index + 1}`, `field_${index + 1}`);
+      if (seenKeys.has(key)) {
+        toast.error(`Field keys must be unique. Duplicate: ${key}`);
+        return;
+      }
+      seenKeys.add(key);
     }
 
     setSaving(true);

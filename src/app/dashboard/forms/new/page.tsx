@@ -39,7 +39,7 @@ import { createFormSchema } from '@/lib/validation/forms';
 import { normalizeFieldOptions, sanitizeFieldVisibility } from '@/lib/forms/formFields';
 import { DEFAULT_FORM_CONSENT } from '@/lib/forms/formConsent';
 import type { CreateFormRequest, EventData, FormSettings } from '@/lib/types';
-import { normalizeOrderedFields } from '@/lib/forms/formFieldOrdering';
+import { nextUniqueFieldKey, normalizeOrderedFields } from '@/lib/forms/formFieldOrdering';
 
 import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
@@ -490,7 +490,7 @@ export default withAuth(function NewFormPage() {
     const order = fields.length + 1;
     setFields((prev) => normalizeOrderedFields([
       ...prev,
-      { key: `field_${order}`, label: 'New field', type: 'text', required: false, order },
+      { key: nextUniqueFieldKey(prev), label: 'New field', type: 'text', required: false, order },
     ]));
   };
 

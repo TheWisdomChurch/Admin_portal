@@ -6,6 +6,22 @@ export type OrderedFormField = {
   order?: number;
 };
 
+// `field_${fields.length + 1}` (the old default) collides as soon as a field
+// earlier in the array has been removed or a preset already used that slot —
+// e.g. delete field 3 of 9, add a new one, and both the survivor and the
+// newcomer end up keyed "field_9". Walk past every key already in use so a
+// freshly added field can never collide with one already on the form.
+export function nextUniqueFieldKey<T extends { key?: string }>(fields: T[]): string {
+  const used = new Set(fields.map((field) => field.key).filter(Boolean));
+  let n = fields.length + 1;
+  let key = `field_${n}`;
+  while (used.has(key)) {
+    n += 1;
+    key = `field_${n}`;
+  }
+  return key;
+}
+
 function safeOrder(value: unknown, fallback: number): number {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
 
