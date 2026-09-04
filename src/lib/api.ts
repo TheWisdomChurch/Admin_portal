@@ -1,6 +1,7 @@
 import type { User, LoginCredentials, RegisterData, ApiResponse, MessageResponse, PaginatedResponse, SimplePaginatedResponse, Testimonial, CreateTestimonialData, UpdateTestimonialData, EventData, EventPayload, DashboardAnalytics, DecisionInsights, AdminAuditLog, SecurityOverview, ReelData, CreateReelData, AdminForm, CreateFormRequest, UpdateFormRequest, PublicFormPayload, SubmitFormRequest, FormSubmission, FormStatsResponse, FormStatus, FormSubmissionDailyStat, Subscriber, SubscribeRequest, UnsubscribeRequest, SendNotificationRequest, SendNotificationResult, SubscriberSummary, SendOTPRequest, VerifyOTPRequest, SendOTPResponse, VerifyOTPResponse, WorkforceMember, CreateWorkforceRequest, UpdateWorkforceRequest, WorkforceStatsResponse, Member, MemberStatsResponse, NewMemberDashboardResponse, NewMemberSubmission, NewMemberWorkflow, NewMemberContact, NewMemberWorkflowHistory, CreateMemberRequest, UpdateMemberRequest, LeadershipMember, CreateLeadershipRequest, UpdateLeadershipRequest, PasswordResetRequestPayload, PasswordResetConfirmPayload, LoginResult, LoginChallenge, AuthSecurityProfile, ChangePasswordData, HealthCheckResponse, UploadPresignRequest, UploadPresignResponse, UploadAssetData, UploadImageResponse, EmailTemplate, CreateEmailTemplateRequest, UpdateEmailTemplateRequest, AdminNotificationInbox, ApprovalRequest, ApprovalRequestsTimeline, TOTPSetupResponse, FormReportLinkPayload, AdminEmailMarketingFormItem, AdminEmailMarketingSummary, AdminEmailAudiencePreview, SendAdminComposeEmailRequest, SendAdminComposeEmailResponse, AdminEmailDeliveryHistoryItem, HomepageAdContent, ConfessionPopupContent, AboutPageContent, PastoralCareRequestAdmin, PrayerRequestAdmin, PrayerRequestStatus, GivingIntentAdmin, StoreProductAdmin, UpsertStoreProductRequest, StoreOrdersPaginated, StoreOrderAdmin, StoreOrderStatus, MFAMethod, ServiceTypeAdmin, AttendanceSessionAdmin, AttendanceRecordAdmin, CreateSessionRequest, CheckInRequest, CellGroupAdmin, CellGroupMemberAdmin, CellGroupMeetingAdmin, MinistryAdmin, MinistryMemberAdmin, MinistryStructure, MinistryWorkforceRole, GivingTransactionAdmin, GivingMonthlySummaryRow, ContactMessageAdmin, VisitRequestAdmin, VisitStatus, AdminUserAdmin, CreateAdminUserRequest, UpdateAdminUserRequest } from './types';
 import type { VisitActivityAdmin } from './types';
 import type { AdminEmailSchedule, AdminEmailScheduleDetail, AdminEmailScheduleRun, AdminEmailScheduleStatus, UpsertAdminEmailScheduleRequest } from './types';
+import type { FormEmailContent, EmailTemplatePreviewResponse } from './types';
 import type { CelebrationAutomationConfig, CelebrationAutomationRun, CelebrationAutomationStatus, CelebrationDelivery } from './types';
 
 /* ============================================================================
@@ -1468,6 +1469,18 @@ export const apiClient = {
   async activateAdminEmailTemplate(id: string): Promise<EmailTemplate> {
     const res = await apiFetch<{ data: EmailTemplate }>(`/admin/email/templates/${encodeURIComponent(id)}/activate`, { method: 'POST' });
     return unwrapData<EmailTemplate>(res, 'Invalid email template payload');
+  },
+
+  // Renders FormEmailContent through the exact same backend code Create/Update
+  // use to bake htmlBody, without persisting anything — this is what backs
+  // the Response Email Editor's live preview so it can never drift from what
+  // actually saves.
+  async previewAdminEmailTemplate(content: FormEmailContent): Promise<EmailTemplatePreviewResponse> {
+    const res = await apiFetch<{ data: EmailTemplatePreviewResponse }>('/admin/email/templates/preview', {
+      method: 'POST',
+      body: JSON.stringify(content),
+    });
+    return unwrapData<EmailTemplatePreviewResponse>(res, 'Invalid email preview payload');
   },
 
   async getAdminForms(params?: Record<string, unknown>): Promise<SimplePaginatedResponse<AdminForm>> {

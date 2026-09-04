@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Code2, Eye, Image as ImageIcon, LayoutTemplate, MailCheck, Save } from 'lucide-react';
+import { ArrowLeft, Code2, Eye, LayoutTemplate, MailCheck, Save } from 'lucide-react';
 
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
@@ -15,25 +15,19 @@ import {
   ACCEPTED_EMAIL_IMAGE_TYPES,
   MAX_EMAIL_IMAGE_BYTES,
   MAX_EMAIL_IMAGE_MB,
-  buildFormEmailHTML,
   buildFormEmailTextBody,
-  embedTemplateMeta,
   normalizeAbsoluteHttpUrl,
   normalizeTemplateSlug,
   parseTemplateMeta,
-  stripTemplateMeta,
   toEmailPreview,
 } from '@/lib/forms/formEmailTemplates';
-import type { AdminForm, EmailTemplate, UpdateFormRequest } from '@/lib/types';
+import type { AdminForm, EmailTemplate, FormEmailContent, UpdateFormRequest } from '@/lib/types';
 import { getServerErrorMessage } from '@/lib/serverValidation';
 
-// Email clients render outside the application, so use the absolute URL of
-// the public logo that ships with the admin portal.
-function defaultEmailLogoUrl() {
-  const raw = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_FRONTEND_URL;
-  const origin = raw?.trim().replace(/\/+$/, '') || 'https://admin.wisdomchurchhq.org';
-  return `${origin}/OIP.webp`;
-}
+// A small debounce so the live preview doesn't fire a network request on
+// every keystroke — it still calls the backend's real render path
+// (apiClient.previewAdminEmailTemplate), just not on every character typed.
+const PREVIEW_DEBOUNCE_MS = 400;
 
 function ResponseEmailEditorPage() {
   const params = useParams();
@@ -52,15 +46,18 @@ function ResponseEmailEditorPage() {
   const [subject, setSubject] = useState('');
   const [heading, setHeading] = useState('Registration Confirmed');
   const [message, setMessage] = useState('Thank you for registering. Your details have been received successfully.');
-  const [logoUrl, setLogoUrl] = useState(defaultEmailLogoUrl);
   const [imageUrl, setImageUrl] = useState('');
 
-  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [customHtmlBody, setCustomHtmlBody] = useState('');
   const [previewMode, setPreviewMode] = useState<'rendered' | 'html'>('rendered');
+
+  // Structured-mode preview comes from the backend's real render path
+  // (the same one Save uses) rather than a locally hand-built copy — see
+  // apiClient.previewAdminEmailTemplate.
+  const [renderedPreviewHTML, setRenderedPreviewHTML] = useState('');
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const templateKeyPreview = useMemo(() => {
     const existing = form?.settings?.responseEmailTemplateKey?.trim();
@@ -79,29 +76,46 @@ function ResponseEmailEditorPage() {
     return formType === 'event' || formType === 'registration' || formType === 'workforce';
   }, [form?.settings?.formType, form?.settings?.submissionTarget]);
 
-  const previewHTML = useMemo(() => {
-    const generated = buildFormEmailHTML({
-      title: form?.title || 'Registration',
-      heading,
-      message,
-      logoUrl: logoPreview || logoUrl || undefined,
-      imageUrl: imagePreview || imageUrl || undefined,
-      includeRegistrationCode: includeRegistrationArtifacts,
-      includeCalendarOptIn: includeRegistrationArtifacts,
-      greeting: 'Hello {{.RecipientName}},',
-    });
-    return toEmailPreview(customHtmlBody.trim() || generated);
-  }, [
-    customHtmlBody,
-    form?.title,
-    heading,
-    imagePreview,
-    imageUrl,
-    includeRegistrationArtifacts,
-    logoPreview,
-    logoUrl,
-    message,
-  ]);
+  // The structured content sent to (and rendered by) the backend. Building
+  // this is the only "template construction" this page does now — turning
+  // it into HTML is entirely the backend's job (RenderFormEmailContent), for
+  // both the live preview below and the actual save.
+  const structuredContent = useMemo<FormEmailContent>(() => ({
+    heading: heading.trim(),
+    message: message.trim(),
+    imageUrl: (imagePreview || imageUrl || '').trim() || undefined,
+    includeRegistrationCode: includeRegistrationArtifacts,
+    includeCalendarOptIn: includeRegistrationArtifacts,
+  }), [heading, imagePreview, imageUrl, includeRegistrationArtifacts, message]);
+
+  const usingCustomHtml = customHtmlBody.trim().length > 0;
+
+  useEffect(() => {
+    if (usingCustomHtml) return;
+
+    let cancelled = false;
+    setPreviewLoading(true);
+    const timer = setTimeout(() => {
+      apiClient
+        .previewAdminEmailTemplate(structuredContent)
+        .then((res) => {
+          if (!cancelled) setRenderedPreviewHTML(toEmailPreview(res.htmlBody));
+        })
+        .catch((err) => {
+          if (!cancelled) toast.error(getServerErrorMessage(err, 'Failed to render preview.'));
+        })
+        .finally(() => {
+          if (!cancelled) setPreviewLoading(false);
+        });
+    }, PREVIEW_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [structuredContent, usingCustomHtml]);
+
+  const previewHTML = usingCustomHtml ? toEmailPreview(customHtmlBody) : renderedPreviewHTML;
 
   const validateImageFile = (file: File): string | null => {
     if (!ACCEPTED_EMAIL_IMAGE_TYPES.includes(file.type)) {
@@ -115,10 +129,9 @@ function ResponseEmailEditorPage() {
 
   useEffect(() => {
     return () => {
-      if (logoPreview) URL.revokeObjectURL(logoPreview);
       if (imagePreview) URL.revokeObjectURL(imagePreview);
     };
-  }, [logoPreview, imagePreview]);
+  }, [imagePreview]);
 
   useEffect(() => {
     if (!formId) return;
@@ -144,7 +157,6 @@ function ResponseEmailEditorPage() {
           loadedForm.settings?.responseEmailSubject?.trim() || `${subjectPrefix}: ${loadedForm.title}`;
         setSubject(subjectFallback);
         setImageUrl(loadedForm.settings?.responseEmailTemplateUrl?.trim() || '');
-        setLogoUrl((current) => current || defaultEmailLogoUrl());
 
         const res = await apiClient.listAdminEmailTemplates({
           page: 1,
@@ -159,13 +171,24 @@ function ResponseEmailEditorPage() {
         if (tpl) {
           setTemplate(tpl);
           if (tpl.subject?.trim()) setSubject(tpl.subject.trim());
-          const meta = parseTemplateMeta(tpl.htmlBody);
-          if (meta?.heading) setHeading(meta.heading);
-          if (meta?.message) setMessage(meta.message);
-          if (meta?.logoUrl) setLogoUrl(meta.logoUrl);
-          if (meta?.imageUrl) setImageUrl(meta.imageUrl);
-          if (meta?.customHtml) setCustomHtmlBody(stripTemplateMeta(meta.customHtml));
-          else setCustomHtmlBody(stripTemplateMeta(tpl.htmlBody));
+
+          if (tpl.content) {
+            // Current shape: structured content the backend renders.
+            if (tpl.content.heading) setHeading(tpl.content.heading);
+            if (tpl.content.message) setMessage(tpl.content.message);
+            if (tpl.content.imageUrl) setImageUrl(tpl.content.imageUrl);
+          } else {
+            // Legacy template saved before content-driven rendering existed.
+            // Older saves may carry heading/message in an embedded HTML
+            // comment (parseTemplateMeta); fall back to treating the whole
+            // body as hand-authored HTML either way. Saving this form again
+            // upgrades it to a content-driven template going forward.
+            const meta = parseTemplateMeta(tpl.htmlBody);
+            if (meta?.heading) setHeading(meta.heading);
+            if (meta?.message) setMessage(meta.message);
+            if (meta?.imageUrl) setImageUrl(meta.imageUrl);
+            setCustomHtmlBody(tpl.htmlBody);
+          }
         }
       } catch (err) {
         toast.error(getServerErrorMessage(err, 'Failed to load form email template.'));
@@ -175,23 +198,6 @@ function ResponseEmailEditorPage() {
       }
     })();
   }, [formId, router]);
-
-  const handleLogoFile = (file?: File) => {
-    if (!file) {
-      if (logoPreview) URL.revokeObjectURL(logoPreview);
-      setLogoFile(null);
-      setLogoPreview(null);
-      return;
-    }
-    const err = validateImageFile(file);
-    if (err) {
-      toast.error(err);
-      return;
-    }
-    if (logoPreview) URL.revokeObjectURL(logoPreview);
-    setLogoFile(file);
-    setLogoPreview(URL.createObjectURL(file));
-  };
 
   const handleImageFile = (file?: File) => {
     if (!file) {
@@ -219,55 +225,32 @@ function ResponseEmailEditorPage() {
 
     setSaving(true);
     try {
-      let nextLogoUrl = normalizeAbsoluteHttpUrl(logoUrl);
       let nextImageUrl = normalizeAbsoluteHttpUrl(imageUrl);
-      if (logoUrl.trim() && !nextLogoUrl) {
-        toast.error('Logo URL is invalid. Use a full URL like https://...png');
-        setSaving(false);
-        return;
-      }
       if (imageUrl.trim() && !nextImageUrl) {
         toast.error('Template image URL is invalid. Use a full URL like https://...png');
         setSaving(false);
         return;
       }
 
-      if (logoFile) {
-        const uploaded = await apiClient.uploadImage(logoFile, 'email_template');
-        nextLogoUrl = uploaded.url;
-      }
       if (imageFile) {
         const uploaded = await apiClient.uploadImage(imageFile, 'email_template');
         nextImageUrl = uploaded.url;
       }
 
       const templateKey = templateKeyPreview || `forms/${form.id}`;
-      const builtHtml = buildFormEmailHTML({
-        title: form.title || 'Registration',
-        heading: heading.trim(),
-        message: message.trim(),
-        logoUrl: nextLogoUrl || undefined,
-        imageUrl: nextImageUrl || undefined,
-        includeRegistrationCode: includeRegistrationArtifacts,
-        includeCalendarOptIn: includeRegistrationArtifacts,
-        greeting: 'Hello {{.RecipientName}},',
-      });
-      const mergedHTML = customHtmlBody.trim() || builtHtml;
-      const textBody = buildFormEmailTextBody({
-        title: form.title || 'Registration',
-        heading: heading.trim(),
-        message: message.trim(),
-      });
-      const htmlBody = embedTemplateMeta(
-        mergedHTML,
-        {
-          heading: heading.trim(),
-          message: message.trim(),
-          logoUrl: nextLogoUrl || undefined,
-          imageUrl: nextImageUrl || undefined,
-          customHtml: mergedHTML,
-        }
-      );
+
+      // Structured mode (the default): send content, let the backend render
+      // it via the shared theme — never a locally hand-built htmlBody.
+      // Custom-HTML mode (the "Custom HTML template" field below, non-empty):
+      // pass that HTML through as-is, exactly as before — an explicit
+      // one-off escape hatch, not a second copy of the default design.
+      const content: FormEmailContent | undefined = usingCustomHtml
+        ? undefined
+        : { ...structuredContent, imageUrl: nextImageUrl || undefined };
+      const htmlBody = usingCustomHtml ? customHtmlBody.trim() : undefined;
+      const textBody = usingCustomHtml
+        ? buildFormEmailTextBody({ title: form.title || 'Registration', heading: heading.trim(), message: message.trim() })
+        : undefined;
 
       let savedTemplate: EmailTemplate;
       if (template) {
@@ -276,6 +259,7 @@ function ResponseEmailEditorPage() {
           ownerType: 'form',
           ownerId: form.id,
           subject: subject.trim(),
+          content,
           htmlBody,
           textBody,
           status: 'active',
@@ -287,6 +271,7 @@ function ResponseEmailEditorPage() {
           ownerType: 'form',
           ownerId: form.id,
           subject: subject.trim(),
+          content,
           htmlBody,
           textBody,
           status: 'active',
@@ -308,11 +293,8 @@ function ResponseEmailEditorPage() {
 
       setForm(updatedForm);
       setTemplate(savedTemplate);
-      setLogoUrl(nextLogoUrl);
       setImageUrl(nextImageUrl);
-      setLogoFile(null);
       setImageFile(null);
-      setLogoPreview(null);
       setImagePreview(null);
 
       toast.success('Response email template saved.');
@@ -395,29 +377,12 @@ function ResponseEmailEditorPage() {
               placeholder="Registration Confirmed"
             />
             <Input
-              label="Logo URL"
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              placeholder="https://admin.wisdomchurchhq.org/OIP.webp"
-              helperText="Used in the branded header beside THE / WISDOM / CHURCH."
-            />
-            <Input
               label="Template image URL (optional)"
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
               placeholder="https://.../hero.png"
+              helperText="The church logo and header come from the shared brand design automatically."
             />
-            <div className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-3">
-              <label className="mb-2 flex items-center gap-2 text-sm font-medium text-[var(--color-text-secondary)]"><ImageIcon className="h-4 w-4" /> Upload logo</label>
-              {/* eslint-disable-next-line no-restricted-syntax -- file input, styled with tokens */}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleLogoFile(e.target.files?.[0])}
-                className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
-              />
-              <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">Max {MAX_EMAIL_IMAGE_MB}MB. JPEG, PNG, WebP.</p>
-            </div>
             <div className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-3 md:col-span-2">
               <label className="mb-2 block text-sm font-medium text-[var(--color-text-secondary)]">Upload template image (optional)</label>
               {/* eslint-disable-next-line no-restricted-syntax -- file input, styled with tokens */}
@@ -484,7 +449,9 @@ function ResponseEmailEditorPage() {
         >
           <div className="flex items-center gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs text-[var(--color-text-tertiary)]">
             <LayoutTemplate className="h-4 w-4 text-[var(--color-text-secondary)]" />
-            Uses sample values for name{includeRegistrationArtifacts ? ' and registration number' : ''} in preview.
+            {previewLoading && !usingCustomHtml
+              ? 'Rendering preview…'
+              : `Uses sample values for name${includeRegistrationArtifacts ? ' and registration number' : ''} in preview.`}
             <MailCheck className="ml-auto h-4 w-4 text-[var(--color-accent-success)]" />
           </div>
 
@@ -494,7 +461,7 @@ function ResponseEmailEditorPage() {
             </div>
           ) : (
             <pre className="max-h-[760px] overflow-auto rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 text-xs leading-relaxed text-[var(--color-text-primary)]">
-              {customHtmlBody.trim() || stripTemplateMeta(previewHTML)}
+              {previewHTML}
             </pre>
           )}
         </Card>

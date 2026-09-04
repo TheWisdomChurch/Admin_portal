@@ -288,6 +288,47 @@ export interface UploadImageResponse {
 
 export type EmailTemplateStatus = 'draft' | 'active' | 'archived';
 
+export interface FormEmailCalendarEvent {
+  title: string;
+  startAt: string;
+  endAt?: string;
+  location?: string;
+  description?: string;
+  timeZone?: string;
+}
+
+export interface FormEmailResourceLink {
+  label: string;
+  url: string;
+  description?: string;
+  kind?: 'flyer' | 'document' | 'guide' | 'schedule' | 'resource';
+}
+
+// Structured content behind a form's response email. The backend's
+// internal/email.RenderFormEmailContent is the *only* place that turns this
+// into HTML — sending this shape (rather than pre-built HTML) is what keeps
+// the admin portal from ever hand-rolling its own copy of the email design
+// again. See src/app/dashboard/forms/[id]/response-email/page.tsx.
+export interface FormEmailContent {
+  preheader?: string;
+  eyebrow?: string;
+  heading?: string;
+  message?: string;
+  messageHtml?: string;
+  imageUrl?: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+  calendarLabel?: string;
+  calendarUrl?: string;
+  calendarEvent?: FormEmailCalendarEvent;
+  resourceLinks?: FormEmailResourceLink[];
+  spotlightLabel?: string;
+  spotlightText?: string;
+  footerNote?: string;
+  includeRegistrationCode?: boolean;
+  includeCalendarOptIn?: boolean;
+}
+
 export interface EmailTemplate {
   id: string;
   templateKey: string;
@@ -296,6 +337,7 @@ export interface EmailTemplate {
   subject?: string;
   htmlBody: string;
   textBody?: string;
+  content?: FormEmailContent;
   status: EmailTemplateStatus;
   version: number;
   isActive: boolean;
@@ -308,8 +350,11 @@ export interface CreateEmailTemplateRequest {
   ownerType?: string;
   ownerId?: string;
   subject?: string;
-  htmlBody: string;
+  // Provide either content (preferred — server-rendered from the shared
+  // design) or a hand-authored htmlBody, never both.
+  htmlBody?: string;
   textBody?: string;
+  content?: FormEmailContent;
   status?: EmailTemplateStatus;
   activate?: boolean;
 }
@@ -321,8 +366,14 @@ export interface UpdateEmailTemplateRequest {
   subject?: string;
   htmlBody?: string;
   textBody?: string;
+  content?: FormEmailContent;
   status?: EmailTemplateStatus;
   activate?: boolean;
+}
+
+export interface EmailTemplatePreviewResponse {
+  htmlBody: string;
+  textBody: string;
 }
 
 /* =========================
