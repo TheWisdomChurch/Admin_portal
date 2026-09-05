@@ -324,6 +324,14 @@ export interface FormEmailContent {
   resourceLinks?: FormEmailResourceLink[];
   spotlightLabel?: string;
   spotlightText?: string;
+  // A distinct "What happens next?" section rendered after the message and
+  // spotlight callout — heading, text, and (if set) the CTA button together.
+  nextStepsHeading?: string;
+  nextStepsText?: string;
+  // Final paragraph + signature line ("With love, / The Wisdom Church")
+  // rendered just before the footer.
+  closingMessage?: string;
+  signOff?: string;
   footerNote?: string;
   includeRegistrationCode?: boolean;
   includeCalendarOptIn?: boolean;

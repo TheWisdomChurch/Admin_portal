@@ -44,9 +44,18 @@ function ResponseEmailEditorPage() {
   const [template, setTemplate] = useState<EmailTemplate | null>(null);
 
   const [subject, setSubject] = useState('');
+  const [eyebrow, setEyebrow] = useState('');
   const [heading, setHeading] = useState('Registration Confirmed');
   const [message, setMessage] = useState('Thank you for registering. Your details have been received successfully.');
   const [imageUrl, setImageUrl] = useState('');
+  const [spotlightLabel, setSpotlightLabel] = useState('');
+  const [spotlightText, setSpotlightText] = useState('');
+  const [nextStepsHeading, setNextStepsHeading] = useState('');
+  const [nextStepsText, setNextStepsText] = useState('');
+  const [ctaLabel, setCtaLabel] = useState('');
+  const [ctaUrl, setCtaUrl] = useState('');
+  const [closingMessage, setClosingMessage] = useState('');
+  const [signOff, setSignOff] = useState('With love,');
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -81,12 +90,36 @@ function ResponseEmailEditorPage() {
   // it into HTML is entirely the backend's job (RenderFormEmailContent), for
   // both the live preview below and the actual save.
   const structuredContent = useMemo<FormEmailContent>(() => ({
+    eyebrow: eyebrow.trim() || undefined,
     heading: heading.trim(),
     message: message.trim(),
     imageUrl: (imagePreview || imageUrl || '').trim() || undefined,
+    spotlightLabel: spotlightLabel.trim() || undefined,
+    spotlightText: spotlightText.trim() || undefined,
+    nextStepsHeading: nextStepsHeading.trim() || undefined,
+    nextStepsText: nextStepsText.trim() || undefined,
+    ctaLabel: ctaLabel.trim() || undefined,
+    ctaUrl: ctaUrl.trim() || undefined,
+    closingMessage: closingMessage.trim() || undefined,
+    signOff: closingMessage.trim() ? (signOff.trim() || undefined) : undefined,
     includeRegistrationCode: includeRegistrationArtifacts,
     includeCalendarOptIn: includeRegistrationArtifacts,
-  }), [heading, imagePreview, imageUrl, includeRegistrationArtifacts, message]);
+  }), [
+    closingMessage,
+    ctaLabel,
+    ctaUrl,
+    eyebrow,
+    heading,
+    imagePreview,
+    imageUrl,
+    includeRegistrationArtifacts,
+    message,
+    nextStepsHeading,
+    nextStepsText,
+    signOff,
+    spotlightLabel,
+    spotlightText,
+  ]);
 
   const usingCustomHtml = customHtmlBody.trim().length > 0;
 
@@ -174,9 +207,18 @@ function ResponseEmailEditorPage() {
 
           if (tpl.content) {
             // Current shape: structured content the backend renders.
+            if (tpl.content.eyebrow) setEyebrow(tpl.content.eyebrow);
             if (tpl.content.heading) setHeading(tpl.content.heading);
             if (tpl.content.message) setMessage(tpl.content.message);
             if (tpl.content.imageUrl) setImageUrl(tpl.content.imageUrl);
+            if (tpl.content.spotlightLabel) setSpotlightLabel(tpl.content.spotlightLabel);
+            if (tpl.content.spotlightText) setSpotlightText(tpl.content.spotlightText);
+            if (tpl.content.nextStepsHeading) setNextStepsHeading(tpl.content.nextStepsHeading);
+            if (tpl.content.nextStepsText) setNextStepsText(tpl.content.nextStepsText);
+            if (tpl.content.ctaLabel) setCtaLabel(tpl.content.ctaLabel);
+            if (tpl.content.ctaUrl) setCtaUrl(tpl.content.ctaUrl);
+            if (tpl.content.closingMessage) setClosingMessage(tpl.content.closingMessage);
+            if (tpl.content.signOff) setSignOff(tpl.content.signOff);
           } else {
             // Legacy template saved before content-driven rendering existed.
             // Older saves may carry heading/message in an embedded HTML
@@ -371,6 +413,12 @@ function ResponseEmailEditorPage() {
               helperText="Linked to this form's auto-response template."
             />
             <Input
+              label="Eyebrow (optional)"
+              value={eyebrow}
+              onChange={(e) => setEyebrow(e.target.value)}
+              placeholder="New Member Welcome"
+            />
+            <Input
               label="Email heading"
               value={heading}
               onChange={(e) => setHeading(e.target.value)}
@@ -404,6 +452,80 @@ function ResponseEmailEditorPage() {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Thank you for registering. We look forward to hosting you."
+            />
+          </section>
+
+          <section className="grid gap-4 md:grid-cols-2">
+            <Input
+              label="Scripture / spotlight label (optional)"
+              value={spotlightLabel}
+              onChange={(e) => setSpotlightLabel(e.target.value)}
+              placeholder="Ephesians 2:19"
+            />
+            <div />
+            <div className="md:col-span-2 space-y-2">
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Scripture / spotlight text (optional)</label>
+              <textarea
+                className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-4 py-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                rows={3}
+                value={spotlightText}
+                onChange={(e) => setSpotlightText(e.target.value)}
+                placeholder="Now therefore ye are no more strangers and foreigners..."
+              />
+              <p className="text-xs text-[var(--color-text-tertiary)]">Renders as a highlighted callout box after the message.</p>
+            </div>
+          </section>
+
+          <section className="grid gap-4 md:grid-cols-2">
+            <Input
+              label="“What happens next” heading (optional)"
+              value={nextStepsHeading}
+              onChange={(e) => setNextStepsHeading(e.target.value)}
+              placeholder="What happens next?"
+            />
+            <div />
+            <div className="md:col-span-2 space-y-2">
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)]">“What happens next” text (optional)</label>
+              <textarea
+                className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-4 py-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                rows={4}
+                value={nextStepsText}
+                onChange={(e) => setNextStepsText(e.target.value)}
+                placeholder="Our team will follow up with you and share next steps."
+              />
+            </div>
+            <Input
+              label="Button label (optional)"
+              value={ctaLabel}
+              onChange={(e) => setCtaLabel(e.target.value)}
+              placeholder="View Upcoming Church Activities"
+            />
+            <Input
+              label="Button link (optional)"
+              value={ctaUrl}
+              onChange={(e) => setCtaUrl(e.target.value)}
+              placeholder="https://..."
+            />
+            <p className="md:col-span-2 text-xs text-[var(--color-text-tertiary)]">The button renders inside the “What happens next” section.</p>
+          </section>
+
+          <section className="grid gap-4 md:grid-cols-2">
+            <div className="md:col-span-2 space-y-2">
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Closing message (optional)</label>
+              <textarea
+                className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-4 py-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                rows={3}
+                value={closingMessage}
+                onChange={(e) => setClosingMessage(e.target.value)}
+                placeholder="Once again, welcome. We are glad to have you as part of the family."
+              />
+            </div>
+            <Input
+              label="Sign-off"
+              value={signOff}
+              onChange={(e) => setSignOff(e.target.value)}
+              placeholder="With love,"
+              disabled={!closingMessage.trim()}
             />
           </section>
 
