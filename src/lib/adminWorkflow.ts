@@ -1,5 +1,6 @@
 export type ApprovalRequestType =
   | 'testimonial'
+  | 'testimonial_delete'
   | 'event'
   | 'event_delete'
   | 'admin_user'
@@ -400,6 +401,10 @@ export const adminWorkflowApi = {
       case 'testimonial': {
         const entityId = requireEntityId(requestItem, 'Testimonial');
         return request(`/admin/testimonials/${encodeURIComponent(entityId)}/approve`, { method: 'PATCH', body: '{}' });
+      }
+      case 'testimonial_delete': {
+        const entityId = requestEntityId(requestItem) || requestItem.id;
+        return request(`/admin/testimonials/${encodeURIComponent(entityId)}/delete/approve`, { method: 'POST', body: '{}' });
       }
       case 'leadership_delete': {
         const entityId = requestEntityId(requestItem) || requestItem.id;

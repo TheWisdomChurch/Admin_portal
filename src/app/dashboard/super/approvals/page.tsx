@@ -9,6 +9,7 @@ import {
   RefreshCcw,
   Search,
   ShieldCheck,
+  Trash2,
   UserCog,
   XCircle,
 } from 'lucide-react';
@@ -45,6 +46,7 @@ function FilterButton({ active, children, onClick }: { active: boolean; children
 
 function typeLabel(type: ApprovalItem['type']) {
   if (type === 'testimonial') return 'Testimonial';
+  if (type === 'testimonial_delete') return 'Testimonial removal';
   if (type === 'event') return 'Event';
   return 'Admin Access';
 }
@@ -52,6 +54,7 @@ function typeLabel(type: ApprovalItem['type']) {
 function typeIcon(type: ApprovalItem['type']) {
   if (type === 'event') return <CalendarClock className="h-4 w-4" />;
   if (type === 'admin_user') return <UserCog className="h-4 w-4" />;
+  if (type === 'testimonial_delete') return <Trash2 className="h-4 w-4" />;
   return <ShieldCheck className="h-4 w-4" />;
 }
 

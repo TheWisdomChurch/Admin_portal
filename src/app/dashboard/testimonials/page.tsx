@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { CheckCircle2, ClipboardCopy, MessageSquareText, RefreshCcw, Search, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, ClipboardCopy, MessageSquareText, Pencil, RefreshCcw, Search, ShieldCheck, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
+import { Checkbox } from '@/ui/Checkbox';
 import { Input } from '@/ui/Input';
+import { Modal } from '@/ui/Modal';
 import { VerifyActionModal } from '@/ui/VerifyActionModal';
 import { PageHeader } from '@/layouts';
 import { apiClient } from '@/lib/api';
@@ -53,14 +55,20 @@ function TestimonialCard({
   item,
   status,
   canApprove,
+  isSuperAdmin,
   approving,
   onApprove,
+  onEdit,
+  onDelete,
 }: {
   item: Testimonial;
   status: 'pending' | 'approved';
   canApprove: boolean;
+  isSuperAdmin: boolean;
   approving: boolean;
   onApprove: (item: Testimonial) => void;
+  onEdit: (item: Testimonial) => void;
+  onDelete: (item: Testimonial) => void;
 }) {
   return (
     <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm transition hover:shadow-md">
@@ -87,7 +95,7 @@ function TestimonialCard({
           <p className="mt-3 text-xs text-[var(--color-text-tertiary)]">Submitted {formatDate(item.createdAt)}</p>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2 md:flex-col md:items-end">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 md:flex-col md:items-end">
           {status === 'pending' && canApprove ? (
             <Button type="button" size="sm" onClick={() => onApprove(item)} loading={approving} disabled={approving}>
               <CheckCircle2 className="h-4 w-4" />
@@ -98,6 +106,16 @@ function TestimonialCard({
           ) : (
             <Badge variant="success">Live</Badge>
           )}
+
+          <Button type="button" size="sm" variant="outline" onClick={() => onEdit(item)}>
+            <Pencil className="h-4 w-4" />
+            <span className="ml-2">Edit</span>
+          </Button>
+
+          <Button type="button" size="sm" variant="ghost" onClick={() => onDelete(item)}>
+            <Trash2 className="h-4 w-4" />
+            <span className="ml-2">{isSuperAdmin ? 'Delete' : 'Request removal'}</span>
+          </Button>
         </div>
       </div>
     </div>
@@ -106,7 +124,8 @@ function TestimonialCard({
 
 function TestimonialsPage() {
   const auth = useAuthContext();
-  const canApprove = normalizeRole(auth.user?.role) === 'super_admin';
+  const isSuperAdmin = normalizeRole(auth.user?.role) === 'super_admin';
+  const canApprove = isSuperAdmin;
 
   const [loading, setLoading] = useState(true);
   const [formsLoading, setFormsLoading] = useState(true);
@@ -116,6 +135,14 @@ function TestimonialsPage() {
   const [search, setSearch] = useState('');
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [approveTarget, setApproveTarget] = useState<Testimonial | null>(null);
+
+  const [editTarget, setEditTarget] = useState<Testimonial | null>(null);
+  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', testimony: '', isAnonymous: false });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const [deleteTarget, setDeleteTarget] = useState<Testimonial | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const loadTestimonials = useCallback(async () => {
     try {
@@ -214,6 +241,70 @@ function TestimonialsPage() {
     }
   };
 
+  const openEdit = (item: Testimonial) => {
+    setEditTarget(item);
+    setEditForm({
+      firstName: item.firstName || '',
+      lastName: item.lastName || '',
+      testimony: item.testimony || '',
+      isAnonymous: Boolean(item.isAnonymous),
+    });
+  };
+
+  const submitEdit = async () => {
+    if (!editTarget) return;
+    if (!editForm.firstName.trim() || !editForm.lastName.trim() || !editForm.testimony.trim()) {
+      toast.error('First name, last name and testimony are required.');
+      return;
+    }
+    try {
+      setSavingEdit(true);
+      await apiClient.updateTestimonial(String(editTarget.id), {
+        firstName: editForm.firstName.trim(),
+        lastName: editForm.lastName.trim(),
+        testimony: editForm.testimony.trim(),
+        isAnonymous: editForm.isAnonymous,
+      });
+      toast.success('Testimonial updated');
+      setEditTarget(null);
+      await loadTestimonials();
+    } catch (error) {
+      console.error('Failed to update testimonial:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update testimonial');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const openDelete = (item: Testimonial) => {
+    setDeleteTarget(item);
+    setDeleteReason('');
+  };
+
+  const submitDelete = async () => {
+    if (!deleteTarget) return;
+    if (!isSuperAdmin && !deleteReason.trim()) {
+      toast.error('A reason is required so the super admin can review this removal.');
+      return;
+    }
+    try {
+      setDeleting(true);
+      const result = await apiClient.deleteTestimonial(String(deleteTarget.id), deleteReason.trim());
+      if (result && typeof result === 'object' && 'deleted' in result) {
+        toast.success('Testimonial removed');
+      } else {
+        toast.success('Removal request sent for super admin approval');
+      }
+      setDeleteTarget(null);
+      await loadTestimonials();
+    } catch (error) {
+      console.error('Failed to remove testimonial:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to remove testimonial');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -301,8 +392,11 @@ function TestimonialsPage() {
                   item={item}
                   status="pending"
                   canApprove={canApprove}
+                  isSuperAdmin={isSuperAdmin}
                   approving={approvingId === String(item.id)}
                   onApprove={setApproveTarget}
+                  onEdit={openEdit}
+                  onDelete={openDelete}
                 />
               ))
             )}
@@ -324,8 +418,11 @@ function TestimonialsPage() {
                   item={item}
                   status="approved"
                   canApprove={canApprove}
+                  isSuperAdmin={isSuperAdmin}
                   approving={false}
                   onApprove={setApproveTarget}
+                  onEdit={openEdit}
+                  onDelete={openDelete}
                 />
               ))
             )}
@@ -344,6 +441,94 @@ function TestimonialsPage() {
         variant="primary"
         loading={Boolean(approvingId)}
       />
+
+      <Modal open={Boolean(editTarget)} onClose={() => setEditTarget(null)} size="lg">
+        <div className="space-y-4 p-6">
+          <div>
+            <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Edit testimonial</h2>
+            <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">
+              {editTarget?.isApproved
+                ? 'This testimonial is live — changes publish to the public site immediately.'
+                : 'Update the details before this testimonial is approved.'}
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="First name"
+              value={editForm.firstName}
+              onChange={(e) => setEditForm((f) => ({ ...f, firstName: e.target.value }))}
+            />
+            <Input
+              label="Last name"
+              value={editForm.lastName}
+              onChange={(e) => setEditForm((f) => ({ ...f, lastName: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Testimony</label>
+            <textarea
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-4 py-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+              rows={6}
+              value={editForm.testimony}
+              onChange={(e) => setEditForm((f) => ({ ...f, testimony: e.target.value }))}
+            />
+          </div>
+          <Checkbox
+            label="Publish anonymously"
+            checked={editForm.isAnonymous}
+            onChange={(e) => setEditForm((f) => ({ ...f, isAnonymous: e.target.checked }))}
+          />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setEditTarget(null)} disabled={savingEdit}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void submitEdit()} loading={savingEdit}>
+              Save changes
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={Boolean(deleteTarget)} onClose={() => setDeleteTarget(null)} size="md">
+        <div className="space-y-4 p-6">
+          <div>
+            <h2 className="text-lg font-bold text-[var(--color-text-primary)]">
+              {isSuperAdmin ? 'Delete testimonial' : 'Request testimonial removal'}
+            </h2>
+            <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">
+              {isSuperAdmin
+                ? `${deleteTarget ? formatName(deleteTarget) : 'This testimonial'} will be permanently removed${deleteTarget?.isApproved ? ' from the public site' : ''}.`
+                : 'A super admin must approve this removal before the testimonial is taken down.'}
+            </p>
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+              Reason {isSuperAdmin ? '(optional)' : '(required)'}
+            </label>
+            <textarea
+              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-4 py-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+              rows={3}
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              placeholder="Why should this testimonial be removed?"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={() => void submitDelete()}
+              loading={deleting}
+              disabled={!isSuperAdmin && !deleteReason.trim()}
+            >
+              {isSuperAdmin ? 'Delete testimonial' : 'Send removal request'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

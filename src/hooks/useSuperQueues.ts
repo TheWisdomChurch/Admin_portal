@@ -78,6 +78,8 @@ export function useSuperQueues() {
         }
         if (item.type === 'testimonial') {
           await apiClient.approveTestimonial(targetId);
+        } else if (item.type === 'testimonial_delete') {
+          await apiClient.approveTestimonialDelete(targetId);
         } else if (item.type === 'event') {
           await apiClient.approveEvent(targetId);
         } else if (item.type === 'admin_user') {
@@ -113,7 +115,7 @@ export function useSuperQueues() {
           throw new Error('Only pending requests can be declined');
         }
         if (item.type === 'testimonial') {
-          await apiClient.deleteTestimonial(item.entityId);
+          await apiClient.deleteTestimonial(item.entityId, 'Declined during super admin review.');
         } else {
           throw new Error('Decline is only enabled for testimonial requests');
         }
@@ -132,6 +134,7 @@ export function useSuperQueues() {
     () => ({
       total: items.filter((item) => item.status === 'pending').length,
       testimonials: items.filter((item) => item.type === 'testimonial' && item.status === 'pending').length,
+      testimonialDeletes: items.filter((item) => item.type === 'testimonial_delete' && item.status === 'pending').length,
       events: items.filter((item) => item.type === 'event' && item.status === 'pending').length,
       adminUsers: items.filter((item) => item.type === 'admin_user' && item.status === 'pending').length,
       leadershipDeletes: items.filter((item) => item.type === 'leadership_delete' && item.status === 'pending').length,

@@ -751,7 +751,7 @@ function unwrapData<T>(res: unknown, errorMessage: string): T {
 }
 
 function parseApprovalType(value: unknown): ApprovalRequest['type'] {
-  if (value === 'testimonial' || value === 'event' || value === 'admin_user' || value === 'leadership_delete' || value === 'workforce_delete') {
+  if (value === 'testimonial' || value === 'testimonial_delete' || value === 'event' || value === 'admin_user' || value === 'leadership_delete' || value === 'workforce_delete') {
     return value;
   }
   return 'admin_user';
@@ -1221,15 +1221,28 @@ export const apiClient = {
     return unwrapData<Testimonial>(res, 'Invalid testimonial payload');
   },
 
-  deleteTestimonial(id: string) {
-    return apiFetch(`/admin/testimonials/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-    });
+  // Super admins delete immediately (`{ deleted: true }`); other admins get
+  // back a pending ApprovalRequest routed to the super-admin queue.
+  async deleteTestimonial(id: string, reason = ''): Promise<ApprovalRequest | { deleted: true }> {
+    const res = await apiFetch<ApiResponse<ApprovalRequest | { deleted: true }>>(
+      `/admin/testimonials/${encodeURIComponent(id)}`,
+      {
+        method: 'DELETE',
+        body: JSON.stringify({ reason }),
+      }
+    );
+    return unwrapData<ApprovalRequest | { deleted: true }>(res, 'Invalid delete request payload');
   },
 
   approveTestimonial(id: string) {
     return apiFetch(`/admin/testimonials/${encodeURIComponent(id)}/approve`, {
       method: 'PATCH',
+    });
+  },
+
+  approveTestimonialDelete(id: string) {
+    return apiFetch(`/admin/testimonials/${encodeURIComponent(id)}/delete/approve`, {
+      method: 'POST',
     });
   },
 

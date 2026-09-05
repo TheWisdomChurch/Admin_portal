@@ -43,6 +43,7 @@ type TimelinePoint = { day: string; created: number; approved: number };
 
 const typeLabels: Record<string, string> = {
   testimonial: 'Testimonial',
+  testimonial_delete: 'Testimonial Removal',
   event: 'Event',
   event_delete: 'Event Delete',
   admin_user: 'Admin Access',
@@ -55,6 +56,7 @@ const typeLabels: Record<string, string> = {
 
 const typeDescriptions: Record<string, string> = {
   testimonial: 'Publish or remove testimony requests.',
+  testimonial_delete: 'Authorize taking a published testimony off the site.',
   event: 'Approve public event visibility.',
   event_delete: 'Authorize taking a live event off the site.',
   admin_user: 'Approve or reject admin account access.',
@@ -94,6 +96,7 @@ function openPathForRequest(request: ApprovalRequest): string {
     case 'admin_user':
       return id ? `/dashboard/super/requests?admin=${encodeURIComponent(id)}` : '/dashboard/super/requests';
     case 'testimonial':
+    case 'testimonial_delete':
       return '/dashboard/testimonials';
     case 'event':
     case 'event_delete':
@@ -401,7 +404,7 @@ function RequestsPage() {
               <Filter className="h-4 w-4" />
               <span className="ml-2">All</span>
             </Button>
-            {['admin_user', 'event', 'testimonial', 'leadership_delete', 'workforce_delete', 'workforce_registration', 'form_submission_delete'].map((type) => (
+            {['admin_user', 'event', 'testimonial', 'testimonial_delete', 'leadership_delete', 'workforce_delete', 'workforce_registration', 'form_submission_delete'].map((type) => (
               <Button
                 key={type}
                 type="button"

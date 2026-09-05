@@ -1466,7 +1466,7 @@ export interface AdminNotificationInbox {
    APPROVAL REQUESTS
 ========================= */
 
-export type ApprovalRequestType = 'testimonial' | 'event' | 'event_delete' | 'admin_user' | 'leadership_delete' | 'workforce_delete' | 'workforce_registration';
+export type ApprovalRequestType = 'testimonial' | 'testimonial_delete' | 'event' | 'event_delete' | 'admin_user' | 'leadership_delete' | 'workforce_delete' | 'workforce_registration';
 export type ApprovalRequestStatus = 'pending' | 'approved' | 'rejected' | 'deleted';
 
 export interface ApprovalRequest {
