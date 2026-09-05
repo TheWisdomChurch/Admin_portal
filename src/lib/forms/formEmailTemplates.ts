@@ -1,13 +1,12 @@
 export const MAX_EMAIL_IMAGE_MB = 5;
 export const MAX_EMAIL_IMAGE_BYTES = MAX_EMAIL_IMAGE_MB * 1024 * 1024;
 export const ACCEPTED_EMAIL_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-// Defaults mirror internal/email/theme.go's colorAccent — the single brass
-// accent used across every other rebuilt email in this system. A form can
-// still override accentColor/surfaceColor per-event; this is just the
-// starting point so an untouched form gets the current design, not the old
-// amber one.
-export const DEFAULT_EMAIL_ACCENT_COLOR = '#8a6d2f';
-export const DEFAULT_EMAIL_SURFACE_COLOR = '#f7f5f0';
+// Defaults mirror internal/email/theme.go's colorAccent/colorAccentSurface —
+// the shared warm-amber accent used across every other email in this system.
+// A form can still override accentColor/surfaceColor per-event; this is just
+// the starting point so an untouched form gets the current design.
+export const DEFAULT_EMAIL_ACCENT_COLOR = '#92400e';
+export const DEFAULT_EMAIL_SURFACE_COLOR = '#fffbeb';
 // The backend uses this marker to recognize HTML that already owns the
 // canonical Wisdom Church shell. Without it, a complete admin-built email is
 // wrapped in a second header/card/footer before delivery.
@@ -16,13 +15,17 @@ export const CANONICAL_EMAIL_FRAME_CLASS = 'wc-frame';
 // Design tokens shared with the header/card chrome below — mirrors
 // internal/email/theme.go on the backend and the email-marketing compose
 // page's EMAIL_COLOR_* constants. Keep all three in sync.
-const INK = '#0e1420';
+const INK = '#111827';
 const PAPER = '#ffffff';
-const GROUND = '#eef0f3';
-const LINE = '#dadfe6';
-const MUTED = '#5b6472';
-const FAINT = '#8a93a3';
-const BODY_COLOR = '#3a414d';
+const GROUND = '#f9fafb';
+const LINE = '#e5e7eb';
+const MUTED = '#6b7280';
+const FAINT = '#9ca3af';
+const BODY_COLOR = '#374151';
+// Fixed card border/callout tone — mirrors theme.go's colorAccentBorder,
+// which (like this) isn't customizable per event; only accentColor/
+// surfaceColor are.
+const ACCENT_BORDER = '#fde68a';
 const FONT_STACK = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
 
 const META_PREFIX = '<!--WH_FORM_TEMPLATE_META:';
@@ -404,7 +407,7 @@ function plainTextToHtmlParagraphs(value: string) {
     .join('');
 }
 
-function styleRichEmailMarkup(markup: string, accentColor: string) {
+function styleRichEmailMarkup(markup: string, accentColor: string, surfaceColor: string) {
   let styled = stripTemplateMeta(markup || '').trim();
   if (!styled) return '';
 
@@ -442,7 +445,10 @@ function styleRichEmailMarkup(markup: string, accentColor: string) {
   styled = applyInlineStyle(
     styled,
     'blockquote',
-    `margin:20px 0;padding:16px 20px;border-left:3px solid ${accentColor};background:${GROUND};font-size:16px;line-height:1.7;color:${BODY_COLOR};font-family:Georgia,'Times New Roman',serif;`
+    // Matches internal/email/theme.go's renderQuoteBlock: a soft-filled,
+    // bordered, rounded callout rather than a left-rule — the same "amber
+    // box" treatment used for anything meant to stand out.
+    `margin:20px 0;padding:16px;border:1px solid ${accentColor};border-radius:12px;background:${surfaceColor};font-size:16px;line-height:1.7;color:${BODY_COLOR};font-family:Georgia,'Times New Roman',serif;`
   );
   styled = applyInlineStyle(styled, 'strong', `color:${INK};font-weight:800;`);
   styled = applyInlineStyle(styled, 'em', `color:${MUTED};font-style:italic;`);
@@ -555,7 +561,7 @@ export function buildFormEmailHTML(opts: {
   const resourceLinks = prepareResourceLinks(opts.resourceLinks);
   const socialLinks = prepareSocialLinks(opts.socialLinks);
   const formattedMessageHtml = opts.messageHtml?.trim()
-    ? styleRichEmailMarkup(opts.messageHtml, accentColor)
+    ? styleRichEmailMarkup(opts.messageHtml, accentColor, surfaceColor)
     : plainTextToHtmlParagraphs(opts.message || 'Thank you for registering.');
   const messageBlock = formattedMessageHtml || plainTextToHtmlParagraphs(opts.message || 'Thank you for registering.');
 
@@ -584,7 +590,7 @@ export function buildFormEmailHTML(opts: {
   // configured surfaceColor (subtle, not a bold fill) so that control still
   // does something now that the old filled-panel look is gone.
   const highlightBox = (label: string, innerHTML: string) => `
-    <div style="margin:0 0 24px 0;border:1px solid ${LINE};background:${surfaceColor};padding:18px 20px;">
+    <div style="margin:0 0 24px 0;border:1px solid ${ACCENT_BORDER};border-radius:12px;background:${surfaceColor};padding:18px 20px;">
       <p style="margin:0 0 14px 0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:${accentColor};font-weight:700;">${label}</p>
       ${innerHTML}
     </div>`;
@@ -597,7 +603,7 @@ export function buildFormEmailHTML(opts: {
       ${safePreheader || safeHeading}
     </div>
     <table width="100%" cellpadding="0" cellspacing="0" style="background:${GROUND};"><tr><td align="center" style="padding:40px 16px;">
-      <table class="${CANONICAL_EMAIL_FRAME_CLASS}" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:680px;background:${PAPER};border:1px solid ${LINE};border-radius:20px;overflow:hidden;">
+      <table class="${CANONICAL_EMAIL_FRAME_CLASS}" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;background:${PAPER};border:1px solid ${ACCENT_BORDER};border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(17,24,39,0.06);">
         <tr><td style="height:3px;line-height:3px;font-size:0;background:${accentColor};">&nbsp;</td></tr>
         <tr><td style="padding:36px 40px 28px;">${brandHeader}</td></tr>
         <tr><td style="padding:0 40px;"><div style="border-top:1px solid ${LINE};"></div></td></tr>
@@ -642,18 +648,18 @@ export function buildFormEmailHTML(opts: {
             </tr></table>` : ''}
             ${includeRegistrationCode ? `
             {{if .RegistrationCode}}
-            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;"><tr><td style="border:1px solid ${LINE};padding:16px 20px;">
-              <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${FAINT};margin-bottom:6px;">Registration Number</div>
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;"><tr><td style="border:1px solid ${ACCENT_BORDER};border-radius:12px;background:${surfaceColor};padding:16px 20px;">
+              <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${accentColor};margin-bottom:6px;">Registration Number</div>
               <div style="font-size:22px;font-weight:700;letter-spacing:.06em;color:${INK};">{{.RegistrationCode}}</div>
             </td></tr></table>
             {{end}}` : ''}
             ${includeCalendarOptIn ? `
             ${safeCalendarUrl ? '' : '{{if .CalendarOptInURL}}'}
-            <div style="margin:0 0 24px;border:1px solid ${LINE};padding:20px;">
+            <div style="margin:0 0 24px;border:1px solid ${ACCENT_BORDER};border-radius:12px;background:${surfaceColor};padding:20px;">
               <p style="margin:0 0 8px 0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:${accentColor};font-weight:700;">Save the date</p>
               <p style="margin:0 0 16px 0;font-size:15px;line-height:1.7;color:${BODY_COLOR};">Open your calendar now and lock this event into your schedule before the email gets buried.</p>
               <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-                <td style="border:1px solid ${LINE};"><a href="${safeCalendarUrl || '{{.CalendarOptInURL}}'}" style="display:block;padding:13px 24px;font-size:14px;font-weight:600;color:${INK};text-decoration:none;">${safeCalendarLabel}</a></td>
+                <td style="border:1px solid ${INK};"><a href="${safeCalendarUrl || '{{.CalendarOptInURL}}'}" style="display:block;padding:13px 24px;font-size:14px;font-weight:600;color:${INK};text-decoration:none;">${safeCalendarLabel}</a></td>
               </tr></table>
             </div>
             ${safeCalendarUrl ? '' : '{{end}}'}` : ''}

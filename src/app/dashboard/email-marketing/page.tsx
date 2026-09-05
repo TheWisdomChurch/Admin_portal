@@ -49,14 +49,21 @@ import { ScheduleCampaignModal } from './ScheduleCampaignModal';
 // Design tokens mirror internal/email/theme.go on the backend (the single
 // source of truth for what a Wisdom Church email looks like). Keep these in
 // sync if that palette ever changes.
-const EMAIL_COLOR_INK = '#0E1420';
+const EMAIL_COLOR_INK = '#111827';
 const EMAIL_COLOR_PAPER = '#FFFFFF';
-const EMAIL_COLOR_GROUND = '#EEF0F3';
-const EMAIL_COLOR_ACCENT = '#8A6D2F';
-const EMAIL_COLOR_LINE = '#DADFE6';
-const EMAIL_COLOR_MUTED = '#5B6472';
-const EMAIL_COLOR_FAINT = '#8A93A3';
-const EMAIL_COLOR_BODY = '#3A414D';
+const EMAIL_COLOR_GROUND = '#F9FAFB';
+const EMAIL_COLOR_ACCENT = '#92400E';
+// Bright amber for text on a dark (EMAIL_COLOR_INK) background — the plain
+// accent above is too dark on dark to read well there.
+const EMAIL_COLOR_ACCENT_BRIGHT = '#FBBF24';
+// The amber "callout" pair — a soft fill + a slightly deeper border — for
+// any box meant to stand out (scripture quote, registration/code boxes).
+const EMAIL_COLOR_ACCENT_SURFACE = '#FFFBEB';
+const EMAIL_COLOR_ACCENT_BORDER = '#FDE68A';
+const EMAIL_COLOR_LINE = '#E5E7EB';
+const EMAIL_COLOR_MUTED = '#6B7280';
+const EMAIL_COLOR_FAINT = '#9CA3AF';
+const EMAIL_COLOR_BODY = '#374151';
 const EMAIL_FONT_STACK = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
 // Email clients need a public, absolute image URL. Keep this on the admin
 // origin, where the asset is deployed with this application, instead of
@@ -85,8 +92,8 @@ const EMAIL_FOOTER = `<tr><td style="padding:0 48px;"><div style="border-top:1px
 
 function buildEmailHTML(heading: string, bodyHTML: string): string {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_COLOR_GROUND};"><tr><td align="center" style="padding:32px 20px;">
-<table class="${CANONICAL_EMAIL_FRAME_CLASS}" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:680px;background:${EMAIL_COLOR_PAPER};border:1px solid ${EMAIL_COLOR_LINE};border-radius:20px;overflow:hidden;font-family:${EMAIL_FONT_STACK};">
-<tr><td style="height:3px;line-height:3px;font-size:0;background:${EMAIL_COLOR_ACCENT};">&nbsp;</td></tr>
+<table class="${CANONICAL_EMAIL_FRAME_CLASS}" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;background:${EMAIL_COLOR_PAPER};border:1px solid ${EMAIL_COLOR_ACCENT_BORDER};border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(17,24,39,0.06);font-family:${EMAIL_FONT_STACK};">
+<tr><td style="height:3px;line-height:3px;font-size:0;background:${EMAIL_COLOR_ACCENT_BRIGHT};">&nbsp;</td></tr>
 <tr><td style="padding:38px 48px 30px;">${EMAIL_BRAND_HEADER}</td></tr>
 <tr><td style="padding:0 48px;"><div style="border-top:1px solid ${EMAIL_COLOR_LINE};"></div></td></tr>
 <tr><td style="padding:38px 48px 44px;font-family:${EMAIL_FONT_STACK};color:${EMAIL_COLOR_BODY};font-size:15px;line-height:1.7;">
@@ -163,8 +170,8 @@ const TEMPLATE_PRESETS = [
     label: 'Service Invite',
     subject: 'An Invitation for This Sunday',
     html: `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_COLOR_GROUND};"><tr><td align="center" style="padding:40px 16px;">
-<table class="${CANONICAL_EMAIL_FRAME_CLASS}" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:680px;background:${EMAIL_COLOR_PAPER};border:1px solid ${EMAIL_COLOR_LINE};border-radius:20px;overflow:hidden;font-family:${EMAIL_FONT_STACK};">
-<tr><td style="height:3px;line-height:3px;font-size:0;background:${EMAIL_COLOR_ACCENT};">&nbsp;</td></tr>
+<table class="${CANONICAL_EMAIL_FRAME_CLASS}" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;background:${EMAIL_COLOR_PAPER};border:1px solid ${EMAIL_COLOR_ACCENT_BORDER};border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(17,24,39,0.06);font-family:${EMAIL_FONT_STACK};">
+<tr><td style="height:3px;line-height:3px;font-size:0;background:${EMAIL_COLOR_ACCENT_BRIGHT};">&nbsp;</td></tr>
 <tr><td style="padding:36px 40px 28px;">${EMAIL_BRAND_HEADER}</td></tr>
 <tr><td style="padding:0 40px;"><div style="border-top:1px solid ${EMAIL_COLOR_LINE};"></div></td></tr>
 
@@ -178,7 +185,7 @@ const TEMPLATE_PRESETS = [
 
 <!-- Scripture pull quote -->
 <tr><td style="padding:22px 40px 0;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7F5EF;border-left:3px solid ${EMAIL_COLOR_ACCENT};"><tr><td style="padding:18px 22px;font-family:${EMAIL_FONT_STACK};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_COLOR_ACCENT_SURFACE};border:1px solid ${EMAIL_COLOR_ACCENT_BORDER};border-radius:12px;"><tr><td style="padding:18px 22px;font-family:${EMAIL_FONT_STACK};">
 <p style="margin:0;font-size:14.5px;font-style:italic;line-height:1.6;color:${EMAIL_COLOR_INK};">&ldquo;Scripture reference here.&rdquo;<br /><span style="font-style:normal;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:${EMAIL_COLOR_ACCENT};">Book Chapter:Verse</span></p>
 </td></tr></table>
 </td></tr>
@@ -226,7 +233,7 @@ const TEMPLATE_PRESETS = [
 <tr><td style="padding:24px 40px 0;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${EMAIL_COLOR_INK};border-radius:8px;">
 <tr><td style="padding:24px 26px;">
-<p style="margin:0 0 14px;font-family:${EMAIL_FONT_STACK};font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#C9A24A;">Join us</p>
+<p style="margin:0 0 14px;font-family:${EMAIL_FONT_STACK};font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${EMAIL_COLOR_ACCENT_BRIGHT};">Join us</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
 <td valign="top" style="padding-bottom:12px;font-family:${EMAIL_FONT_STACK};">
 <p style="margin:0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:${EMAIL_COLOR_FAINT};">Time</p>
