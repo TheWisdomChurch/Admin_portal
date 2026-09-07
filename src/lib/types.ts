@@ -1391,7 +1391,13 @@ export interface WorkforceStatsResponse {
    LEADERSHIP
 ========================= */
 
-export type LeadershipRole = 'senior_pastor' | 'associate_pastor' | 'deacon' | 'deaconess' | 'reverend';
+/**
+ * Leadership role is free text entered by the applicant. The literals below are
+ * the canonical slugs for the founding pastors / board (used for nicer labels
+ * and public-directory grouping); any other string is valid too.
+ */
+export type LeadershipRoleSlug = 'senior_pastor' | 'associate_pastor' | 'deacon' | 'deaconess' | 'reverend';
+export type LeadershipRole = LeadershipRoleSlug | (string & {});
 
 export type LeadershipStatus = 'pending' | 'awaiting_super_admin_approval' | 'approved' | 'declined';
 

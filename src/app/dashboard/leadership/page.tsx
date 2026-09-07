@@ -51,7 +51,7 @@ import { buildPublicFormUrl } from '@/lib/utils';
 import { useTheme } from '@/providers/ThemeProviders';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { withAuth } from '@/providers/withAuth';
-import type { AdminForm, LeadershipMember, LeadershipRole, LeadershipStatus, UpdateLeadershipRequest } from '@/lib/types';
+import type { AdminForm, LeadershipMember, LeadershipRole, LeadershipRoleSlug, LeadershipStatus, UpdateLeadershipRequest } from '@/lib/types';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
@@ -72,13 +72,19 @@ function isLeadershipForm(form: AdminForm): boolean {
   );
 }
 
-const roleLabels: Record<LeadershipRole, string> = {
+const roleLabels: Record<LeadershipRoleSlug, string> = {
   senior_pastor: 'Senior Pastor',
   associate_pastor: 'Associate Pastor',
   deacon: 'Deacon',
   deaconess: 'Deaconess',
   reverend: 'Reverend',
 };
+
+/** Roles are free text now — show a friendly label for the canonical slugs,
+ *  otherwise the exact value the applicant entered. */
+function formatRole(role: string): string {
+  return roleLabels[role as LeadershipRoleSlug] ?? role;
+}
 
 const statusLabels: Record<LeadershipStatus, string> = {
   pending: 'Pending',
@@ -206,13 +212,13 @@ function LeadershipPage() {
       if (roleFilter !== 'all' && item.role !== roleFilter) return false;
       if (statusFilter !== 'all' && item.status !== statusFilter) return false;
       if (!needle) return true;
-      return `${leaderName(item)} ${item.email || ''} ${item.phone || ''} ${roleLabels[item.role] || item.role} ${statusLabels[item.status] || item.status}`.toLowerCase().includes(needle);
+      return `${leaderName(item)} ${item.email || ''} ${item.phone || ''} ${formatRole(item.role)} ${statusLabels[item.status] || item.status}`.toLowerCase().includes(needle);
     });
   }, [leaders, query, roleFilter, statusFilter]);
 
   const roleKeys = Object.keys(byRole) as LeadershipRole[];
   const roleChart = useMemo(() => ({
-    labels: roleKeys.map((role) => roleLabels[role] || role),
+    labels: roleKeys.map((role) => formatRole(role)),
     datasets: [{ label: 'Leaders', data: roleKeys.map((role) => byRole[role]), backgroundColor: chartPalette.series.brand.line, borderRadius: 12 }],
   }), [roleKeys, byRole, chartPalette]);
 
@@ -386,7 +392,7 @@ function LeadershipPage() {
             <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search leadership..." className="pl-10" /></div>
             <Select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as RoleFilter)}>
               <option value="all">All roles</option>
-              {(Object.keys(roleLabels) as LeadershipRole[]).map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}
+              {roleKeys.slice().sort((a, b) => formatRole(a).localeCompare(formatRole(b))).map((role) => <option key={role} value={role}>{formatRole(role)}</option>)}
             </Select>
             <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}>
               <option value="all">All statuses</option>
@@ -433,7 +439,7 @@ function LeadershipPage() {
                       <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
                         <div>
                           <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Role</dt>
-                          <dd className="mt-0.5 font-semibold text-[var(--color-text-secondary)]">{roleLabels[item.role] || item.role}</dd>
+                          <dd className="mt-0.5 font-semibold text-[var(--color-text-secondary)]">{formatRole(item.role)}</dd>
                         </div>
                         <div>
                           <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Anniversary</dt>
@@ -449,7 +455,7 @@ function LeadershipPage() {
                         <LeaderAvatar leader={item} />
                         <div className="min-w-0"><div className="truncate text-sm font-bold text-[var(--color-text-primary)]">{leaderName(item)}</div><div className="truncate text-xs font-semibold text-[var(--color-text-tertiary)]">{item.email || item.phone || 'No contact recorded'}</div></div>
                       </button>
-                      <div className="text-sm font-semibold text-[var(--color-text-secondary)]">{roleLabels[item.role] || item.role}</div>
+                      <div className="text-sm font-semibold text-[var(--color-text-secondary)]">{formatRole(item.role)}</div>
                       <div><Badge variant={statusVariant(item.status)}>{statusLabels[item.status] || item.status}</Badge></div>
                       <div className="text-sm font-semibold text-[var(--color-text-secondary)]">{formatDayMonth(item.anniversaryDay, item.anniversaryMonth)}</div>
                       <div className="flex justify-end gap-2">{rowActions}</div>
@@ -516,7 +522,7 @@ function LeadershipPage() {
               <div className="min-w-0">
                 <p className="truncate text-base font-bold text-[var(--color-text-primary)]">{leaderName(deleteTarget)}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-[var(--color-text-tertiary)]">
-                  <span>{roleLabels[deleteTarget.role] || deleteTarget.role}</span>
+                  <span>{formatRole(deleteTarget.role)}</span>
                   {deleteTarget.email ? <span>{deleteTarget.email}</span> : null}
                 </div>
               </div>
@@ -586,7 +592,7 @@ function LeaderProfile({
           <div className="rounded-[2rem] bg-[var(--color-text-primary)] p-5 text-[var(--color-text-inverse)]">
             <div className="flex items-start gap-4">
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-text-inverse)] text-xl font-bold text-[var(--color-text-primary)]">{leader.firstName?.[0] || 'L'}{leader.lastName?.[0] || ''}</div>
-              <div className="min-w-0"><h3 className="text-2xl font-bold tracking-tight">{leaderName(leader)}</h3><p className="mt-1 text-sm font-semibold text-[var(--color-text-inverse)]/60">{roleLabels[leader.role] || leader.role}</p><div className="mt-3"><Badge variant={statusVariant(leader.status)}>{statusLabels[leader.status] || leader.status}</Badge></div></div>
+              <div className="min-w-0"><h3 className="text-2xl font-bold tracking-tight">{leaderName(leader)}</h3><p className="mt-1 text-sm font-semibold text-[var(--color-text-inverse)]/60">{formatRole(leader.role)}</p><div className="mt-3"><Badge variant={statusVariant(leader.status)}>{statusLabels[leader.status] || leader.status}</Badge></div></div>
             </div>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -672,9 +678,7 @@ function LeaderEditModal({
           <Input label="Last name" value={draft.lastName} onChange={(event) => updateDraft({ lastName: event.target.value })} />
           <Input label="Email" value={draft.email} onChange={(event) => updateDraft({ email: event.target.value })} />
           <Input label="Phone" value={draft.phone} onChange={(event) => updateDraft({ phone: event.target.value })} />
-          <Select label="Role" value={draft.role} onChange={(event) => updateDraft({ role: event.target.value as LeadershipRole })}>
-            {(Object.keys(roleLabels) as LeadershipRole[]).map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}
-          </Select>
+          <Input label="Role or title" value={draft.role} onChange={(event) => updateDraft({ role: event.target.value })} placeholder="e.g. Pastor, Deacon, Cell Leader" />
           <Select label="Status" value={draft.status} onChange={(event) => updateDraft({ status: event.target.value as LeadershipStatus })}>
             {(Object.keys(statusLabels) as LeadershipStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
           </Select>

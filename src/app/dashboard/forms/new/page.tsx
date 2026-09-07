@@ -109,17 +109,10 @@ function buildPresetFields(preset: FormPreset): FieldDraft[] {
       { key: 'phone', label: 'Contact Number', type: 'tel', required: true, order: 3 },
       {
         key: 'leadership_role',
-        label: 'Leadership Role',
-        type: 'select',
+        label: 'Leadership role or title (e.g. Pastor, Deacon, Cell Leader)',
+        type: 'text',
         required: true,
         order: 4,
-        options: [
-          { label: 'Pastor', value: 'pastor' },
-          { label: 'Associate Pastor', value: 'associate_pastor' },
-          { label: 'Reverend', value: 'reverend' },
-          { label: 'Deacon', value: 'deacon' },
-          { label: 'Deaconess', value: 'deaconess' },
-        ],
       },
       { key: 'bio', label: 'Short Bio', type: 'textarea', required: false, order: 5, validation: { maxWords: 400 } },
       { key: 'birthday', label: 'Birthday (DD/MM/YYYY)', type: 'text', required: false, order: 6 },
@@ -435,8 +428,8 @@ export default withAuth(function NewFormPage() {
       setSubmissionDepartment('');
       setIntroTitle('Leadership Application');
       setIntroSubtitle('Provide accurate details for leadership review.');
-      setIntroBullets('Share valid contact details\nChoose the role you are applying for\nSubmissions are reviewed before display');
-      setIntroBulletSubs('Used for direct follow-up\nHelps routing to the right team\nOnly approved profiles appear publicly');
+      setIntroBullets('Share valid contact details\nTell us the role or title you serve in\nSubmissions are reviewed before display');
+      setIntroBulletSubs('Used for direct follow-up\nShown exactly as you write it\nOnly approved profiles appear publicly');
       setFields(normalizeOrderedFields(buildPresetFields('leadership')));
       return;
     }
