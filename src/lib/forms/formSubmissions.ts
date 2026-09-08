@@ -1,6 +1,7 @@
 import { apiClient } from '../api';
 import type { FormField, FormReportLinkPayload, FormSubmission } from '../types';
 import { normalizeEmail, validateEmail } from '../utils';
+import type { FieldInsight, FormAnalytics } from './formAnalytics';
 
 export type FormSubmissionFilters = {
   query?: string;
@@ -18,7 +19,10 @@ export type FormCampaignRecipient = {
 
 type SubmissionValues = FormSubmission['values'];
 type SubmissionIdentitySource = Pick<FormSubmission, 'name' | 'email' | 'values'>;
-type ExportFormField = Pick<FormField, 'key' | 'label' | 'order' | 'type'>;
+export type ExportFormField = Pick<
+  FormField,
+  'key' | 'label' | 'order' | 'type' | 'required' | 'options' | 'validation'
+>;
 
 const APP_BASE_URL = (
   process.env.NEXT_PUBLIC_PUBLIC_URL ?? process.env.NEXT_PUBLIC_FRONTEND_URL ?? ''
@@ -176,7 +180,7 @@ function dataUrlImageFormat(dataUrl: string): 'PNG' | 'JPEG' | null {
   return null;
 }
 
-function serializeSubmissionValue(value: unknown): string {
+export function serializeSubmissionValue(value: unknown): string {
   if (Array.isArray(value)) {
     return value
       .map((item) => serializeSubmissionValue(item))
@@ -269,7 +273,7 @@ function formatFieldLabel(key: string): string {
   return normalized.replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function buildFieldLabelMap(fields?: ExportFormField[]): Map<string, string> {
+export function buildFieldLabelMap(fields?: ExportFormField[]): Map<string, string> {
   const labelMap = new Map<string, string>();
 
   (fields || [])
@@ -285,11 +289,11 @@ function buildFieldLabelMap(fields?: ExportFormField[]): Map<string, string> {
   return labelMap;
 }
 
-function resolveExportFieldLabel(key: string, labelMap: Map<string, string>): string {
+export function resolveExportFieldLabel(key: string, labelMap: Map<string, string>): string {
   return labelMap.get(key) || formatFieldLabel(key);
 }
 
-function buildOrderedValueKeys(
+export function buildOrderedValueKeys(
   submissions: FormSubmission[],
   fields?: ExportFormField[]
 ): string[] {
@@ -341,7 +345,7 @@ function buildSubmissionResponseEntries(
   return entries;
 }
 
-function formatDateTime(value?: string): string {
+export function formatDateTime(value?: string): string {
   if (!value) return 'Not available';
 
   const date = new Date(value);
@@ -369,7 +373,7 @@ function formatDateOnly(value?: string): string {
   }).format(date);
 }
 
-function sortFormSubmissionsByCreatedAt(submissions: FormSubmission[]): FormSubmission[] {
+export function sortFormSubmissionsByCreatedAt(submissions: FormSubmission[]): FormSubmission[] {
   return submissions.slice().sort((left, right) => {
     const leftTime = new Date(left.createdAt).getTime();
     const rightTime = new Date(right.createdAt).getTime();
@@ -684,6 +688,250 @@ export async function fetchAllFormSubmissions(formId: string): Promise<FormSubmi
 
   return collected;
 }
+
+/* ============================================================================
+   Excel workbook — Summary + Submissions + Field breakdown, all in one .xlsx.
+============================================================================ */
+
+function humanTrend(analytics: FormAnalytics): string {
+  if (analytics.trend7 === null) return `${analytics.last7} in the last 7 days`;
+  const arrow = analytics.trend7 > 0 ? '▲' : analytics.trend7 < 0 ? '▼' : '■';
+  return `${analytics.last7} in the last 7 days (${arrow} ${Math.abs(analytics.trend7)}% vs previous 7)`;
+}
+
+function fieldBreakdownRows(field: FieldInsight): Array<[string, number, string]> {
+  if (field.ageGroups) {
+    return field.ageGroups.map((g) => [g.bucket, g.count, `${g.percent}%`]);
+  }
+  if (field.options) {
+    return field.options.map((o) => [o.label, o.count, `${o.percent}%`]);
+  }
+  if (field.numeric) {
+    return [
+      ['Minimum', field.numeric.min, ''],
+      ['Maximum', field.numeric.max, ''],
+      ['Average', field.numeric.mean, ''],
+      ['Median', field.numeric.median, ''],
+    ];
+  }
+  return [];
+}
+
+export async function exportFormSubmissionsXlsx(
+  submissions: FormSubmission[],
+  form: { title?: string; fields?: ExportFormField[] } | undefined,
+  analytics: FormAnalytics,
+  fileLabel?: string
+): Promise<void> {
+  const ExcelJS = (await import('exceljs')).default;
+  const fields = form?.fields;
+  const ordered = sortFormSubmissionsByCreatedAt(submissions);
+  const valueKeys = buildOrderedValueKeys(ordered, fields);
+  const labelMap = buildFieldLabelMap(fields);
+  const title = form?.title?.trim() || 'Form';
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'The Wisdom Church';
+  wb.created = new Date();
+
+  // ── Sheet 1: Summary ──────────────────────────────────────────────────
+  const summary = wb.addWorksheet('Summary');
+  summary.columns = [{ width: 34 }, { width: 60 }];
+  const addRow = (k: string, v: string | number) => {
+    const row = summary.addRow([k, v]);
+    row.getCell(1).font = { bold: true };
+  };
+  summary.addRow([title]).getCell(1).font = { bold: true, size: 14 };
+  summary.addRow([`Report generated ${formatDateTime(new Date().toISOString())}`]);
+  summary.addRow([]);
+  addRow('Total submissions', analytics.total);
+  addRow('First submission', analytics.firstAt ? formatDateTime(analytics.firstAt) : '—');
+  addRow('Latest submission', analytics.lastAt ? formatDateTime(analytics.lastAt) : '—');
+  addRow('Recent activity', humanTrend(analytics));
+  addRow('Last 30 days', `${analytics.last30} (was ${analytics.prev30} the prior 30)`);
+  addRow('Busiest day', analytics.busiestDay ? `${analytics.busiestDay.date} (${analytics.busiestDay.count})` : '—');
+  addRow('Most common weekday', analytics.busiestWeekday ?? '—');
+  addRow('Avg. questions answered', `${analytics.avgFieldsCompleted} of ${(fields || []).filter((f) => !f.key.startsWith('_')).length}`);
+  addRow('Completion rate (required)', `${Math.round(analytics.completionRate * 100)}%`);
+  summary.addRow([]);
+  summary.addRow(['Things to work on']).getCell(1).font = { bold: true, size: 12 };
+  analytics.recommendations.forEach((rec) => {
+    const row = summary.addRow([rec.severity.toUpperCase(), `${rec.title} — ${rec.detail}`]);
+    row.getCell(1).font = { bold: true };
+    row.getCell(2).alignment = { wrapText: true };
+  });
+
+  // ── Sheet 2: Submissions ──────────────────────────────────────────────
+  const sheet = wb.addWorksheet('Submissions', {
+    views: [{ state: 'frozen', ySplit: 1 }],
+  });
+  const header = [
+    'Name',
+    'Email',
+    'Phone',
+    'Registration code',
+    'Submitted',
+    ...valueKeys.map((k) => resolveExportFieldLabel(k, labelMap)),
+  ];
+  sheet.addRow(header);
+  sheet.getRow(1).font = { bold: true };
+  ordered.forEach((s) => {
+    sheet.addRow([
+      resolveFormSubmissionName(s, ''),
+      resolveFormSubmissionEmail(s),
+      s.contactNumber || '',
+      s.registrationCode || '',
+      s.createdAt ? new Date(s.createdAt).toLocaleString() : '',
+      ...valueKeys.map((k) => {
+        const raw = s.values?.[k];
+        return resolveSubmissionMediaUrl(raw) ?? serializeSubmissionValue(raw);
+      }),
+    ]);
+  });
+  sheet.columns.forEach((col) => {
+    let max = 10;
+    col.eachCell?.({ includeEmpty: false }, (cell) => {
+      max = Math.min(60, Math.max(max, String(cell.value ?? '').length + 2));
+    });
+    col.width = max;
+  });
+  if (sheet.rowCount > 1) {
+    sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: header.length } };
+  }
+
+  // ── Sheet 3: Field breakdown ──────────────────────────────────────────
+  const breakdown = wb.addWorksheet('Field breakdown');
+  breakdown.columns = [{ width: 40 }, { width: 12 }, { width: 12 }];
+  analytics.fields
+    .filter((f) => f.ageGroups || f.options || f.numeric)
+    .forEach((f) => {
+      breakdown.addRow([f.label]).getCell(1).font = { bold: true, size: 12 };
+      breakdown.addRow(['Answered', f.responded, `${Math.round(f.responseRate * 100)}%`]);
+      if (f.meanAgeYears !== undefined) {
+        breakdown.addRow(['Average age', f.meanAgeYears, 'years']);
+      }
+      const head = breakdown.addRow(['Option', 'Count', 'Share']);
+      head.font = { bold: true };
+      fieldBreakdownRows(f).forEach((r) => breakdown.addRow(r));
+      breakdown.addRow([]);
+    });
+
+  const buffer = await wb.xlsx.writeBuffer();
+  downloadBlob(
+    new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    }),
+    `${buildFilename('form-report', fileLabel || title)}.xlsx`
+  );
+}
+
+/* ============================================================================
+   Report PDF — the analysis (KPIs, per-question breakdowns drawn as bars, and
+   the recommendations), not a per-submission dump.
+============================================================================ */
+
+export async function exportFormReportPdf(
+  analytics: FormAnalytics,
+  form: { title?: string } | undefined,
+  fileLabel?: string
+): Promise<void> {
+  const { jsPDF } = await import('jspdf');
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const title = form?.title?.trim() || 'Form report';
+  const margin = 44;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const maxWidth = pageWidth - margin * 2;
+  let y = margin;
+
+  const ensure = (h: number) => {
+    if (y + h > pageHeight - margin) {
+      doc.addPage();
+      y = margin;
+    }
+  };
+  const text = (
+    value: string,
+    opts?: { size?: number; style?: 'normal' | 'bold'; color?: [number, number, number]; gap?: number }
+  ) => {
+    const { size = 11, style = 'normal', color = [31, 41, 55], gap = 6 } = opts || {};
+    const lines = doc.splitTextToSize(value, maxWidth);
+    ensure(lines.length * size * 1.4 + gap);
+    doc.setFont('helvetica', style);
+    doc.setFontSize(size);
+    doc.setTextColor(...color);
+    doc.text(lines, margin, y);
+    y += lines.length * size * 1.4 + gap;
+  };
+  const bar = (label: string, count: number, percent: number, of: number) => {
+    ensure(26);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(31, 41, 55);
+    doc.text(doc.splitTextToSize(label, maxWidth - 90)[0], margin, y);
+    const trackX = margin;
+    const trackY = y + 4;
+    const trackW = maxWidth;
+    doc.setFillColor(226, 232, 240);
+    doc.rect(trackX, trackY, trackW, 6, 'F');
+    doc.setFillColor(245, 158, 11);
+    doc.rect(trackX, trackY, Math.max(1, (trackW * Math.min(100, (count / (of || 1)) * 100)) / 100), 6, 'F');
+    doc.setTextColor(100, 116, 139);
+    doc.text(`${count}  ·  ${percent}%`, pageWidth - margin, y, { align: 'right' });
+    y += 20;
+  };
+
+  text(title, { size: 18, style: 'bold', color: [15, 23, 42], gap: 4 });
+  text(`Report generated ${formatDateTime(new Date().toISOString())}`, {
+    size: 9.5,
+    color: [100, 116, 139],
+    gap: 14,
+  });
+
+  text('Overview', { size: 13, style: 'bold', color: [15, 23, 42] });
+  const kpis: Array<[string, string]> = [
+    ['Total submissions', String(analytics.total)],
+    ['Last 7 days', analytics.trend7 === null ? String(analytics.last7) : `${analytics.last7}  (${analytics.trend7 > 0 ? '+' : ''}${analytics.trend7}% vs prev 7)`],
+    ['Last 30 days', `${analytics.last30}  (was ${analytics.prev30})`],
+    ['Latest submission', analytics.lastAt ? formatDateTime(analytics.lastAt) : '—'],
+    ['Busiest weekday', analytics.busiestWeekday ?? '—'],
+    ['Completion rate', `${Math.round(analytics.completionRate * 100)}%`],
+    ['Avg. questions answered', String(analytics.avgFieldsCompleted)],
+  ];
+  kpis.forEach(([k, v]) => text(`${k}:  ${v}`, { size: 10, gap: 3 }));
+  y += 10;
+
+  const breakdowns = analytics.fields.filter((f) => f.ageGroups || f.options || f.numeric);
+  if (breakdowns.length > 0) {
+    text('Question breakdown', { size: 13, style: 'bold', color: [15, 23, 42] });
+    breakdowns.forEach((f) => {
+      text(`${f.label}   —   ${f.responded} answered (${Math.round(f.responseRate * 100)}%)${f.meanAgeYears !== undefined ? `,  avg age ${f.meanAgeYears}` : ''}`, {
+        size: 10.5,
+        style: 'bold',
+        gap: 6,
+      });
+      if (f.ageGroups) {
+        f.ageGroups.forEach((g) => bar(g.bucket, g.count, g.percent, f.responded));
+      } else if (f.options) {
+        f.options.forEach((o) => bar(o.label, o.count, o.percent, f.responded));
+      } else if (f.numeric) {
+        text(`min ${f.numeric.min}  ·  max ${f.numeric.max}  ·  avg ${f.numeric.mean}  ·  median ${f.numeric.median}`, { size: 10, gap: 4 });
+      }
+      y += 6;
+    });
+  }
+
+  text('Data quality & recommendations', { size: 13, style: 'bold', color: [15, 23, 42] });
+  analytics.recommendations.forEach((rec) => {
+    const color: [number, number, number] =
+      rec.severity === 'warn' ? [180, 83, 9] : rec.severity === 'critical' ? [185, 28, 28] : [55, 65, 81];
+    text(`•  ${rec.title}`, { size: 10.5, style: 'bold', color, gap: 2 });
+    text(rec.detail, { size: 9.5, color: [71, 85, 105], gap: 8 });
+  });
+
+  doc.save(`${buildFilename('form-report', fileLabel || title)}.pdf`);
+}
+
 
 export function exportFormSubmissionsCsv(
   submissions: FormSubmission[],

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Copy, Download, Send, ArrowLeft, RefreshCw, Users, CalendarDays, Paperclip, Eye } from 'lucide-react';
+import { Copy, Download, Send, ArrowLeft, RefreshCw, Users, CalendarDays, Paperclip, Eye, BarChart3, FileSpreadsheet } from 'lucide-react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -27,12 +27,14 @@ import {
   copyFormSubmissionsReportLink,
   exportFormSubmissionsCsv,
   exportFormSubmissionsPdf,
+  exportFormSubmissionsXlsx,
   fetchAllFormSubmissions,
   filterFormSubmissions,
   resolveFormSubmissionEmail,
   resolveFormSubmissionName,
   submissionHasMedia,
 } from '@/lib/forms/formSubmissions';
+import { buildFormAnalytics } from '@/lib/forms/formAnalytics';
 import { SubmissionDetailModal } from './SubmissionDetailModal';
 import type { AdminForm, FormSubmission, FormSubmissionDailyStat } from '@/lib/types';
 import { useTheme } from '@/providers/ThemeProviders';
@@ -93,6 +95,7 @@ function SubmissionsPage() {
   const [range, setRange] = useState<RangeOption>(7);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
+  const [exportingXlsx, setExportingXlsx] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState<FormSubmission | null>(null);
 
   const load = useCallback(async () => {
@@ -180,6 +183,20 @@ function SubmissionsPage() {
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Failed to export CSV'); } finally { setExportingCsv(false); }
   }, [form, formId]);
 
+  const handleExportXlsx = useCallback(async () => {
+    if (!formId) return;
+    try {
+      setExportingXlsx(true);
+      const exportForm = form?.id === formId && (form.fields?.length || 0) > 0 ? form : await apiClient.getAdminForm(formId);
+      const allSubmissions = await fetchAllFormSubmissions(formId);
+      const filtered = filterFormSubmissions(allSubmissions);
+      if (filtered.length === 0) { toast.error('No submissions to export'); return; }
+      const analytics = buildFormAnalytics(filtered, exportForm.fields);
+      await exportFormSubmissionsXlsx(filtered, { title: exportForm.title, fields: exportForm.fields }, analytics, exportForm.title || formId);
+      toast.success('Excel workbook downloaded');
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Failed to export Excel'); } finally { setExportingXlsx(false); }
+  }, [form, formId]);
+
   if (loading) {
     return <div className="flex min-h-[300px] items-center justify-center"><RefreshCw className="h-8 w-8 animate-spin text-[var(--color-text-tertiary)]" /></div>;
   }
@@ -189,8 +206,10 @@ function SubmissionsPage() {
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <PageHeader title="Form Submissions" subtitle={form ? form.title : 'Registrations and daily counts'} />
         <div className="flex flex-wrap gap-2">
+          <Button variant="primary" onClick={() => router.push(`/dashboard/forms/${formId}/report`)} icon={<BarChart3 className="h-4 w-4" />}>Full report</Button>
           <Button variant="outline" onClick={handleCopyLink} icon={<Copy className="h-4 w-4" />}>Copy Report Link</Button>
           <Button variant="outline" onClick={() => router.push(`/dashboard/forms/${formId}/campaigns`)} icon={<Send className="h-4 w-4" />}>Ads & Outreach</Button>
+          <Button variant="outline" onClick={handleExportXlsx} loading={exportingXlsx} disabled={exportingXlsx || total === 0} icon={<FileSpreadsheet className="h-4 w-4" />}>Excel</Button>
           <Button variant="outline" onClick={handleExportPdf} loading={exportingPdf} disabled={exportingPdf || total === 0} icon={<Download className="h-4 w-4" />}>PDF</Button>
           <Button variant="outline" onClick={handleExportCsv} loading={exportingCsv} disabled={exportingCsv || total === 0} icon={<Download className="h-4 w-4" />}>CSV</Button>
           <Button variant="outline" onClick={() => router.back()} icon={<ArrowLeft className="h-4 w-4" />}>Back</Button>

@@ -122,21 +122,19 @@ function buildPresetFields(preset: FormPreset): FieldDraft[] {
   }
 
   if (preset === 'children') {
-    // DOB is a text field, not `type: 'date'` — the backend collapses date
-    // fields to day+month and drops the year, which children's ministry needs
-    // for age grouping.
     return [
       { key: 'parent_guardian_name', label: 'Parent or guardian name', type: 'text', required: true, order: 1 },
       { key: 'email', label: 'Parent or guardian email', type: 'email', required: true, order: 2 },
       { key: 'primary_phone', label: 'Primary phone number', type: 'tel', required: true, order: 3 },
       { key: 'child_full_name', label: "Child's full name", type: 'text', required: true, order: 4 },
       {
+        // Full date (with year) so the ministry can group children by age.
         key: 'child_date_of_birth',
-        label: "Child's date of birth (DD/MM/YYYY)",
-        type: 'text',
+        label: "Child's date of birth",
+        type: 'date',
         required: true,
         order: 5,
-        validation: { pattern: '^\\d{2}/\\d{2}/\\d{4}$' },
+        validation: { dateMode: 'full' },
       },
       {
         key: 'child_gender',
@@ -1043,12 +1041,15 @@ function FieldPreview({ field }: { field: FieldDraft }) {
     );
   }
   if (field.type === 'date') {
+    const fullDate = field.validation?.dateMode === 'full';
+    const boxSelect = 'rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-secondary)]';
     return (
       <div className="space-y-1.5">
         <p className="text-sm font-semibold text-[var(--color-text-secondary)]">{field.label}{field.required ? ' *' : ''}</p>
-        <div className="grid grid-cols-2 gap-2">
-          <select disabled className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-secondary)]"><option>Day</option></select>
-          <select disabled className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-secondary)]"><option>Month</option></select>
+        <div className={`grid gap-2 ${fullDate ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          <select disabled className={boxSelect}><option>Day</option></select>
+          <select disabled className={boxSelect}><option>Month</option></select>
+          {fullDate ? <select disabled className={boxSelect}><option>Year</option></select> : null}
         </div>
       </div>
     );

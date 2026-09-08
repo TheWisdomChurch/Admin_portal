@@ -195,9 +195,26 @@ export function FieldEditor({ field, index, allFields, onChange, onRemove }: Fie
       )}
 
       {field.type === 'date' && (
-        <p className="mt-4 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3 text-xs text-[var(--color-text-tertiary)]">
-          Date fields are captured as <span className="font-semibold text-[var(--color-text-secondary)]">day and month</span> — ideal for birthdays and anniversaries. If you need a full date with the year, use a Text field with a <span className="font-mono">DD/MM/YYYY</span> hint in the label.
-        </p>
+        <div className="mt-4 max-w-sm">
+          <Select
+            label="Captured as"
+            value={field.validation?.dateMode ?? 'day-month'}
+            onChange={(event) =>
+              onChange({
+                validation: {
+                  ...(field.validation || {}),
+                  dateMode: event.target.value === 'full' ? 'full' : 'day-month',
+                },
+              })
+            }
+          >
+            <option value="day-month">Day and month (birthdays, anniversaries)</option>
+            <option value="full">Full date with year (e.g. a child&apos;s date of birth)</option>
+          </Select>
+          <p className="mt-1.5 text-xs text-[var(--color-text-tertiary)]">
+            &ldquo;Day and month&rdquo; is stored as DD-MM; &ldquo;Full date&rdquo; keeps the year as DD-MM-YYYY.
+          </p>
+        </div>
       )}
 
       {isOptionFieldType(field.type) && (
