@@ -1,48 +1,22 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { Activity, BarChart3, Calendar, RefreshCcw, Users } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { RefreshCcw, Calendar } from 'lucide-react';
+
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
+import { Panel } from '@/ui/Panel';
 import { withAuth } from '@/providers/withAuth';
-import { apiClient } from '@/lib/api';
-import type { DashboardAnalytics } from '@/lib/types';
-
-function numberValue(value?: number): string {
-  if (typeof value !== 'number' || Number.isNaN(value)) return '—';
-  return value.toLocaleString();
-}
+import { useChurchOverview } from '@/hooks/useChurchOverview';
+import {
+  AttentionPanel,
+  ChurchOverviewKpis,
+  GrowthCharts,
+  ReadinessPanel,
+} from '@/features/analytics/ChurchOverviewSections';
 
 function SuperAnalyticsPage() {
-  const [data, setData] = useState<DashboardAnalytics | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const load = async () => {
-    try {
-      setLoading(true);
-      const res = await apiClient.getAnalytics();
-      setData(res || null);
-    } catch (error) {
-      console.error('Failed to load analytics:', error);
-      toast.error('Failed to load analytics');
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void load();
-  }, []);
-
-  const categories = useMemo(() => {
-    const entries = Object.entries(data?.eventsByCategory || {});
-    return entries.sort((a, b) => b[1] - a[1]);
-  }, [data?.eventsByCategory]);
-
-  const categoryMax = useMemo(() => Math.max(1, ...categories.map(([, count]) => count)), [categories]);
+  const { overview, loading, refreshedAt, refresh } = useChurchOverview();
 
   return (
     <div className="space-y-6">
@@ -52,119 +26,75 @@ function SuperAnalyticsPage() {
             <Badge variant="warning" className="mb-4">Super Admin Intelligence</Badge>
             <h1 className="text-2xl font-bold tracking-tight md:text-4xl">Analytics command center</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-inverse)]/70 md:text-base">
-              Review church-wide performance, approvals impact, event pipeline and growth indicators from one authority view.
+              Church-wide growth, giving, engagement backlogs, volunteer coverage and decision readiness — from one authority view.
             </p>
+            {refreshedAt ? (
+              <p className="mt-3 text-xs text-[var(--color-text-inverse)]/50">
+                Updated {refreshedAt.toLocaleTimeString()}
+                {overview && overview.missing.length > 0
+                  ? ` · partial (couldn't load: ${overview.missing.join(', ')})`
+                  : ''}
+              </p>
+            ) : null}
           </div>
-          <Button type="button" variant="outline" onClick={() => void load()} loading={loading} className="border-[var(--color-text-inverse)]/20 text-[var(--color-text-inverse)] hover:bg-[var(--color-text-inverse)]/10">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void refresh()}
+            loading={loading}
+            className="border-[var(--color-text-inverse)]/20 text-[var(--color-text-inverse)] hover:bg-[var(--color-text-inverse)]/10"
+          >
             <RefreshCcw className="h-4 w-4" />
             <span className="ml-2">Refresh</span>
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="bg-[var(--color-background-secondary)]">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Total events</p>
-              <p className="mt-2 text-3xl font-bold text-[var(--color-text-primary)]">{numberValue(data?.totalEvents)}</p>
-              <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">All events in the catalogue</p>
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-warning-surface)] text-[var(--color-warning-text)]">
-              <Calendar className="h-5 w-5" />
-            </div>
+      {loading && !overview ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Panel key={i}>
+              <div className="h-16 animate-pulse rounded-xl bg-[var(--color-background-tertiary)]" />
+            </Panel>
+          ))}
+        </div>
+      ) : overview ? (
+        <>
+          <ChurchOverviewKpis overview={overview} />
+
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+            <AttentionPanel overview={overview} />
+            <ReadinessPanel overview={overview} />
           </div>
-        </Card>
 
-        <Card className="bg-[var(--color-background-secondary)]">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Upcoming events</p>
-              <p className="mt-2 text-3xl font-bold text-[var(--color-text-primary)]">{numberValue(data?.upcomingEvents)}</p>
-              <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">Scheduled programs still ahead</p>
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-success-surface)] text-[var(--color-success-text)]">
-              <Activity className="h-5 w-5" />
-            </div>
-          </div>
-        </Card>
+          <GrowthCharts overview={overview} />
 
-        <Card className="bg-[var(--color-background-secondary)]">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Total attendees</p>
-              <p className="mt-2 text-3xl font-bold text-[var(--color-text-primary)]">{numberValue(data?.totalAttendees)}</p>
-              <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">Registered attendance signal</p>
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-info-surface)] text-[var(--color-info-text)]">
-              <Users className="h-5 w-5" />
-            </div>
-          </div>
+          {overview.events.hasData ? (
+            <Card title="Events" actions={<Calendar className="h-4 w-4 text-[var(--color-text-tertiary)]" />}>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Total</p>
+                  <p className="mt-1 text-2xl font-bold text-[var(--color-text-primary)]">{overview.events.total}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Upcoming</p>
+                  <p className="mt-1 text-2xl font-bold text-[var(--color-text-primary)]">{overview.events.upcoming}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Categories</p>
+                  <p className="mt-1 text-2xl font-bold text-[var(--color-text-primary)]">{overview.events.byCategory.length}</p>
+                </div>
+              </div>
+            </Card>
+          ) : null}
+        </>
+      ) : (
+        <Card title="Analytics unavailable">
+          <p className="text-sm text-[var(--color-text-secondary)]">
+            None of the analytics sources responded. Check the API connection and refresh.
+          </p>
         </Card>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[1fr_1.1fr]">
-        <Card
-          title="Category performance"
-          actions={<BarChart3 className="h-4 w-4 text-[var(--color-text-tertiary)]" />}
-        >
-          {loading ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">Loading category data...</p>
-          ) : categories.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">No category analytics available yet.</p>
-          ) : (
-            <div className="space-y-4">
-              {categories.map(([category, count]) => {
-                const width = Math.max(8, Math.round((count / categoryMax) * 100));
-                return (
-                  <div key={category}>
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">{category}</p>
-                      <Badge variant="secondary">{count.toLocaleString()}</Badge>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
-                      <div className="h-full rounded-full bg-[var(--color-accent-primary)]" style={{ width: `${width}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Card>
-
-        <Card title="Monthly activity">
-          {loading ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">Loading monthly data...</p>
-          ) : !data?.monthlyStats?.length ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">No monthly analytics available yet.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="text-left text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">
-                  <tr>
-                    <th className="pb-3 pr-4">Month</th>
-                    <th className="pb-3 pr-4">Events</th>
-                    <th className="pb-3">Signal</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--color-border-secondary)]">
-                  {data.monthlyStats.map((row) => (
-                    <tr key={row.month}>
-                      <td className="py-3 pr-4 font-semibold text-[var(--color-text-primary)]">{row.month}</td>
-                      <td className="py-3 pr-4 text-[var(--color-text-secondary)]">{row.count.toLocaleString()}</td>
-                      <td className="py-3">
-                        <Badge variant={row.count > 0 ? 'success' : 'secondary'}>
-                          {row.count > 0 ? 'Active' : 'No activity'}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
-      </div>
+      )}
     </div>
   );
 }
