@@ -379,7 +379,7 @@ function LeadershipPage() {
           <div className="h-[320px]">{loading ? <LoadingMessage label="Loading role chart..." /> : roleKeys.length === 0 ? <EmptyState title="No leadership data yet." /> : <Bar data={roleChart} options={barOptions} />}</div>
         </SectionCard>
         <SectionCard title="Approval status" subtitle="Current approval queue split." icon={<ShieldCheck className="h-5 w-5" />}>
-          <div className="mx-auto h-[280px] max-w-[300px]">{loading ? <LoadingMessage label="Loading status chart..." /> : <Doughnut data={statusChart} options={doughnutOptions} />}</div>
+          <div className="mx-auto h-[280px] max-w-[300px]">{loading ? <LoadingMessage label="Loading status chart..." /> : (statusChart.datasets[0].data as number[]).reduce((a, b) => a + b, 0) === 0 ? <EmptyState title="No leadership records yet." /> : <Doughnut data={statusChart} options={doughnutOptions} />}</div>
         </SectionCard>
       </section>
 

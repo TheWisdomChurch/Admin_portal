@@ -104,6 +104,16 @@ function ChartCanvas<T extends ChartType>({
   );
 }
 
+function ChartEmpty({ label }: { label: string }) {
+  return (
+    <div className="grid min-h-[280px] place-items-center rounded-3xl border border-dashed border-[var(--color-border-secondary)] px-6 text-center text-sm text-[var(--color-text-tertiary)]">
+      {label}
+    </div>
+  );
+}
+
+const anyPositive = (values: number[]) => values.some((v) => v > 0);
+
 function MiniMetric({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
@@ -198,12 +208,20 @@ export function DashboardCharts({ data }: { data: DashboardData }) {
   return (
     <div className="grid gap-5 xl:grid-cols-5">
       <SectionCard title="People distribution" subtitle="Live split between leadership, members, and workforce." icon={<Users className="h-5 w-5" />}>
-        <ChartCanvas type="doughnut" data={doughnutData} className="min-h-[320px]" options={doughnutOptions} />
+        {anyPositive(peopleValues) ? (
+          <ChartCanvas type="doughnut" data={doughnutData} className="min-h-[320px]" options={doughnutOptions} />
+        ) : (
+          <ChartEmpty label="No people records yet." />
+        )}
       </SectionCard>
 
       <div className="xl:col-span-3">
-        <SectionCard title="Growth intelligence" subtitle="Monthly growth activity from saved profiles, forms, and events for the current year." icon={<TrendingUp className="h-5 w-5" />}>
-          <ChartCanvas type="line" data={growthLineData} className="min-h-[320px]" options={lineAxisOptions} />
+        <SectionCard title="Records created per month" subtitle="Profiles, forms and events created each month this year." icon={<TrendingUp className="h-5 w-5" />}>
+          {anyPositive(growthValues) ? (
+            <ChartCanvas type="line" data={growthLineData} className="min-h-[320px]" options={lineAxisOptions} />
+          ) : (
+            <ChartEmpty label="No records created yet this year." />
+          )}
         </SectionCard>
       </div>
 
@@ -218,14 +236,22 @@ export function DashboardCharts({ data }: { data: DashboardData }) {
       </div>
 
       <div className="xl:col-span-3">
-        <SectionCard title="Birthday and anniversary distribution" subtitle="Month-by-month record intelligence from profile data." icon={<BarChart3 className="h-5 w-5" />}>
-          <ChartCanvas type="bar" data={monthBarData} className="min-h-[330px]" options={barAxisOptions} />
+        <SectionCard title="Birthday and anniversary distribution" subtitle="Month-by-month from profile data." icon={<BarChart3 className="h-5 w-5" />}>
+          {anyPositive([...birthdayMonthValues, ...anniversaryMonthValues]) ? (
+            <ChartCanvas type="bar" data={monthBarData} className="min-h-[330px]" options={barAxisOptions} />
+          ) : (
+            <ChartEmpty label="No birthday or anniversary dates captured yet." />
+          )}
         </SectionCard>
       </div>
 
       <div className="xl:col-span-2">
-        <SectionCard title="Operations volume" subtitle="Forms, campaigns, events, submissions, and store records from connected endpoints." icon={<Activity className="h-5 w-5" />}>
-          <ChartCanvas type="bar" data={operationsData} className="min-h-[330px]" options={operationsOptions} />
+        <SectionCard title="Operations volume" subtitle="Forms, campaigns, events, submissions, and store records." icon={<Activity className="h-5 w-5" />}>
+          {anyPositive(operationsValues) ? (
+            <ChartCanvas type="bar" data={operationsData} className="min-h-[330px]" options={operationsOptions} />
+          ) : (
+            <ChartEmpty label="No operational records yet." />
+          )}
         </SectionCard>
       </div>
     </div>

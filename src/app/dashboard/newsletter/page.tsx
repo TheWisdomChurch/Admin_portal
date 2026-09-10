@@ -106,9 +106,9 @@ function NewsletterPage() {
       </Panel>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total subscribers" value={summary?.total ?? 0} icon={<Users className="h-5 w-5" />} trend="All newsletter records" tone="info" />
-        <StatCard label="Active" value={summary?.active ?? 0} icon={<UserCheck className="h-5 w-5" />} trend="Can receive newsletter sends" tone="success" />
-        <StatCard label="Unsubscribed" value={summary?.unsubscribed ?? 0} icon={<UserX className="h-5 w-5" />} trend="Opted out from email" tone="danger" />
+        <StatCard label="Total subscribers" value={summary ? summary.total : 'Unavailable'} icon={<Users className="h-5 w-5" />} trend="All newsletter records" tone="info" />
+        <StatCard label="Active" value={summary ? summary.active : 'Unavailable'} icon={<UserCheck className="h-5 w-5" />} trend="Can receive newsletter sends" tone="success" />
+        <StatCard label="Unsubscribed" value={summary ? summary.unsubscribed : 'Unavailable'} icon={<UserX className="h-5 w-5" />} trend="Opted out from email" tone="danger" />
         <StatCard label="Last send" value={formatDate(summary?.lastNotifiedAt).split(',')[0]} icon={<Clock3 className="h-5 w-5" />} trend="Most recent newsletter delivery" />
       </div>
 

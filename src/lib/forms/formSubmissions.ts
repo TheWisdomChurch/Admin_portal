@@ -1,6 +1,7 @@
 import { apiClient } from '../api';
 import type { FormField, FormReportLinkPayload, FormSubmission } from '../types';
 import { normalizeEmail, validateEmail } from '../utils';
+import { formatStoredFormDate, isStoredFormDate } from './formatFieldDate';
 import type { FieldInsight, FormAnalytics } from './formAnalytics';
 
 export type FormSubmissionFilters = {
@@ -195,7 +196,9 @@ export function serializeSubmissionValue(value: unknown): string {
   }
   if (typeof value === 'string') {
     const trimmed = value.trim();
-    return trimmed.startsWith('data:') ? '[embedded file]' : trimmed;
+    if (trimmed.startsWith('data:')) return '[embedded file]';
+    if (isStoredFormDate(trimmed)) return formatStoredFormDate(trimmed);
+    return trimmed;
   }
   if (value && typeof value === 'object') {
     const media = resolveSubmissionMediaUrl(value);
@@ -402,7 +405,7 @@ function buildFilterSummary(filters?: FormSubmissionFilters): string[] {
 }
 
 export function buildFormSubmissionsReportPath(formId: string): string {
-  return `/dashboard/reports/forms/${encodeURIComponent(formId)}`;
+  return `/dashboard/forms/${encodeURIComponent(formId)}/report`;
 }
 
 export function buildFormSubmissionsReportUrl(formId: string): string {

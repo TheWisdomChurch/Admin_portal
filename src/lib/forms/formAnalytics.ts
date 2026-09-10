@@ -104,9 +104,14 @@ function valueToStrings(value: unknown): string[] {
   return single ? [single] : [];
 }
 
+// Mirrors the renderer/backend birth-date heuristic: an explicit full-date
+// field, or a key/label that reads as a date of birth. Plain "birthday" is
+// excluded on purpose — those are day+month only (greeting automation) and
+// carry no year to compute an age from.
 function isDobField(field: ExportFormField): boolean {
   if (field.type === 'date' && field.validation?.dateMode === 'full') return true;
-  return /\b(dob|date[_\s-]?of[_\s-]?birth|birth[_\s-]?date|birthday)\b/i.test(
+  if (field.validation?.dateMode === 'day-month') return false;
+  return /\b(d\.?o\.?b|date[_\s-]?of[_\s-]?birth|birth[_\s-]?date)\b/i.test(
     `${field.key} ${field.label}`
   );
 }
@@ -269,7 +274,8 @@ export function buildFormAnalytics(
       let ageSum = 0;
       let ageN = 0;
       answers.forEach((v) => {
-        const age = ageFromDob(serializeSubmissionValue(v));
+        // Age needs the raw "DD-MM-YYYY" value, not the humanised export string.
+        const age = ageFromDob(typeof v === 'string' ? v : serializeSubmissionValue(v));
         if (age === null) return;
         ageSum += age;
         ageN += 1;

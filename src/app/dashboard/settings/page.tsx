@@ -105,14 +105,22 @@ function SettingsPage() {
 
     try {
       setSecurityLoading(true);
-      const [profile, overview] = await Promise.all([
+      // Settled, not all() — the org-wide security overview is super-admin only,
+      // so a 403 there must NOT take down this admin's own MFA panel.
+      const [profileResult, overviewResult] = await Promise.allSettled([
         apiClient.getMFASecurityProfile(),
         apiClient.getSecurityOverview(),
       ]);
-      setSecurityProfile(profile);
-      setSecurityOverview(overview);
-    } catch (error) {
-      toast.error(getServerErrorMessage(error, 'Failed to load security settings'));
+      if (profileResult.status === 'fulfilled') {
+        setSecurityProfile(profileResult.value);
+      } else {
+        toast.error(
+          getServerErrorMessage(profileResult.reason, 'Failed to load security settings')
+        );
+      }
+      setSecurityOverview(
+        overviewResult.status === 'fulfilled' ? overviewResult.value : null
+      );
     } finally {
       setSecurityLoading(false);
     }
@@ -525,24 +533,30 @@ function SettingsPage() {
             {/* Security Settings */}
             <Card>
               <div id="security" className="p-6 pb-0">
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Security Score</p>
-                    <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{securityOverview?.securityScore ?? 0}%</p>
+                {securityOverview ? (
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Security Score</p>
+                      <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{securityOverview.securityScore}%</p>
+                    </div>
+                    <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Pending Admin Approvals</p>
+                      <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{securityOverview.pendingAdminApprovals}</p>
+                    </div>
+                    <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Pending Queue</p>
+                      <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{securityOverview.pendingApprovalRequests}</p>
+                    </div>
+                    <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">TOTP Enabled Users</p>
+                      <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{securityOverview.totpEnabledUsers}</p>
+                    </div>
                   </div>
-                  <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Pending Admin Approvals</p>
-                    <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{securityOverview?.pendingAdminApprovals ?? 0}</p>
-                  </div>
-                  <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Pending Queue</p>
-                    <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{securityOverview?.pendingApprovalRequests ?? 0}</p>
-                  </div>
-                  <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">TOTP Enabled Users</p>
-                    <p className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">{securityOverview?.totpEnabledUsers ?? 0}</p>
-                  </div>
-                </div>
+                ) : (
+                  <p className="text-sm text-[var(--color-text-tertiary)]">
+                    Organisation-wide security metrics are available to super admins only.
+                  </p>
+                )}
               </div>
               <div className="p-6 space-y-6">
                 <div className="flex items-start gap-3">

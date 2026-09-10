@@ -203,10 +203,14 @@ function MembersPage() {
           <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Registry status</h2>
           <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Active versus inactive member records.</p>
           <div className="mx-auto mt-5 h-72 max-w-[280px]">
-            <Doughnut
-              data={{ labels: ['Active', 'Inactive'], datasets: [{ data: [stats?.active || 0, stats?.inactive || 0], backgroundColor: [chartPalette.series.emerald.line, chartPalette.series.rose.line], borderWidth: 0 }] }}
-              options={{ maintainAspectRatio: false, responsive: true, cutout: '66%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10 } } } }}
-            />
+            {(stats?.active || 0) + (stats?.inactive || 0) === 0 ? (
+              <p className="grid h-full place-items-center text-sm text-[var(--color-text-tertiary)]">No member records yet.</p>
+            ) : (
+              <Doughnut
+                data={{ labels: ['Active', 'Inactive'], datasets: [{ data: [stats?.active || 0, stats?.inactive || 0], backgroundColor: [chartPalette.series.emerald.line, chartPalette.series.rose.line], borderWidth: 0 }] }}
+                options={{ maintainAspectRatio: false, responsive: true, cutout: '66%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10 } } } }}
+              />
+            )}
           </div>
         </Panel>
       </div>

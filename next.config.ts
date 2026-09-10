@@ -45,6 +45,9 @@ function buildCsp() {
     "frame-ancestors 'none'",
     "object-src 'none'",
     "img-src 'self' data: blob: https:",
+    // Same-origin only: the landing hero clip (NEXT_PUBLIC_HERO_VIDEO_URL)
+    // must be served from /public, plus blob: for any client-generated media.
+    "media-src 'self' blob:",
     "font-src 'self' data: https:",
     "style-src 'self' 'unsafe-inline'",
     // static.cloudflareinsights.com is Cloudflare's own Web Analytics beacon,
@@ -69,6 +72,28 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: '**.amazonaws.com' },
       { protocol: 'https', hostname: '**.cloudfront.net' },
     ],
+  },
+
+  // Retired routes fold into their canonical surface (see the route
+  // consolidation in the 2026-09 data-driven admin rework).
+  async redirects() {
+    return [
+      {
+        source: '/dashboard/super/approvals',
+        destination: '/dashboard/super/requests',
+        permanent: false,
+      },
+      {
+        source: '/dashboard/registrations',
+        destination: '/dashboard/forms',
+        permanent: false,
+      },
+      {
+        source: '/dashboard/reports/forms/:id',
+        destination: '/dashboard/forms/:id/report',
+        permanent: false,
+      },
+    ];
   },
 
   // IMPORTANT: no rewrites to /proxy/auth

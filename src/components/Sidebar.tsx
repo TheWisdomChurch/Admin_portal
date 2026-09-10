@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart3, BellRing, Calendar, CalendarCheck, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Crown, FileText, HandCoins, HandHeart, HeartHandshake, IdCard, LayoutDashboard, LogOut, Mail, MapPin, Menu, MessageCircle, MessageSquare, Palette, Settings, Settings2, Shield, ShoppingBag, UserCog, UserPlus, Users, Video, X } from 'lucide-react';
+import { BarChart3, BellRing, Calendar, CalendarCheck, CalendarClock, ChevronLeft, ChevronRight, ClipboardList, Crown, FileText, HandCoins, HandHeart, HeartHandshake, IdCard, LayoutDashboard, LogOut, Mail, MapPin, Menu, MessageCircle, MessageSquare, Palette, Settings, Settings2, Shield, ShoppingBag, UserCog, UserPlus, Users, Video, X } from 'lucide-react';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { LogoutModal } from '@/ui/LogoutModal';
@@ -35,16 +35,9 @@ const superConsole: NavGroup = {
       roles: ['super_admin'],
     },
     {
-      href: '/dashboard/super/approvals',
-      label: 'Approvals',
-      description: 'Fast review queue',
-      icon: CheckCircle2,
-      roles: ['super_admin'],
-    },
-    {
       href: '/dashboard/super/requests',
-      label: 'Requests',
-      description: 'Approval queue',
+      label: 'Approvals',
+      description: 'Review & approval queue',
       icon: BellRing,
       roles: ['super_admin'],
     },
@@ -190,12 +183,6 @@ const ministries: NavGroup = {
       label: 'Forms',
       description: 'Registration workflows',
       icon: ClipboardList,
-    },
-    {
-      href: '/dashboard/registrations',
-      label: 'Registrations',
-      description: 'Form & event sign-ups',
-      icon: CheckCircle2,
     },
     {
       href: '/dashboard/store',

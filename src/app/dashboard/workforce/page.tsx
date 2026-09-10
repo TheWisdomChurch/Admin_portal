@@ -859,15 +859,19 @@ function WorkforcePage() {
           <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Service status</h2>
           <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Current distribution by service state.</p>
           <div className="mx-auto mt-6 h-[260px] max-w-[280px]">
-            <Doughnut
-              data={statusChart}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '66%',
-                plugins: { legend: { position: 'bottom', labels: { boxWidth: 10 } } },
-              }}
-            />
+            {(statusChart.datasets[0].data as number[]).reduce((a, b) => a + b, 0) === 0 ? (
+              <p className="grid h-full place-items-center text-sm text-[var(--color-text-tertiary)]">No workforce profiles yet.</p>
+            ) : (
+              <Doughnut
+                data={statusChart}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  cutout: '66%',
+                  plugins: { legend: { position: 'bottom', labels: { boxWidth: 10 } } },
+                }}
+              />
+            )}
           </div>
         </Panel>
       </div>

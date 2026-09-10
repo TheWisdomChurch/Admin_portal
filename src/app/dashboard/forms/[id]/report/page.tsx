@@ -208,15 +208,19 @@ function FormReportPage() {
           {analytics.busiestWeekday ? ` Most submissions come in on ${analytics.busiestWeekday}.` : ''}
         </p>
         <div className="mt-5 h-[280px]">
-          <Line
-            data={trendData}
-            options={{
-              maintainAspectRatio: false,
-              responsive: true,
-              plugins: { legend: { display: false } },
-              scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } },
-            }}
-          />
+          {analytics.total === 0 ? (
+            <p className="grid h-full place-items-center text-sm text-[var(--color-text-tertiary)]">No submissions in this window yet.</p>
+          ) : (
+            <Line
+              data={trendData}
+              options={{
+                maintainAspectRatio: false,
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } },
+              }}
+            />
+          )}
         </div>
       </Panel>
 

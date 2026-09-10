@@ -249,7 +249,7 @@ function SubmissionsPage() {
             <div><h2 className="text-lg font-bold text-[var(--color-text-primary)]">Registrations over time</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Daily series for the selected form.</p></div>
             <div className="flex gap-2"><Button variant={range === 7 ? 'primary' : 'outline'} size="sm" onClick={() => setRange(7)}>7 days</Button><Button variant={range === 30 ? 'primary' : 'outline'} size="sm" onClick={() => setRange(30)}>30 days</Button></div>
           </div>
-          <div className="mt-5 h-[300px]"><Line data={chartData} options={{ maintainAspectRatio: false, responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } } }} /></div>
+          <div className="mt-5 h-[300px]">{total === 0 ? <p className="grid h-full place-items-center text-sm text-[var(--color-text-tertiary)]">No submissions yet — this chart fills in once people start submitting.</p> : <Line data={chartData} options={{ maintainAspectRatio: false, responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } } }} />}</div>
         </Panel>
       </div>
 

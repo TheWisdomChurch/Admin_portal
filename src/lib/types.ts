@@ -618,10 +618,12 @@ export interface FormFieldValidation {
   pattern?: string;
   min?: number;
   max?: number;
-  // Controls how a `date`-type field is captured on the public form.
-  // 'full' (default when unset) renders a real date input and stores the
-  // complete date including year. 'day-month' renders day/month selects only
-  // (deliberately omitting year) for recurring-anniversary-style fields.
+  // Controls how a `date`-type field is captured on the public form. The
+  // renderer shows Day/Month selects — plus a Year select when 'full'.
+  // 'day-month' (the default when unset) stores DD-MM and deliberately omits the
+  // year, for recurring birthday/anniversary greeting automation. 'full' stores
+  // DD-MM-YYYY. When unset, a field whose key/label looks like a date of birth
+  // is auto-treated as 'full' by both the renderer and the backend.
   dateMode?: 'full' | 'day-month';
 }
 

@@ -38,6 +38,7 @@ import { buildPublicFormUrl } from '@/lib/utils';
 import { createFormSchema } from '@/lib/validation/forms';
 import { normalizeFieldOptions, sanitizeFieldVisibility } from '@/lib/forms/formFields';
 import { DEFAULT_FORM_CONSENT } from '@/lib/forms/formConsent';
+import { dateFieldKeepsYear } from '@/lib/forms/formatFieldDate';
 import type { CreateFormRequest, EventData, FormSettings } from '@/lib/types';
 import { nextUniqueFieldKey, normalizeOrderedFields } from '@/lib/forms/formFieldOrdering';
 
@@ -170,7 +171,7 @@ function buildPresetFields(preset: FormPreset): FieldDraft[] {
     { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
     { key: 'contact_number', label: 'Contact Number', type: 'tel', required: true, order: 2 },
     { key: 'email', label: 'Email Address', type: 'email', required: true, order: 3 },
-    { key: 'date_of_birth', label: 'Date of Birth', type: 'date', required: true, order: 4 },
+    { key: 'date_of_birth', label: 'Date of Birth', type: 'date', required: true, order: 4, validation: { dateMode: 'full' } },
     { key: 'prayer_request', label: 'Prayer Request (max 400 words)', type: 'textarea', required: false, order: 5, validation: { maxWords: 400 } },
   ];
 }
@@ -1041,7 +1042,7 @@ function FieldPreview({ field }: { field: FieldDraft }) {
     );
   }
   if (field.type === 'date') {
-    const fullDate = field.validation?.dateMode === 'full';
+    const fullDate = dateFieldKeepsYear(field);
     const boxSelect = 'rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-secondary)]';
     return (
       <div className="space-y-1.5">

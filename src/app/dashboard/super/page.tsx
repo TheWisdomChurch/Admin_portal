@@ -12,11 +12,10 @@ import {
   PointElement,
   Tooltip,
 } from 'chart.js';
-import { Bar, Line, Pie } from 'react-chartjs-2';
+import { Bar, Pie } from 'react-chartjs-2';
 import {
   Activity,
   CheckCircle,
-  Clock,
   MapPin,
   RefreshCcw,
   ShieldCheck,
@@ -48,12 +47,6 @@ ChartJS.register(
   Tooltip,
   Legend
 );
-
-function dayKey(value: string): string {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toISOString().slice(0, 10);
-}
 
 function AccessDeniedState() {
   return (

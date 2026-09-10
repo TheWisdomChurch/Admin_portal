@@ -678,9 +678,9 @@ function EmailMarketingPage() {
           </div>
         </div>
         <div className={styles.summaryGrid}>
-          <SummaryCard icon={Users} label="Reachable contacts" value={formatNumber(summary?.reachableRecipients ?? 0)} hint="Unique emails across form audiences." />
-          <SummaryCard icon={FileText} label="Tracked forms" value={formatNumber(summary?.totalForms ?? 0)} hint={`${formatNumber(summary?.publishedForms ?? 0)} live forms.`} />
-          <SummaryCard icon={Send} label="Campaigns sent" value={formatNumber(Number(summary?.totalCampaigns ?? 0))} hint="Recent compose history stays visible." />
+          <SummaryCard icon={Users} label="Reachable contacts" value={summary ? formatNumber(summary.reachableRecipients) : 'Unavailable'} hint="Unique emails across form audiences." />
+          <SummaryCard icon={FileText} label="Tracked forms" value={summary ? formatNumber(summary.totalForms) : 'Unavailable'} hint={summary ? `${formatNumber(summary.publishedForms)} live forms.` : 'Summary did not load.'} />
+          <SummaryCard icon={Send} label="Campaigns sent" value={summary ? formatNumber(Number(summary.totalCampaigns ?? 0)) : 'Unavailable'} hint="Recent compose history stays visible." />
           <SummaryCard icon={Mail} label="Current reach" value={formatNumber(estimatedReach)} hint="Selected forms plus manual recipients." />
         </div>
       </section>

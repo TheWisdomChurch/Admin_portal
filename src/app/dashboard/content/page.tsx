@@ -214,11 +214,15 @@ function ContentPage() {
   const [syncingTemplates, setSyncingTemplates] = useState(false);
   const [templateBusyKey, setTemplateBusyKey] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('homepage');
+  const [loadErrors, setLoadErrors] = useState<string[]>([]);
 
   const loadContent = useCallback(async () => {
     setLoading(true);
-    try {
-      const [adRes, aboutRes, confessionRes, pastoralRes, givingRes, templateStatusMap] = await Promise.all([
+    // Settled, not all() — one failing section must not blank the others, and a
+    // section that failed to load is flagged rather than silently showing the
+    // hardcoded fallback copy as if it were the live value.
+    const [adRes, aboutRes, confessionRes, pastoralRes, givingRes, templateRes] =
+      await Promise.allSettled([
         apiClient.getHomepageAdContent(),
         apiClient.getAboutPageContent(),
         apiClient.getConfessionPopupContent(),
@@ -227,17 +231,29 @@ function ContentPage() {
         fetchTemplateStatusMap(),
       ]);
 
-      setHomepageAd({ ...defaultHomepageAd, ...(adRes || {}) });
-      setAbout({ ...defaultAbout, ...(aboutRes || {}) });
-      setConfession({ ...defaultConfession, ...(confessionRes || {}) });
-      setPastoralRequests(asArray<PastoralCareRequestAdmin>(pastoralRes));
-      setGivingIntents(asArray<GivingIntentAdmin>(givingRes));
-      setTemplateStatus(templateStatusMap);
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to load content dashboard'));
-    } finally {
-      setLoading(false);
+    const failed: string[] = [];
+    if (adRes.status === 'fulfilled') {
+      setHomepageAd({ ...defaultHomepageAd, ...(adRes.value || {}) });
+    } else failed.push('Homepage promo');
+    if (aboutRes.status === 'fulfilled') {
+      setAbout({ ...defaultAbout, ...(aboutRes.value || {}) });
+    } else failed.push('About page');
+    if (confessionRes.status === 'fulfilled') {
+      setConfession({ ...defaultConfession, ...(confessionRes.value || {}) });
+    } else failed.push('Confession popup');
+    if (pastoralRes.status === 'fulfilled') {
+      setPastoralRequests(asArray<PastoralCareRequestAdmin>(pastoralRes.value));
     }
+    if (givingRes.status === 'fulfilled') {
+      setGivingIntents(asArray<GivingIntentAdmin>(givingRes.value));
+    }
+    if (templateRes.status === 'fulfilled') setTemplateStatus(templateRes.value);
+
+    setLoadErrors(failed);
+    if (failed.length > 0) {
+      toast.error(`Could not load: ${failed.join(', ')}. Those sections are not editable until they load.`);
+    }
+    setLoading(false);
   }, []);
 
   useEffect(() => { void loadContent(); }, [loadContent]);
@@ -354,6 +370,12 @@ function ContentPage() {
         subtitle="Manage homepage campaign content, confession popup messaging, request intake, and automation email readiness."
         actions={<Button variant="outline" icon={<RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />} onClick={() => void loadContent()} loading={loading}>Refresh</Button>}
       />
+
+      {loadErrors.length > 0 ? (
+        <div className="rounded-[var(--radius-card)] border border-[var(--color-warning-border)] bg-[var(--color-warning-surface)] p-4 text-sm text-[var(--color-warning-text)]">
+          <strong>{loadErrors.join(', ')}</strong> could not be loaded, so the current value is not shown. Refresh before editing — saving now would overwrite the live content with fallback copy.
+        </div>
+      ) : null}
 
       <section className="overflow-hidden rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-text-primary)] shadow-xl">
         <div className="relative grid gap-6 p-6 text-[var(--color-text-inverse)] lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)] lg:items-end">

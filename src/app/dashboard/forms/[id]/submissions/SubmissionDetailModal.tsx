@@ -12,6 +12,7 @@ import {
   resolveFormSubmissionName,
   resolveSubmissionMediaUrl,
 } from '@/lib/forms/formSubmissions';
+import { formatStoredFormDate, isStoredFormDate } from '@/lib/forms/formatFieldDate';
 import type { AdminForm, FormField, FormSubmission } from '@/lib/types';
 
 interface SubmissionDetailModalProps {
@@ -26,6 +27,7 @@ const MEDIA_TYPES = new Set(['image', 'file', 'upload', 'video', 'audio', 'docum
 function formatScalar(value: unknown): string {
   if (value === null || value === undefined || value === '') return '—';
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (isStoredFormDate(value)) return formatStoredFormDate(value);
   return String(value);
 }
 
