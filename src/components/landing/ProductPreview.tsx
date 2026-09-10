@@ -89,7 +89,7 @@ export function ProductPreview() {
                 </span>
               </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+              <div className="mt-5 grid grid-cols-2 gap-2.5">
                 {PREVIEW.metrics.map((metric) => (
                   <div
                     key={metric.label}
@@ -105,7 +105,7 @@ export function ProductPreview() {
                 ))}
               </div>
 
-              <div className="mt-3 grid gap-3 lg:grid-cols-[1.15fr_minmax(0,0.85fr)]">
+              <div className="mt-3 grid gap-3">
                 <div className="min-w-0 rounded-[var(--radius-control)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-4 shadow-[var(--shadow-sm)]">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">

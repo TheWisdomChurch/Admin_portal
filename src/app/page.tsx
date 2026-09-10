@@ -5,6 +5,7 @@ import { ArrowRight, Check, ShieldCheck } from 'lucide-react';
 import {
   ASSURANCE,
   CAPABILITIES,
+  CAPABILITIES_INTRO,
   CTA,
   FOOTER,
   HEADER,
@@ -27,7 +28,7 @@ const btnGhost =
 export default function HomePage() {
   return (
     <div className="landing public-form-light min-h-screen overflow-x-clip bg-[var(--color-background-secondary)] text-[var(--color-text-primary)]">
-      <header className="sticky top-0 z-40 border-b border-[var(--lp-hairline)] bg-[color-mix(in_srgb,var(--color-background-secondary)_88%,transparent)] backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-[var(--lp-hairline)] bg-[color-mix(in_srgb,var(--color-background-secondary)_95%,transparent)] backdrop-blur-xl">
         <div className={`${shell} flex h-[var(--lp-header-h)] items-center justify-between gap-3`}>
           <Link href="/" className="flex min-w-0 items-center gap-3" aria-label={`${ORG.name} ${ORG.system} home`}>
             <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-control)] border border-[var(--lp-hairline)] bg-[var(--lp-ink)] shadow-[var(--shadow-sm)] sm:h-11 sm:w-11">
@@ -68,7 +69,7 @@ export default function HomePage() {
         <section className="relative isolate">
           <HeroBackdrop />
           <div
-            className={`${shell} grid items-center gap-12 py-14 sm:py-20 lg:min-h-[calc(92svh-var(--lp-header-h))] lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-16 lg:py-24`}
+            className={`${shell} grid items-center gap-12 py-14 sm:py-20 xl:min-h-[calc(90svh-var(--lp-header-h))] xl:grid-cols-[minmax(0,1.02fr)_minmax(0,1fr)] xl:gap-16 xl:py-24`}
           >
             <Reveal className="max-w-2xl">
               <span className="inline-flex items-center gap-2 rounded-[var(--radius-pill)] border border-[var(--lp-gold-line)] bg-[color-mix(in_srgb,var(--color-background-primary)_80%,transparent)] px-3 py-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-[var(--lp-gold-strong)] shadow-[var(--shadow-sm)]">
@@ -76,9 +77,9 @@ export default function HomePage() {
                 {HERO.eyebrow}
               </span>
 
-              <h1 className="heading-display font-display mt-6 text-balance text-[var(--color-text-primary)]">
-                {HERO.titleLead}{' '}
-                <span className="text-[var(--lp-gold)]">{HERO.titleAccent}</span>
+              <h1 className="lp-h1 mt-6 text-balance text-[var(--color-text-primary)]">
+                <span className="block">{HERO.titleLead}</span>
+                <span className="block text-[var(--lp-gold)]">{HERO.titleAccent}</span>
               </h1>
 
               <p className="mt-6 max-w-xl text-pretty text-base leading-8 text-[var(--color-text-secondary)] sm:text-lg">
@@ -94,13 +95,13 @@ export default function HomePage() {
                 </Link>
               </div>
 
-              <ul className="mt-10 grid gap-3 border-t border-[var(--lp-hairline)] pt-6 sm:grid-cols-3">
+              <ul className="mt-10 flex flex-wrap gap-x-6 gap-y-3 border-t border-[var(--lp-hairline)] pt-6">
                 {HERO.markers.map((marker) => (
                   <li key={marker} className="flex items-center gap-2 text-xs font-semibold text-[var(--color-text-secondary)]">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[var(--radius-pill)] bg-[var(--lp-gold-surface)] text-[var(--lp-gold-strong)]">
                       <Check className="h-3 w-3" />
                     </span>
-                    <span className="min-w-0">{marker}</span>
+                    {marker}
                   </li>
                 ))}
               </ul>
@@ -113,22 +114,31 @@ export default function HomePage() {
         </section>
 
         {/* ---- Capabilities --------------------------------------------- */}
-        <section className="border-y border-[var(--color-border-primary)] bg-[var(--color-background-primary)]">
-          <div className={shell}>
-            <div className="grid gap-px border-x border-[var(--color-border-primary)] bg-[var(--color-border-primary)] sm:grid-cols-2 lg:grid-cols-4">
+        <section className="border-t border-[var(--color-border-primary)] bg-[var(--color-background-primary)]">
+          <div className={`${shell} py-14 sm:py-16 lg:py-20`}>
+            <Reveal className="max-w-2xl">
+              <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-[var(--lp-gold)]">
+                {CAPABILITIES_INTRO.eyebrow}
+              </p>
+              <h2 className="lp-h2 mt-3 text-balance text-[var(--color-text-primary)]">
+                {CAPABILITIES_INTRO.title}
+              </h2>
+            </Reveal>
+
+            <div className="mt-10 grid gap-px overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-border-primary)] sm:mt-12 sm:grid-cols-2 lg:grid-cols-4">
               {CAPABILITIES.map(({ icon: Icon, title, description }, index) => (
                 <Reveal
                   key={title}
                   delay={index * 70}
                   as="article"
-                  className="group flex min-w-0 flex-col bg-[var(--color-background-primary)] px-6 py-8 transition-colors duration-200 hover:bg-[var(--color-background-secondary)] sm:px-7 lg:py-10"
+                  className="group flex min-w-0 flex-col bg-[var(--color-background-primary)] px-6 py-7 transition-colors duration-200 hover:bg-[var(--color-background-secondary)] sm:px-7 lg:py-8"
                 >
                   <span className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-control)] bg-[var(--lp-gold-surface)] text-[var(--lp-gold)] transition-transform duration-200 group-hover:-translate-y-0.5">
                     <Icon className="h-5 w-5" />
                   </span>
-                  <h2 className="mt-5 text-pretty text-sm font-bold tracking-tight text-[var(--color-text-primary)]">
+                  <h3 className="mt-4 text-pretty text-sm font-bold tracking-tight text-[var(--color-text-primary)]">
                     {title}
-                  </h2>
+                  </h3>
                   <p className="mt-2 text-pretty text-sm leading-6 text-[var(--color-text-tertiary)]">
                     {description}
                   </p>
@@ -139,32 +149,30 @@ export default function HomePage() {
         </section>
 
         {/* ---- Assurance ----------------------------------------------- */}
-        <section className="bg-[var(--lp-ink)] text-[var(--lp-on-ink)]">
+        <section className="bg-[var(--color-background-secondary)]">
           <div className={`${shell} py-16 sm:py-20 lg:py-24`}>
             <Reveal className="max-w-2xl">
-              <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-[var(--lp-gold-bright)]">
+              <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-[var(--lp-gold)]">
                 {ASSURANCE.eyebrow}
               </p>
-              <h2 className="heading-page font-display mt-4 text-balance text-[var(--lp-on-ink)]">
-                {ASSURANCE.title}
-              </h2>
-              <p className="mt-4 text-pretty text-sm leading-7 text-[var(--lp-on-ink-dim)] sm:text-base">
+              <h2 className="lp-h2 mt-4 text-balance text-[var(--color-text-primary)]">{ASSURANCE.title}</h2>
+              <p className="mt-4 text-pretty text-sm leading-7 text-[var(--color-text-secondary)] sm:text-base">
                 {ASSURANCE.description}
               </p>
             </Reveal>
 
-            <div className="mt-12 grid gap-px overflow-hidden rounded-[var(--radius-panel)] border border-[var(--lp-hairline-ink)] bg-[var(--lp-hairline-ink)] sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {ASSURANCE.points.map(({ icon: Icon, title, description }, index) => (
                 <Reveal
                   key={title}
                   delay={index * 70}
-                  className="flex min-w-0 flex-col gap-3 bg-[var(--lp-ink)] p-6 sm:p-7"
+                  className="flex min-w-0 flex-col gap-3 rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-6 shadow-[var(--shadow-sm)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--lp-shadow-float)] sm:p-7"
                 >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-control)] bg-[var(--lp-hairline-ink)] text-[var(--lp-gold-bright)]">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-control)] bg-[var(--lp-gold-surface)] text-[var(--lp-gold)]">
                     <Icon className="h-5 w-5" />
                   </span>
-                  <h3 className="text-pretty text-sm font-bold tracking-tight text-[var(--lp-on-ink)]">{title}</h3>
-                  <p className="text-pretty text-[0.8125rem] leading-6 text-[var(--lp-on-ink-dim)]">{description}</p>
+                  <h3 className="text-pretty text-sm font-bold tracking-tight text-[var(--color-text-primary)]">{title}</h3>
+                  <p className="text-pretty text-[0.8125rem] leading-6 text-[var(--color-text-tertiary)]">{description}</p>
                 </Reveal>
               ))}
             </div>
@@ -172,19 +180,23 @@ export default function HomePage() {
         </section>
 
         {/* ---- Call to action ----------------------------------------- */}
-        <section className="bg-[var(--lp-ink-raised)] text-[var(--lp-on-ink)]">
-          <div className={`${shell} flex flex-col gap-8 py-16 sm:py-20 lg:flex-row lg:items-center lg:justify-between`}>
+        <section className="relative isolate overflow-hidden bg-[var(--lp-ink)] text-[var(--lp-on-ink)]">
+          <span
+            aria-hidden="true"
+            className="lp-glow lp-glow-b absolute -right-[8%] top-1/2 h-[36rem] w-[36rem] -translate-y-1/2 bg-[radial-gradient(circle_at_center,var(--lp-gold-bright),transparent_70%)] opacity-[0.12]"
+          />
+          <div className={`${shell} relative flex flex-col gap-8 py-16 sm:py-20 lg:flex-row lg:items-center lg:justify-between lg:py-24`}>
             <Reveal className="max-w-2xl">
               <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-[var(--lp-gold-bright)]">
                 {CTA.eyebrow}
               </p>
-              <h2 className="heading-page font-display mt-4 text-balance text-[var(--lp-on-ink)]">{CTA.title}</h2>
+              <h2 className="lp-h2 mt-4 text-balance text-[var(--lp-on-ink)]">{CTA.title}</h2>
               <p className="mt-3 text-pretty text-sm leading-7 text-[var(--lp-on-ink-dim)]">{CTA.subtitle}</p>
             </Reveal>
             <Reveal delay={100} className="flex flex-col gap-3 sm:flex-row">
               <Link
                 href={CTA.primary.href}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-[var(--lp-gold-bright)] px-6 text-sm font-semibold text-[var(--lp-ink)] transition duration-200 hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lp-gold-bright)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--lp-ink-raised)]"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-[var(--brand-500)] px-6 text-sm font-semibold text-[var(--lp-ink)] transition duration-200 hover:-translate-y-0.5 hover:bg-[var(--brand-400)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--lp-ink)]"
               >
                 {CTA.primary.label} <ArrowRight className="h-4 w-4" />
               </Link>

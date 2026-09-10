@@ -1,57 +1,25 @@
-'use client';
-
-import { useEffect, useRef, useState, type ElementType, type ReactNode } from 'react';
+import type { CSSProperties, ElementType, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 interface RevealProps {
   children: ReactNode;
-  /** Stagger, in ms, applied as animation-delay once the element enters view. */
+  /** Entrance stagger in ms (applied as animation-delay). */
   delay?: number;
   className?: string;
   as?: ElementType;
 }
 
 /**
- * Fade-and-rise a block into view the first time it scrolls near the
- * viewport. Server-rendered content stays visible until this mounts (see the
- * `.is-armed` gate in globals.css), and `prefers-reduced-motion` disables the
- * effect entirely.
+ * A staggered fade-and-rise entrance. Pure CSS (see `.lp-in` in globals.css)
+ * — no IntersectionObserver, no client JS — so content can never be trapped
+ * invisible by a missed observer, fast scroll, or scroll restoration. Below
+ * the fold it simply finishes before the reader arrives. `prefers-reduced-
+ * motion` disables it.
  */
 export function Reveal({ children, delay = 0, className, as: Tag = 'div' }: RevealProps) {
-  const ref = useRef<HTMLElement | null>(null);
-  const [armed, setArmed] = useState(false);
-  const [shown, setShown] = useState(false);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-
-    if (typeof IntersectionObserver === 'undefined') {
-      setShown(true);
-      return;
-    }
-
-    setArmed(true);
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setShown(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: '0px 0px -10% 0px', threshold: 0.15 }
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
+  const style: CSSProperties | undefined = delay ? { animationDelay: `${delay}ms` } : undefined;
   return (
-    <Tag
-      ref={ref}
-      className={cn('lp-reveal', armed && 'is-armed', className)}
-      data-shown={shown ? 'true' : 'false'}
-      style={delay ? { animationDelay: `${delay}ms` } : undefined}
-    >
+    <Tag className={cn('lp-in', className)} style={style}>
       {children}
     </Tag>
   );

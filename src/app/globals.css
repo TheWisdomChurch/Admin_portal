@@ -377,10 +377,32 @@
 .lp-glow-b { animation: lp-drift-alt 30s ease-in-out infinite; }
 .lp-glow-c { animation: lp-drift 38s ease-in-out infinite reverse; }
 
-/* Scroll reveal. SSR/no-JS safe: visible by default; the client Reveal only
-   adds .is-armed once mounted, so content is never trapped invisible. */
-.lp-reveal.is-armed { opacity: 0; }
-.lp-reveal.is-armed[data-shown='true'] {
+/* Landing display type — bounded fluid scale (see --font-size-heading-* in
+   :root). The hero grows only ~3vw and caps at 5rem; section heads cap at
+   ~2.125rem, so wide screens never blow the type up. */
+.lp-h1 {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-bold);
+  /* Its own clamp (a touch tighter than --font-size-heading-xl) so the two
+     hero lines each stay on one line inside the constrained hero column,
+     right up to ultrawide, without the type ballooning. */
+  font-size: clamp(2.35rem, 1.7rem + 2.2vw, 3.9rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.lp-h2 {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-heading-md);
+  line-height: 1.14;
+  letter-spacing: -0.02em;
+}
+
+/* Entrance — pure CSS, plays once on load. `both` fill keeps a delayed block
+   at opacity 0 until its turn; below-fold blocks simply finish before the
+   reader scrolls to them. No observer, so nothing can be trapped invisible. */
+.lp-in {
   animation: lp-rise 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -390,9 +412,7 @@
   .lp-glow-c {
     animation: none !important;
   }
-  .lp-reveal.is-armed,
-  .lp-reveal.is-armed[data-shown='true'] {
-    opacity: 1 !important;
+  .lp-in {
     animation: none !important;
   }
 }

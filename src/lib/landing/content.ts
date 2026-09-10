@@ -64,6 +64,11 @@ export const HERO = {
   markers: ['Role-based access', 'Protected member data', 'Auditable approvals'],
 } as const;
 
+export const CAPABILITIES_INTRO = {
+  eyebrow: 'One workspace',
+  title: 'Everything the office runs on, in one place.',
+} as const;
+
 export interface Capability {
   icon: LucideIcon;
   title: string;
