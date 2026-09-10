@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
+  CalendarDays,
   CheckCircle2,
   Copy,
   Eye,
@@ -1043,15 +1044,16 @@ function FieldPreview({ field }: { field: FieldDraft }) {
   }
   if (field.type === 'date') {
     const fullDate = dateFieldKeepsYear(field);
-    const boxSelect = 'rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-secondary)]';
     return (
       <div className="space-y-1.5">
         <p className="text-sm font-semibold text-[var(--color-text-secondary)]">{field.label}{field.required ? ' *' : ''}</p>
-        <div className={`grid gap-2 ${fullDate ? 'grid-cols-3' : 'grid-cols-2'}`}>
-          <select disabled className={boxSelect}><option>Day</option></select>
-          <select disabled className={boxSelect}><option>Month</option></select>
-          {fullDate ? <select disabled className={boxSelect}><option>Year</option></select> : null}
+        <div className="flex items-center gap-2.5 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2.5 text-sm text-[var(--color-text-tertiary)]">
+          <CalendarDays className="h-4 w-4 shrink-0" />
+          <span>{fullDate ? 'Select a date' : 'Select day and month'}</span>
         </div>
+        <p className="text-xs text-[var(--color-text-tertiary)]">
+          Calendar picker · {fullDate ? 'full date with year (DD-MM-YYYY)' : 'day and month only (DD-MM)'}
+        </p>
       </div>
     );
   }
