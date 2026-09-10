@@ -6,17 +6,21 @@ import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Panel } from '@/ui/Panel';
+import { Select } from '@/ui/Select';
 import { withAuth } from '@/providers/withAuth';
-import { useChurchOverview } from '@/hooks/useChurchOverview';
+import { useChurchOverview, type OverviewRange } from '@/hooks/useChurchOverview';
+import { RANGE_LABELS } from '@/lib/analytics/churchOverview';
 import {
   AttentionPanel,
   ChurchOverviewKpis,
+  GivingBreakdown,
   GrowthCharts,
   ReadinessPanel,
 } from '@/features/analytics/ChurchOverviewSections';
 
 function SuperAnalyticsPage() {
-  const { overview, loading, refreshedAt, refresh } = useChurchOverview();
+  const { overview, loading, error, refreshedAt, range, setRange, refresh } =
+    useChurchOverview();
 
   return (
     <div className="space-y-6">
@@ -26,27 +30,35 @@ function SuperAnalyticsPage() {
             <Badge variant="warning" className="mb-4">Super Admin Intelligence</Badge>
             <h1 className="text-2xl font-bold tracking-tight md:text-4xl">Analytics command center</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-inverse)]/70 md:text-base">
-              Church-wide growth, giving, engagement backlogs, volunteer coverage and decision readiness — from one authority view.
+              Church-wide growth, giving, attendance, engagement backlogs, volunteer coverage and decision readiness — every figure measured from the records, from one authority view.
             </p>
             {refreshedAt ? (
               <p className="mt-3 text-xs text-[var(--color-text-inverse)]/50">
                 Updated {refreshedAt.toLocaleTimeString()}
-                {overview && overview.missing.length > 0
-                  ? ` · partial (couldn't load: ${overview.missing.join(', ')})`
-                  : ''}
               </p>
             ) : null}
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void refresh()}
-            loading={loading}
-            className="border-[var(--color-text-inverse)]/20 text-[var(--color-text-inverse)] hover:bg-[var(--color-text-inverse)]/10"
-          >
-            <RefreshCcw className="h-4 w-4" />
-            <span className="ml-2">Refresh</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Select
+              value={range}
+              onChange={(event) => setRange(event.target.value as OverviewRange)}
+              className="w-40 border-[var(--color-text-inverse)]/20 bg-transparent text-[var(--color-text-inverse)]"
+            >
+              <option value="month">This month</option>
+              <option value="last30">Last 30 days</option>
+              <option value="year">This year</option>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void refresh()}
+              loading={loading}
+              className="border-[var(--color-text-inverse)]/20 text-[var(--color-text-inverse)] hover:bg-[var(--color-text-inverse)]/10"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              <span className="ml-2">Refresh</span>
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -60,6 +72,10 @@ function SuperAnalyticsPage() {
         </div>
       ) : overview ? (
         <>
+          <p className="text-xs text-[var(--color-text-tertiary)]">
+            Comparison window: {RANGE_LABELS[overview.range]}
+          </p>
+
           <ChurchOverviewKpis overview={overview} />
 
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
@@ -68,6 +84,7 @@ function SuperAnalyticsPage() {
           </div>
 
           <GrowthCharts overview={overview} />
+          <GivingBreakdown overview={overview} />
 
           {overview.events.hasData ? (
             <Card title="Events" actions={<Calendar className="h-4 w-4 text-[var(--color-text-tertiary)]" />}>
@@ -91,7 +108,8 @@ function SuperAnalyticsPage() {
       ) : (
         <Card title="Analytics unavailable">
           <p className="text-sm text-[var(--color-text-secondary)]">
-            None of the analytics sources responded. Check the API connection and refresh.
+            {error ??
+              'The analytics service did not respond. Check the API connection and refresh.'}
           </p>
         </Card>
       )}

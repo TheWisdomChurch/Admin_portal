@@ -152,39 +152,6 @@ export default function SuperDashboard() {
     [stats, chartPalette]
   );
 
-  const queueVelocity = useMemo(() => {
-    const counts: Record<string, number> = {};
-
-    safeItems.forEach((item) => {
-      const key = dayKey(item.submittedAt);
-      counts[key] = (counts[key] || 0) + 1;
-    });
-
-    const labels = Object.keys(counts).sort();
-
-    return {
-      labels,
-      values: labels.map((label) => counts[label]),
-    };
-  }, [safeItems]);
-
-  const queueVelocityChart = useMemo(
-    () => ({
-      labels: queueVelocity.labels,
-      datasets: [
-        {
-          label: 'Incoming approvals',
-          data: queueVelocity.values,
-          borderColor: chartPalette.series.brand.line,
-          backgroundColor: chartPalette.series.brand.fill,
-          borderWidth: 2,
-          tension: 0.35,
-        },
-      ],
-    }),
-    [queueVelocity, chartPalette]
-  );
-
   const monthlyOpsChart = useMemo(
     () => ({
       labels: analytics?.monthlyStats?.map((row) => row.month) ?? [],
@@ -310,20 +277,18 @@ export default function SuperDashboard() {
 
         <Card className="p-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Forecast Signal</h2>
+            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">New Member Intake</h2>
             <UserPlus className="h-4 w-4 text-[var(--color-accent-primary)]" />
           </div>
-          <p className="mt-4 text-sm leading-6 text-[var(--color-text-secondary)]">
-            At the current monthly intake pace, the projected next-quarter intake is{' '}
-            <span className="font-semibold text-[var(--color-text-primary)]">{(newMembers?.thisMonth || 0) * 3}</span> people.
-          </p>
-          <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">
-            Use this with outreach planning, follow-up capacity, and department onboarding.
-          </p>
+          <div className="mt-4 space-y-2">
+            <MetricRow label="This month" value={newMembers?.thisMonth ?? 0} />
+            <MetricRow label="This quarter" value={newMembers?.thisQuarter ?? 0} />
+            <MetricRow label="This year" value={newMembers?.thisYear ?? 0} />
+          </div>
         </Card>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
+      <section>
         <Card className="p-5">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
@@ -343,31 +308,6 @@ export default function SuperDashboard() {
               />
             ) : (
               <p className="text-sm text-[var(--color-text-tertiary)]">No active approvals.</p>
-            )}
-          </div>
-        </Card>
-
-        <Card className="p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">
-              Queue Velocity
-            </h2>
-            <Clock className="h-4 w-4 text-[var(--color-accent-primary)]" />
-          </div>
-          <div className="mt-4 h-[280px]">
-            {queueVelocity.labels.length > 0 ? (
-              <Line
-                data={queueVelocityChart}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: { legend: { display: false } },
-                }}
-              />
-            ) : (
-              <p className="text-sm text-[var(--color-text-tertiary)]">
-                No queue history available yet.
-              </p>
             )}
           </div>
         </Card>

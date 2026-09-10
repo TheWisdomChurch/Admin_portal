@@ -94,19 +94,6 @@ function extractArray<T = unknown>(payload: unknown): T[] {
   return Array.isArray(firstArray) ? (firstArray as T[]) : [];
 }
 
-function forecastNext(values: number[]): number | null {
-  const usable = values.filter((value) => Number.isFinite(value));
-  if (usable.length < 2) return null;
-
-  const window = usable.slice(-3);
-  const average = window.reduce((sum, value) => sum + value, 0) / window.length;
-  const previous = usable[usable.length - 2] || 0;
-  const current = usable[usable.length - 1] || 0;
-  const momentum = current - previous;
-
-  return Math.max(0, Math.round(average + momentum * 0.35));
-}
-
 function getRecordIcon(type: RecordType) {
   switch (type) {
     case 'event':
@@ -245,8 +232,6 @@ function AnalyticsPage() {
 
   const timeline = useMemo(() => (data ? buildTimeline(data) : []), [data]);
 
-  const forecastEvents = forecastNext(monthlyStats.map((row) => row.count));
-
   const totalMembers = data?.memberStats?.total ?? null;
   const activeMembers = data?.memberStats?.active ?? null;
   const newMembersThisMonth = numberValue((data?.newMembers as RawRecord | null)?.thisMonth);
@@ -350,9 +335,9 @@ function AnalyticsPage() {
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Panel>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Next month event forecast</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">New members this year</p>
           <p className="mt-2 text-lg font-bold text-[var(--color-text-primary)]">
-            {forecastEvents === null ? 'Insufficient data' : formatNumber(forecastEvents)}
+            {newMembersThisYear ? formatNumber(newMembersThisYear) : 'Unavailable'}
           </p>
         </Panel>
         <Panel>

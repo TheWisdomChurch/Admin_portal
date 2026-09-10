@@ -27,7 +27,7 @@ import {
 
 import { Badge } from '@/ui/Badge';
 import { Card } from '@/ui/Card';
-import { Panel } from '@/ui/Panel';
+import { ChartFrame } from '@/ui/ChartFrame';
 import { StatCard, type StatCardTone } from '@/ui/StatCard';
 import { getChartPalette } from '@/lib/charts/palette';
 import { useTheme } from '@/providers/ThemeProviders';
@@ -35,6 +35,7 @@ import {
   formatDeltaPct,
   formatNaira,
   formatPercent,
+  RANGE_LABELS,
   type ChurchOverview,
   type MonthlyPoint,
   type Severity,
@@ -101,8 +102,11 @@ const SEVERITY_CLASS: Record<Severity, string> = {
   critical: 'text-red-600',
 };
 
+const hasSeries = (points: MonthlyPoint[]) => points.some((p) => p.value > 0);
+
 export function ChurchOverviewKpis({ overview }: { overview: ChurchOverview }) {
   const { people, intake, giving, engagement } = overview;
+  const rangeWord = RANGE_LABELS[overview.range].toLowerCase();
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <StatCard
@@ -112,16 +116,16 @@ export function ChurchOverviewKpis({ overview }: { overview: ChurchOverview }) {
         trend={`${people.members.active.toLocaleString()} active · ${formatPercent(people.members.activationRate)}`}
       />
       <StatCard
-        label="New members this month"
-        value={people.newMembers30d.toLocaleString()}
+        label={`New members (${rangeWord})`}
+        value={people.newMembersInRange.toLocaleString()}
         tone={deltaTone(people.memberGrowth.deltaPct)}
-        trend={`${formatDeltaPct(people.memberGrowth.deltaPct)} vs last month`}
+        trend={`${formatDeltaPct(people.memberGrowth.deltaPct)} vs prior month`}
       />
       <StatCard
-        label="Form submissions (30d)"
-        value={intake.submissions30d.current.toLocaleString()}
-        tone={deltaTone(intake.submissions30d.deltaPct)}
-        trend={`${formatDeltaPct(intake.submissions30d.deltaPct)} vs prior 30 · ${intake.submissionsTotal.toLocaleString()} all-time`}
+        label={`Form submissions (${rangeWord})`}
+        value={intake.submissions.current.toLocaleString()}
+        tone={deltaTone(intake.submissions.deltaPct)}
+        trend={`${formatDeltaPct(intake.submissions.deltaPct)} vs prior period · ${intake.submissionsTotal.toLocaleString()} all-time`}
       />
       <StatCard
         label="Giving this month"
@@ -142,9 +146,10 @@ export function ChurchOverviewKpis({ overview }: { overview: ChurchOverview }) {
         trend={`${people.workforce.serving.toLocaleString()} serving of ${people.workforce.total.toLocaleString()}`}
       />
       <StatCard
-        label="Attendance (30d)"
-        value={engagement.attendance30d.current.toLocaleString()}
-        trend={`${formatDeltaPct(engagement.attendance30d.deltaPct)} vs earlier`}
+        label={`Attendance (${rangeWord})`}
+        value={engagement.attendance.current.toLocaleString()}
+        tone={deltaTone(engagement.attendance.deltaPct)}
+        trend={`${formatDeltaPct(engagement.attendance.deltaPct)} vs prior period`}
       />
       <StatCard
         label="Newsletter subscribers"
@@ -162,7 +167,7 @@ export function ChurchOverviewKpis({ overview }: { overview: ChurchOverview }) {
 
 export function AttentionPanel({ overview }: { overview: ChurchOverview }) {
   const items = overview.engagement.attention;
-  const nothing = items.every((i) => i.severity === 'info' && i.count === 0);
+  const nothing = items.every((i) => i.count === 0);
   return (
     <Card title="Needs attention">
       {items.length === 0 || nothing ? (
@@ -172,35 +177,37 @@ export function AttentionPanel({ overview }: { overview: ChurchOverview }) {
         </div>
       ) : (
         <ul className="space-y-2.5">
-          {items.map((item) => {
-            const Icon = SEVERITY_ICON[item.severity];
-            return (
-              <li key={item.key}>
-                <Link
-                  href={item.href}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 transition hover:border-[var(--color-border-primary)]"
-                >
-                  <span className="flex min-w-0 items-center gap-2.5">
-                    <Icon className={`h-4 w-4 shrink-0 ${SEVERITY_CLASS[item.severity]}`} />
-                    <span className="min-w-0">
-                      <span className="block text-sm font-semibold text-[var(--color-text-primary)]">
-                        {item.label}
-                      </span>
-                      <span className="block truncate text-xs text-[var(--color-text-tertiary)]">
-                        {item.hint}
+          {items
+            .filter((item) => item.count > 0)
+            .map((item) => {
+              const Icon = SEVERITY_ICON[item.severity];
+              return (
+                <li key={item.key}>
+                  <Link
+                    href={item.href}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 transition hover:border-[var(--color-border-primary)]"
+                  >
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <Icon className={`h-4 w-4 shrink-0 ${SEVERITY_CLASS[item.severity]}`} />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-[var(--color-text-primary)]">
+                          {item.label}
+                        </span>
+                        <span className="block truncate text-xs text-[var(--color-text-tertiary)]">
+                          {item.hint}
+                        </span>
                       </span>
                     </span>
-                  </span>
-                  <span className="flex shrink-0 items-center gap-2">
-                    <Badge variant={item.count > 0 ? (item.severity === 'critical' ? 'danger' : 'warning') : 'secondary'}>
-                      {item.count}
-                    </Badge>
-                    <ArrowUpRight className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
+                    <span className="flex shrink-0 items-center gap-2">
+                      <Badge variant={item.severity === 'critical' ? 'danger' : 'warning'}>
+                        {item.count}
+                      </Badge>
+                      <ArrowUpRight className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
         </ul>
       )}
     </Card>
@@ -213,60 +220,144 @@ export function GrowthCharts({ overview }: { overview: ChurchOverview }) {
 
   return (
     <div className="grid gap-5 xl:grid-cols-2">
-      <Panel>
-        <h3 className="text-sm font-bold text-[var(--color-text-primary)]">Member growth</h3>
-        <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">New members recorded per month.</p>
-        <div className="mt-4 h-[240px]">
-          <Line data={lineData(overview.monthly.members, 'Members', palette.series.blue)} options={lineOptions} />
-        </div>
-      </Panel>
-      <Panel>
-        <h3 className="text-sm font-bold text-[var(--color-text-primary)]">Giving</h3>
-        <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">Recorded successful giving per month (₦).</p>
-        <div className="mt-4 h-[240px]">
-          {overview.giving.hasData ? (
-            <Line data={lineData(overview.monthly.giving, 'Giving (₦)', palette.series.emerald)} options={lineOptions} />
-          ) : (
-            <p className="grid h-full place-items-center text-sm text-[var(--color-text-tertiary)]">No giving recorded yet.</p>
-          )}
-        </div>
-      </Panel>
-      <Panel>
-        <h3 className="text-sm font-bold text-[var(--color-text-primary)]">New-member intake</h3>
-        <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">Membership form submissions per month.</p>
-        <div className="mt-4 h-[240px]">
-          <Line data={lineData(overview.monthly.newMemberIntake, 'Submissions', palette.series.amber)} options={lineOptions} />
-        </div>
-      </Panel>
-      <Panel>
-        <h3 className="text-sm font-bold text-[var(--color-text-primary)]">Form intake by form</h3>
-        <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">All-time submissions per public form.</p>
-        <div className="mt-4 h-[240px]">
-          {overview.intake.perForm.length > 0 ? (
-            <Bar
-              data={{
-                labels: overview.intake.perForm.map((f) => f.title),
-                datasets: [
-                  {
-                    label: 'Submissions',
-                    data: overview.intake.perForm.map((f) => f.count),
-                    backgroundColor: palette.series.amber.line,
-                    borderRadius: 8,
-                  },
-                ],
-              }}
-              options={{
-                indexAxis: 'y' as const,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
-              }}
-            />
-          ) : (
-            <p className="grid h-full place-items-center text-sm text-[var(--color-text-tertiary)]">No form submissions yet.</p>
-          )}
-        </div>
-      </Panel>
+      <ChartFrame
+        title="Member growth"
+        subtitle="New members recorded per month."
+        hasData={hasSeries(overview.monthly.members)}
+        emptyLabel="No members recorded yet"
+      >
+        <Line
+          data={lineData(overview.monthly.members, 'Members', palette.series.blue)}
+          options={lineOptions}
+        />
+      </ChartFrame>
+
+      <ChartFrame
+        title="Giving"
+        subtitle="Recorded successful giving per month (₦)."
+        hasData={overview.giving.hasData}
+        emptyLabel="No giving recorded yet"
+      >
+        <Line
+          data={lineData(overview.monthly.giving, 'Giving (₦)', palette.series.emerald)}
+          options={lineOptions}
+        />
+      </ChartFrame>
+
+      <ChartFrame
+        title="Attendance"
+        subtitle="Service attendance recorded per month."
+        hasData={hasSeries(overview.engagement.attendanceMonthly)}
+        emptyLabel="No attendance recorded yet"
+      >
+        <Line
+          data={lineData(overview.engagement.attendanceMonthly, 'Attendance', palette.series.violet)}
+          options={lineOptions}
+        />
+      </ChartFrame>
+
+      <ChartFrame
+        title="New-member intake"
+        subtitle="Membership form submissions per month."
+        hasData={hasSeries(overview.monthly.newMemberIntake)}
+        emptyLabel="No membership submissions yet"
+      >
+        <Line
+          data={lineData(overview.monthly.newMemberIntake, 'Submissions', palette.series.amber)}
+          options={lineOptions}
+        />
+      </ChartFrame>
+
+      <ChartFrame
+        title="Form intake by form"
+        subtitle="All-time submissions per public form."
+        hasData={overview.intake.perForm.length > 0}
+        emptyLabel="No form submissions yet"
+        className="xl:col-span-2"
+      >
+        <Bar
+          data={{
+            labels: overview.intake.perForm.map((f) => f.title),
+            datasets: [
+              {
+                label: 'Submissions',
+                data: overview.intake.perForm.map((f) => f.count),
+                backgroundColor: palette.series.amber.line,
+                borderRadius: 8,
+              },
+            ],
+          }}
+          options={{
+            indexAxis: 'y' as const,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+          }}
+        />
+      </ChartFrame>
+    </div>
+  );
+}
+
+export function GivingBreakdown({ overview }: { overview: ChurchOverview }) {
+  const { resolvedTheme } = useTheme();
+  const palette = useMemo(() => getChartPalette(resolvedTheme), [resolvedTheme]);
+  const { giving } = overview;
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-2">
+      <ChartFrame
+        title="Giving by category"
+        subtitle="Successful giving, all time (₦)."
+        hasData={giving.byCategory.length > 0}
+        emptyLabel="No categorised giving yet"
+      >
+        <Bar
+          data={{
+            labels: giving.byCategory.map((c) => c.name),
+            datasets: [
+              {
+                label: 'Amount (₦)',
+                data: giving.byCategory.map((c) => c.naira),
+                backgroundColor: palette.series.emerald.line,
+                borderRadius: 8,
+              },
+            ],
+          }}
+          options={{
+            indexAxis: 'y' as const,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true } },
+          }}
+        />
+      </ChartFrame>
+
+      <ChartFrame
+        title="Giving by channel"
+        subtitle="How gifts came in."
+        hasData={giving.byChannel.length > 0}
+        emptyLabel="No giving recorded yet"
+      >
+        <Bar
+          data={{
+            labels: giving.byChannel.map((c) => c.name),
+            datasets: [
+              {
+                label: 'Amount (₦)',
+                data: giving.byChannel.map((c) => c.naira),
+                backgroundColor: palette.series.cyan.line,
+                borderRadius: 8,
+              },
+            ],
+          }}
+          options={{
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } },
+          }}
+        />
+      </ChartFrame>
     </div>
   );
 }
@@ -285,6 +376,8 @@ export function ReadinessPanel({ overview }: { overview: ChurchOverview }) {
             <p>Activation {formatPercent(overview.signals.activationRate)}</p>
             <p>Volunteer coverage {formatPercent(overview.signals.volunteerCoverage)}</p>
             <p>Submissions {formatDeltaPct(Math.round(overview.signals.submissionDeltaPct))}</p>
+            <p>Giving {formatDeltaPct(Math.round(overview.signals.givingDeltaPct))}</p>
+            <p>Attendance {formatDeltaPct(Math.round(overview.signals.attendanceDeltaPct))}</p>
           </div>
         </div>
         <ul className="min-w-0 flex-1 space-y-3">

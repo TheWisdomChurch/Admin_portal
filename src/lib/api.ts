@@ -3,6 +3,7 @@ import type { VisitActivityAdmin } from './types';
 import type { AdminEmailSchedule, AdminEmailScheduleDetail, AdminEmailScheduleRun, AdminEmailScheduleStatus, UpsertAdminEmailScheduleRequest } from './types';
 import type { FormEmailContent, EmailTemplatePreviewResponse } from './types';
 import type { CelebrationAutomationConfig, CelebrationAutomationRun, CelebrationAutomationStatus, CelebrationDelivery } from './types';
+import type { ChurchOverviewResponse } from '@/lib/analytics/churchOverview';
 
 /* ============================================================================
    API CLIENT CONFIG
@@ -1246,9 +1247,15 @@ export const apiClient = {
     });
   },
 
-  async getDashboardStats(): Promise<Record<string, unknown>> {
-    const res = await apiFetch<ApiResponse<unknown>>('/admin/dashboard');
-    return unwrapData<Record<string, unknown>>(res, 'Invalid dashboard stats');
+  async getChurchAnalyticsOverview(
+    range?: 'month' | 'last30' | 'year'
+  ): Promise<ChurchOverviewResponse> {
+    const qs = toQueryString(range ? { range } : undefined);
+    const res = await apiFetch<ApiResponse<ChurchOverviewResponse>>(
+      `/admin/analytics/overview${qs}`,
+      { method: 'GET' }
+    );
+    return unwrapData<ChurchOverviewResponse>(res, 'Invalid church overview payload');
   },
 
   async getSecurityOverview(): Promise<SecurityOverview> {
