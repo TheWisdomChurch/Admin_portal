@@ -213,7 +213,7 @@ function CellGroupsPage() {
       <section className="grid gap-4 md:grid-cols-3">
         <StatCard label="Active groups" value={groups.filter((g) => g.is_active).length} icon={<Users className="h-5 w-5" />} />
         <StatCard label="Total groups" value={groups.length} icon={<MapPin className="h-5 w-5" />} tone="info" />
-        <StatCard label="Members tracked" value={members.length} icon={<UserPlus className="h-5 w-5" />} tone="success" />
+        <StatCard label="Members available to assign" value={members.length} icon={<UserPlus className="h-5 w-5" />} tone="success" trend="Church-wide registry, not group membership" />
       </section>
 
       <SectionCard

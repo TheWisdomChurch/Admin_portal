@@ -117,8 +117,11 @@ function buildPresetFields(preset: FormPreset): FieldDraft[] {
         order: 4,
       },
       { key: 'bio', label: 'Short Bio', type: 'textarea', required: false, order: 5, validation: { maxWords: 400 } },
-      { key: 'birthday', label: 'Birthday (DD/MM/YYYY)', type: 'text', required: false, order: 6 },
-      { key: 'wedding_anniversary', label: 'Wedding Anniversary (DD/MM/YYYY)', type: 'text', required: false, order: 7 },
+      // Real date fields (calendar picker), day+month only — no year is stored
+      // for leadership; this also guarantees a parseable value instead of the
+      // free-text field silently failing to parse and showing "Not provided".
+      { key: 'birthday', label: 'Birthday', type: 'date', required: false, order: 6, validation: { dateMode: 'day-month' } },
+      { key: 'wedding_anniversary', label: 'Wedding Anniversary', type: 'date', required: false, order: 7, validation: { dateMode: 'day-month' } },
       { key: 'photo', label: 'Profile Photo', type: 'image', required: false, order: 8 },
     ];
   }
