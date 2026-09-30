@@ -161,7 +161,7 @@ export function OtpModal({
                   onClick={onResetDevice}
                   className="text-left text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:underline focus:outline-none"
                 >
-                  Lost device and no recovery codes? Reset Authenticator
+                  Have a new device or lost your phone? Set up Authenticator on new device
                 </button>
               )}
             </div>
