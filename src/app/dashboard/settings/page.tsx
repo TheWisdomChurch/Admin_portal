@@ -3,11 +3,12 @@
 
 import Image from 'next/image';
 import { useState, useEffect, useCallback, type ChangeEvent, type FormEvent } from 'react';
-import { Save, Bell, Lock, User, Trash2, ShieldCheck, Smartphone, Copy, Link as LinkIcon } from 'lucide-react';
+import { Save, Bell, Lock, User, Trash2, ShieldCheck, Smartphone, Copy, Link as LinkIcon, KeyRound, Download, RefreshCw, CheckCircle2 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
 import { Card } from '@/ui/Card';
+import { Modal } from '@/ui/Modal';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { apiClient } from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -88,6 +89,10 @@ function SettingsPage() {
   const [totpDisableCode, setTotpDisableCode] = useState('');
   const [totpQrCodeDataUrl, setTotpQrCodeDataUrl] = useState('');
   const [securityOverview, setSecurityOverview] = useState<SecurityOverview | null>(null);
+  const [isReconfiguring, setIsReconfiguring] = useState(false);
+  const [recoveryCodesModalOpen, setRecoveryCodesModalOpen] = useState(false);
+  const [currentRecoveryCodes, setCurrentRecoveryCodes] = useState<string[]>([]);
+  const [generatingCodes, setGeneratingCodes] = useState(false);
 
   // Initialize form data with user info
   useEffect(() => {
@@ -186,9 +191,25 @@ function SettingsPage() {
       const setup = await apiClient.beginTotpSetup();
       setTotpSetup(setup);
       setTotpEnableCode('');
+      setIsReconfiguring(false);
       toast.success('Authenticator setup is ready.');
     } catch (error) {
       toast.error(getServerErrorMessage(error, 'Failed to start authenticator setup'));
+    } finally {
+      setMfaSaving(false);
+    }
+  };
+
+  const handleBeginReconfigure = async () => {
+    try {
+      setMfaSaving(true);
+      const setup = await apiClient.reconfigureTotp();
+      setTotpSetup(setup);
+      setTotpEnableCode('');
+      setIsReconfiguring(true);
+      toast.success('Ready to register your new device.');
+    } catch (error) {
+      toast.error(getServerErrorMessage(error, 'Failed to start device reconfiguration'));
     } finally {
       setMfaSaving(false);
     }
@@ -202,12 +223,66 @@ function SettingsPage() {
       setTotpSetup(null);
       setTotpQrCodeDataUrl('');
       setTotpEnableCode('');
-      toast.success('Authenticator app enabled.');
+      const wasReconfiguring = isReconfiguring;
+      setIsReconfiguring(false);
+      if (profile.recoveryCodes && profile.recoveryCodes.length > 0) {
+        setCurrentRecoveryCodes(profile.recoveryCodes);
+        setRecoveryCodesModalOpen(true);
+        toast.success('Authenticator updated! Please save your new recovery codes.');
+      } else {
+        toast.success(wasReconfiguring ? 'New authenticator device registered!' : 'Authenticator app enabled.');
+      }
     } catch (error) {
       toast.error(getServerErrorMessage(error, 'Failed to enable authenticator app'));
     } finally {
       setMfaSaving(false);
     }
+  };
+
+  const handleGenerateRecoveryCodes = async () => {
+    try {
+      setGeneratingCodes(true);
+      const res = await apiClient.generateRecoveryCodes();
+      setCurrentRecoveryCodes(res.codes || res.recoveryCodes || []);
+      setRecoveryCodesModalOpen(true);
+      await loadSecurityProfile();
+      toast.success('Generated 8 new backup recovery codes');
+    } catch (error) {
+      toast.error(getServerErrorMessage(error, 'Failed to generate recovery codes'));
+    } finally {
+      setGeneratingCodes(false);
+    }
+  };
+
+  const copyAllRecoveryCodes = () => {
+    if (!currentRecoveryCodes.length) return;
+    navigator.clipboard.writeText(currentRecoveryCodes.join('\n'));
+    toast.success('Recovery codes copied to clipboard');
+  };
+
+  const downloadRecoveryCodesTxt = () => {
+    if (!currentRecoveryCodes.length) return;
+    const content = [
+      'WISDOM CHURCH ADMIN - 2FA BACKUP RECOVERY CODES',
+      '================================================',
+      `Account: ${auth.user?.email || 'Admin'}`,
+      `Generated: ${new Date().toISOString()}`,
+      '',
+      'Keep these backup codes in a safe place (such as a password manager).',
+      'Each code can only be used once if you lose your authenticator device.',
+      '',
+      ...currentRecoveryCodes.map((code, idx) => `${idx + 1}. ${code}`),
+      '',
+    ].join('\n');
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `wisdom-church-recovery-codes-${new Date().toISOString().slice(0, 10)}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success('Downloaded recovery codes');
   };
 
   const handleDisableTotp = async () => {
@@ -451,6 +526,7 @@ function SettingsPage() {
 
   const preferredMethod = securityProfile?.preferredMfaMethod ?? auth.user?.preferred_mfa_method ?? 'email_otp';
   const totpEnabled = securityProfile?.totpEnabled ?? auth.user?.totp_enabled ?? false;
+  const isAdmin = auth.user?.role === 'admin' || auth.user?.role === 'super_admin';
 
   if (auth.isLoading) {
     return (
@@ -808,40 +884,207 @@ function SettingsPage() {
                   ) : (
                     <div className="space-y-4">
                       <div className="rounded-[var(--radius-button)] border border-[var(--color-success-border)] bg-[var(--color-success-surface)] p-4">
-                        <p className="text-sm font-semibold text-[var(--color-success-text)]">Authenticator app is enabled</p>
-                        <p className="mt-1 text-xs text-[var(--color-success-text)]">
-                          Sign-in can now be protected with codes generated from your registered authenticator app.
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-5 w-5 text-[var(--color-success-text)] shrink-0" />
+                          <div>
+                            <p className="text-sm font-semibold text-[var(--color-success-text)]">Authenticator app is active</p>
+                            <p className="mt-0.5 text-xs text-[var(--color-success-text)]">
+                              Sign-in is protected with codes generated from your registered authenticator app.
+                            </p>
+                          </div>
+                        </div>
                       </div>
 
-                      <Input
-                        label="Disable authenticator app"
-                        value={totpDisableCode}
-                        onChange={(event) => setTotpDisableCode(event.target.value.replace(/\D+/g, '').slice(0, 6))}
-                        inputMode="numeric"
-                        placeholder="Enter the current 6-digit code"
-                        helperText="Provide a valid authenticator code before removing TOTP from this account."
-                      />
+                      {totpSetup ? (
+                        <div className="space-y-4 rounded-[var(--radius-button)] border border-[var(--color-accent-primary)]/40 bg-[var(--color-background-secondary)] p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Register New Device</p>
+                              <p className="text-xs text-[var(--color-text-tertiary)]">
+                                Scan the QR code with your new device or authenticator app. Your existing device stays active until you verify the code below.
+                              </p>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setTotpSetup(null);
+                                setIsReconfiguring(false);
+                              }}
+                              disabled={mfaSaving}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
 
-                      <div className="flex flex-col gap-2 sm:flex-row">
-                        <Button
-                          variant="outline"
-                          onClick={() => handlePreferredMethodChange('totp')}
-                          disabled={mfaSaving || preferredMethod === 'totp'}
-                        >
-                          Use authenticator for sign-in
-                        </Button>
-                        <Button
-                          variant="danger"
-                          onClick={handleDisableTotp}
-                          loading={mfaSaving}
-                          disabled={mfaSaving || totpDisableCode.trim().length !== 6}
-                        >
-                          Disable authenticator app
-                        </Button>
-                      </div>
+                          <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-start pt-2">
+                            <div className="space-y-2">
+                              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Scan QR code</p>
+                              <div className="flex min-h-[240px] items-center justify-center rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-white p-3">
+                                {totpQrCodeDataUrl ? (
+                                  <Image
+                                    src={totpQrCodeDataUrl}
+                                    alt="New authenticator setup QR code"
+                                    width={220}
+                                    height={220}
+                                    className="h-[220px] w-[220px]"
+                                    unoptimized
+                                  />
+                                ) : (
+                                  <p className="text-center text-xs text-[var(--color-text-tertiary)]">
+                                    QR code preview is unavailable. Use the manual key below.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="space-y-4">
+                              <div className="grid gap-4 md:grid-cols-2">
+                                <div>
+                                  <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Issuer</p>
+                                  <p className="mt-2 text-sm font-semibold text-[var(--color-text-primary)]">{totpSetup.issuer}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Account</p>
+                                  <p className="mt-2 text-sm font-semibold text-[var(--color-text-primary)]">{totpSetup.accountName}</p>
+                                </div>
+                              </div>
+
+                              <div>
+                                <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">Manual entry key</p>
+                                <div className="mt-2 flex flex-col gap-3 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                  <code className="break-all text-sm font-semibold text-[var(--color-text-primary)]">
+                                    {totpSetup.manualEntryKey}
+                                  </code>
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => copySecurityValue(totpSetup.manualEntryKey, 'Manual entry key copied')}
+                                  >
+                                    <Copy className="mr-2 h-4 w-4" />
+                                    Copy key
+                                  </Button>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap gap-3">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => copySecurityValue(totpSetup.otpauthUrl, 'Authenticator setup link copied')}
+                                >
+                                  <LinkIcon className="mr-2 h-4 w-4" />
+                                  Copy setup link
+                                </Button>
+                                <a
+                                  href={totpSetup.otpauthUrl}
+                                  className="inline-flex items-center justify-center rounded-[var(--radius-button)] border border-[var(--color-border-primary)] px-4 py-2 text-sm font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-background-secondary)]"
+                                >
+                                  Open authenticator link
+                                </a>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 pt-2">
+                            <Input
+                              label="Verification code from new device"
+                              value={totpEnableCode}
+                              onChange={(event) => setTotpEnableCode(event.target.value.replace(/\D+/g, '').slice(0, 6))}
+                              inputMode="numeric"
+                              placeholder="Enter 6-digit code from new device"
+                              helperText="Enter the 6-digit code displayed on your new phone to confirm registration."
+                            />
+                            <Button
+                              onClick={handleEnableTotp}
+                              loading={mfaSaving}
+                              disabled={mfaSaving || totpEnableCode.trim().length !== 6}
+                            >
+                              Verify & register new device
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="flex flex-col gap-2 sm:flex-row">
+                            <Button
+                              variant="primary"
+                              onClick={handleBeginReconfigure}
+                              loading={mfaSaving}
+                            >
+                              <Smartphone className="mr-2 h-4 w-4" />
+                              Register new device / Replace Authenticator
+                            </Button>
+                            {preferredMethod !== 'totp' && (
+                              <Button
+                                variant="outline"
+                                onClick={() => handlePreferredMethodChange('totp')}
+                                disabled={mfaSaving}
+                              >
+                                Use authenticator for sign-in
+                              </Button>
+                            )}
+                          </div>
+
+                          {!isAdmin && (
+                            <div className="pt-2 border-t border-[var(--color-border-secondary)] space-y-3">
+                              <Input
+                                label="Disable authenticator app"
+                                value={totpDisableCode}
+                                onChange={(event) => setTotpDisableCode(event.target.value.replace(/\D+/g, '').slice(0, 6))}
+                                inputMode="numeric"
+                                placeholder="Enter current 6-digit code"
+                                helperText="Provide a valid authenticator code before removing TOTP from this account."
+                              />
+                              <Button
+                                variant="danger"
+                                onClick={handleDisableTotp}
+                                loading={mfaSaving}
+                                disabled={mfaSaving || totpDisableCode.trim().length !== 6}
+                              >
+                                Disable authenticator app
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
+                </div>
+
+                {/* Backup Recovery Codes Section */}
+                <div className="space-y-4 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]">
+                      <KeyRound className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <p className="text-sm font-semibold text-[var(--color-text-primary)]">Backup Recovery Codes</p>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)]">
+                          {securityProfile?.recoveryCodesRemaining ?? 0} remaining
+                        </span>
+                      </div>
+                      <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
+                        One-time backup codes let you sign in to your admin account if you lose your phone or Google Authenticator. Keep them in a safe place.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3 text-xs text-[var(--color-text-secondary)]">
+                    <p>
+                      Each recovery code is 10 characters long (e.g. <code className="font-mono font-semibold">ABCD-1234</code>) and can only be used once. Generating new codes immediately invalidates any previously generated codes.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={handleGenerateRecoveryCodes}
+                      loading={generatingCodes}
+                    >
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Generate new recovery codes
+                    </Button>
+                  </div>
                 </div>
               </div>
             </Card>
@@ -1062,6 +1305,58 @@ function SettingsPage() {
           </ul>
         </div>
       </VerifyActionModal>
+
+      {/* Recovery Codes Modal */}
+      <Modal
+        open={recoveryCodesModalOpen}
+        onClose={() => setRecoveryCodesModalOpen(false)}
+        size="md"
+      >
+        <div className="p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--color-success-surface)] text-[var(--color-success-text)]">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                Backup Recovery Codes
+              </h3>
+              <p className="text-xs text-[var(--color-text-tertiary)]">
+                Save these 8 one-time emergency codes now.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-[var(--radius-button)] border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+            <strong>Important:</strong> If you lose your phone, you can enter any one of these codes on the login verification screen. Each code works only once.
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 p-3 rounded-[var(--radius-button)] bg-[var(--color-background-secondary)] border border-[var(--color-border-secondary)] font-mono text-sm tracking-wider font-semibold text-center text-[var(--color-text-primary)]">
+            {currentRecoveryCodes.map((code, idx) => (
+              <div key={idx} className="p-2 bg-[var(--color-background-primary)] rounded border border-[var(--color-border-secondary)] select-all">
+                {code}
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={copyAllRecoveryCodes}>
+              <Copy className="h-4 w-4 mr-2" />
+              Copy all codes
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={downloadRecoveryCodesTxt}>
+              <Download className="h-4 w-4 mr-2" />
+              Download (.txt)
+            </Button>
+          </div>
+
+          <div className="pt-2">
+            <Button className="w-full" onClick={() => setRecoveryCodesModalOpen(false)}>
+              I have saved my codes
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }

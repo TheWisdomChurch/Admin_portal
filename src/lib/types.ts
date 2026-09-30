@@ -27,7 +27,7 @@ export interface User {
 ========================= */
 
 export type RegisterRole = UserRole;
-export type MFAMethod = 'email_otp' | 'totp';
+export type MFAMethod = 'email_otp' | 'totp' | 'recovery_code';
 
 export interface LoginCredentials {
   email: string;
@@ -61,6 +61,8 @@ export interface AuthSecurityProfile {
   availableMethods: MFAMethod[];
   federatedProvider?: string | null;
   federatedLinkedAt?: string;
+  recoveryCodesRemaining?: number;
+  recoveryCodes?: string[];
 }
 
 export interface TOTPSetupResponse {
@@ -68,6 +70,22 @@ export interface TOTPSetupResponse {
   accountName: string;
   manualEntryKey: string;
   otpauthUrl: string;
+}
+
+export interface RecoveryCodesResponse {
+  codes: string[];
+  recoveryCodes?: string[];
+}
+
+export interface EmergencyResetRequestPayload {
+  email: string;
+}
+
+export interface EmergencyResetConfirmPayload {
+  email: string;
+  code: string;
+  password: string;
+  rememberMe?: boolean;
 }
 
 export interface PasswordResetRequestPayload {

@@ -119,6 +119,13 @@ function LoginInner() {
   const [pendingLogin, setPendingLogin] = useState<LoginFormData | null>(null);
   const [challengePurpose, setChallengePurpose] = useState<string>('login');
   const [challengeMethod, setChallengeMethod] = useState<MFAMethod>('email_otp');
+  const [isRecoveryCode, setIsRecoveryCode] = useState(false);
+
+  const [emergencyResetOpen, setEmergencyResetOpen] = useState(false);
+  const [emergencyResetStep, setEmergencyResetStep] = useState<'request' | 'confirm'>('request');
+  const [emergencyResetCode, setEmergencyResetCode] = useState('');
+  const [emergencyResetPassword, setEmergencyResetPassword] = useState('');
+  const [emergencyResetLoading, setEmergencyResetLoading] = useState(false);
 
   const [errorModal, setErrorModal] = useState<{
     open: boolean;
@@ -348,11 +355,13 @@ function LoginInner() {
       setOtpLoading(true);
       setAuthRememberPreference(!!pendingLogin.rememberMe);
 
+      const effectiveMethod: MFAMethod = isRecoveryCode ? 'recovery_code' : challengeMethod;
+
       await completeLoginOtp({
         email: otpEmail.trim().toLowerCase(),
         code: otpCode.trim(),
         purpose: challengePurpose || 'login',
-        method: challengeMethod,
+        method: effectiveMethod,
         rememberMe: pendingLogin.rememberMe,
       });
 
@@ -363,9 +372,15 @@ function LoginInner() {
         return;
       }
 
-      toast.success('Login verified');
+      if (isRecoveryCode) {
+        toast.success('Signed in using recovery code. If you lost your phone, register a new device in Settings.');
+      } else {
+        toast.success('Login verified');
+      }
+
       setOtpOpen(false);
       setOtpCode('');
+      setIsRecoveryCode(false);
       setChallengeMethod('email_otp');
 
       if (accessStatus === 'mfa_required') {
@@ -385,6 +400,56 @@ function LoginInner() {
       toast.error(getServerErrorMessage(err, 'Verification failed'));
     } finally {
       setOtpLoading(false);
+    }
+  };
+
+  const handleRequestEmergencyReset = async () => {
+    const targetEmail = (otpEmail || pendingLogin?.email || '').trim().toLowerCase();
+    if (!targetEmail) {
+      toast.error('Please enter your account email address.');
+      return;
+    }
+
+    try {
+      setEmergencyResetLoading(true);
+      await apiClient.requestEmergencyMfaReset(targetEmail);
+      toast.success('Emergency reset code sent to your registered email.');
+      setEmergencyResetStep('confirm');
+    } catch (err) {
+      toast.error(getServerErrorMessage(err, 'Failed to send reset code'));
+    } finally {
+      setEmergencyResetLoading(false);
+    }
+  };
+
+  const handleConfirmEmergencyReset = async () => {
+    const targetEmail = (otpEmail || pendingLogin?.email || '').trim().toLowerCase();
+    if (!emergencyResetCode.trim() || !emergencyResetPassword) {
+      toast.error('Enter the verification code from your email and your account password.');
+      return;
+    }
+
+    try {
+      setEmergencyResetLoading(true);
+      await apiClient.confirmEmergencyMfaReset({
+        email: targetEmail,
+        code: emergencyResetCode.trim(),
+        password: emergencyResetPassword,
+        rememberMe: pendingLogin?.rememberMe,
+      });
+
+      toast.success('Authenticator reset! Please set up Google Authenticator on your new phone.');
+      setEmergencyResetOpen(false);
+      setEmergencyResetStep('request');
+      setEmergencyResetCode('');
+      setEmergencyResetPassword('');
+
+      await checkAuth();
+      router.replace('/mfa/setup');
+    } catch (err) {
+      toast.error(getServerErrorMessage(err, 'Reset failed. Please check your credentials and try again.'));
+    } finally {
+      setEmergencyResetLoading(false);
     }
   };
 
@@ -816,20 +881,37 @@ function LoginInner() {
           setOtpOpen(false);
           setOtpCode('');
           setOtpStep('email');
+          setIsRecoveryCode(false);
           setChallengeMethod('email_otp');
         }}
         loading={otpLoading || isLoading}
-        title={challengeMethod === 'totp' ? 'Authenticator verification' : 'Email verification'}
+        title={
+          isRecoveryCode
+            ? 'Emergency recovery code'
+            : challengeMethod === 'totp'
+            ? 'Authenticator verification'
+            : 'Email verification'
+        }
         subtitle={
           otpStep === 'email'
             ? 'Confirm your email to receive a one-time code.'
+            : isRecoveryCode
+            ? 'Enter one of your 8-character backup recovery codes to access your account.'
             : challengeMethod === 'totp'
             ? 'Open your authenticator app and enter the current 6-digit code.'
             : `Enter the code we sent to ${otpEmail}.`
         }
-        otpLabel={challengeMethod === 'totp' ? 'Authenticator code' : 'Enter the 6-digit code'}
+        otpLabel={
+          isRecoveryCode
+            ? 'Backup recovery code'
+            : challengeMethod === 'totp'
+            ? 'Authenticator code'
+            : 'Enter the 6-digit code'
+        }
         otpHint={
-          challengeMethod === 'totp'
+          isRecoveryCode
+            ? 'Each recovery code can only be used once. Once signed in, you can register a new authenticator device.'
+            : challengeMethod === 'totp'
             ? 'Codes refresh every 30 seconds. If a code is rejected, make sure your device time is set automatically.'
             : 'Check your inbox for the code. It expires shortly.'
         }
@@ -837,6 +919,20 @@ function LoginInner() {
         requestText="Send login code"
         secondaryActionText={challengeMethod === 'email_otp' ? 'Resend code' : undefined}
         onSecondaryAction={challengeMethod === 'email_otp' ? requestOtp : undefined}
+        allowRecoveryCode={challengeMethod === 'totp'}
+        isRecoveryCode={isRecoveryCode}
+        onToggleRecoveryCode={() => {
+          setIsRecoveryCode((prev) => !prev);
+          setOtpCode('');
+        }}
+        onResetDevice={() => {
+          setOtpOpen(false);
+          setIsRecoveryCode(false);
+          setEmergencyResetStep('request');
+          setEmergencyResetCode('');
+          setEmergencyResetPassword('');
+          setEmergencyResetOpen(true);
+        }}
       />
 
       <AlertModal
@@ -876,6 +972,103 @@ function LoginInner() {
           },
         }}
       />
+
+      <Modal
+        open={emergencyResetOpen}
+        onClose={() => {
+          if (!emergencyResetLoading) {
+            setEmergencyResetOpen(false);
+            setEmergencyResetStep('request');
+            setEmergencyResetCode('');
+            setEmergencyResetPassword('');
+          }
+        }}
+        labelledBy="emergency-reset-title"
+      >
+        <div className="p-6">
+          <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] pb-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-amber-500 font-semibold">Lost Device Recovery</p>
+              <h2 id="emergency-reset-title" className="text-lg font-semibold text-[var(--color-text-primary)]">
+                Reset Google Authenticator
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (!emergencyResetLoading) setEmergencyResetOpen(false);
+              }}
+              className="text-sm text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+              disabled={emergencyResetLoading}
+            >
+              Close
+            </button>
+          </div>
+
+          <p className="mt-4 text-sm text-[var(--color-text-secondary)] leading-relaxed">
+            {emergencyResetStep === 'request'
+              ? `We will send a one-time emergency verification code to your registered email (${otpEmail || pendingLogin?.email || 'your email'}) so you can reset your lost 2FA device and register a new phone.`
+              : 'Enter the 6-digit code sent to your email along with your account password to verify your identity and reset your authenticator device.'}
+          </p>
+
+          <div className="mt-5 space-y-4">
+            {emergencyResetStep === 'request' ? (
+              <Input
+                label="Registered email"
+                type="email"
+                value={otpEmail || pendingLogin?.email || ''}
+                disabled
+              />
+            ) : (
+              <>
+                <Input
+                  label="Verification code from email"
+                  type="text"
+                  placeholder="Enter 6-digit code"
+                  value={emergencyResetCode}
+                  onChange={(e) => setEmergencyResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  disabled={emergencyResetLoading}
+                />
+                <Input
+                  label="Account password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={emergencyResetPassword}
+                  onChange={(e) => setEmergencyResetPassword(e.target.value)}
+                  disabled={emergencyResetLoading}
+                />
+              </>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setEmergencyResetOpen(false)}
+                disabled={emergencyResetLoading}
+              >
+                Cancel
+              </Button>
+              {emergencyResetStep === 'request' ? (
+                <Button
+                  onClick={handleRequestEmergencyReset}
+                  loading={emergencyResetLoading}
+                  disabled={emergencyResetLoading}
+                >
+                  Send verification code
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleConfirmEmergencyReset}
+                  loading={emergencyResetLoading}
+                  disabled={emergencyResetLoading || emergencyResetCode.length !== 6 || !emergencyResetPassword}
+                >
+                  Reset & Register New Phone
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

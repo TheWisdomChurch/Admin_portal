@@ -29,6 +29,10 @@ interface OtpModalProps {
   requestText?: string;
   secondaryActionText?: string;
   onSecondaryAction?: () => void | Promise<void>;
+  allowRecoveryCode?: boolean;
+  isRecoveryCode?: boolean;
+  onToggleRecoveryCode?: () => void;
+  onResetDevice?: () => void;
 }
 
 export function OtpModal({
@@ -51,6 +55,10 @@ export function OtpModal({
   requestText = 'Send code',
   secondaryActionText,
   onSecondaryAction,
+  allowRecoveryCode = false,
+  isRecoveryCode = false,
+  onToggleRecoveryCode,
+  onResetDevice,
 }: OtpModalProps) {
   const isEmailStep = step === 'email';
   const emailInputRef = useRef<HTMLInputElement>(null);
@@ -108,6 +116,20 @@ export function OtpModal({
                 disabled={loading}
               />
             </div>
+          ) : isRecoveryCode ? (
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-[var(--color-text-primary)]">Emergency recovery code</label>
+              <Input
+                value={code}
+                onChange={(e) => onCodeChange(e.target.value.toUpperCase())}
+                placeholder="e.g. 234A-BC56"
+                autoCapitalize="characters"
+                disabled={loading}
+              />
+              <p className="text-xs text-[var(--color-text-tertiary)]">
+                Enter one of your 8-character backup recovery codes generated during MFA setup.
+              </p>
+            </div>
           ) : (
             <div className="space-y-3">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">{otpLabel}</label>
@@ -119,6 +141,29 @@ export function OtpModal({
                 disabled={loading}
               />
               <p className="text-xs text-[var(--color-text-tertiary)]">{otpHint}</p>
+            </div>
+          )}
+
+          {!isEmailStep && allowRecoveryCode && (
+            <div className="flex flex-col gap-2 pt-1 border-t border-[var(--color-border-secondary)] text-xs">
+              {onToggleRecoveryCode && (
+                <button
+                  type="button"
+                  onClick={onToggleRecoveryCode}
+                  className="text-left font-medium text-[var(--color-accent-primary)] hover:underline focus:outline-none"
+                >
+                  {isRecoveryCode ? '← Use 6-digit authenticator code instead' : 'Lost your phone? Use a backup recovery code'}
+                </button>
+              )}
+              {onResetDevice && (
+                <button
+                  type="button"
+                  onClick={onResetDevice}
+                  className="text-left text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:underline focus:outline-none"
+                >
+                  Lost device and no recovery codes? Reset Authenticator
+                </button>
+              )}
             </div>
           )}
 

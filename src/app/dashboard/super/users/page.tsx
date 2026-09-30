@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Plus,
   RefreshCw,
+  RotateCcw,
   Shield,
   ShieldAlert,
   Trash2,
@@ -46,6 +47,8 @@ function AdminUsersPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminUserAdmin | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [reset2faTarget, setReset2faTarget] = useState<AdminUserAdmin | null>(null);
+  const [resetting2fa, setResetting2fa] = useState(false);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -142,6 +145,22 @@ function AdminUsersPage() {
     }
   };
 
+  const confirmReset2FA = async () => {
+    if (!reset2faTarget) return;
+    setResetting2fa(true);
+    try {
+      await apiClient.resetAdminUser2FA(reset2faTarget.id);
+      toast.success(`2FA reset for ${reset2faTarget.first_name} ${reset2faTarget.last_name}. They can now register a new device.`);
+      setReset2faTarget(null);
+      await loadUsers();
+    } catch (error) {
+      console.error('Failed to reset 2FA:', error);
+      toast.error(error instanceof Error ? error.message : 'Unable to reset 2FA');
+    } finally {
+      setResetting2fa(false);
+    }
+  };
+
   const columns: TableColumn<AdminUserAdmin>[] = [
     { key: 'name', header: 'Name', render: (row) => <span className="font-bold text-[var(--color-text-primary)]">{row.first_name} {row.last_name}</span> },
     { key: 'email', header: 'Email', render: (row) => <span className="text-[var(--color-text-secondary)]">{row.email}</span> },
@@ -178,6 +197,21 @@ function AdminUsersPage() {
           ) : (
             <Button size="sm" variant="outline" loading={busyId === row.id} onClick={(e) => { e.stopPropagation(); void toggleActive(row); }} disabled={row.id === currentUser?.id}>
               {row.is_active ? 'Deactivate' : 'Reactivate'}
+            </Button>
+          )}
+          {row.totp_enabled && (
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<RotateCcw className="h-3.5 w-3.5 text-amber-500" />}
+              loading={busyId === row.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                setReset2faTarget(row);
+              }}
+              title="Reset 2FA device"
+            >
+              Reset 2FA
             </Button>
           )}
           <button
@@ -260,6 +294,18 @@ function AdminUsersPage() {
         confirmText="Delete account"
         variant="danger"
         loading={deleting}
+      />
+
+      <VerifyActionModal
+        isOpen={Boolean(reset2faTarget)}
+        onClose={() => setReset2faTarget(null)}
+        onConfirm={() => void confirmReset2FA()}
+        title="Reset 2FA Device"
+        description={`This will clear the registered Google Authenticator device and recovery codes for ${reset2faTarget ? `${reset2faTarget.first_name} ${reset2faTarget.last_name} (${reset2faTarget.email})` : 'this admin'}. On their next sign-in, they will be prompted to register their new device.`}
+        verifyText="RESET 2FA"
+        confirmText="Reset 2FA"
+        variant="warning"
+        loading={resetting2fa}
       />
     </main>
   );

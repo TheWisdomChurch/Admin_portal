@@ -4,7 +4,18 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import QRCode from 'qrcode';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, ArrowRight, CheckCircle2, Copy, KeyRound, Loader2, ShieldCheck, Smartphone } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  Copy,
+  Download,
+  KeyRound,
+  Loader2,
+  ShieldAlert,
+  ShieldCheck,
+  Smartphone,
+} from 'lucide-react';
 
 import { Footer } from '@/components/Footer';
 import { getServerErrorMessage } from '@/lib/serverValidation';
@@ -12,6 +23,7 @@ import type { AuthSecurityProfile, TOTPSetupResponse } from '@/lib/types';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
+import { Checkbox } from '@/ui/Checkbox';
 import { OtpInput, type OtpInputHandle } from '@/ui/OtpInput';
 
 type LooseRecord = Record<string, unknown>;
@@ -47,8 +59,6 @@ function extractSetupValues(payload: TOTPSetupResponse | unknown): {
       return typeof rawQrCode === 'string' && rawQrCode.startsWith('data:image') ? rawQrCode : undefined;
     })();
 
-  // Only accept a raster QR image. Rendering server-provided SVG markup would
-  // create a stored-XSS boundary inside the privileged admin origin.
   const qrCodeDataUrl = candidateDataUrl && /^data:image\/png;base64,[a-z0-9+/=\s]+$/i.test(candidateDataUrl)
     ? candidateDataUrl
     : undefined;
@@ -116,6 +126,9 @@ export default function MfaSetupPage() {
   const [secret, setSecret] = useState('');
   const [otpauthUrl, setOtpauthUrl] = useState('');
   const [qrBuildError, setQrBuildError] = useState('');
+  const [step, setStep] = useState<'setup' | 'recovery_codes'>('setup');
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [savedCodesChecked, setSavedCodesChecked] = useState(false);
   const codeInputRef = useRef<OtpInputHandle>(null);
 
   useEffect(() => {
@@ -124,15 +137,18 @@ export default function MfaSetupPage() {
       router.replace('/login');
       return;
     }
-    if (accessStatus === 'ready') router.replace('/dashboard');
-  }, [accessStatus, bootstrapped, isInitialized, router]);
+    // Only automatically redirect if not showing recovery codes
+    if (accessStatus === 'ready' && step !== 'recovery_codes') {
+      router.replace('/dashboard');
+    }
+  }, [accessStatus, bootstrapped, isInitialized, router, step]);
 
   const alreadyEnabled = useMemo(() => isMfaEnabled(mfaProfile), [mfaProfile]);
   const hasSetup = Boolean(qrCodeDataUrl || secret || otpauthUrl);
 
   useEffect(() => {
-    if (hasSetup) codeInputRef.current?.focus();
-  }, [hasSetup]);
+    if (hasSetup && step === 'setup') codeInputRef.current?.focus();
+  }, [hasSetup, step]);
 
   useEffect(() => {
     let cancelled = false;
@@ -177,6 +193,34 @@ export default function MfaSetupPage() {
     window.setTimeout(() => setSuccessMessage(''), 1800);
   };
 
+  const copyAllRecoveryCodes = async () => {
+    if (recoveryCodes.length === 0) return;
+    await navigator.clipboard.writeText(recoveryCodes.join('\n'));
+    setSuccessMessage('All recovery codes copied to clipboard.');
+    window.setTimeout(() => setSuccessMessage(''), 2200);
+  };
+
+  const downloadRecoveryCodes = () => {
+    if (recoveryCodes.length === 0) return;
+    const content = `WISDOM CHURCH ADMIN PORTAL - 2FA BACKUP RECOVERY CODES
+Generated: ${new Date().toISOString()}
+
+Save these one-time recovery codes in a secure place (e.g. password manager).
+If you lose your phone, each code can be used once to sign in and register a new authenticator device:
+
+${recoveryCodes.map((c, i) => `${i + 1}. ${c}`).join('\n')}
+
+Important: Do not share these codes with anyone.`;
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'wisdom-admin-2fa-recovery-codes.txt';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const submitCode = async (rawCode: string) => {
     const normalizedCode = rawCode.replace(/\D/g, '').slice(0, 6);
     if (normalizedCode.length !== 6) {
@@ -187,9 +231,15 @@ export default function MfaSetupPage() {
     setVerifyError('');
     setSuccessMessage('');
     try {
-      await enableTotp(normalizedCode);
-      setSuccessMessage('MFA enabled successfully. Redirecting to dashboard...');
-      window.setTimeout(() => router.replace('/dashboard'), 900);
+      const res = await enableTotp(normalizedCode);
+      if (res?.recoveryCodes && res.recoveryCodes.length > 0) {
+        setRecoveryCodes(res.recoveryCodes);
+        setStep('recovery_codes');
+        setSuccessMessage('MFA enabled successfully! Please save your backup recovery codes.');
+      } else {
+        setSuccessMessage('MFA enabled successfully. Redirecting to dashboard...');
+        window.setTimeout(() => router.replace('/dashboard'), 900);
+      }
     } catch (error) {
       setVerifyError(getServerErrorMessage(error, 'Failed to verify MFA code.'));
       setCode('');
@@ -215,7 +265,7 @@ export default function MfaSetupPage() {
     );
   }
 
-  if (accessStatus === 'login_required' || accessStatus === 'ready') return null;
+  if (accessStatus === 'login_required' || (accessStatus === 'ready' && step !== 'recovery_codes')) return null;
 
   return (
     <div className="min-h-screen bg-[var(--color-background-primary)]">
@@ -226,90 +276,180 @@ export default function MfaSetupPage() {
               <ShieldCheck className="h-7 w-7" />
             </div>
             <p className="mt-7 text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-text-inverse)]/50">Multi-factor authentication</p>
-            <h1 className="heading-page mt-3 max-w-2xl">Secure your admin account before entering the dashboard.</h1>
-            <p className="mt-5 max-w-2xl text-sm leading-7 text-[var(--color-text-inverse)]/70 sm:text-base">Your account is signed in, but admin access requires authenticator-based MFA. This protects church records, members, and operational data.</p>
+            <h1 className="heading-page mt-3 max-w-2xl">
+              {step === 'recovery_codes'
+                ? 'Save your backup recovery codes.'
+                : 'Secure your admin account before entering the dashboard.'}
+            </h1>
+            <p className="mt-5 max-w-2xl text-sm leading-7 text-[var(--color-text-inverse)]/70 sm:text-base">
+              {step === 'recovery_codes'
+                ? 'If you lose your phone or Google Authenticator, these emergency recovery codes will allow you to sign in and register a new device.'
+                : 'Your account is signed in, but admin access requires authenticator-based MFA. This protects church records, members, and operational data.'}
+            </p>
           </div>
 
-          <div className="grid gap-4 p-6 sm:grid-cols-2 sm:p-8">
-            <InfoStep index={1} title="Generate setup" body="Create a fresh QR code and secret key for your authenticator app." />
-            <InfoStep index={2} title="Verify code" body="Enter the current 6-digit code to activate MFA and continue." />
-          </div>
+          {step === 'recovery_codes' ? (
+            <div className="p-6 sm:p-8 space-y-4">
+              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-5">
+                <div className="flex items-start gap-3">
+                  <ShieldAlert className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="text-sm font-bold text-[var(--color-text-primary)]">Lost Phone Protection</h3>
+                    <p className="mt-1 text-sm text-[var(--color-text-secondary)] leading-relaxed">
+                      Each code can only be used once. Save or download them now — they will not be shown again in full.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-          <div className="flex flex-wrap gap-3 border-t border-[var(--color-border-secondary)] p-6 sm:p-8">
-            <Button onClick={generateSetup} loading={loadingSetup} disabled={loadingSetup}>
-              {loadingSetup ? 'Generating setup...' : hasSetup ? 'Regenerate setup' : 'Generate MFA setup'}
-              {!loadingSetup ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
-            </Button>
-            <Button variant="outline" onClick={() => void logout()}>Sign out</Button>
-          </div>
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Button variant="outline" icon={<Copy className="h-4 w-4" />} onClick={() => void copyAllRecoveryCodes()}>
+                  Copy all codes
+                </Button>
+                <Button variant="outline" icon={<Download className="h-4 w-4" />} onClick={downloadRecoveryCodes}>
+                  Download as TXT
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-4 p-6 sm:grid-cols-2 sm:p-8">
+                <InfoStep index={1} title="Generate setup" body="Create a fresh QR code and secret key for your authenticator app." />
+                <InfoStep index={2} title="Verify code" body="Enter the current 6-digit code to activate MFA and receive your recovery codes." />
+              </div>
+
+              <div className="flex flex-wrap gap-3 border-t border-[var(--color-border-secondary)] p-6 sm:p-8">
+                <Button onClick={generateSetup} loading={loadingSetup} disabled={loadingSetup}>
+                  {loadingSetup ? 'Generating setup...' : hasSetup ? 'Regenerate setup' : 'Generate MFA setup'}
+                  {!loadingSetup ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
+                </Button>
+                <Button variant="outline" onClick={() => void logout()}>Sign out</Button>
+              </div>
+            </>
+          )}
 
           <div className="space-y-3 px-6 pb-6 sm:px-8 sm:pb-8">
             {setupError ? <Notice type="error">{setupError}</Notice> : null}
-            {alreadyEnabled ? <Notice type="success">MFA already appears to be enabled. If access still fails, refresh or sign out and sign in again.</Notice> : null}
+            {alreadyEnabled && step !== 'recovery_codes' ? (
+              <Notice type="success">MFA already appears to be enabled. If access still fails, refresh or sign out and sign in again.</Notice>
+            ) : null}
             {successMessage ? <Notice type="success">{successMessage}</Notice> : null}
           </div>
         </section>
 
-        <Card className="auth-glass rounded-3xl p-6 shadow-sm sm:p-8">
-          <div className="text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)]">
-              <Smartphone className="h-7 w-7 text-[var(--color-accent-primary)]" />
-            </div>
-            <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">Authenticator setup</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">Scan the QR code. If scanning fails, copy the secret key into your authenticator app manually.</p>
-          </div>
-
-          <div className="mt-6 min-h-[300px] rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5">
-            {hasSetup ? (
-              <div className="space-y-5">
-                {qrCodeDataUrl ? (
-                  <div className="flex justify-center">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={qrCodeDataUrl} alt="MFA QR code" className="max-w-full rounded-3xl bg-white p-4 shadow-sm" />
-                  </div>
-                ) : null}
-                {qrBuildError ? <Notice type="warning">{qrBuildError}</Notice> : null}
-                {secret ? (
-                  <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]"><KeyRound className="h-4 w-4" /> Secret key</p>
-                        <code className="mt-3 block break-all text-sm font-bold text-[var(--color-text-primary)]">{secret}</code>
-                      </div>
-                      <Button size="sm" variant="outline" icon={<Copy className="h-4 w-4" />} onClick={() => void copySecret()}>Copy</Button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <div className="flex h-full min-h-[260px] items-center justify-center text-center">
-                <div>
-                  <Smartphone className="mx-auto h-10 w-10 text-[var(--color-text-tertiary)]" />
-                  <p className="mt-4 text-sm font-bold text-[var(--color-text-secondary)]">Generate setup to display your QR code and TOTP secret.</p>
+        {step === 'recovery_codes' ? (
+          <Card className="auth-glass rounded-3xl p-6 shadow-sm sm:p-8 flex flex-col justify-between">
+            <div>
+              <div className="text-center">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)]">
+                  <KeyRound className="h-7 w-7 text-[var(--color-accent-primary)]" />
                 </div>
+                <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">Emergency Recovery Codes</h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">
+                  Keep these safely stored. You can use these to log in and re-register if you lose your phone.
+                </p>
               </div>
-            )}
-          </div>
 
-          <form onSubmit={handleEnable} className="mt-6 space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-[var(--color-text-secondary)]">Authenticator code</label>
-              <OtpInput
-                ref={codeInputRef}
-                value={code}
-                onChange={(value) => {
-                  setCode(value);
-                  setVerifyError('');
-                }}
-                onComplete={(value) => void submitCode(value)}
-                disabled={submitting}
-                error={Boolean(verifyError)}
-              />
+              <div className="mt-6 grid grid-cols-2 gap-3 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5">
+                {recoveryCodes.map((c, i) => (
+                  <div
+                    key={c}
+                    className="flex items-center justify-between rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-mono font-bold tracking-wider text-[var(--color-text-primary)]"
+                  >
+                    <span className="text-xs text-[var(--color-text-tertiary)] select-none mr-1">{i + 1}.</span>
+                    <span>{c}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 flex items-start gap-2">
+                <Checkbox
+                  checked={savedCodesChecked}
+                  onChange={(e) => setSavedCodesChecked(e.target.checked)}
+                  label="I have copied or downloaded my recovery codes and stored them securely."
+                />
+              </div>
             </div>
-            {verifyError ? <Notice type="error">{verifyError}</Notice> : null}
-            <Button type="submit" className="w-full" loading={submitting} disabled={submitting || !hasSetup}>Enable MFA</Button>
-          </form>
-        </Card>
+
+            <div className="mt-6">
+              <Button
+                className="w-full"
+                disabled={!savedCodesChecked}
+                onClick={() => router.replace('/dashboard')}
+              >
+                Continue to Dashboard
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </Card>
+        ) : (
+          <Card className="auth-glass rounded-3xl p-6 shadow-sm sm:p-8">
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)]">
+                <Smartphone className="h-7 w-7 text-[var(--color-accent-primary)]" />
+              </div>
+              <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">Authenticator setup</h2>
+              <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">
+                Scan the QR code in Google Authenticator. If scanning fails, copy the secret key manually.
+              </p>
+            </div>
+
+            <div className="mt-6 min-h-[300px] rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5">
+              {hasSetup ? (
+                <div className="space-y-5">
+                  {qrCodeDataUrl ? (
+                    <div className="flex justify-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={qrCodeDataUrl} alt="MFA QR code" className="max-w-full rounded-3xl bg-white p-4 shadow-sm" />
+                    </div>
+                  ) : null}
+                  {qrBuildError ? <Notice type="warning">{qrBuildError}</Notice> : null}
+                  {secret ? (
+                    <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">
+                            <KeyRound className="h-4 w-4" /> Secret key
+                          </p>
+                          <code className="mt-3 block break-all text-sm font-bold text-[var(--color-text-primary)]">{secret}</code>
+                        </div>
+                        <Button size="sm" variant="outline" icon={<Copy className="h-4 w-4" />} onClick={() => void copySecret()}>Copy</Button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="flex h-full min-h-[260px] items-center justify-center text-center">
+                  <div>
+                    <Smartphone className="mx-auto h-10 w-10 text-[var(--color-text-tertiary)]" />
+                    <p className="mt-4 text-sm font-bold text-[var(--color-text-secondary)]">Generate setup to display your QR code and TOTP secret.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={handleEnable} className="mt-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[var(--color-text-secondary)]">Authenticator code</label>
+                <OtpInput
+                  ref={codeInputRef}
+                  value={code}
+                  onChange={(value) => {
+                    setCode(value);
+                    setVerifyError('');
+                  }}
+                  onComplete={(value) => void submitCode(value)}
+                  disabled={submitting}
+                  error={Boolean(verifyError)}
+                />
+              </div>
+              {verifyError ? <Notice type="error">{verifyError}</Notice> : null}
+              <Button type="submit" className="w-full" loading={submitting} disabled={submitting || !hasSetup}>
+                Enable MFA
+              </Button>
+            </form>
+          </Card>
+        )}
       </main>
       <Footer />
     </div>

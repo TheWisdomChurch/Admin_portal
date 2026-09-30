@@ -27,6 +27,7 @@ import type {
   LoginChallenge,
   MFAMethod,
   TOTPSetupResponse,
+  EmergencyResetConfirmPayload,
 } from '@/lib/types';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
@@ -67,9 +68,13 @@ export type AuthContextType = {
   resendLoginOtp: (payload: { email: string }) => Promise<LoginChallenge>;
 
   beginTotpSetup: () => Promise<TOTPSetupResponse>;
+  reconfigureTotp: () => Promise<TOTPSetupResponse>;
   enableTotp: (code: string) => Promise<AuthSecurityProfile>;
   disableTotp: (code: string) => Promise<AuthSecurityProfile>;
   setPreferredMfaMethod: (method: MFAMethod) => Promise<AuthSecurityProfile>;
+  generateRecoveryCodes: () => Promise<string[]>;
+  requestEmergencyMfaReset: (email: string) => Promise<void>;
+  confirmEmergencyMfaReset: (payload: EmergencyResetConfirmPayload) => Promise<void>;
 
   logout: () => Promise<void>;
   activateSession: () => void;
@@ -609,6 +614,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return apiClient.beginTotpSetup();
   }, []);
 
+  const reconfigureTotp = useCallback(async (): Promise<TOTPSetupResponse> => {
+    return apiClient.reconfigureTotp();
+  }, []);
+
   const enableTotp = useCallback(async (code: string): Promise<AuthSecurityProfile> => {
     const profile = await apiClient.enableTotp(code);
 
@@ -637,6 +646,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return profile;
   }, [refreshAuth]);
 
+  const generateRecoveryCodes = useCallback(async (): Promise<string[]> => {
+    const res = await apiClient.generateRecoveryCodes();
+    await refreshAuth();
+    return res.codes;
+  }, [refreshAuth]);
+
+  const requestEmergencyMfaReset = useCallback(async (email: string): Promise<void> => {
+    await apiClient.requestEmergencyMfaReset(email);
+  }, []);
+
+  const confirmEmergencyMfaReset = useCallback(
+    async (payload: EmergencyResetConfirmPayload): Promise<void> => {
+      await apiClient.confirmEmergencyMfaReset(payload);
+      await refreshAuth();
+    },
+    [refreshAuth]
+  );
+
   const value = useMemo<AuthContextType>(() => {
     const isAuthenticated = status === 'authenticated' && !!user;
     const isAdmin = isAdminUser(user);
@@ -660,9 +687,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       completeLoginOtp,
       resendLoginOtp,
       beginTotpSetup,
+      reconfigureTotp,
       enableTotp,
       disableTotp,
       setPreferredMfaMethod,
+      generateRecoveryCodes,
+      requestEmergencyMfaReset,
+      confirmEmergencyMfaReset,
       logout,
       activateSession,
       clearData,
@@ -683,9 +714,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     completeLoginOtp,
     resendLoginOtp,
     beginTotpSetup,
+    reconfigureTotp,
     enableTotp,
     disableTotp,
     setPreferredMfaMethod,
+    generateRecoveryCodes,
+    requestEmergencyMfaReset,
+    confirmEmergencyMfaReset,
     logout,
     activateSession,
     clearData,

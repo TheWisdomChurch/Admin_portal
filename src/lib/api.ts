@@ -1,4 +1,4 @@
-import type { User, LoginCredentials, RegisterData, ApiResponse, MessageResponse, PaginatedResponse, SimplePaginatedResponse, Testimonial, CreateTestimonialData, UpdateTestimonialData, EventData, EventPayload, DashboardAnalytics, DecisionInsights, AdminAuditLog, SecurityOverview, ReelData, CreateReelData, AdminForm, CreateFormRequest, UpdateFormRequest, PublicFormPayload, SubmitFormRequest, FormSubmission, FormStatsResponse, FormStatus, FormSubmissionDailyStat, Subscriber, SubscribeRequest, UnsubscribeRequest, SendNotificationRequest, SendNotificationResult, SubscriberSummary, SendOTPRequest, VerifyOTPRequest, SendOTPResponse, VerifyOTPResponse, WorkforceMember, CreateWorkforceRequest, UpdateWorkforceRequest, WorkforceStatsResponse, Member, MemberStatsResponse, NewMemberDashboardResponse, NewMemberSubmission, NewMemberWorkflow, NewMemberContact, NewMemberWorkflowHistory, CreateMemberRequest, UpdateMemberRequest, LeadershipMember, CreateLeadershipRequest, UpdateLeadershipRequest, PasswordResetRequestPayload, PasswordResetConfirmPayload, LoginResult, LoginChallenge, AuthSecurityProfile, ChangePasswordData, HealthCheckResponse, UploadPresignRequest, UploadPresignResponse, UploadAssetData, UploadImageResponse, EmailTemplate, CreateEmailTemplateRequest, UpdateEmailTemplateRequest, AdminNotificationInbox, ApprovalRequest, ApprovalRequestsTimeline, TOTPSetupResponse, FormReportLinkPayload, AdminEmailMarketingFormItem, AdminEmailMarketingSummary, AdminEmailAudiencePreview, SendAdminComposeEmailRequest, SendAdminComposeEmailResponse, AdminEmailDeliveryHistoryItem, HomepageAdContent, ConfessionPopupContent, AboutPageContent, PastoralCareRequestAdmin, PrayerRequestAdmin, PrayerRequestStatus, GivingIntentAdmin, StoreProductAdmin, UpsertStoreProductRequest, StoreOrdersPaginated, StoreOrderAdmin, StoreOrderStatus, MFAMethod, ServiceTypeAdmin, AttendanceSessionAdmin, AttendanceRecordAdmin, CreateSessionRequest, CheckInRequest, CellGroupAdmin, CellGroupMemberAdmin, CellGroupMeetingAdmin, MinistryAdmin, MinistryMemberAdmin, MinistryStructure, MinistryWorkforceRole, GivingTransactionAdmin, GivingMonthlySummaryRow, ContactMessageAdmin, VisitRequestAdmin, VisitStatus, AdminUserAdmin, CreateAdminUserRequest, UpdateAdminUserRequest } from './types';
+import type { User, LoginCredentials, RegisterData, ApiResponse, MessageResponse, PaginatedResponse, SimplePaginatedResponse, Testimonial, CreateTestimonialData, UpdateTestimonialData, EventData, EventPayload, DashboardAnalytics, DecisionInsights, AdminAuditLog, SecurityOverview, ReelData, CreateReelData, AdminForm, CreateFormRequest, UpdateFormRequest, PublicFormPayload, SubmitFormRequest, FormSubmission, FormStatsResponse, FormStatus, FormSubmissionDailyStat, Subscriber, SubscribeRequest, UnsubscribeRequest, SendNotificationRequest, SendNotificationResult, SubscriberSummary, SendOTPRequest, VerifyOTPRequest, SendOTPResponse, VerifyOTPResponse, WorkforceMember, CreateWorkforceRequest, UpdateWorkforceRequest, WorkforceStatsResponse, Member, MemberStatsResponse, NewMemberDashboardResponse, NewMemberSubmission, NewMemberWorkflow, NewMemberContact, NewMemberWorkflowHistory, CreateMemberRequest, UpdateMemberRequest, LeadershipMember, CreateLeadershipRequest, UpdateLeadershipRequest, PasswordResetRequestPayload, PasswordResetConfirmPayload, LoginResult, LoginChallenge, AuthSecurityProfile, ChangePasswordData, HealthCheckResponse, UploadPresignRequest, UploadPresignResponse, UploadAssetData, UploadImageResponse, EmailTemplate, CreateEmailTemplateRequest, UpdateEmailTemplateRequest, AdminNotificationInbox, ApprovalRequest, ApprovalRequestsTimeline, TOTPSetupResponse, RecoveryCodesResponse, EmergencyResetRequestPayload, EmergencyResetConfirmPayload, FormReportLinkPayload, AdminEmailMarketingFormItem, AdminEmailMarketingSummary, AdminEmailAudiencePreview, SendAdminComposeEmailRequest, SendAdminComposeEmailResponse, AdminEmailDeliveryHistoryItem, HomepageAdContent, ConfessionPopupContent, AboutPageContent, PastoralCareRequestAdmin, PrayerRequestAdmin, PrayerRequestStatus, GivingIntentAdmin, StoreProductAdmin, UpsertStoreProductRequest, StoreOrdersPaginated, StoreOrderAdmin, StoreOrderStatus, MFAMethod, ServiceTypeAdmin, AttendanceSessionAdmin, AttendanceRecordAdmin, CreateSessionRequest, CheckInRequest, CellGroupAdmin, CellGroupMemberAdmin, CellGroupMeetingAdmin, MinistryAdmin, MinistryMemberAdmin, MinistryStructure, MinistryWorkforceRole, GivingTransactionAdmin, GivingMonthlySummaryRow, ContactMessageAdmin, VisitRequestAdmin, VisitStatus, AdminUserAdmin, CreateAdminUserRequest, UpdateAdminUserRequest } from './types';
 import type { VisitActivityAdmin } from './types';
 import type { AdminEmailSchedule, AdminEmailScheduleDetail, AdminEmailScheduleRun, AdminEmailScheduleStatus, UpsertAdminEmailScheduleRequest } from './types';
 import type { FormEmailContent, EmailTemplatePreviewResponse } from './types';
@@ -1146,6 +1146,37 @@ export const apiClient = {
     return unwrapData<AuthSecurityProfile>(res, 'Invalid MFA preference payload');
   },
 
+  async reconfigureTotp(): Promise<TOTPSetupResponse> {
+    const res = await apiFetch<ApiResponse<TOTPSetupResponse>>('/auth/mfa/totp/reconfigure', {
+      method: 'POST',
+    });
+    return unwrapData<TOTPSetupResponse>(res, 'Invalid authenticator reconfigure payload');
+  },
+
+  async generateRecoveryCodes(): Promise<RecoveryCodesResponse> {
+    const res = await apiFetch<ApiResponse<RecoveryCodesResponse>>('/auth/mfa/recovery-codes/generate', {
+      method: 'POST',
+    });
+    return unwrapData<RecoveryCodesResponse>(res, 'Invalid recovery codes payload');
+  },
+
+  async requestEmergencyMfaReset(email: string): Promise<MessageResponse> {
+    return apiFetch('/auth/mfa/emergency-reset/request', {
+      method: 'POST',
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    });
+  },
+
+  async confirmEmergencyMfaReset(payload: EmergencyResetConfirmPayload): Promise<ApiResponse<unknown>> {
+    return apiFetch('/auth/mfa/emergency-reset/confirm', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...payload,
+        email: payload.email.trim().toLowerCase(),
+      }),
+    });
+  },
+
   async updateProfile(userData: Partial<User>): Promise<User> {
     const res = await apiFetch<ApiResponse<unknown>>('/auth/profile', {
       method: 'PATCH',
@@ -1265,6 +1296,12 @@ export const apiClient = {
 
   approveAdminUser(id: string): Promise<MessageResponse> {
     return apiFetch(`/admin/users/${encodeURIComponent(id)}/approve`, {
+      method: 'POST',
+    });
+  },
+
+  resetAdminUser2FA(id: string): Promise<MessageResponse> {
+    return apiFetch(`/admin/users/${encodeURIComponent(id)}/reset-2fa`, {
       method: 'POST',
     });
   },
