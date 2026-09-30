@@ -215,7 +215,14 @@ function shouldAttachCsrf(endpoint: string, method: string): boolean {
   const normalized = endpoint.trim();
   if (!normalized.startsWith('/')) return false;
 
-  const unauthenticatedPrefixes = ['/auth/login', '/auth/register', '/auth/password-reset', '/auth/otp', '/otp/'];
+  const unauthenticatedPrefixes = [
+    '/auth/login',
+    '/auth/register',
+    '/auth/password-reset',
+    '/auth/otp',
+    '/otp/',
+    '/auth/mfa/emergency-reset',
+  ];
 
   if (unauthenticatedPrefixes.some((prefix) => normalized.startsWith(prefix))) {
     return false;
