@@ -664,6 +664,7 @@ export interface FormDesignSettings {
   heroTitle?: string;
   heroSubtitle?: string;
   coverImageUrl?: string;
+  flyerAspectRatio?: 'portrait_4_5' | 'landscape_16_9' | 'square_1_1';
   primaryColor?: string;
   backgroundColor?: string;
   accentColor?: string;
@@ -671,6 +672,22 @@ export interface FormDesignSettings {
   ctaButtonLabel?: string;
   privacyCopy?: string;
   footerNote?: string;
+}
+
+export interface FormAttendingBadgeSettings {
+  enabled?: boolean;
+  templateStyle?: 'polaroid' | 'badge' | 'minimal';
+  badgeText?: string;
+  customFlyerUrl?: string;
+  photoShape?: 'polaroid' | 'circle' | 'square';
+  photoPosition?: {
+    xPercent: number;
+    yPercent: number;
+    scale?: number;
+    rotation?: number;
+  };
+  accentColor?: string;
+  tagline?: string;
 }
 
 export interface FormContentSection {
@@ -719,8 +736,8 @@ export interface FormSettings {
   submitButtonIcon?: 'check' | 'send' | 'calendar' | 'cursor' | 'none';
   formHeaderNote?: string;
   consent?: FormConsentSettings;
-
   design?: FormDesignSettings;
+  attendingBadge?: FormAttendingBadgeSettings;
 }
 
 export interface FormConsentSettings {

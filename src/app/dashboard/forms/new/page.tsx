@@ -20,6 +20,7 @@ import {
   Plus,
   Save,
   Settings2,
+  Sparkles,
   Wand2,
 } from 'lucide-react';
 
@@ -47,7 +48,7 @@ import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 
-type FormPreset = 'testimonial' | 'member' | 'leadership' | 'children';
+type FormPreset = 'conference' | 'sunday_service' | 'testimonial' | 'member' | 'leadership' | 'children';
 type BuilderStep = 'setup' | 'fields' | 'preview';
 
 const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; label: string }> = [
@@ -83,6 +84,58 @@ const makeSlugCandidate = (base: string, attempt: number) => {
 };
 
 function buildPresetFields(preset: FormPreset): FieldDraft[] {
+  if (preset === 'conference') {
+    return [
+      { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
+      { key: 'email', label: 'Email Address', type: 'email', required: true, order: 2 },
+      { key: 'phone', label: 'WhatsApp / Phone Number', type: 'tel', required: true, order: 3 },
+      {
+        key: 'attendance_mode',
+        label: 'How will you be participating?',
+        type: 'radio',
+        required: true,
+        order: 4,
+        options: [
+          { label: 'Attending In-Person', value: 'in_person' },
+          { label: 'Joining Online Live Stream', value: 'online' },
+        ],
+      },
+      { key: 'attendee_photo', label: 'Upload your photo for your customized Status Flyer', type: 'image', required: false, order: 5 },
+      { key: 'expectation', label: 'What are you expecting God for at this program?', type: 'textarea', required: false, order: 6, validation: { maxWords: 300 } },
+    ];
+  }
+
+  if (preset === 'sunday_service') {
+    return [
+      { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
+      { key: 'phone', label: 'Phone Number', type: 'tel', required: true, order: 2 },
+      { key: 'email', label: 'Email Address', type: 'email', required: false, order: 3 },
+      {
+        key: 'service_time',
+        label: 'Service Session',
+        type: 'radio',
+        required: true,
+        order: 4,
+        options: [
+          { label: '1st Service — 8:00 AM', value: '1st_service' },
+          { label: '2nd Service — 10:30 AM', value: '2nd_service' },
+        ],
+      },
+      { key: 'seats', label: 'Total Number of Seats Reserving', type: 'number', required: true, order: 5 },
+      {
+        key: 'first_timer',
+        label: 'Is this your first time worshipping with Wisdom Church?',
+        type: 'radio',
+        required: true,
+        order: 6,
+        options: [
+          { label: 'Yes, first time guest', value: 'yes' },
+          { label: 'No, regular member / attendee', value: 'no' },
+        ],
+      },
+    ];
+  }
+
   if (preset === 'testimonial') {
     return [
       { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
@@ -237,7 +290,7 @@ const buildResponseEmailHTML = (opts: {
           <table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #fde68a;border-radius:14px;overflow:hidden;">
             <tr><td style="padding:14px 24px 8px 24px;"><div style="height:6px;background:#facc15;border-radius:999px;margin:0 0 12px 0;"></div></td></tr>
             <tr><td style="padding:24px 24px 10px 24px;"><p style="margin:0 0 8px 0;font-size:13px;color:#111827;font-weight:700;">${safeTitle}</p><h2 style="margin:0;font-size:24px;line-height:1.25;color:#111827;">${safeHeading}</h2></td></tr>
-            ${safeImageUrl ? `<tr><td style="padding:10px 24px 0 24px;"><img src="${safeImageUrl}" alt="${safeTitle}" style="display:block;width:100%;height:auto;border-radius:10px;" /></td></tr>` : ''}
+            ${safeImageUrl ? `<tr><td style="padding:10px 24px 0 24px;"><div style="border:1px solid #fde68a;border-radius:12px;overflow:hidden;background:#fffbeb;"><img src="${safeImageUrl}" alt="${safeTitle}" style="display:block;width:100%;height:auto;max-height:450px;object-fit:contain;margin:0 auto;" /><div style="padding:10px;background:#ffffff;text-align:center;border-top:1px solid #f3f4f6;"><a href="${safeImageUrl}" target="_blank" rel="noopener noreferrer" style="font-size:12px;font-weight:700;color:#92400e;text-decoration:none;">📥 Download Official E-Flyer (HD)</a></div></div></td></tr>` : ''}
             <tr><td style="padding:18px 24px 12px 24px;"><p style="margin:0 0 14px 0;font-size:16px;color:#111827;">Hello {{.RecipientName}},</p><p style="margin:0;font-size:15px;line-height:1.7;color:#374151;">${safeMessage}</p>${includeRegistrationCode ? '{{if .RegistrationCode}}' : ''}<div style="margin-top:16px;display:inline-block;padding:10px 14px;border-radius:8px;background:#fff9db;border:1px solid #facc15;font-size:13px;color:#111827;">Registration Number: <strong>{{.RegistrationCode}}</strong></div>${includeRegistrationCode ? '{{end}}' : ''}${includeCalendarOptIn ? '{{if .CalendarOptInURL}}' : ''}<p style="margin:14px 0 0;font-size:13px;color:#111827;"><a href="{{.CalendarOptInURL}}" style="color:#111827;text-decoration:underline;font-weight:700;">Add event to calendar</a></p>${includeCalendarOptIn ? '{{end}}' : ''}</td></tr>
           </table>
         </td>
@@ -256,7 +309,7 @@ const renderStructuredLines = (value: string) => {
 
 function StepButton({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} aria-current={active ? 'step' : undefined} className={`shrink-0 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition ${active ? 'bg-[var(--color-accent-primary)] text-[var(--color-text-onprimary)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]'}`}>
+    <button type="button" onClick={onClick} aria-current={active ? 'step' : undefined} className={`shrink-0 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition ${active ? 'bg-(--color-accent-primary) text-(--color-text-onprimary) shadow-sm' : 'text-(--color-text-secondary) hover:bg-(--color-background-tertiary) hover:text-(--color-text-primary)'}`}>
       {children}
     </button>
   );
@@ -292,6 +345,10 @@ export default withAuth(function NewFormPage() {
   const [submitButtonText, setSubmitButtonText] = useState('Submit form');
   const [formHeaderNote] = useState('Please ensure details are accurate before submitting.');
   const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [flyerAspectRatio, setFlyerAspectRatio] = useState<'portrait_4_5' | 'landscape_16_9' | 'square_1_1'>('portrait_4_5');
+  const [attendingBadgeEnabled, setAttendingBadgeEnabled] = useState(true);
+  const [attendingBadgeStyle, setAttendingBadgeStyle] = useState<'polaroid' | 'badge' | 'minimal'>('polaroid');
+  const [attendingBadgeText, setAttendingBadgeText] = useState('I Will Be Attending');
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [successTitle, setSuccessTitle] = useState('');
@@ -571,9 +628,21 @@ export default withAuth(function NewFormPage() {
         introSubtitle,
         introBullets: introBullets.split('\n').filter(Boolean),
         introBulletSubtexts: introBulletSubs.split('\n').filter(Boolean),
-        submitButtonText: submitButtonText.trim() || undefined,
-        formHeaderNote,
-        design: coverImageUrl.trim() ? { coverImageUrl: coverImageUrl.trim() } : undefined,
+        design: coverImageUrl.trim()
+          ? {
+              coverImageUrl: coverImageUrl.trim(),
+              flyerAspectRatio,
+              layout: 'split',
+            }
+          : undefined,
+        attendingBadge: attendingBadgeEnabled
+          ? {
+              enabled: true,
+              templateStyle: attendingBadgeStyle,
+              badgeText: attendingBadgeText.trim() || 'I Will Be Attending',
+              customFlyerUrl: coverImageUrl.trim() || undefined,
+            }
+          : undefined,
       },
     };
 
@@ -688,7 +757,7 @@ export default withAuth(function NewFormPage() {
 
   const pendingField = removeFieldIndex !== null ? fields[removeFieldIndex] : null;
 
-  if (authBlocked) return <div className="flex min-h-[300px] w-full items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-[var(--color-text-primary)]" /></div>;
+  if (authBlocked) return <div className="flex min-h-75 w-full items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-(--color-text-primary)" /></div>;
 
   return (
     <main className="space-y-6">
@@ -703,22 +772,22 @@ export default withAuth(function NewFormPage() {
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-[var(--color-background-primary)] to-[var(--color-background-secondary)] p-5 text-[var(--color-text-primary)] shadow-sm sm:p-7">
+      <section className="overflow-hidden rounded-3xl border border-amber-200 bg-linear-to-br from-amber-50 via-(--color-background-primary) to-(--color-background-secondary) p-5 text-(--color-text-primary) shadow-sm sm:p-7">
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px] xl:items-end">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-100/70 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-amber-800"><LayoutTemplate className="h-4 w-4" />Form publishing studio</div>
             <h1 className="mt-4 max-w-4xl text-2xl font-bold tracking-tight sm:text-3xl">Build, review, and publish your form.</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--color-text-secondary)]">Configure the essentials, add fields, check the public experience, and publish when everything is ready.</p>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-(--color-text-secondary)">Configure the essentials, add fields, check the public experience, and publish when everything is ready.</p>
           </div>
-          <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Public link preview</p>
-            <p className="mt-2 break-all font-mono text-sm font-semibold text-[var(--color-text-primary)]">/forms/{normalizeSlug(slug || title || 'your-link')}</p>
-            <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">{fields.length} fields configured · {responseEmailEnabled ? 'Response email on' : 'Response email off'}</p>
+          <div className="rounded-2xl border border-(--color-border-secondary) bg-(--color-background-primary) p-4 shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-(--color-text-tertiary)">Public link preview</p>
+            <p className="mt-2 break-all font-mono text-sm font-semibold text-(--color-text-primary)">/forms/{normalizeSlug(slug || title || 'your-link')}</p>
+            <p className="mt-2 text-xs text-(--color-text-tertiary)">{fields.length} fields configured · {responseEmailEnabled ? 'Response email on' : 'Response email off'}</p>
           </div>
         </div>
       </section>
 
-      <section className="sticky top-2 z-20 rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/85 p-2 shadow-sm backdrop-blur">
+      <section className="sticky top-2 z-20 rounded-3xl border border-(--color-border-secondary) bg-(--color-background-primary)/85 p-2 shadow-sm backdrop-blur">
         <div className="flex gap-2 overflow-x-auto">
           <StepButton active={step === 'setup'} onClick={() => setStep('setup')}>Setup</StepButton>
           <StepButton active={step === 'fields'} onClick={() => setStep('fields')}>Fields</StepButton>
@@ -732,22 +801,22 @@ export default withAuth(function NewFormPage() {
             <div className="grid gap-5 md:grid-cols-2">
               <Input label="Title *" value={title} onChange={(event) => { clearFieldError('title'); setTitle(event.target.value); }} placeholder="e.g., Youth Summit Registration" error={fieldErrors.title} />
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Public Link Slug *</label>
-                <div className={`flex items-center rounded-[var(--radius-button)] border bg-[var(--color-background-secondary)] pl-3 text-sm transition focus-within:ring-2 focus-within:ring-[var(--color-border-focus)] ${fieldErrors.slug ? 'border-[var(--color-border-error)] focus-within:ring-[var(--color-border-error)]' : 'border-[var(--color-border-primary)]'}`}>
-                  <span className="shrink-0 select-none font-mono text-[var(--color-text-tertiary)]">/forms/</span>
+                <label className="block text-sm font-medium text-(--color-text-secondary)">Public Link Slug *</label>
+                <div className={`flex items-center rounded-(--radius-button) border bg-(--color-background-secondary) pl-3 text-sm transition focus-within:ring-2 focus-within:ring-(--color-border-focus) ${fieldErrors.slug ? 'border-(--color-border-error) focus-within:ring-(--color-border-error)' : 'border-(--color-border-primary)'}`}>
+                  <span className="shrink-0 select-none font-mono text-(--color-text-tertiary)">/forms/</span>
                   {/* eslint-disable-next-line no-restricted-syntax -- compound input: "/forms/" prefix sits inline inside the same bordered box, which the shared <Input>'s standalone layout can't express */}
                   <input
                     value={slug}
                     onChange={(event) => { clearFieldError('slug'); setSlug(event.target.value); }}
                     onBlur={() => setSlug((current) => normalizeSlug(current))}
                     placeholder="wpc"
-                    className="h-10 w-full min-w-0 rounded-r-[var(--radius-button)] bg-transparent py-2 pr-3 font-mono text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
+                    className="h-10 w-full min-w-0 rounded-r-(--radius-button) bg-transparent py-2 pr-3 font-mono text-(--color-text-primary) outline-none placeholder:text-(--color-text-tertiary)"
                   />
                 </div>
                 {fieldErrors.slug ? (
-                  <p className="text-sm text-[var(--color-danger-text)]">{fieldErrors.slug}</p>
+                  <p className="text-sm text-(--color-danger-text)">{fieldErrors.slug}</p>
                 ) : (
-                  <p className="text-xs font-semibold text-[var(--color-text-tertiary)]">This becomes the public link visitors use to open the form.</p>
+                  <p className="text-xs font-semibold text-(--color-text-tertiary)">This becomes the public link visitors use to open the form.</p>
                 )}
               </div>
 
@@ -785,15 +854,17 @@ export default withAuth(function NewFormPage() {
             <div className="space-y-4">
               <Select label="Preset" value={selectedPreset} onChange={(event) => setSelectedPreset(event.target.value as FormPreset | '')}>
                 <option value="">Choose preset</option>
-                <option value="testimonial">Testimonial Intake</option>
+                <option value="conference">Special Program / Conference (With Status Flyer)</option>
+                <option value="sunday_service">Sunday Service Seat Booking</option>
+                <option value="testimonial">Testimonial &amp; Praise Report</option>
                 <option value="member">New Member Intake</option>
-                <option value="leadership">Leadership Intake</option>
-                <option value="children">Children Intake</option>
+                <option value="leadership">Leadership &amp; Workers Intake</option>
+                <option value="children">Children Ministry Intake</option>
               </Select>
               <Button type="button" variant="outline" icon={<Wand2 className="h-4 w-4" />} disabled={!selectedPreset} onClick={() => selectedPreset && applyPreset(selectedPreset)}>Apply Preset</Button>
-              <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Description preview</p>
-                <div className="mt-3 space-y-2 text-sm font-semibold leading-6 text-[var(--color-text-secondary)]">
+              <div className="rounded-3xl border border-(--color-border-secondary) bg-(--color-background-secondary) p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-(--color-text-tertiary)">Description preview</p>
+                <div className="mt-3 space-y-2 text-sm font-semibold leading-6 text-(--color-text-secondary)">
                   {descriptionStructure.paragraphs.length === 0 && descriptionStructure.bullets.length === 0 ? <p>No description yet.</p> : null}
                   {descriptionStructure.paragraphs.map((paragraph, index) => <p key={`description-paragraph-${index}`}>{paragraph}</p>)}
                   {descriptionStructure.bullets.length > 0 ? <ul className="list-disc space-y-1 pl-5">{descriptionStructure.bullets.map((item, index) => <li key={`description-bullet-${index}`}>{item}</li>)}</ul> : null}
@@ -858,38 +929,139 @@ export default withAuth(function NewFormPage() {
               </div>
             </SectionCard>
 
-            <SectionCard title="Header image & success message" subtitle="Optional hero image and the confirmation shown after submitting." icon={<ImageIcon className="h-5 w-5" />}>
+            <SectionCard title="Program E-Flyer Studio (S3 Integrated)" subtitle="Upload the official program flyer. Supports multiple aspect ratios with automatic S3 storage." icon={<ImageIcon className="h-5 w-5" />}>
               <div className="space-y-4">
-                <Input label="Header image URL" value={coverImageUrl} onChange={(event) => setCoverImageUrl(event.target.value)} placeholder="https://..." />
-                <Input label="Or upload header image" type="file" accept="image/*" onChange={(event) => handleBannerFile(event.target.files?.[0])} />
-                {(bannerPreview || coverImageUrl.trim()) ? <div className="flex aspect-[16/7] w-full items-center justify-center overflow-hidden rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3"><Image src={bannerPreview || coverImageUrl.trim()} alt="Header artwork preview" width={1200} height={525} className="h-full w-full object-contain" unoptimized /></div> : <div className="rounded-2xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-8 text-center text-sm font-semibold text-[var(--color-text-tertiary)]">No header image selected.</div>}
-                <Input label="Success title" value={successTitle} onChange={(event) => setSuccessTitle(event.target.value)} placeholder="Thank you for registering" />
-                <Input label="Success subtitle" value={successSubtitle} onChange={(event) => setSuccessSubtitle(event.target.value)} placeholder="for {{formTitle}}" />
-                <Textarea label="Success message" rows={3} value={successMessage} onChange={(event) => setSuccessMessage(event.target.value)} />
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-(--color-text-secondary)">E-Flyer Aspect Ratio</label>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    <button type="button" onClick={() => setFlyerAspectRatio('portrait_4_5')} className={`rounded-xl border p-2 text-xs font-bold transition ${flyerAspectRatio === 'portrait_4_5' ? 'border-(--lp-gold) bg-(--color-warning-surface) text-(--color-text-primary) ring-2 ring-(--lp-gold)' : 'border-(--color-border-secondary) bg-(--color-background-secondary) text-(--color-text-secondary)'}`}>
+                      📱 Poster (4:5)
+                    </button>
+                    <button type="button" onClick={() => setFlyerAspectRatio('landscape_16_9')} className={`rounded-xl border p-2 text-xs font-bold transition ${flyerAspectRatio === 'landscape_16_9' ? 'border-(--lp-gold) bg-(--color-warning-surface) text-(--color-text-primary) ring-2 ring-(--lp-gold)' : 'border-(--color-border-secondary) bg-(--color-background-secondary) text-(--color-text-secondary)'}`}>
+                      🖥️ Landscape (16:9)
+                    </button>
+                    <button type="button" onClick={() => setFlyerAspectRatio('square_1_1')} className={`rounded-xl border p-2 text-xs font-bold transition ${flyerAspectRatio === 'square_1_1' ? 'border-(--lp-gold) bg-(--color-warning-surface) text-(--color-text-primary) ring-2 ring-(--lp-gold)' : 'border-(--color-border-secondary) bg-(--color-background-secondary) text-(--color-text-secondary)'}`}>
+                      🖼️ Square (1:1)
+                    </button>
+                  </div>
+                </div>
+
+                <Input label="E-Flyer Image URL" value={coverImageUrl} onChange={(event) => {
+                  setCoverImageUrl(event.target.value);
+                  if (!responseTemplateUrl) setResponseTemplateUrl(event.target.value);
+                }} placeholder="https://..." />
+                
+                <Input label="Or upload program flyer to S3" type="file" accept="image/*" onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    handleBannerFile(file);
+                    handleResponseTemplateFile(file);
+                  }
+                }} />
+
+                {(bannerPreview || coverImageUrl.trim()) ? (
+                  <div className={`flex w-full items-center justify-center overflow-hidden rounded-2xl border border-(--color-border-secondary) bg-(--color-background-secondary) p-3 ${
+                    flyerAspectRatio === 'portrait_4_5' ? 'aspect-4/5 max-w-70 mx-auto' : flyerAspectRatio === 'square_1_1' ? 'aspect-square max-w-[320px] mx-auto' : 'aspect-video'
+                  }`}>
+                    <Image src={bannerPreview || coverImageUrl.trim()} alt="Program E-Flyer preview" width={1200} height={1500} className="h-full w-full object-contain rounded-xl" unoptimized />
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-(--color-border-secondary) bg-(--color-background-secondary) p-8 text-center text-sm font-semibold text-(--color-text-tertiary)">
+                    No flyer selected. Uploading here automatically saves to AWS S3.
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between border-t border-(--color-border-primary) pt-3">
+                  <span className="text-xs text-(--color-text-tertiary)">Automatic S3 CDN delivery</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (bannerPreview || coverImageUrl.trim()) {
+                        setResponseTemplateUrl(coverImageUrl.trim());
+                        setResponseTemplatePreview(bannerPreview);
+                        toast.success('E-Flyer synced to response email template!');
+                      } else {
+                        toast.error('Select an e-flyer first');
+                      }
+                    }}
+                    icon={<Sparkles className="h-3.5 w-3.5 text-(--lp-gold)" />}
+                  >
+                    Sync Flyer to Response Email
+                  </Button>
+                </div>
+
+                <div className="pt-2 border-t border-(--color-border-primary) space-y-3">
+                  <Input label="Success title" value={successTitle} onChange={(event) => setSuccessTitle(event.target.value)} placeholder="Thank you for registering" />
+                  <Input label="Success subtitle" value={successSubtitle} onChange={(event) => setSuccessSubtitle(event.target.value)} placeholder="for {{formTitle}}" />
+                  <Textarea label="Success message" rows={3} value={successMessage} onChange={(event) => setSuccessMessage(event.target.value)} />
+                </div>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Personalized 'I Will Be Attending' Status Flyer" subtitle="Allow registrants to upload their photo and generate a customized WhatsApp status & Instagram flyer." icon={<Sparkles className="h-5 w-5 text-(--lp-gold)" />}>
+              <div className="space-y-4">
+                <Checkbox
+                  label="Enable Personalized Attendee DP & Status Flyer Generator"
+                  checked={attendingBadgeEnabled}
+                  onChange={(e) => setAttendingBadgeEnabled(e.target.checked)}
+                  className="min-h-11 rounded-(--radius-control) border border-(--color-border-primary) bg-(--color-background-secondary) px-3"
+                />
+
+                {attendingBadgeEnabled && (
+                  <div className="space-y-4 rounded-2xl border border-(--lp-gold-line) bg-(--color-warning-surface)/30 p-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-(--color-text-secondary)">Attendee Badge Style</label>
+                      <div className="mt-2 grid grid-cols-3 gap-2">
+                        <button type="button" onClick={() => setAttendingBadgeStyle('polaroid')} className={`rounded-xl border p-2 text-xs font-bold transition ${attendingBadgeStyle === 'polaroid' ? 'border-(--lp-gold) bg-white text-(--color-text-primary) shadow-sm' : 'border-transparent bg-(--color-background-secondary) text-(--color-text-secondary)'}`}>
+                          📸 Polaroid
+                        </button>
+                        <button type="button" onClick={() => setAttendingBadgeStyle('badge')} className={`rounded-xl border p-2 text-xs font-bold transition ${attendingBadgeStyle === 'badge' ? 'border-(--lp-gold) bg-white text-(--color-text-primary) shadow-sm' : 'border-transparent bg-(--color-background-secondary) text-(--color-text-secondary)'}`}>
+                          ⭐ Gold Badge
+                        </button>
+                        <button type="button" onClick={() => setAttendingBadgeStyle('minimal')} className={`rounded-xl border p-2 text-xs font-bold transition ${attendingBadgeStyle === 'minimal' ? 'border-(--lp-gold) bg-white text-(--color-text-primary) shadow-sm' : 'border-transparent bg-(--color-background-secondary) text-(--color-text-secondary)'}`}>
+                          ✨ Minimal
+                        </button>
+                      </div>
+                    </div>
+
+                    <Input
+                      label="Badge Tagline Script"
+                      value={attendingBadgeText}
+                      onChange={(e) => setAttendingBadgeText(e.target.value)}
+                      placeholder="e.g. I Will Be Attending"
+                    />
+
+                    <p className="text-xs text-(--color-text-tertiary)">
+                      Attendees will be given a one-tap link to generate and download their Status Flyer (9:16) and Square DP (1:1) upon completing registration.
+                    </p>
+                  </div>
+                )}
               </div>
             </SectionCard>
 
             <SectionCard title="Response email" subtitle="Automatic confirmation email sent to the person who submitted." icon={<CheckCircle2 className="h-5 w-5" />}>
               <div className="space-y-4">
-                <Checkbox label="Send a response email" checked={responseEmailEnabled} onChange={(event) => setResponseEmailEnabled(event.target.checked)} className="min-h-11 rounded-[var(--radius-control)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3" />
+                <Checkbox label="Send a response email" checked={responseEmailEnabled} onChange={(event) => setResponseEmailEnabled(event.target.checked)} className="min-h-11 rounded-(--radius-control) border border-(--color-border-primary) bg-(--color-background-secondary) px-3" />
                 <Input label="Email subject" value={responseEmailSubject} onChange={(event) => setResponseEmailSubject(event.target.value)} disabled={!responseEmailEnabled} />
                 <Input label="Template key" value={responseTemplateKeyPreview} disabled />
                 <Input label="Email heading" value={responseEmailHeading} onChange={(event) => setResponseEmailHeading(event.target.value)} disabled={!responseEmailEnabled} />
                 <Input label="Template image URL" value={responseTemplateUrl} onChange={(event) => setResponseTemplateUrl(event.target.value)} disabled={!responseEmailEnabled} />
                 <Input label="Or upload template image" type="file" accept="image/*" onChange={(event) => handleResponseTemplateFile(event.target.files?.[0])} disabled={!responseEmailEnabled} />
                 <Textarea label="Email body message" rows={3} value={responseEmailMessage} onChange={(event) => setResponseEmailMessage(event.target.value)} disabled={!responseEmailEnabled} />
-                {(responseTemplatePreview || responseTemplateUrl.trim()) ? <Image src={responseTemplatePreview || responseTemplateUrl.trim()} alt="Response template preview" width={1200} height={400} className="max-h-64 w-full rounded-3xl border border-[var(--color-border-secondary)] object-cover" unoptimized /> : null}
+                {(responseTemplatePreview || responseTemplateUrl.trim()) ? <Image src={responseTemplatePreview || responseTemplateUrl.trim()} alt="Response template preview" width={1200} height={400} className="max-h-64 w-full rounded-3xl border border-(--color-border-secondary) object-cover" unoptimized /> : null}
               </div>
             </SectionCard>
           </div>
         </section>
       ) : null}
 
-      <section className="rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+      <section className="rounded-4xl border border-(--color-border-secondary) bg-(--color-background-primary) p-5 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Form link</p>
-            <p className="mt-2 break-all text-sm font-bold text-[var(--color-text-secondary)]">{publishedSlug ? buildPublicFormUrl(publishedSlug) : 'Create & publish to generate link'}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-(--color-text-tertiary)">Form link</p>
+            <p className="mt-2 break-all text-sm font-bold text-(--color-text-secondary)">{publishedSlug ? buildPublicFormUrl(publishedSlug) : 'Create & publish to generate link'}</p>
           </div>
           <Button variant="outline" size="sm" onClick={async () => {
             if (!publishedSlug) {
@@ -949,29 +1121,29 @@ function FormPreview({
 
   return (
     <SectionCard title="Live public preview" subtitle="Approximates the published single-column form members see." icon={<Eye className="h-5 w-5" />}>
-      <div className="mx-auto w-full max-w-[34rem] rounded-[1.5rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 sm:p-6">
+      <div className="mx-auto w-full max-w-136 rounded-3xl border border-(--color-border-secondary) bg-(--color-background-primary) p-5 sm:p-6">
         {coverImageUrl ? (
-          <Image src={coverImageUrl} alt="Header" width={1200} height={525} unoptimized className="mb-5 aspect-[16/7] w-full rounded-2xl border border-[var(--color-border-secondary)] object-cover" />
+          <Image src={coverImageUrl} alt="Header" width={1200} height={525} unoptimized className="mb-5 aspect-16/7 w-full rounded-2xl border border-(--color-border-secondary) object-cover" />
         ) : null}
 
-        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--color-accent-primary)]">The Wisdom Church</p>
-        <h2 className="mt-2 text-xl font-bold tracking-tight text-[var(--color-text-primary)]">{introTitle || 'Form heading'}</h2>
-        {introSubtitle ? <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-secondary)]">{introSubtitle}</p> : null}
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-(--color-accent-primary)">The Wisdom Church</p>
+        <h2 className="mt-2 text-xl font-bold tracking-tight text-(--color-text-primary)">{introTitle || 'Form heading'}</h2>
+        {introSubtitle ? <p className="mt-2 text-sm leading-relaxed text-(--color-text-secondary)">{introSubtitle}</p> : null}
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <span className="rounded-full border border-[var(--color-border-secondary)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">{questionCount} question{questionCount === 1 ? '' : 's'}</span>
-          <span className="rounded-full border border-[var(--color-border-secondary)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">about {Math.max(1, Math.round(questionCount * 0.4))} min</span>
+          <span className="rounded-full border border-(--color-border-secondary) px-2.5 py-1 text-[11px] font-semibold text-(--color-text-tertiary)">{questionCount} question{questionCount === 1 ? '' : 's'}</span>
+          <span className="rounded-full border border-(--color-border-secondary) px-2.5 py-1 text-[11px] font-semibold text-(--color-text-tertiary)">about {Math.max(1, Math.round(questionCount * 0.4))} min</span>
         </div>
 
         {formHeaderNote ? (
-          <p className="mt-5 rounded-xl border border-[var(--color-accent-primary)]/25 bg-[var(--color-accent-primary)]/10 p-3 text-xs font-semibold text-[var(--color-text-secondary)]">{formHeaderNote}</p>
+          <p className="mt-5 rounded-xl border border-(--color-accent-primary)/25 bg-(--color-accent-primary)/10 p-3 text-xs font-semibold text-(--color-text-secondary)">{formHeaderNote}</p>
         ) : null}
 
         {points.length > 0 ? (
           <ul className="mt-5 space-y-2">
             {points.map((item) => (
-              <li key={item} className="flex gap-2 text-sm leading-relaxed text-[var(--color-text-secondary)]">
-                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[var(--color-accent-primary)]" />
+              <li key={item} className="flex gap-2 text-sm leading-relaxed text-(--color-text-secondary)">
+                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-(--color-accent-primary)" />
                 {item}
               </li>
             ))}
@@ -984,7 +1156,7 @@ function FormPreview({
           ))}
         </div>
 
-        <button type="button" disabled className="mt-7 w-full rounded-[var(--radius-button)] bg-[var(--color-accent-primary)] px-4 py-3 text-sm font-bold text-[var(--color-text-primary)] opacity-90">
+        <button type="button" disabled className="mt-7 w-full rounded-(--radius-button) bg-(--color-accent-primary) px-4 py-3 text-sm font-bold text-(--color-text-primary) opacity-90">
           {submitButtonText || 'Submit form'}
         </button>
       </div>
@@ -994,9 +1166,9 @@ function FormPreview({
 
 /* eslint-disable no-restricted-syntax -- inert `disabled` preview mockups only, never a real interactive control */
 function FieldPreview({ field }: { field: FieldDraft }) {
-  const boxClass = 'w-full rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3.5 pb-2 pt-6 text-sm text-[var(--color-text-secondary)]';
+  const boxClass = 'w-full rounded-(--radius-button) border border-(--color-border-secondary) bg-(--color-background-secondary) px-3.5 pb-2 pt-6 text-sm text-(--color-text-secondary)';
   const floatLabel = (
-    <span className="pointer-events-none absolute left-3.5 top-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
+    <span className="pointer-events-none absolute left-3.5 top-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-(--color-text-tertiary)">
       {field.label}{field.required ? ' *' : ''}
     </span>
   );
@@ -1016,10 +1188,10 @@ function FieldPreview({ field }: { field: FieldDraft }) {
     const opts = field.options?.length ? field.options : [{ label: field.label, value: field.key }];
     return (
       <div className="space-y-2">
-        <p className="text-sm font-semibold text-[var(--color-text-secondary)]">{field.label}{field.required ? ' *' : ''}</p>
+        <p className="text-sm font-semibold text-(--color-text-secondary)">{field.label}{field.required ? ' *' : ''}</p>
         {opts.map((option) => (
-          <label key={option.value} className="flex items-center gap-2.5 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] px-3 py-2 text-sm text-[var(--color-text-secondary)]">
-            <span className="h-4 w-4 rounded-[5px] border border-[var(--color-border-primary)]" />{option.label}
+          <label key={option.value} className="flex items-center gap-2.5 rounded-(--radius-button) border border-(--color-border-secondary) px-3 py-2 text-sm text-(--color-text-secondary)">
+            <span className="h-4 w-4 rounded-[5px] border border-(--color-border-primary)" />{option.label}
           </label>
         ))}
       </div>
@@ -1028,10 +1200,10 @@ function FieldPreview({ field }: { field: FieldDraft }) {
   if (field.type === 'radio') {
     return (
       <div className="space-y-2">
-        <p className="text-sm font-semibold text-[var(--color-text-secondary)]">{field.label}{field.required ? ' *' : ''}</p>
+        <p className="text-sm font-semibold text-(--color-text-secondary)">{field.label}{field.required ? ' *' : ''}</p>
         {(field.options || []).map((option) => (
-          <label key={option.value} className="flex items-center gap-2.5 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] px-3 py-2 text-sm text-[var(--color-text-secondary)]">
-            <span className="h-4 w-4 rounded-full border border-[var(--color-border-primary)]" />{option.label}
+          <label key={option.value} className="flex items-center gap-2.5 rounded-(--radius-button) border border-(--color-border-secondary) px-3 py-2 text-sm text-(--color-text-secondary)">
+            <span className="h-4 w-4 rounded-full border border-(--color-border-primary)" />{option.label}
           </label>
         ))}
       </div>
@@ -1040,8 +1212,8 @@ function FieldPreview({ field }: { field: FieldDraft }) {
   if (field.type === 'image') {
     return (
       <div className="space-y-2">
-        <p className="text-sm font-semibold text-[var(--color-text-secondary)]">{field.label}{field.required ? ' *' : ''}</p>
-        <div className="rounded-[var(--radius-button)] border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-6 text-center text-xs font-semibold text-[var(--color-text-tertiary)]">Tap to upload or drag an image here · JPEG, PNG, WebP up to 5MB</div>
+        <p className="text-sm font-semibold text-(--color-text-secondary)">{field.label}{field.required ? ' *' : ''}</p>
+        <div className="rounded-(--radius-button) border border-dashed border-(--color-border-secondary) bg-(--color-background-secondary) px-4 py-6 text-center text-xs font-semibold text-(--color-text-tertiary)">Tap to upload or drag an image here · JPEG, PNG, WebP up to 5MB</div>
       </div>
     );
   }
@@ -1049,12 +1221,12 @@ function FieldPreview({ field }: { field: FieldDraft }) {
     const fullDate = dateFieldKeepsYear(field);
     return (
       <div className="space-y-1.5">
-        <p className="text-sm font-semibold text-[var(--color-text-secondary)]">{field.label}{field.required ? ' *' : ''}</p>
-        <div className="flex items-center gap-2.5 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2.5 text-sm text-[var(--color-text-tertiary)]">
+        <p className="text-sm font-semibold text-(--color-text-secondary)">{field.label}{field.required ? ' *' : ''}</p>
+        <div className="flex items-center gap-2.5 rounded-(--radius-button) border border-(--color-border-secondary) bg-(--color-background-secondary) px-3 py-2.5 text-sm text-(--color-text-tertiary)">
           <CalendarDays className="h-4 w-4 shrink-0" />
           <span>{fullDate ? 'Select a date' : 'Select day and month'}</span>
         </div>
-        <p className="text-xs text-[var(--color-text-tertiary)]">
+        <p className="text-xs text-(--color-text-tertiary)">
           Calendar picker · {fullDate ? 'full date with year (DD-MM-YYYY)' : 'day and month only (DD-MM)'}
         </p>
       </div>

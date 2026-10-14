@@ -1,15 +1,19 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import {
   ArrowRight,
+  Calendar,
   CalendarDays,
   ClipboardList,
   Command,
+  ExternalLink,
   LineChart,
   Megaphone,
+  Plus,
   RefreshCw,
   ShoppingBag,
   Sparkles,
@@ -128,24 +132,24 @@ const toneStyles: Record<InsightTone, string> = {
 };
 
 const quickLinks = [
-  { href: '/dashboard/event', label: 'Events', icon: CalendarDays },
-  { href: '/dashboard/members', label: 'Members', icon: Users },
-  { href: '/dashboard/forms', label: 'Forms', icon: ClipboardList },
-  { href: '/dashboard/email-marketing', label: 'Campaigns', icon: Megaphone },
-  { href: '/dashboard/store', label: 'Store', icon: ShoppingBag },
-  { href: '/dashboard/analytics', label: 'Analytics', icon: LineChart },
+  { href: '/dashboard/forms', label: 'Program Forms & E-Flyers', icon: Sparkles },
+  { href: '/dashboard/event', label: 'Church Events', icon: CalendarDays },
+  { href: '/dashboard/members', label: 'Members Directory', icon: Users },
+  { href: '/dashboard/email-marketing', label: 'Email Campaigns', icon: Megaphone },
+  { href: '/dashboard/store', label: 'Church Store', icon: ShoppingBag },
+  { href: '/dashboard/analytics', label: 'Operational Analytics', icon: LineChart },
 ];
 
 const commands = [
   { label: 'Go to Dashboard', href: '/dashboard' },
-  { label: 'Go to Analytics', href: '/dashboard/analytics' },
-  { label: 'Go to Members', href: '/dashboard/members' },
-  { label: 'Go to Events', href: '/dashboard/event' },
-  { label: 'Go to Forms', href: '/dashboard/forms' },
-  { label: 'Go to Administration', href: '/dashboard/administration' },
-  { label: 'Go to Campaigns', href: '/dashboard/email-marketing' },
-  { label: 'Go to Store', href: '/dashboard/store' },
-  { label: 'Go to Settings', href: '/dashboard/settings' },
+  { label: 'Create New Program Form', href: '/dashboard/forms/new' },
+  { label: 'Manage Forms & E-Flyers', href: '/dashboard/forms' },
+  { label: 'Manage Church Events', href: '/dashboard/event' },
+  { label: 'Review Members Directory', href: '/dashboard/members' },
+  { label: 'Launch Email Campaign', href: '/dashboard/email-marketing' },
+  { label: 'Review Workforce', href: '/dashboard/workforce' },
+  { label: 'Check Giving & Tithes', href: '/dashboard/giving' },
+  { label: 'Portal Settings', href: '/dashboard/settings' },
 ];
 
 function DashboardPage() {
@@ -180,88 +184,185 @@ function DashboardPage() {
     {
       label: 'Members',
       value: formatNumber(totalMembers),
-      trend: `${formatNumber(activeMembers)} active`,
+      trend: `${formatNumber(activeMembers)} active members`,
       icon: <Users className="h-5 w-5" />,
       tone: 'info' as const,
     },
     {
-      label: 'Upcoming events',
+      label: 'Upcoming Programs',
       value: formatNumber(upcomingEventCount),
-      trend: 'Next 30 days',
+      trend: 'Active in 30 days',
       icon: <CalendarDays className="h-5 w-5" />,
       tone: 'success' as const,
     },
     {
-      label: 'Form submissions',
+      label: 'Form Registrations',
       value: formatNumber(totalSubmissions),
-      trend: 'All time',
+      trend: 'Confirmed attendees',
       icon: <ClipboardList className="h-5 w-5" />,
       tone: 'default' as const,
     },
     {
-      label: 'Workforce serving',
+      label: 'Workforce Serving',
       value: formatNumber(workforceServing),
-      trend: `of ${formatNumber(workforceTotal)} total`,
+      trend: `of ${formatNumber(workforceTotal)} assigned`,
       icon: <UserPlus className="h-5 w-5" />,
       tone: 'warning' as const,
     },
   ];
+
+  const activePrograms = useMemo(() => {
+    return (data?.events || []).filter((e) => e.status === 'upcoming' || e.status === 'ongoing').slice(0, 3);
+  }, [data?.events]);
 
   if (isLoading) {
     return <DashboardSkeleton />;
   }
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-6 pb-12">
+      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-[var(--color-text-primary)]">
+          <h1 className="font-display text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
             {getGreeting()}
           </h1>
           <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">
-            Here&apos;s what needs your attention today.
+            Wisdom Church operations, program registrations, and executive intelligence overview.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => setCommandOpen(true)} icon={<Command className="h-4 w-4" />}>
-            Search
+            Search (Cmd+K)
           </Button>
           <Button variant="outline" onClick={() => void refetch()} loading={isFetching} icon={<RefreshCw className="h-4 w-4" />}>
             Refresh
           </Button>
+          <Link href="/dashboard/forms/new">
+            <Button variant="primary" icon={<Plus className="h-4 w-4" />}>
+              New Program Form
+            </Button>
+          </Link>
         </div>
       </div>
 
       {data?.failedSources.length ? (
         <Panel className="border-[var(--color-warning-border)] bg-[var(--color-warning-surface)]">
-          <p className="text-sm font-semibold text-[var(--color-warning-text)]">Some live data could not be loaded: {data.failedSources.join(', ')}. Available metrics are shown; refresh to retry.</p>
+          <p className="text-sm font-semibold text-[var(--color-warning-text)]">
+            Some live sources could not be loaded: {data.failedSources.join(', ')}. Available metrics are displayed.
+          </p>
         </Panel>
       ) : null}
 
+      {/* KPI Cards */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((kpi) => (
           <StatCard key={kpi.label} label={kpi.label} value={kpi.value} trend={kpi.trend} icon={kpi.icon} tone={kpi.tone} />
         ))}
       </section>
 
+      {/* Active Programs & E-Flyers Showcase */}
+      <Panel>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-[var(--lp-gold)]" />
+            <h2 className="text-base font-bold text-[var(--color-text-primary)]">Active Programs & E-Flyers Pulse</h2>
+          </div>
+          <Link href="/dashboard/forms" className="text-xs font-semibold text-[var(--color-accent-primary)] hover:underline inline-flex items-center gap-1">
+            View All Program Forms <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
+        {activePrograms.length > 0 ? (
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {activePrograms.map((program) => {
+              const flyerUrl = program.bannerImage || program.image;
+              return (
+                <div
+                  key={program.id}
+                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                >
+                  <div className="relative aspect-[16/9] w-full overflow-hidden bg-[var(--color-background-tertiary)]">
+                    {flyerUrl ? (
+                      <Image
+                        src={flyerUrl}
+                        alt={program.title}
+                        fill
+                        className="object-cover transition duration-300 group-hover:scale-105"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs font-medium text-[var(--color-text-tertiary)]">
+                        No Flyer Image
+                      </div>
+                    )}
+                    <span className="absolute left-3 top-3 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
+                      {program.category || 'Program'}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-1 flex-col p-4">
+                    <h3 className="text-sm font-bold text-[var(--color-text-primary)] line-clamp-1">{program.title}</h3>
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--color-text-tertiary)]">
+                      <Calendar className="h-3.5 w-3.5" /> {program.date || 'Upcoming'} {program.time ? `• ${program.time}` : ''}
+                    </p>
+                    {program.location && (
+                      <p className="mt-1 text-xs text-[var(--color-text-tertiary)] line-clamp-1">
+                        📍 {program.location}
+                      </p>
+                    )}
+
+                    <div className="mt-4 flex items-center justify-between border-t border-[var(--color-border-primary)] pt-3 text-xs">
+                      <span className="font-semibold text-[var(--color-text-secondary)]">
+                        👥 {formatNumber(program.attendees)} Registered
+                      </span>
+                      <Link
+                        href={`/dashboard/forms`}
+                        className="inline-flex items-center gap-1 font-bold text-[var(--color-accent-primary)] hover:underline"
+                      >
+                        Manage Form <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-2xl border border-dashed border-[var(--color-border-secondary)] p-8 text-center">
+            <Calendar className="mx-auto h-8 w-8 text-[var(--color-text-tertiary)]" />
+            <p className="mt-2 text-sm font-semibold text-[var(--color-text-secondary)]">No programs scheduled this week</p>
+            <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">Create a program form to publish registrations and status flyers.</p>
+            <div className="mt-4">
+              <Link href="/dashboard/forms/new">
+                <Button size="sm" variant="primary" icon={<Plus className="h-3.5 w-3.5" />}>
+                  Create Program Form
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
+      </Panel>
+
+      {/* Needs Your Attention / Operational Insights */}
       <Panel>
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-[var(--color-accent-primary)]" />
-          <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Needs your attention</h2>
+          <h2 className="text-base font-bold text-[var(--color-text-primary)]">Operational Readiness & Insights</h2>
           {data?.decisionInsights ? (
             <span className="ml-auto rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1 text-xs font-semibold text-[var(--color-text-secondary)]">
-              Readiness {Math.round(data.decisionInsights.signals.decisionReadinessScore)}%
+              Readiness Score: {Math.round(data.decisionInsights.signals.decisionReadinessScore)}%
             </span>
           ) : null}
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {insights.map((insight) => (
             <div key={insight.title} className={`rounded-2xl border p-4 ${toneStyles[insight.tone]}`}>
-              <p className="text-sm font-semibold">{insight.title}</p>
-              <p className="mt-1 text-sm leading-6 opacity-90">{insight.description}</p>
+              <p className="text-sm font-bold">{insight.title}</p>
+              <p className="mt-1 text-xs leading-5 opacity-90">{insight.description}</p>
               {insight.href && insight.actionLabel ? (
-                <Link href={insight.href} className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold underline-offset-4 hover:underline">
-                  {insight.actionLabel} <ArrowRight className="h-3.5 w-3.5" />
+                <Link href={insight.href} className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold underline-offset-4 hover:underline">
+                  {insight.actionLabel} <ArrowRight className="h-3 w-3" />
                 </Link>
               ) : null}
             </div>
@@ -269,8 +370,9 @@ function DashboardPage() {
         </div>
       </Panel>
 
+      {/* Quick Navigation Tiles */}
       <Panel>
-        <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Quick navigation</h2>
+        <h2 className="text-base font-bold text-[var(--color-text-primary)]">Quick Navigation</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {quickLinks.map((link) => {
             const Icon = link.icon;
@@ -278,10 +380,13 @@ function DashboardPage() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="flex items-center justify-between rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)] transition duration-200 hover:-translate-y-0.5 hover:bg-[var(--color-background-hover)]"
+                className="flex items-center justify-between rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)] transition duration-200 hover:-translate-y-0.5 hover:bg-[var(--color-background-hover)] shadow-sm"
               >
-                <span className="inline-flex items-center gap-2">
-                  <Icon className="h-4 w-4" /> {link.label}
+                <span className="inline-flex items-center gap-2.5">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--color-background-tertiary)] text-[var(--color-accent-primary)]">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  {link.label}
                 </span>
                 <ArrowRight className="h-4 w-4 text-[var(--color-text-tertiary)]" />
               </Link>
@@ -326,7 +431,6 @@ function CommandPalette({ open, onClose, onRefresh }: { open: boolean; onClose: 
       >
         <div className="flex items-center gap-3 border-b border-[var(--color-border-secondary)] px-4 py-3">
           <Command className="h-5 w-5 text-[var(--color-text-tertiary)]" />
-          {/* eslint-disable-next-line no-restricted-syntax -- borderless command-palette search field inline with icon/close button; the shared <Input>'s boxed border/background can't be cleanly overridden here */}
           <input
             autoFocus
             value={search}

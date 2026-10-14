@@ -4,7 +4,41 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart3, BellRing, Calendar, CalendarCheck, CalendarClock, ChevronLeft, ChevronRight, ClipboardList, Crown, FileText, HandCoins, HandHeart, HeartHandshake, IdCard, LayoutDashboard, LogOut, Mail, MapPin, Menu, MessageCircle, MessageSquare, Palette, Settings, Settings2, Shield, ShoppingBag, UserCog, UserPlus, Users, Video, X } from 'lucide-react';
+import {
+  BarChart3,
+  BellRing,
+  Calendar,
+  CalendarCheck,
+  CalendarClock,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Crown,
+  FileText,
+  HandCoins,
+  HandHeart,
+  HeartHandshake,
+  IdCard,
+  LayoutDashboard,
+  LogOut,
+  Mail,
+  MapPin,
+  Menu,
+  MessageCircle,
+  MessageSquare,
+  Palette,
+  Settings,
+  Settings2,
+  Shield,
+  ShoppingBag,
+  Sparkles,
+  UserCog,
+  UserPlus,
+  Users,
+  Video,
+  X,
+} from 'lucide-react';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { LogoutModal } from '@/ui/LogoutModal';
@@ -20,12 +54,14 @@ type NavItem = {
 };
 
 type NavGroup = {
+  id: string;
   title: string;
   items: NavItem[];
 };
 
 const superConsole: NavGroup = {
-  title: 'Super admin',
+  id: 'authority',
+  title: 'Authority & Governance',
   items: [
     {
       href: '/dashboard/super',
@@ -79,13 +115,14 @@ const superConsole: NavGroup = {
   ],
 };
 
-const operations: NavGroup = {
-  title: 'Operations',
+const peopleMinistry: NavGroup = {
+  id: 'people',
+  title: 'People & Ministry',
   items: [
     {
       href: '/dashboard',
       label: 'Dashboard',
-      description: 'Admin overview',
+      description: 'Executive overview',
       icon: LayoutDashboard,
     },
     {
@@ -115,13 +152,13 @@ const operations: NavGroup = {
     {
       href: '/dashboard/members',
       label: 'Members',
-      description: 'Member records',
+      description: 'Member directory',
       icon: Users,
     },
     {
       href: '/dashboard/cell-groups',
       label: 'Cell Groups',
-      description: 'Small groups & meetings',
+      description: 'Small groups & fellowships',
       icon: MapPin,
     },
     {
@@ -131,124 +168,133 @@ const operations: NavGroup = {
       icon: HeartHandshake,
     },
     {
-      href: '/dashboard/attendance',
-      label: 'Attendance',
-      description: 'Service check-ins',
-      icon: CalendarCheck,
-    },
-    {
       href: '/dashboard/visits',
       label: 'Planned Visits',
-      description: 'Welcome and follow-up pipeline',
+      description: 'Guest intake pipeline',
+      icon: Calendar,
+    },
+  ],
+};
+
+const programsOperations: NavGroup = {
+  id: 'programs',
+  title: 'Programs & Operations',
+  items: [
+    {
+      href: '/dashboard/forms',
+      label: 'Program Forms',
+      description: 'Registrations & e-flyers',
+      icon: Sparkles,
+    },
+    {
+      href: '/dashboard/event',
+      label: 'Events & Calendar',
+      description: 'Church programs & dates',
       icon: Calendar,
     },
     {
+      href: '/dashboard/attendance',
+      label: 'Attendance',
+      description: 'Service check-ins & passes',
+      icon: CalendarCheck,
+    },
+    {
       href: '/dashboard/giving',
-      label: 'Giving',
+      label: 'Giving & Tithes',
       description: 'Transactions & totals',
       icon: HandCoins,
     },
     {
+      href: '/dashboard/store',
+      label: 'Store',
+      description: 'Resources & inventory',
+      icon: ShoppingBag,
+    },
+    {
       href: '/dashboard/analytics',
       label: 'Analytics',
-      description: 'Trends and engagement',
+      description: 'Operational trends',
       icon: BarChart3,
     },
   ],
 };
 
-const ministries: NavGroup = {
-  title: 'Ministry content',
-  items: [
-    {
-      href: '/dashboard/event',
-      label: 'Events',
-      description: 'Programs and banners',
-      icon: Calendar,
-    },
-    {
-      href: '/dashboard/reels',
-      label: 'Reels',
-      description: 'Video content',
-      icon: Video,
-    },
-    {
-      href: '/dashboard/testimonials',
-      label: 'Testimonials',
-      description: 'Stories and approvals',
-      icon: MessageSquare,
-    },
-    {
-      href: '/dashboard/forms',
-      label: 'Forms',
-      description: 'Registration workflows',
-      icon: ClipboardList,
-    },
-    {
-      href: '/dashboard/store',
-      label: 'Store',
-      description: 'Products and orders',
-      icon: ShoppingBag,
-    },
-    {
-      href: '/dashboard/content',
-      label: 'Website Content',
-      description: 'Public content blocks',
-      icon: FileText,
-    },
-  ],
-};
-
-const communication: NavGroup = {
-  title: 'Communication',
+const outreachCommunications: NavGroup = {
+  id: 'outreach',
+  title: 'Outreach & Communications',
   items: [
     {
       href: '/dashboard/email-marketing',
-      label: 'Email Marketing',
-      description: 'Targeted campaigns',
+      label: 'Email Campaigns',
+      description: 'Targeted broadcasts',
       icon: Mail,
     },
     {
       href: '/dashboard/email-marketing/schedules',
       label: 'Email Schedules',
-      description: 'Recurring campaign automation',
+      description: 'Automated schedules',
       icon: CalendarClock,
     },
     {
       href: '/dashboard/administration/automations',
       label: 'Automations',
-      description: 'Worker health & celebrations',
+      description: 'Worker reminders & journeys',
       icon: Settings2,
     },
     {
       href: '/dashboard/newsletter',
       label: 'Newsletter',
-      description: 'Subscribers and sends',
+      description: 'Subscribers & dispatches',
       icon: Mail,
     },
     {
       href: '/dashboard/notifications',
       label: 'Notifications',
-      description: 'Inbox and alerts',
+      description: 'Inbox & administrative alerts',
       icon: BellRing,
+    },
+    {
+      href: '/dashboard/testimonials',
+      label: 'Testimonials',
+      description: 'Approved praise reports',
+      icon: MessageSquare,
+    },
+    {
+      href: '/dashboard/reels',
+      label: 'Reels & Media',
+      description: 'Video highlights',
+      icon: Video,
+    },
+    {
+      href: '/dashboard/content',
+      label: 'Website Content',
+      description: 'Public web components',
+      icon: FileText,
     },
     {
       href: '/dashboard/prayer-requests',
       label: 'Prayer Requests',
-      description: 'Pastoral triage and follow-up',
+      description: 'Pastoral triage',
       icon: HandHeart,
       roles: ['super_admin'],
     },
     {
       href: '/dashboard/contact-messages',
       label: 'Contact Messages',
-      description: 'Public contact form inbox',
+      description: 'Inbound inquiries',
       icon: MessageCircle,
     },
+  ],
+};
+
+const systemSettings: NavGroup = {
+  id: 'system',
+  title: 'Configuration',
+  items: [
     {
       href: '/dashboard/settings',
-      label: 'Settings',
-      description: 'Portal preferences',
+      label: 'Portal Settings',
+      description: 'System preferences',
       icon: Settings,
     },
   ],
@@ -278,6 +324,8 @@ function roleLabel(role: string): string {
     .join(' ');
 }
 
+const STORAGE_KEY = 'wh_sidebar_sections_state';
+
 export function Sidebar() {
   const pathname = usePathname();
   const auth = useAuthContext();
@@ -289,11 +337,13 @@ export function Sidebar() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
+  // Collapsed state for each domain section
+  const [sectionStates, setSectionStates] = useState<Record<string, boolean>>({});
+
   const groups = useMemo(() => {
-    // super_admin is a strict superset of admin: they get the Authority
-    // Console plus every operational section an admin sees. admin never
-    // gets the Authority Console.
-    const source = isSuperAdmin ? [superConsole, operations, ministries, communication] : [operations, ministries, communication];
+    const source = isSuperAdmin
+      ? [superConsole, peopleMinistry, programsOperations, outreachCommunications, systemSettings]
+      : [peopleMinistry, programsOperations, outreachCommunications, systemSettings];
 
     return source
       .map((group) => ({
@@ -302,6 +352,30 @@ export function Sidebar() {
       }))
       .filter((group) => group.items.length > 0);
   }, [isSuperAdmin, role]);
+
+  // Load saved section collapse states on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        setSectionStates(JSON.parse(saved));
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
+
+  const toggleSection = (id: string) => {
+    setSectionStates((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Ignore
+      }
+      return next;
+    });
+  };
 
   const showLabels = isMobileOpen || !isCollapsed;
   const homeHref = isSuperAdmin ? '/dashboard/super' : '/dashboard';
@@ -353,19 +427,34 @@ export function Sidebar() {
 
   return (
     <>
-      <button type="button" onClick={() => setIsMobileOpen(true)} className="fixed left-4 top-4 z-50 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] shadow-lg md:hidden" aria-label="Open navigation menu">
-        <Menu className="h-5 w-5 text-[var(--color-text-primary)]" />
+      <button
+        type="button"
+        onClick={() => setIsMobileOpen(true)}
+        className="fixed left-4 top-4 z-50 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-(--color-border-primary) bg-(--color-background-secondary) shadow-lg md:hidden"
+        aria-label="Open navigation menu"
+      >
+        <Menu className="h-5 w-5 text-(--color-text-primary)" />
       </button>
 
-      {isMobileOpen && <button type="button" className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden" onClick={() => setIsMobileOpen(false)} aria-label="Close navigation backdrop" />}
+      {isMobileOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
+          onClick={() => setIsMobileOpen(false)}
+          aria-label="Close navigation backdrop"
+        />
+      )}
 
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] shadow-2xl transition-all duration-300 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+        className={`fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-(--color-border-primary) bg-(--color-background-secondary) shadow-2xl transition-all duration-300 ${
+          isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
         style={{
           width: isCollapsed && !isMobileOpen ? 'var(--sidebar-width-collapsed)' : 'var(--sidebar-width-expanded)',
         }}
       >
-        <div className="border-b border-[var(--color-border-secondary)] p-4">
+        {/* Header Branding */}
+        <div className="border-b border-(--color-border-secondary) p-4">
           <div className="flex items-center justify-between gap-3">
             <Link href={homeHref} onClick={() => setIsMobileOpen(false)} className="flex min-w-0 items-center gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-black shadow-md ring-1 ring-white/10">
@@ -373,24 +462,33 @@ export function Sidebar() {
               </div>
               {showLabels && (
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold tracking-tight text-[var(--color-text-primary)]">Wisdom Church</p>
-                  <p className="truncate text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">{isSuperAdmin ? 'Authority Console' : 'Admin Portal'}</p>
+                  <p className="truncate text-sm font-semibold tracking-tight text-(--color-text-primary)">Wisdom Church</p>
+                  <p className="truncate text-[11px] font-medium uppercase tracking-[0.18em] text-(--color-text-tertiary)">
+                    {isSuperAdmin ? 'Authority Console' : 'Executive Portal'}
+                  </p>
                 </div>
               )}
             </Link>
 
-            <button type="button" onClick={() => setIsMobileOpen(false)} className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-hover)] md:hidden" aria-label="Close navigation menu">
+            <button
+              type="button"
+              onClick={() => setIsMobileOpen(false)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-(--color-text-tertiary) hover:bg-(--color-background-hover) md:hidden"
+              aria-label="Close navigation menu"
+            >
               <X className="h-4 w-4" />
             </button>
           </div>
 
           {showLabels && auth.user && (
-            <div className="mt-4 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3">
+            <div className="mt-4 rounded-2xl border border-(--color-border-secondary) bg-(--color-background-primary) p-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-700 text-sm font-semibold text-white shadow-sm">{userInitials}</div>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-amber-500 to-yellow-700 text-sm font-semibold text-white shadow-sm">
+                  {userInitials}
+                </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{fullName}</p>
-                  <p className="truncate text-xs text-[var(--color-text-tertiary)]">{auth.user.email}</p>
+                  <p className="truncate text-sm font-semibold text-(--color-text-primary)">{fullName}</p>
+                  <p className="truncate text-xs text-(--color-text-tertiary)">{auth.user.email}</p>
                 </div>
               </div>
               <div className="mt-3 flex items-center justify-between gap-2">
@@ -404,39 +502,101 @@ export function Sidebar() {
           )}
         </div>
 
-        <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
-          {groups.map((group) => (
-            <div key={group.title}>
-              {showLabels && <p className="mb-2 px-3 text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">{group.title}</p>}
-              <div className="space-y-1">
-                {group.items.map((item) => {
-                  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-                  const Icon = item.icon;
-                  return (
-                    <Link key={item.href} href={item.href} title={item.label} aria-current={active ? 'page' : undefined} onClick={() => setIsMobileOpen(false)} className={`group relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-all ${showLabels ? '' : 'justify-center'} ${active ? 'bg-[var(--color-accent-primary)] text-[var(--color-text-onprimary)] shadow-md' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)]'}`}>
-                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active ? 'bg-white/15 text-current' : 'bg-[var(--color-background-tertiary)] text-current'}`}>
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      {showLabels && (
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate font-medium">{item.label}</span>
-                          <span className={`block truncate text-xs ${active ? 'text-white/75' : 'text-[var(--color-text-tertiary)]'}`}>{item.description}</span>
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
+        {/* Navigation Domains with Collapsible Accordions */}
+        <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
+          {groups.map((group) => {
+            const hasActiveChild = group.items.some(
+              (item) => pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`))
+            );
+            // If user explicitly collapsed this section, respect it unless it has the active child
+            const isExplicitlyCollapsed = sectionStates[group.id] === true;
+            const isSectionOpen = hasActiveChild ? true : !isExplicitlyCollapsed;
+
+            return (
+              <div key={group.id} className="space-y-1">
+                {showLabels && (
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(group.id)}
+                    className="flex w-full items-center justify-between px-3 py-1.5 text-left text-[10px] font-bold uppercase tracking-[0.18em] text-(--color-text-tertiary) transition hover:text-(--color-text-primary)"
+                  >
+                    <span>{group.title}</span>
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 transition-transform duration-200 ${isSectionOpen ? '' : '-rotate-90'}`}
+                    />
+                  </button>
+                )}
+
+                {isSectionOpen && (
+                  <div className="space-y-1 pt-0.5">
+                    {group.items.map((item) => {
+                      const active =
+                        pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`));
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          title={item.label}
+                          aria-current={active ? 'page' : undefined}
+                          onClick={() => setIsMobileOpen(false)}
+                          className={`group relative flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-all ${
+                            showLabels ? '' : 'justify-center'
+                          } ${
+                            active
+                              ? 'bg-(--color-accent-primary) text-(--color-text-onprimary) shadow-md'
+                              : 'text-(--color-text-secondary) hover:bg-(--color-background-hover) hover:text-(--color-text-primary)'
+                          }`}
+                        >
+                          <span
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-transform duration-150 group-hover:scale-105 ${
+                              active ? 'bg-white/20 text-current' : 'bg-(--color-background-tertiary) text-current'
+                            }`}
+                          >
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          {showLabels && (
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-medium text-xs sm:text-sm">{item.label}</span>
+                              <span
+                                className={`block truncate text-[11px] ${
+                                  active ? 'text-white/80' : 'text-(--color-text-tertiary)'
+                                }`}
+                              >
+                                {item.description}
+                              </span>
+                            </span>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
-        <div className="border-t border-[var(--color-border-secondary)] p-3">
+        {/* Bottom Actions */}
+        <div className="border-t border-(--color-border-secondary) p-3">
           <div className={`flex items-center gap-2 ${showLabels ? 'justify-between' : 'justify-center'}`}>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setIsCollapsed((value) => !value)} className="hidden md:inline-flex" aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsCollapsed((value) => !value)}
+              className="hidden md:inline-flex"
+              aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
               {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => setShowLogoutModal(true)} className={showLabels ? 'flex-1' : ''}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowLogoutModal(true)}
+              className={showLabels ? 'flex-1' : ''}
+            >
               <LogOut className="h-4 w-4" />
               {showLabels && <span className="ml-2">Logout</span>}
             </Button>
@@ -444,7 +604,13 @@ export function Sidebar() {
         </div>
       </aside>
 
-      <LogoutModal isOpen={showLogoutModal} onClose={() => setShowLogoutModal(false)} onConfirm={confirmLogout} userName={fullName} loading={isLoggingOut} />
+      <LogoutModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={confirmLogout}
+        userName={fullName}
+        loading={isLoggingOut}
+      />
     </>
   );
 }
