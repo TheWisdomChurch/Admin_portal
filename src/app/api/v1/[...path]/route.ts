@@ -181,15 +181,20 @@ function buildResponseHeaders(upstreamHeaders: Headers): Headers {
   return headers;
 }
 
-function readRequestBody(
+async function readRequestBody(
   request: NextRequest,
   method: string
-): ReadableStream<Uint8Array> | null | undefined {
+): Promise<ArrayBuffer | undefined> {
   if (method === 'GET' || method === 'HEAD') {
     return undefined;
   }
 
-  return request.body;
+  try {
+    const buffer = await request.arrayBuffer();
+    return buffer.byteLength > 0 ? buffer : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function proxy(
@@ -205,20 +210,21 @@ async function proxy(
   const timeout = setTimeout(() => controller.abort(), 180_000);
 
   try {
-    const body = readRequestBody(request, method);
+    const body = await readRequestBody(request, method);
+    const forwardHeaders = buildForwardHeaders(request);
 
-    const init: RequestInit & { duplex?: 'half' } = {
+    if (body) {
+      forwardHeaders.set('content-length', String(body.byteLength));
+    }
+
+    const init: RequestInit = {
       method,
-      headers: buildForwardHeaders(request),
+      headers: forwardHeaders,
       body,
       redirect: 'manual',
       cache: 'no-store',
       signal: controller.signal,
     };
-
-    if (body) {
-      init.duplex = 'half';
-    }
 
     const upstream = await fetch(targetURL, init);
 

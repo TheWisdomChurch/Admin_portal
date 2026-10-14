@@ -1,7 +1,8 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { Suspense, use, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Sparkles } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import type { PublicFormPayload } from '@/lib/types';
@@ -11,9 +12,20 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-export default function FormPersonalizedFlyerPage({ params }: PageProps) {
-  const resolvedParams = use(params);
-  const slug = resolvedParams.slug;
+function FormPersonalizedFlyerContent({ slug }: { slug: string }) {
+  const searchParams = useSearchParams();
+  const rawFirstName = searchParams?.get('firstName') || searchParams?.get('first_name') || '';
+  const rawFullName = searchParams?.get('fullName') || searchParams?.get('full_name') || '';
+  const rawName = searchParams?.get('name') || '';
+
+  // Prioritize first name, or extract first word from full name
+  const initialName =
+    rawFirstName ||
+    (rawName && !rawName.includes(' ') ? rawName : '') ||
+    (rawFullName ? rawFullName.trim().split(/\s+/)[0] : '') ||
+    (rawName ? rawName.trim().split(/\s+/)[0] : '');
+
+  const effectiveFullName = rawFullName || (rawName && rawName.includes(' ') ? rawName : '');
 
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState<PublicFormPayload | null>(null);
@@ -101,25 +113,36 @@ export default function FormPersonalizedFlyerPage({ params }: PageProps) {
           </span>
         </div>
 
-        {flyerUrl ? (
-          <PersonalizedFlyerGenerator
-            flyerUrl={flyerUrl}
-            eventName={event?.title || form.title}
-            eventDate={event?.date}
-            badgeSettings={form.settings?.attendingBadge}
-            shareUrl={typeof window !== 'undefined' ? window.location.href : undefined}
-          />
-        ) : (
-          <div className="rounded-3xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-8 text-center shadow-md">
-            <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-              No event flyer uploaded for this program yet.
-            </p>
-            <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
-              The administrator has not attached an official banner for this form.
-            </p>
-          </div>
-        )}
+        <PersonalizedFlyerGenerator
+          flyerUrl={flyerUrl || undefined}
+          eventName={event?.title || form.title}
+          eventDate={event?.date}
+          initialAttendeeName={initialName || undefined}
+          initialFullName={effectiveFullName || undefined}
+          badgeSettings={form.settings?.attendingBadge}
+          shareUrl={typeof window !== 'undefined' ? window.location.href : undefined}
+        />
       </div>
     </div>
+  );
+}
+
+export default function FormPersonalizedFlyerPage({ params }: PageProps) {
+  const resolvedParams = use(params);
+  const slug = resolvedParams.slug;
+
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[var(--color-background-primary)] p-6">
+          <div className="flex items-center gap-3 rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-6 py-4 shadow-xl">
+            <Loader2 className="h-5 w-5 animate-spin text-[var(--color-accent-primary)]" />
+            <span className="text-sm font-semibold text-[var(--color-text-primary)]">Loading Studio...</span>
+          </div>
+        </div>
+      }
+    >
+      <FormPersonalizedFlyerContent slug={slug} />
+    </Suspense>
   );
 }
