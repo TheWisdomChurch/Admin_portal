@@ -614,7 +614,23 @@ export function buildFormEmailHTML(opts: {
             <h1 style="margin:0 0 4px;font-size:24px;line-height:1.3;font-weight:800;letter-spacing:-.01em;color:${INK};">${safeHeading}</h1>
           </td>
         </tr>
-        ${safeImageUrl ? `<tr><td style="padding:20px 40px 0;"><img src="${safeImageUrl}" alt="${safeTitle}" style="display:block;width:100%;height:auto;border:1px solid ${LINE};" /></td></tr>` : ''}
+        ${safeImageUrl ? `
+        <tr>
+          <td style="padding:16px 40px 0;">
+            <div style="border:1px solid ${ACCENT_BORDER};border-radius:14px;overflow:hidden;background:${surfaceColor};box-shadow:0 6px 20px rgba(0,0,0,0.04);">
+              <img src="${safeImageUrl}" alt="${safeTitle}" style="display:block;width:100%;height:auto;max-height:480px;object-fit:contain;margin:0 auto;" />
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAPER};border-top:1px solid ${LINE};">
+                <tr>
+                  <td align="center" style="padding:12px 20px;">
+                    <a href="${safeImageUrl}" target="_blank" rel="noopener noreferrer" style="font-size:12px;font-weight:700;color:${accentColor};text-decoration:none;letter-spacing:0.02em;">
+                      📥 View &amp; Download Official E-Flyer (HD)
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </td>
+        </tr>` : ''}
         <tr>
           <td style="padding:24px 40px 8px;font-size:15px;line-height:1.7;color:${BODY_COLOR};">
             <p style="margin:0 0 20px 0;font-size:16px;line-height:1.7;color:${INK};font-weight:600;">${safeGreeting}</p>

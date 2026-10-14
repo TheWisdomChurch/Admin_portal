@@ -13,7 +13,7 @@ import {
   ORG,
 } from '@/lib/landing/content';
 import { HeroBackdrop } from '@/components/landing/HeroBackdrop';
-import { ProductPreview } from '@/components/landing/ProductPreview';
+import { ExecutiveGatewayCard } from '@/components/landing/ExecutiveGatewayCard';
 import { Reveal } from '@/components/landing/Reveal';
 
 /** One shared inset — the only place the page width + gutters are defined. */
@@ -108,7 +108,7 @@ export default function HomePage() {
             </Reveal>
 
             <Reveal delay={120} className="min-w-0">
-              <ProductPreview />
+              <ExecutiveGatewayCard />
             </Reveal>
           </div>
         </section>

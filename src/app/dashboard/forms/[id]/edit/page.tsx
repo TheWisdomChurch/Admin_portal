@@ -723,13 +723,73 @@ function EditFormPage() {
             helperText="Shown at the top of the public form."
           />
 
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">E-Flyer Aspect Ratio</label>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  updateSettings({
+                    design: {
+                      ...(form.settings?.design || {}),
+                      flyerAspectRatio: 'portrait_4_5',
+                    },
+                  });
+                }}
+                className={`rounded-xl border p-2 text-xs font-bold transition ${
+                  (form.settings?.design?.flyerAspectRatio || 'portrait_4_5') === 'portrait_4_5'
+                    ? 'border-[var(--lp-gold)] bg-[var(--color-warning-surface)] text-[var(--color-text-primary)] ring-2 ring-[var(--lp-gold)]'
+                    : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]'
+                }`}
+              >
+                📱 Poster (4:5)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  updateSettings({
+                    design: {
+                      ...(form.settings?.design || {}),
+                      flyerAspectRatio: 'landscape_16_9',
+                    },
+                  });
+                }}
+                className={`rounded-xl border p-2 text-xs font-bold transition ${
+                  form.settings?.design?.flyerAspectRatio === 'landscape_16_9'
+                    ? 'border-[var(--lp-gold)] bg-[var(--color-warning-surface)] text-[var(--color-text-primary)] ring-2 ring-[var(--lp-gold)]'
+                    : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]'
+                }`}
+              >
+                🖥️ Landscape (16:9)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  updateSettings({
+                    design: {
+                      ...(form.settings?.design || {}),
+                      flyerAspectRatio: 'square_1_1',
+                    },
+                  });
+                }}
+                className={`rounded-xl border p-2 text-xs font-bold transition ${
+                  form.settings?.design?.flyerAspectRatio === 'square_1_1'
+                    ? 'border-[var(--lp-gold)] bg-[var(--color-warning-surface)] text-[var(--color-text-primary)] ring-2 ring-[var(--lp-gold)]'
+                    : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]'
+                }`}
+              >
+                🖼️ Square (1:1)
+              </button>
+            </div>
+          </div>
+
           <div className="grid gap-3 md:grid-cols-2">
             <Input
               label="Upload header image"
               type="file"
               accept="image/*"
               onChange={(event) => handleBannerFile(event.target.files?.[0])}
-              helperText="Uploads to storage and replaces the URL above."
+              helperText="Uploads to AWS S3 storage and replaces the URL above."
             />
 
             <div className="flex items-end">
@@ -739,21 +799,70 @@ function EditFormPage() {
                 loading={bannerUploading}
                 disabled={!bannerFile || bannerUploading}
               >
-                Upload Banner
+                Upload to S3
               </Button>
             </div>
           </div>
 
           {(bannerPreview || form.settings?.design?.coverImageUrl) && (
-            <Image
-              src={bannerPreview || form.settings?.design?.coverImageUrl || ''}
-              alt="Banner preview"
-              width={1200}
-              height={400}
-              className="aspect-[16/7] h-auto w-full rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] object-contain p-3"
-              unoptimized
-            />
+            <div
+              className={`flex w-full items-center justify-center overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3 ${
+                form.settings?.design?.flyerAspectRatio === 'portrait_4_5'
+                  ? 'aspect-[4/5] max-w-[280px] mx-auto'
+                  : form.settings?.design?.flyerAspectRatio === 'square_1_1'
+                  ? 'aspect-square max-w-[320px] mx-auto'
+                  : 'aspect-[16/9]'
+              }`}
+            >
+              <Image
+                src={bannerPreview || form.settings?.design?.coverImageUrl || ''}
+                alt="Banner preview"
+                width={1200}
+                height={1500}
+                className="h-full w-full object-contain rounded-xl"
+                unoptimized
+              />
+            </div>
           )}
+
+          {/* Attendee Status Flyer / DP Generator Configuration */}
+          <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 space-y-4">
+            <Checkbox
+              label="Enable Personalized Attendee DP & Status Flyer Generator"
+              checked={Boolean(form.settings?.attendingBadge?.enabled)}
+              onChange={(e) => {
+                updateSettings({
+                  attendingBadge: {
+                    ...(form.settings?.attendingBadge || {}),
+                    enabled: e.target.checked,
+                    templateStyle: form.settings?.attendingBadge?.templateStyle || 'polaroid',
+                    badgeText: form.settings?.attendingBadge?.badgeText || 'I Will Be Attending',
+                  },
+                });
+              }}
+            />
+
+            {form.settings?.attendingBadge?.enabled && (
+              <div className="space-y-3 pt-2">
+                <Input
+                  label="Badge Tagline Script"
+                  value={form.settings?.attendingBadge?.badgeText || 'I Will Be Attending'}
+                  onChange={(e) => {
+                    updateSettings({
+                      attendingBadge: {
+                        ...(form.settings?.attendingBadge || {}),
+                        badgeText: e.target.value,
+                      },
+                    });
+                  }}
+                  placeholder="e.g. I Will Be Attending"
+                />
+                <p className="text-xs text-[var(--color-text-tertiary)]">
+                  Registrants can access /forms/{form.slug || form.id}/dp to generate and download their Status Flyer (9:16) and Square DP (1:1).
+                </p>
+              </div>
+            )}
+          </div>
 
           <Input
             label="Success modal title"

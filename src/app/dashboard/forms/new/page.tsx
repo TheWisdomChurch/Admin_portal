@@ -20,6 +20,7 @@ import {
   Plus,
   Save,
   Settings2,
+  Sparkles,
   Wand2,
 } from 'lucide-react';
 
@@ -47,7 +48,7 @@ import { withAuth } from '@/providers/withAuth';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { extractServerFieldErrors, getFirstServerFieldError, getServerErrorMessage } from '@/lib/serverValidation';
 
-type FormPreset = 'testimonial' | 'member' | 'leadership' | 'children';
+type FormPreset = 'conference' | 'sunday_service' | 'testimonial' | 'member' | 'leadership' | 'children';
 type BuilderStep = 'setup' | 'fields' | 'preview';
 
 const formTypeOptions: Array<{ value: NonNullable<FormSettings['formType']>; label: string }> = [
@@ -83,6 +84,58 @@ const makeSlugCandidate = (base: string, attempt: number) => {
 };
 
 function buildPresetFields(preset: FormPreset): FieldDraft[] {
+  if (preset === 'conference') {
+    return [
+      { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
+      { key: 'email', label: 'Email Address', type: 'email', required: true, order: 2 },
+      { key: 'phone', label: 'WhatsApp / Phone Number', type: 'tel', required: true, order: 3 },
+      {
+        key: 'attendance_mode',
+        label: 'How will you be participating?',
+        type: 'radio',
+        required: true,
+        order: 4,
+        options: [
+          { label: 'Attending In-Person', value: 'in_person' },
+          { label: 'Joining Online Live Stream', value: 'online' },
+        ],
+      },
+      { key: 'attendee_photo', label: 'Upload your photo for your customized Status Flyer', type: 'image', required: false, order: 5 },
+      { key: 'expectation', label: 'What are you expecting God for at this program?', type: 'textarea', required: false, order: 6, validation: { maxWords: 300 } },
+    ];
+  }
+
+  if (preset === 'sunday_service') {
+    return [
+      { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
+      { key: 'phone', label: 'Phone Number', type: 'tel', required: true, order: 2 },
+      { key: 'email', label: 'Email Address', type: 'email', required: false, order: 3 },
+      {
+        key: 'service_time',
+        label: 'Service Session',
+        type: 'radio',
+        required: true,
+        order: 4,
+        options: [
+          { label: '1st Service — 8:00 AM', value: '1st_service' },
+          { label: '2nd Service — 10:30 AM', value: '2nd_service' },
+        ],
+      },
+      { key: 'seats', label: 'Total Number of Seats Reserving', type: 'number', required: true, order: 5 },
+      {
+        key: 'first_timer',
+        label: 'Is this your first time worshipping with Wisdom Church?',
+        type: 'radio',
+        required: true,
+        order: 6,
+        options: [
+          { label: 'Yes, first time guest', value: 'yes' },
+          { label: 'No, regular member / attendee', value: 'no' },
+        ],
+      },
+    ];
+  }
+
   if (preset === 'testimonial') {
     return [
       { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 1 },
@@ -237,7 +290,7 @@ const buildResponseEmailHTML = (opts: {
           <table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #fde68a;border-radius:14px;overflow:hidden;">
             <tr><td style="padding:14px 24px 8px 24px;"><div style="height:6px;background:#facc15;border-radius:999px;margin:0 0 12px 0;"></div></td></tr>
             <tr><td style="padding:24px 24px 10px 24px;"><p style="margin:0 0 8px 0;font-size:13px;color:#111827;font-weight:700;">${safeTitle}</p><h2 style="margin:0;font-size:24px;line-height:1.25;color:#111827;">${safeHeading}</h2></td></tr>
-            ${safeImageUrl ? `<tr><td style="padding:10px 24px 0 24px;"><img src="${safeImageUrl}" alt="${safeTitle}" style="display:block;width:100%;height:auto;border-radius:10px;" /></td></tr>` : ''}
+            ${safeImageUrl ? `<tr><td style="padding:10px 24px 0 24px;"><div style="border:1px solid #fde68a;border-radius:12px;overflow:hidden;background:#fffbeb;"><img src="${safeImageUrl}" alt="${safeTitle}" style="display:block;width:100%;height:auto;max-height:450px;object-fit:contain;margin:0 auto;" /><div style="padding:10px;background:#ffffff;text-align:center;border-top:1px solid #f3f4f6;"><a href="${safeImageUrl}" target="_blank" rel="noopener noreferrer" style="font-size:12px;font-weight:700;color:#92400e;text-decoration:none;">📥 Download Official E-Flyer (HD)</a></div></div></td></tr>` : ''}
             <tr><td style="padding:18px 24px 12px 24px;"><p style="margin:0 0 14px 0;font-size:16px;color:#111827;">Hello {{.RecipientName}},</p><p style="margin:0;font-size:15px;line-height:1.7;color:#374151;">${safeMessage}</p>${includeRegistrationCode ? '{{if .RegistrationCode}}' : ''}<div style="margin-top:16px;display:inline-block;padding:10px 14px;border-radius:8px;background:#fff9db;border:1px solid #facc15;font-size:13px;color:#111827;">Registration Number: <strong>{{.RegistrationCode}}</strong></div>${includeRegistrationCode ? '{{end}}' : ''}${includeCalendarOptIn ? '{{if .CalendarOptInURL}}' : ''}<p style="margin:14px 0 0;font-size:13px;color:#111827;"><a href="{{.CalendarOptInURL}}" style="color:#111827;text-decoration:underline;font-weight:700;">Add event to calendar</a></p>${includeCalendarOptIn ? '{{end}}' : ''}</td></tr>
           </table>
         </td>
@@ -292,6 +345,10 @@ export default withAuth(function NewFormPage() {
   const [submitButtonText, setSubmitButtonText] = useState('Submit form');
   const [formHeaderNote] = useState('Please ensure details are accurate before submitting.');
   const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [flyerAspectRatio, setFlyerAspectRatio] = useState<'portrait_4_5' | 'landscape_16_9' | 'square_1_1'>('portrait_4_5');
+  const [attendingBadgeEnabled, setAttendingBadgeEnabled] = useState(true);
+  const [attendingBadgeStyle, setAttendingBadgeStyle] = useState<'polaroid' | 'badge' | 'minimal'>('polaroid');
+  const [attendingBadgeText, setAttendingBadgeText] = useState('I Will Be Attending');
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [successTitle, setSuccessTitle] = useState('');
@@ -571,9 +628,21 @@ export default withAuth(function NewFormPage() {
         introSubtitle,
         introBullets: introBullets.split('\n').filter(Boolean),
         introBulletSubtexts: introBulletSubs.split('\n').filter(Boolean),
-        submitButtonText: submitButtonText.trim() || undefined,
-        formHeaderNote,
-        design: coverImageUrl.trim() ? { coverImageUrl: coverImageUrl.trim() } : undefined,
+        design: coverImageUrl.trim()
+          ? {
+              coverImageUrl: coverImageUrl.trim(),
+              flyerAspectRatio,
+              layout: 'split',
+            }
+          : undefined,
+        attendingBadge: attendingBadgeEnabled
+          ? {
+              enabled: true,
+              templateStyle: attendingBadgeStyle,
+              badgeText: attendingBadgeText.trim() || 'I Will Be Attending',
+              customFlyerUrl: coverImageUrl.trim() || undefined,
+            }
+          : undefined,
       },
     };
 
@@ -785,10 +854,12 @@ export default withAuth(function NewFormPage() {
             <div className="space-y-4">
               <Select label="Preset" value={selectedPreset} onChange={(event) => setSelectedPreset(event.target.value as FormPreset | '')}>
                 <option value="">Choose preset</option>
-                <option value="testimonial">Testimonial Intake</option>
+                <option value="conference">Special Program / Conference (With Status Flyer)</option>
+                <option value="sunday_service">Sunday Service Seat Booking</option>
+                <option value="testimonial">Testimonial &amp; Praise Report</option>
                 <option value="member">New Member Intake</option>
-                <option value="leadership">Leadership Intake</option>
-                <option value="children">Children Intake</option>
+                <option value="leadership">Leadership &amp; Workers Intake</option>
+                <option value="children">Children Ministry Intake</option>
               </Select>
               <Button type="button" variant="outline" icon={<Wand2 className="h-4 w-4" />} disabled={!selectedPreset} onClick={() => selectedPreset && applyPreset(selectedPreset)}>Apply Preset</Button>
               <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
@@ -858,14 +929,115 @@ export default withAuth(function NewFormPage() {
               </div>
             </SectionCard>
 
-            <SectionCard title="Header image & success message" subtitle="Optional hero image and the confirmation shown after submitting." icon={<ImageIcon className="h-5 w-5" />}>
+            <SectionCard title="Program E-Flyer Studio (S3 Integrated)" subtitle="Upload the official program flyer. Supports multiple aspect ratios with automatic S3 storage." icon={<ImageIcon className="h-5 w-5" />}>
               <div className="space-y-4">
-                <Input label="Header image URL" value={coverImageUrl} onChange={(event) => setCoverImageUrl(event.target.value)} placeholder="https://..." />
-                <Input label="Or upload header image" type="file" accept="image/*" onChange={(event) => handleBannerFile(event.target.files?.[0])} />
-                {(bannerPreview || coverImageUrl.trim()) ? <div className="flex aspect-[16/7] w-full items-center justify-center overflow-hidden rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3"><Image src={bannerPreview || coverImageUrl.trim()} alt="Header artwork preview" width={1200} height={525} className="h-full w-full object-contain" unoptimized /></div> : <div className="rounded-2xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-8 text-center text-sm font-semibold text-[var(--color-text-tertiary)]">No header image selected.</div>}
-                <Input label="Success title" value={successTitle} onChange={(event) => setSuccessTitle(event.target.value)} placeholder="Thank you for registering" />
-                <Input label="Success subtitle" value={successSubtitle} onChange={(event) => setSuccessSubtitle(event.target.value)} placeholder="for {{formTitle}}" />
-                <Textarea label="Success message" rows={3} value={successMessage} onChange={(event) => setSuccessMessage(event.target.value)} />
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">E-Flyer Aspect Ratio</label>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    <button type="button" onClick={() => setFlyerAspectRatio('portrait_4_5')} className={`rounded-xl border p-2 text-xs font-bold transition ${flyerAspectRatio === 'portrait_4_5' ? 'border-[var(--lp-gold)] bg-[var(--color-warning-surface)] text-[var(--color-text-primary)] ring-2 ring-[var(--lp-gold)]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]'}`}>
+                      📱 Poster (4:5)
+                    </button>
+                    <button type="button" onClick={() => setFlyerAspectRatio('landscape_16_9')} className={`rounded-xl border p-2 text-xs font-bold transition ${flyerAspectRatio === 'landscape_16_9' ? 'border-[var(--lp-gold)] bg-[var(--color-warning-surface)] text-[var(--color-text-primary)] ring-2 ring-[var(--lp-gold)]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]'}`}>
+                      🖥️ Landscape (16:9)
+                    </button>
+                    <button type="button" onClick={() => setFlyerAspectRatio('square_1_1')} className={`rounded-xl border p-2 text-xs font-bold transition ${flyerAspectRatio === 'square_1_1' ? 'border-[var(--lp-gold)] bg-[var(--color-warning-surface)] text-[var(--color-text-primary)] ring-2 ring-[var(--lp-gold)]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]'}`}>
+                      🖼️ Square (1:1)
+                    </button>
+                  </div>
+                </div>
+
+                <Input label="E-Flyer Image URL" value={coverImageUrl} onChange={(event) => {
+                  setCoverImageUrl(event.target.value);
+                  if (!responseTemplateUrl) setResponseTemplateUrl(event.target.value);
+                }} placeholder="https://..." />
+                
+                <Input label="Or upload program flyer to S3" type="file" accept="image/*" onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    handleBannerFile(file);
+                    handleResponseTemplateFile(file);
+                  }
+                }} />
+
+                {(bannerPreview || coverImageUrl.trim()) ? (
+                  <div className={`flex w-full items-center justify-center overflow-hidden rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3 ${
+                    flyerAspectRatio === 'portrait_4_5' ? 'aspect-[4/5] max-w-[280px] mx-auto' : flyerAspectRatio === 'square_1_1' ? 'aspect-square max-w-[320px] mx-auto' : 'aspect-[16/9]'
+                  }`}>
+                    <Image src={bannerPreview || coverImageUrl.trim()} alt="Program E-Flyer preview" width={1200} height={1500} className="h-full w-full object-contain rounded-xl" unoptimized />
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-8 text-center text-sm font-semibold text-[var(--color-text-tertiary)]">
+                    No flyer selected. Uploading here automatically saves to AWS S3.
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between border-t border-[var(--color-border-primary)] pt-3">
+                  <span className="text-xs text-[var(--color-text-tertiary)]">Automatic S3 CDN delivery</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (bannerPreview || coverImageUrl.trim()) {
+                        setResponseTemplateUrl(coverImageUrl.trim());
+                        setResponseTemplatePreview(bannerPreview);
+                        toast.success('E-Flyer synced to response email template!');
+                      } else {
+                        toast.error('Select an e-flyer first');
+                      }
+                    }}
+                    icon={<Sparkles className="h-3.5 w-3.5 text-[var(--lp-gold)]" />}
+                  >
+                    Sync Flyer to Response Email
+                  </Button>
+                </div>
+
+                <div className="pt-2 border-t border-[var(--color-border-primary)] space-y-3">
+                  <Input label="Success title" value={successTitle} onChange={(event) => setSuccessTitle(event.target.value)} placeholder="Thank you for registering" />
+                  <Input label="Success subtitle" value={successSubtitle} onChange={(event) => setSuccessSubtitle(event.target.value)} placeholder="for {{formTitle}}" />
+                  <Textarea label="Success message" rows={3} value={successMessage} onChange={(event) => setSuccessMessage(event.target.value)} />
+                </div>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Personalized 'I Will Be Attending' Status Flyer" subtitle="Allow registrants to upload their photo and generate a customized WhatsApp status & Instagram flyer." icon={<Sparkles className="h-5 w-5 text-[var(--lp-gold)]" />}>
+              <div className="space-y-4">
+                <Checkbox
+                  label="Enable Personalized Attendee DP & Status Flyer Generator"
+                  checked={attendingBadgeEnabled}
+                  onChange={(e) => setAttendingBadgeEnabled(e.target.checked)}
+                  className="min-h-11 rounded-[var(--radius-control)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3"
+                />
+
+                {attendingBadgeEnabled && (
+                  <div className="space-y-4 rounded-2xl border border-[var(--lp-gold-line)] bg-[var(--color-warning-surface)]/30 p-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">Attendee Badge Style</label>
+                      <div className="mt-2 grid grid-cols-3 gap-2">
+                        <button type="button" onClick={() => setAttendingBadgeStyle('polaroid')} className={`rounded-xl border p-2 text-xs font-bold transition ${attendingBadgeStyle === 'polaroid' ? 'border-[var(--lp-gold)] bg-white text-[var(--color-text-primary)] shadow-sm' : 'border-transparent bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]'}`}>
+                          📸 Polaroid
+                        </button>
+                        <button type="button" onClick={() => setAttendingBadgeStyle('badge')} className={`rounded-xl border p-2 text-xs font-bold transition ${attendingBadgeStyle === 'badge' ? 'border-[var(--lp-gold)] bg-white text-[var(--color-text-primary)] shadow-sm' : 'border-transparent bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]'}`}>
+                          ⭐ Gold Badge
+                        </button>
+                        <button type="button" onClick={() => setAttendingBadgeStyle('minimal')} className={`rounded-xl border p-2 text-xs font-bold transition ${attendingBadgeStyle === 'minimal' ? 'border-[var(--lp-gold)] bg-white text-[var(--color-text-primary)] shadow-sm' : 'border-transparent bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]'}`}>
+                          ✨ Minimal
+                        </button>
+                      </div>
+                    </div>
+
+                    <Input
+                      label="Badge Tagline Script"
+                      value={attendingBadgeText}
+                      onChange={(e) => setAttendingBadgeText(e.target.value)}
+                      placeholder="e.g. I Will Be Attending"
+                    />
+
+                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                      Attendees will be given a one-tap link to generate and download their Status Flyer (9:16) and Square DP (1:1) upon completing registration.
+                    </p>
+                  </div>
+                )}
               </div>
             </SectionCard>
 
