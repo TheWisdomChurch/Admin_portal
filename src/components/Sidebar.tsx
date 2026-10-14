@@ -430,10 +430,10 @@ export function Sidebar() {
       <button
         type="button"
         onClick={() => setIsMobileOpen(true)}
-        className="fixed left-4 top-4 z-50 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] shadow-lg md:hidden"
+        className="fixed left-4 top-4 z-50 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-(--color-border-primary) bg-(--color-background-secondary) shadow-lg md:hidden"
         aria-label="Open navigation menu"
       >
-        <Menu className="h-5 w-5 text-[var(--color-text-primary)]" />
+        <Menu className="h-5 w-5 text-(--color-text-primary)" />
       </button>
 
       {isMobileOpen && (
@@ -446,7 +446,7 @@ export function Sidebar() {
       )}
 
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] shadow-2xl transition-all duration-300 ${
+        className={`fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-(--color-border-primary) bg-(--color-background-secondary) shadow-2xl transition-all duration-300 ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
         style={{
@@ -454,7 +454,7 @@ export function Sidebar() {
         }}
       >
         {/* Header Branding */}
-        <div className="border-b border-[var(--color-border-secondary)] p-4">
+        <div className="border-b border-(--color-border-secondary) p-4">
           <div className="flex items-center justify-between gap-3">
             <Link href={homeHref} onClick={() => setIsMobileOpen(false)} className="flex min-w-0 items-center gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-black shadow-md ring-1 ring-white/10">
@@ -462,8 +462,8 @@ export function Sidebar() {
               </div>
               {showLabels && (
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold tracking-tight text-[var(--color-text-primary)]">Wisdom Church</p>
-                  <p className="truncate text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">
+                  <p className="truncate text-sm font-semibold tracking-tight text-(--color-text-primary)">Wisdom Church</p>
+                  <p className="truncate text-[11px] font-medium uppercase tracking-[0.18em] text-(--color-text-tertiary)">
                     {isSuperAdmin ? 'Authority Console' : 'Executive Portal'}
                   </p>
                 </div>
@@ -473,7 +473,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => setIsMobileOpen(false)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-hover)] md:hidden"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-(--color-text-tertiary) hover:bg-(--color-background-hover) md:hidden"
               aria-label="Close navigation menu"
             >
               <X className="h-4 w-4" />
@@ -481,14 +481,14 @@ export function Sidebar() {
           </div>
 
           {showLabels && auth.user && (
-            <div className="mt-4 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3">
+            <div className="mt-4 rounded-2xl border border-(--color-border-secondary) bg-(--color-background-primary) p-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-700 text-sm font-semibold text-white shadow-sm">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-amber-500 to-yellow-700 text-sm font-semibold text-white shadow-sm">
                   {userInitials}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{fullName}</p>
-                  <p className="truncate text-xs text-[var(--color-text-tertiary)]">{auth.user.email}</p>
+                  <p className="truncate text-sm font-semibold text-(--color-text-primary)">{fullName}</p>
+                  <p className="truncate text-xs text-(--color-text-tertiary)">{auth.user.email}</p>
                 </div>
               </div>
               <div className="mt-3 flex items-center justify-between gap-2">
@@ -518,7 +518,7 @@ export function Sidebar() {
                   <button
                     type="button"
                     onClick={() => toggleSection(group.id)}
-                    className="flex w-full items-center justify-between px-3 py-1.5 text-left text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-primary)]"
+                    className="flex w-full items-center justify-between px-3 py-1.5 text-left text-[10px] font-bold uppercase tracking-[0.18em] text-(--color-text-tertiary) transition hover:text-(--color-text-primary)"
                   >
                     <span>{group.title}</span>
                     <ChevronDown
@@ -544,13 +544,13 @@ export function Sidebar() {
                             showLabels ? '' : 'justify-center'
                           } ${
                             active
-                              ? 'bg-[var(--color-accent-primary)] text-[var(--color-text-onprimary)] shadow-md'
-                              : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)]'
+                              ? 'bg-(--color-accent-primary) text-(--color-text-onprimary) shadow-md'
+                              : 'text-(--color-text-secondary) hover:bg-(--color-background-hover) hover:text-(--color-text-primary)'
                           }`}
                         >
                           <span
                             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-transform duration-150 group-hover:scale-105 ${
-                              active ? 'bg-white/20 text-current' : 'bg-[var(--color-background-tertiary)] text-current'
+                              active ? 'bg-white/20 text-current' : 'bg-(--color-background-tertiary) text-current'
                             }`}
                           >
                             <Icon className="h-4 w-4" />
@@ -560,7 +560,7 @@ export function Sidebar() {
                               <span className="block truncate font-medium text-xs sm:text-sm">{item.label}</span>
                               <span
                                 className={`block truncate text-[11px] ${
-                                  active ? 'text-white/80' : 'text-[var(--color-text-tertiary)]'
+                                  active ? 'text-white/80' : 'text-(--color-text-tertiary)'
                                 }`}
                               >
                                 {item.description}
@@ -578,7 +578,7 @@ export function Sidebar() {
         </nav>
 
         {/* Bottom Actions */}
-        <div className="border-t border-[var(--color-border-secondary)] p-3">
+        <div className="border-t border-(--color-border-secondary) p-3">
           <div className={`flex items-center gap-2 ${showLabels ? 'justify-between' : 'justify-center'}`}>
             <Button
               type="button"

@@ -590,8 +590,8 @@ function EditFormPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[300px] w-full items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-[var(--color-accent-primary)] border-r-transparent" />
+      <div className="flex min-h-75 w-full items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-(--color-accent-primary) border-r-transparent" />
       </div>
     );
   }
@@ -693,9 +693,9 @@ function EditFormPage() {
           />
 
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Description</label>
+            <label className="block text-sm font-medium text-(--color-text-secondary)">Description</label>
             <textarea
-              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+              className="w-full rounded-(--radius-button) border border-(--color-border-primary) bg-(--color-background-secondary) px-3 py-2 text-sm text-(--color-text-primary) placeholder:text-(--color-text-tertiary) focus:outline-none focus:ring-2 focus:ring-(--color-border-focus) focus:ring-offset-2"
               rows={3}
               value={form.description || ''}
               onChange={(event) => setForm({ ...form, description: event.target.value })}
@@ -724,7 +724,7 @@ function EditFormPage() {
           />
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">E-Flyer Aspect Ratio</label>
+            <label className="block text-xs font-bold uppercase tracking-wider text-(--color-text-secondary)">E-Flyer Aspect Ratio</label>
             <div className="mt-2 grid grid-cols-3 gap-2">
               <button
                 type="button"
@@ -738,8 +738,8 @@ function EditFormPage() {
                 }}
                 className={`rounded-xl border p-2 text-xs font-bold transition ${
                   (form.settings?.design?.flyerAspectRatio || 'portrait_4_5') === 'portrait_4_5'
-                    ? 'border-[var(--lp-gold)] bg-[var(--color-warning-surface)] text-[var(--color-text-primary)] ring-2 ring-[var(--lp-gold)]'
-                    : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]'
+                    ? 'border-(--lp-gold) bg-(--color-warning-surface) text-(--color-text-primary) ring-2 ring-(--lp-gold)'
+                    : 'border-(--color-border-secondary) bg-(--color-background-secondary) text-(--color-text-secondary)'
                 }`}
               >
                 📱 Poster (4:5)
@@ -756,8 +756,8 @@ function EditFormPage() {
                 }}
                 className={`rounded-xl border p-2 text-xs font-bold transition ${
                   form.settings?.design?.flyerAspectRatio === 'landscape_16_9'
-                    ? 'border-[var(--lp-gold)] bg-[var(--color-warning-surface)] text-[var(--color-text-primary)] ring-2 ring-[var(--lp-gold)]'
-                    : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]'
+                    ? 'border-(--lp-gold) bg-(--color-warning-surface) text-(--color-text-primary) ring-2 ring-(--lp-gold)'
+                    : 'border-(--color-border-secondary) bg-(--color-background-secondary) text-(--color-text-secondary)'
                 }`}
               >
                 🖥️ Landscape (16:9)
@@ -774,8 +774,8 @@ function EditFormPage() {
                 }}
                 className={`rounded-xl border p-2 text-xs font-bold transition ${
                   form.settings?.design?.flyerAspectRatio === 'square_1_1'
-                    ? 'border-[var(--lp-gold)] bg-[var(--color-warning-surface)] text-[var(--color-text-primary)] ring-2 ring-[var(--lp-gold)]'
-                    : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]'
+                    ? 'border-(--lp-gold) bg-(--color-warning-surface) text-(--color-text-primary) ring-2 ring-(--lp-gold)'
+                    : 'border-(--color-border-secondary) bg-(--color-background-secondary) text-(--color-text-secondary)'
                 }`}
               >
                 🖼️ Square (1:1)
@@ -806,12 +806,12 @@ function EditFormPage() {
 
           {(bannerPreview || form.settings?.design?.coverImageUrl) && (
             <div
-              className={`flex w-full items-center justify-center overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3 ${
+              className={`flex w-full items-center justify-center overflow-hidden rounded-(--radius-card) border border-(--color-border-secondary) bg-(--color-background-secondary) p-3 ${
                 form.settings?.design?.flyerAspectRatio === 'portrait_4_5'
-                  ? 'aspect-[4/5] max-w-[280px] mx-auto'
+                  ? 'aspect-4/5 max-w-70 mx-auto'
                   : form.settings?.design?.flyerAspectRatio === 'square_1_1'
-                  ? 'aspect-square max-w-[320px] mx-auto'
-                  : 'aspect-[16/9]'
+                  ? 'aspect-square max-w-80 mx-auto'
+                  : 'aspect-video'
               }`}
             >
               <Image
@@ -826,7 +826,7 @@ function EditFormPage() {
           )}
 
           {/* Attendee Status Flyer / DP Generator Configuration */}
-          <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 space-y-4">
+          <div className="rounded-2xl border border-(--color-border-secondary) bg-(--color-background-secondary) p-4 space-y-4">
             <Checkbox
               label="Enable Personalized Attendee DP & Status Flyer Generator"
               checked={Boolean(form.settings?.attendingBadge?.enabled)}
@@ -857,7 +857,7 @@ function EditFormPage() {
                   }}
                   placeholder="e.g. I Will Be Attending"
                 />
-                <p className="text-xs text-[var(--color-text-tertiary)]">
+                <p className="text-xs text-(--color-text-tertiary)">
                   Registrants can access /forms/{form.slug || form.id}/dp to generate and download their Status Flyer (9:16) and Square DP (1:1).
                 </p>
               </div>
@@ -879,11 +879,11 @@ function EditFormPage() {
           />
 
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+            <label className="block text-sm font-medium text-(--color-text-secondary)">
               Success modal message
             </label>
             <textarea
-              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+              className="w-full rounded-(--radius-button) border border-(--color-border-primary) bg-(--color-background-secondary) px-3 py-2 text-sm text-(--color-text-primary) placeholder:text-(--color-text-tertiary) focus:outline-none focus:ring-2 focus:ring-(--color-border-focus) focus:ring-offset-2"
               rows={2}
               value={form.settings?.successMessage || ''}
               onChange={(event) => updateSettings({ successMessage: event.target.value || undefined })}
@@ -895,7 +895,7 @@ function EditFormPage() {
 
       <Card title="Consent and privacy notice">
         <div className="space-y-4">
-          <p className="rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 text-sm leading-6 text-[var(--color-text-secondary)]">Every public form requires affirmative consent. The notice is versioned and the accepted version and timestamp are stored with each submission. Review this wording with your organisation&apos;s privacy adviser for jurisdiction-specific requirements.</p>
+          <p className="rounded-(--radius-button) border border-(--color-border-secondary) bg-(--color-background-secondary) p-4 text-sm leading-6 text-(--color-text-secondary)">Every public form requires affirmative consent. The notice is versioned and the accepted version and timestamp are stored with each submission. Review this wording with your organisation&apos;s privacy adviser for jurisdiction-specific requirements.</p>
           <Input label="Consent heading" value={form.settings?.consent?.title || ''} onChange={(event) => updateConsent({ title: event.target.value })} />
           {([
             ['Introduction', 'introduction', 7],
@@ -904,8 +904,8 @@ function EditFormPage() {
             ['Rights and choices', 'rights', 4],
             ['Privacy contact', 'contact', 3],
             ['Required acknowledgement', 'acknowledgementLabel', 4],
-          ] as const).map(([label, key, rows]) => <div key={key} className="space-y-1"><label className="block text-sm font-medium text-[var(--color-text-secondary)]">{label}</label><textarea className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)]" rows={rows} value={form.settings?.consent?.[key] || ''} onChange={(event) => updateConsent({ [key]: event.target.value })} /></div>)}
-          <div className="space-y-1"><label className="block text-sm font-medium text-[var(--color-text-secondary)]">Purposes — one per line</label><textarea className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)]" rows={7} value={(form.settings?.consent?.purposes || []).join('\n')} onChange={(event) => updateConsent({ purposes: event.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })} /></div>
+          ] as const).map(([label, key, rows]) => <div key={key} className="space-y-1"><label className="block text-sm font-medium text-(--color-text-secondary)">{label}</label><textarea className="w-full rounded-(--radius-button) border border-(--color-border-primary) bg-(--color-background-secondary) px-3 py-2 text-sm text-(--color-text-primary) focus:outline-none focus:ring-2 focus:ring-(--color-border-focus)" rows={rows} value={form.settings?.consent?.[key] || ''} onChange={(event) => updateConsent({ [key]: event.target.value })} /></div>)}
+          <div className="space-y-1"><label className="block text-sm font-medium text-(--color-text-secondary)">Purposes — one per line</label><textarea className="w-full rounded-(--radius-button) border border-(--color-border-primary) bg-(--color-background-secondary) px-3 py-2 text-sm text-(--color-text-primary) focus:outline-none focus:ring-2 focus:ring-(--color-border-focus)" rows={7} value={(form.settings?.consent?.purposes || []).join('\n')} onChange={(event) => updateConsent({ purposes: event.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })} /></div>
           <Input label="Notice version" value={form.settings?.consent?.version || '2026.1'} onChange={(event) => updateConsent({ version: event.target.value })} helperText="Increase this when the meaning of the notice changes so future submissions record the new version." />
         </div>
       </Card>
@@ -1028,17 +1028,17 @@ function EditFormPage() {
         }
       >
         <div className="space-y-4">
-          <div className="rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+          <div className="rounded-(--radius-card) border border-(--color-border-secondary) bg-(--color-background-primary) p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                <p className="text-sm font-semibold text-(--color-text-primary)">
                   {responseEmailEnabled ? 'Auto-response is enabled' : 'Auto-response is disabled'}
                 </p>
-                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                <p className="mt-1 text-sm text-(--color-text-secondary)">
                   Design the confirmation email, branded header, subject, message, image, and saved template from the editor.
                 </p>
               </div>
-              <span className="rounded-full border border-[var(--color-border-primary)] px-3 py-1 text-xs font-semibold text-[var(--color-text-secondary)]">
+              <span className="rounded-full border border-(--color-border-primary) px-3 py-1 text-xs font-semibold text-(--color-text-secondary)">
                 {form.settings?.responseEmailTemplateKey ? 'Template linked' : 'No template linked'}
               </span>
             </div>
@@ -1084,7 +1084,7 @@ function EditFormPage() {
             />
           </div>
 
-          <p className="text-xs text-[var(--color-text-tertiary)]">
+          <p className="text-xs text-(--color-text-tertiary)">
             Save response settings here for the enabled state, subject, linked template, and template image. Use the email editor to create or update the professional response template.
           </p>
         </div>
@@ -1105,9 +1105,9 @@ function EditFormPage() {
           />
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Detail items</label>
+            <label className="block text-sm font-medium text-(--color-text-secondary)">Detail items</label>
             <textarea
-              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+              className="w-full rounded-(--radius-button) border border-(--color-border-primary) bg-(--color-background-secondary) px-3 py-2 text-sm text-(--color-text-primary) placeholder:text-(--color-text-tertiary) focus:outline-none focus:ring-2 focus:ring-(--color-border-focus) focus:ring-offset-2"
               rows={5}
               value={introBulletsValue}
               onChange={(event) => updateSettings({ introBullets: splitLines(event.target.value) })}
@@ -1116,9 +1116,9 @@ function EditFormPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Item subtext</label>
+            <label className="block text-sm font-medium text-(--color-text-secondary)">Item subtext</label>
             <textarea
-              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+              className="w-full rounded-(--radius-button) border border-(--color-border-primary) bg-(--color-background-secondary) px-3 py-2 text-sm text-(--color-text-primary) placeholder:text-(--color-text-tertiary) focus:outline-none focus:ring-2 focus:ring-(--color-border-focus) focus:ring-offset-2"
               rows={5}
               value={introBulletSubtextsValue}
               onChange={(event) => updateSettings({ introBulletSubtexts: splitLines(event.target.value) })}
@@ -1129,10 +1129,10 @@ function EditFormPage() {
           <div className="space-y-4 md:col-span-2">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h3 className="text-sm font-medium text-[var(--color-text-secondary)]">
+                <h3 className="text-sm font-medium text-(--color-text-secondary)">
                   Additional content sections
                 </h3>
-                <p className="text-sm text-[var(--color-text-tertiary)]">
+                <p className="text-sm text-(--color-text-tertiary)">
                   Add sections for schedules, requirements, speakers, directions, or FAQs.
                 </p>
               </div>
@@ -1149,7 +1149,7 @@ function EditFormPage() {
             </div>
 
             {contentSections.length === 0 && (
-              <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-5 text-sm text-[var(--color-text-tertiary)]">
+              <div className="rounded-(--radius-card) border border-dashed border-(--color-border-secondary) bg-(--color-background-secondary) px-4 py-5 text-sm text-(--color-text-tertiary)">
                 No extra sections added.
               </div>
             )}
@@ -1157,10 +1157,10 @@ function EditFormPage() {
             {contentSections.map((section, index) => (
               <div
                 key={`content-section-${index}`}
-                className="space-y-4 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4"
+                className="space-y-4 rounded-(--radius-card) border border-(--color-border-secondary) bg-(--color-background-secondary) p-4"
               >
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-sm font-medium text-[var(--color-text-secondary)]">
+                  <div className="text-sm font-medium text-(--color-text-secondary)">
                     Section {index + 1}
                   </div>
 
@@ -1189,11 +1189,11 @@ function EditFormPage() {
                   />
 
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                    <label className="block text-sm font-medium text-(--color-text-secondary)">
                       Section items
                     </label>
                     <textarea
-                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                      className="w-full rounded-(--radius-button) border border-(--color-border-primary) bg-(--color-background-secondary) px-3 py-2 text-sm text-(--color-text-primary) placeholder:text-(--color-text-tertiary) focus:outline-none focus:ring-2 focus:ring-(--color-border-focus) focus:ring-offset-2"
                       rows={5}
                       value={(section.items ?? []).join('\n')}
                       onChange={(event) => updateContentSection(index, { items: splitLines(event.target.value) ?? [] })}
@@ -1201,11 +1201,11 @@ function EditFormPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                    <label className="block text-sm font-medium text-(--color-text-secondary)">
                       Item subtext
                     </label>
                     <textarea
-                      className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                      className="w-full rounded-(--radius-button) border border-(--color-border-primary) bg-(--color-background-secondary) px-3 py-2 text-sm text-(--color-text-primary) placeholder:text-(--color-text-tertiary) focus:outline-none focus:ring-2 focus:ring-(--color-border-focus) focus:ring-offset-2"
                       rows={5}
                       value={(section.itemSubtexts ?? []).join('\n')}
                       onChange={(event) =>
@@ -1221,11 +1221,11 @@ function EditFormPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+            <label className="block text-sm font-medium text-(--color-text-secondary)">
               Form header note
             </label>
             <textarea
-              className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+              className="w-full rounded-(--radius-button) border border-(--color-border-primary) bg-(--color-background-secondary) px-3 py-2 text-sm text-(--color-text-primary) placeholder:text-(--color-text-tertiary) focus:outline-none focus:ring-2 focus:ring-(--color-border-focus) focus:ring-offset-2"
               rows={3}
               value={form.settings?.formHeaderNote ?? ''}
               onChange={(event) => updateSettings({ formHeaderNote: event.target.value || undefined })}
@@ -1265,8 +1265,8 @@ function EditFormPage() {
         {(() => {
           const publicUrl = buildPublicFormUrl(form.slug, form.publicUrl);
           return (
-            <div className="flex flex-col gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="min-w-0 break-all font-mono text-sm text-[var(--color-text-primary)]">
+            <div className="flex flex-col gap-3 rounded-2xl border border-(--color-border-secondary) bg-(--color-background-secondary) p-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="min-w-0 break-all font-mono text-sm text-(--color-text-primary)">
                 {publicUrl || 'Publish this form to generate its public link.'}
               </p>
               <div className="flex shrink-0 flex-wrap gap-2">

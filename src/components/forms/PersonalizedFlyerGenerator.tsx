@@ -336,30 +336,30 @@ export function PersonalizedFlyerGenerator({
   };
 
   return (
-    <div className="rounded-3xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-6 shadow-xl sm:p-8">
+    <div className="rounded-3xl border border-(--color-border-secondary) bg-(--color-background-primary) p-6 shadow-xl sm:p-8">
       {/* Title & Introduction */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-[var(--color-border-primary)] pb-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-(--color-border-primary) pb-5">
         <div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-warning-surface)] px-3 py-1 text-xs font-bold text-[var(--color-warning-text)]">
-            <Sparkles className="h-3.5 w-3.5 text-[var(--lp-gold)]" /> Personalized Status Flyer
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-(--color-warning-surface) px-3 py-1 text-xs font-bold text-(--color-warning-text)">
+            <Sparkles className="h-3.5 w-3.5 text-(--lp-gold)" /> Personalized Status Flyer
           </span>
-          <h2 className="mt-2 text-xl font-bold tracking-tight text-[var(--color-text-primary)]">
+          <h2 className="mt-2 text-xl font-bold tracking-tight text-(--color-text-primary)">
             Create Your &ldquo;I Will Be Attending&rdquo; Flyer
           </h2>
-          <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+          <p className="mt-1 text-xs text-(--color-text-tertiary)">
             {eventDate ? `${eventName} (${eventDate})` : eventName} — Upload your photo to generate a high-definition badge flyer to share on your WhatsApp status and social media.
           </p>
         </div>
 
         {/* Format Selector: 9:16 Status vs 1:1 Square */}
-        <div className="flex items-center gap-1 rounded-xl bg-[var(--color-background-secondary)] p-1 border border-[var(--color-border-primary)]">
+        <div className="flex items-center gap-1 rounded-xl bg-(--color-background-secondary) p-1 border border-(--color-border-primary)">
           <button
             type="button"
             onClick={() => setFormat('status_9_16')}
             className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
               format === 'status_9_16'
-                ? 'bg-[var(--lp-ink)] text-white shadow-sm'
-                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                ? 'bg-(--lp-ink) text-white shadow-sm'
+                : 'text-(--color-text-secondary) hover:text-(--color-text-primary)'
             }`}
           >
             📱 Status (9:16)
@@ -369,8 +369,8 @@ export function PersonalizedFlyerGenerator({
             onClick={() => setFormat('square_1_1')}
             className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
               format === 'square_1_1'
-                ? 'bg-[var(--lp-ink)] text-white shadow-sm'
-                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                ? 'bg-(--lp-ink) text-white shadow-sm'
+                : 'text-(--color-text-secondary) hover:text-(--color-text-primary)'
             }`}
           >
             🖼️ Square DP (1:1)
@@ -382,8 +382,8 @@ export function PersonalizedFlyerGenerator({
         {/* Left Column: Interactive Live Preview */}
         <div className="flex flex-col items-center">
           <div
-            className={`relative overflow-hidden rounded-2xl border-2 border-[var(--color-border-secondary)] bg-black shadow-2xl transition-all duration-200 ${
-              format === 'status_9_16' ? 'aspect-[9/16] w-full max-w-[320px]' : 'aspect-square w-full max-w-[380px]'
+            className={`relative overflow-hidden rounded-2xl border-2 border-(--color-border-secondary) bg-black shadow-2xl transition-all duration-200 ${
+              format === 'status_9_16' ? 'aspect-9/16 w-full max-w-80' : 'aspect-square w-full max-w-95'
             }`}
           >
             {previewDataUrl ? (
@@ -407,7 +407,7 @@ export function PersonalizedFlyerGenerator({
             )}
           </div>
 
-          <p className="mt-3 text-center text-xs font-medium text-[var(--color-text-tertiary)]">
+          <p className="mt-3 text-center text-xs font-medium text-(--color-text-tertiary)">
             High-Resolution {format === 'status_9_16' ? '1080 × 1920' : '1080 × 1080'} HD Output
           </p>
         </div>
@@ -416,7 +416,7 @@ export function PersonalizedFlyerGenerator({
         <div className="space-y-5">
           {/* 1. Photo Upload */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
+            <label className="block text-xs font-bold uppercase tracking-wider text-(--color-text-secondary)">
               1. Your Photo
             </label>
             {/* eslint-disable-next-line no-restricted-syntax -- hidden file input triggered programmatically via Button */}
@@ -442,7 +442,7 @@ export function PersonalizedFlyerGenerator({
                 <button
                   type="button"
                   onClick={() => setPhotoSrc(null)}
-                  className="rounded-xl border border-[var(--color-border-primary)] p-2.5 text-xs text-[var(--color-danger-text)] hover:bg-[var(--color-danger-surface)]"
+                  className="rounded-xl border border-(--color-border-primary) p-2.5 text-xs text-(--color-danger-text) hover:bg-(--color-danger-surface)"
                   title="Remove photo"
                 >
                   Remove
@@ -450,7 +450,7 @@ export function PersonalizedFlyerGenerator({
               )}
             </div>
             {!photoSrc && (
-              <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">
+              <p className="mt-1 text-[11px] text-(--color-text-tertiary)">
                 Tip: A portrait headshot facing forward works best!
               </p>
             )}
@@ -458,7 +458,7 @@ export function PersonalizedFlyerGenerator({
 
           {/* 2. Attendee Display Name */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
+            <label className="block text-xs font-bold uppercase tracking-wider text-(--color-text-secondary)">
               2. Your Name on Flyer
             </label>
             <div className="mt-1.5">
@@ -472,7 +472,7 @@ export function PersonalizedFlyerGenerator({
 
           {/* 3. Badge Style Options */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
+            <label className="block text-xs font-bold uppercase tracking-wider text-(--color-text-secondary)">
               3. Badge Style
             </label>
             <div className="mt-2 grid grid-cols-3 gap-2">
@@ -481,8 +481,8 @@ export function PersonalizedFlyerGenerator({
                 onClick={() => setBadgeStyle('polaroid')}
                 className={`rounded-xl border p-2.5 text-center text-xs font-bold transition ${
                   badgeStyle === 'polaroid'
-                    ? 'border-[var(--lp-gold)] bg-[var(--color-warning-surface)] text-[var(--color-text-primary)] ring-2 ring-[var(--lp-gold)]'
-                    : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]'
+                    ? 'border-(--lp-gold) bg-(--color-warning-surface) text-(--color-text-primary) ring-2 ring-(--lp-gold)'
+                    : 'border-(--color-border-secondary) bg-(--color-background-secondary) text-(--color-text-secondary)'
                 }`}
               >
                 📸 Polaroid
@@ -492,8 +492,8 @@ export function PersonalizedFlyerGenerator({
                 onClick={() => setBadgeStyle('badge')}
                 className={`rounded-xl border p-2.5 text-center text-xs font-bold transition ${
                   badgeStyle === 'badge'
-                    ? 'border-[var(--lp-gold)] bg-[var(--color-warning-surface)] text-[var(--color-text-primary)] ring-2 ring-[var(--lp-gold)]'
-                    : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]'
+                    ? 'border-(--lp-gold) bg-(--color-warning-surface) text-(--color-text-primary) ring-2 ring-(--lp-gold)'
+                    : 'border-(--color-border-secondary) bg-(--color-background-secondary) text-(--color-text-secondary)'
                 }`}
               >
                 ⭐ Gold Badge
@@ -503,8 +503,8 @@ export function PersonalizedFlyerGenerator({
                 onClick={() => setBadgeStyle('minimal')}
                 className={`rounded-xl border p-2.5 text-center text-xs font-bold transition ${
                   badgeStyle === 'minimal'
-                    ? 'border-[var(--lp-gold)] bg-[var(--color-warning-surface)] text-[var(--color-text-primary)] ring-2 ring-[var(--lp-gold)]'
-                    : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]'
+                    ? 'border-(--lp-gold) bg-(--color-warning-surface) text-(--color-text-primary) ring-2 ring-(--lp-gold)'
+                    : 'border-(--color-border-secondary) bg-(--color-background-secondary) text-(--color-text-secondary)'
                 }`}
               >
                 ✨ Minimal
@@ -513,7 +513,7 @@ export function PersonalizedFlyerGenerator({
           </div>
 
           {/* 4. Action Buttons */}
-          <div className="pt-4 border-t border-[var(--color-border-primary)] space-y-2.5">
+          <div className="pt-4 border-t border-(--color-border-primary) space-y-2.5">
             <Button
               type="button"
               variant="primary"
