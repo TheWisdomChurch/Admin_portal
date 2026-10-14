@@ -14,7 +14,18 @@ interface PageProps {
 
 function FormPersonalizedFlyerContent({ slug }: { slug: string }) {
   const searchParams = useSearchParams();
-  const initialName = searchParams?.get('name') || '';
+  const rawFirstName = searchParams?.get('firstName') || searchParams?.get('first_name') || '';
+  const rawFullName = searchParams?.get('fullName') || searchParams?.get('full_name') || '';
+  const rawName = searchParams?.get('name') || '';
+
+  // Prioritize first name, or extract first word from full name
+  const initialName =
+    rawFirstName ||
+    (rawName && !rawName.includes(' ') ? rawName : '') ||
+    (rawFullName ? rawFullName.trim().split(/\s+/)[0] : '') ||
+    (rawName ? rawName.trim().split(/\s+/)[0] : '');
+
+  const effectiveFullName = rawFullName || (rawName && rawName.includes(' ') ? rawName : '');
 
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState<PublicFormPayload | null>(null);
@@ -107,6 +118,7 @@ function FormPersonalizedFlyerContent({ slug }: { slug: string }) {
           eventName={event?.title || form.title}
           eventDate={event?.date}
           initialAttendeeName={initialName || undefined}
+          initialFullName={effectiveFullName || undefined}
           badgeSettings={form.settings?.attendingBadge}
           shareUrl={typeof window !== 'undefined' ? window.location.href : undefined}
         />

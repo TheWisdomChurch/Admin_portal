@@ -23,6 +23,7 @@ interface PersonalizedFlyerGeneratorProps {
   eventName: string;
   eventDate?: string;
   initialAttendeeName?: string;
+  initialFullName?: string;
   badgeSettings?: FormAttendingBadgeSettings;
   shareUrl?: string;
   onDownloaded?: () => void;
@@ -70,6 +71,7 @@ export function PersonalizedFlyerGenerator({
   eventName: initialEventName,
   eventDate: initialEventDate = '',
   initialAttendeeName = '',
+  initialFullName = '',
   badgeSettings,
   shareUrl,
   onDownloaded,
@@ -80,6 +82,12 @@ export function PersonalizedFlyerGenerator({
   const [attendeeName, setAttendeeName] = useState(initialAttendeeName);
   const [badgeText, setBadgeText] = useState(badgeSettings?.badgeText || 'I Will Be Attending');
   const [venueText, setVenueText] = useState('Wisdom Church · Live & In-Person');
+
+  useEffect(() => {
+    if (initialAttendeeName) {
+      setAttendeeName(initialAttendeeName);
+    }
+  }, [initialAttendeeName]);
 
   // Media states
   const [customTemplateSrc, setCustomTemplateSrc] = useState<string | null>(null);
@@ -760,11 +768,11 @@ export function PersonalizedFlyerGenerator({
 
         {/* Right Column: Customization Controls */}
         <div className="space-y-6">
-          {/* Section A: Template & Background */}
+          {/* Section A: Template & Background Canvas */}
           <div>
             <div className="flex items-center justify-between">
               <label className="block text-xs font-bold uppercase tracking-wider text-(--color-text-secondary)">
-                1. Flyer / Background Template
+                1. Base Canvas / Flyer Template
               </label>
               {customTemplateSrc && (
                 <button
@@ -777,7 +785,7 @@ export function PersonalizedFlyerGenerator({
               )}
             </div>
 
-            {/* Template Upload Button */}
+            {/* Template Upload Hidden Input */}
             {/* eslint-disable-next-line no-restricted-syntax -- hidden file input */}
             <input
               type="file"
@@ -787,18 +795,50 @@ export function PersonalizedFlyerGenerator({
               className="hidden"
             />
 
-            <div className="mt-2 flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => templateInputRef.current?.click()}
-                icon={<Upload className="h-4 w-4" />}
-                className="flex-1 justify-center"
-              >
-                {customTemplateSrc ? 'Replace Template Image' : 'Upload Custom Flyer Template'}
-              </Button>
-            </div>
+            {customTemplateSrc ? (
+              <div className="mt-2 flex items-center justify-between rounded-2xl border border-(--lp-gold) bg-(--color-warning-surface) p-3">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-(--lp-gold) text-white font-bold">
+                    <ImageIcon className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-bold text-(--color-text-primary)">Custom Canvas Active</p>
+                    <p className="text-[11px] text-(--color-text-tertiary)">Custom background flyer loaded</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => templateInputRef.current?.click()}
+                    className="text-xs"
+                  >
+                    Replace
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomTemplateSrc(null)}
+                    className="text-xs font-semibold text-(--color-danger-text) hover:underline p-1"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2 flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => templateInputRef.current?.click()}
+                  icon={<Upload className="h-4 w-4" />}
+                  className="flex-1 justify-center"
+                >
+                  Upload Custom Event Canvas / Flyer
+                </Button>
+              </div>
+            )}
 
             {/* Built-in Theme Selector */}
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -832,7 +872,7 @@ export function PersonalizedFlyerGenerator({
           {/* Section B: Attendee Photo */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-(--color-text-secondary)">
-              2. Your Photo
+              2. Your Picture / Photo
             </label>
             {/* eslint-disable-next-line no-restricted-syntax -- hidden file input */}
             <input
@@ -842,45 +882,131 @@ export function PersonalizedFlyerGenerator({
               onChange={handlePhotoSelect}
               className="hidden"
             />
-            <div className="mt-2 flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
+
+            {!photoSrc ? (
+              <div
                 onClick={() => photoInputRef.current?.click()}
-                icon={<Camera className="h-4 w-4" />}
-                className="flex-1 justify-center"
+                className="mt-2 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-(--color-border-secondary) bg-(--color-background-primary) p-5 text-center cursor-pointer transition hover:border-(--lp-gold) hover:bg-(--color-warning-surface)/20"
               >
-                {photoSrc ? 'Change Your Photo' : 'Upload Your Photo'}
-              </Button>
-              {photoSrc && (
-                <button
-                  type="button"
-                  onClick={() => setPhotoSrc(null)}
-                  className="rounded-xl border border-(--color-border-primary) px-3 py-2 text-xs font-bold text-(--color-danger-text) hover:bg-(--color-danger-surface)"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-            {!photoSrc && (
-              <p className="mt-1 text-[11px] text-(--color-text-tertiary)">
-                Tip: A sharp portrait headshot or high-resolution picture works best.
-              </p>
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-(--lp-gold-surface) text-(--lp-gold)">
+                  <Camera className="h-5 w-5" />
+                </div>
+                <span className="mt-2 text-xs font-bold text-(--color-text-primary)">Tap to Upload Your Photo</span>
+                <span className="mt-0.5 text-[11px] text-(--color-text-tertiary)">Select a clear portrait picture to frame in your badge</span>
+              </div>
+            ) : (
+              <div className="mt-2 flex items-center justify-between rounded-2xl border border-(--color-border-primary) bg-(--color-background-primary) p-3">
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photoSrc} alt="Preview" className="h-11 w-11 rounded-full object-cover border border-(--color-border-secondary)" />
+                  <div>
+                    <p className="text-xs font-bold text-(--color-text-primary)">Photo Attached</p>
+                    <p className="text-[11px] text-(--color-text-tertiary)">Framed inside your badge</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => photoInputRef.current?.click()}
+                    className="text-xs"
+                  >
+                    Change
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setPhotoSrc(null)}
+                    className="text-xs font-semibold text-(--color-danger-text) hover:underline p-1"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 
-          {/* Section C: Attendee Name & Tagline Script */}
-          <div className="grid gap-3 sm:grid-cols-2">
+          {/* Section C: Attendee Name & Display Name */}
+          <div className="space-y-3">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-(--color-text-secondary)">
-                3. Attendee Name
-              </label>
-              <div className="mt-1">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold uppercase tracking-wider text-(--color-text-secondary)">
+                  3. Display Name (on Flyer)
+                </label>
+                {initialAttendeeName && (
+                  <span className="text-[10px] font-semibold text-(--lp-gold)">
+                    Fetched from form
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-[11px] text-(--color-text-tertiary)">
+                This is the name rendered below your photo. You can pick your first name, full name, or enter any title.
+              </p>
+
+              {/* Quick Display Name Preset Chips */}
+              {(initialAttendeeName || initialFullName) && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-(--color-text-tertiary)">Presets:</span>
+                  {initialAttendeeName && (
+                    <button
+                      type="button"
+                      onClick={() => setAttendeeName(initialAttendeeName)}
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${
+                        attendeeName.toLowerCase() === initialAttendeeName.toLowerCase()
+                          ? 'bg-(--lp-gold) text-white'
+                          : 'border border-(--color-border-secondary) bg-(--color-background-secondary) text-(--color-text-secondary) hover:border-(--lp-gold)'
+                      }`}
+                    >
+                      First Name ({initialAttendeeName})
+                    </button>
+                  )}
+                  {initialFullName && initialFullName.toLowerCase() !== initialAttendeeName.toLowerCase() && (
+                    <button
+                      type="button"
+                      onClick={() => setAttendeeName(initialFullName)}
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${
+                        attendeeName.toLowerCase() === initialFullName.toLowerCase()
+                          ? 'bg-(--lp-gold) text-white'
+                          : 'border border-(--color-border-secondary) bg-(--color-background-secondary) text-(--color-text-secondary) hover:border-(--lp-gold)'
+                      }`}
+                    >
+                      Full Name ({initialFullName})
+                    </button>
+                  )}
+                  {initialAttendeeName && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setAttendeeName(`Bro. ${initialAttendeeName}`)}
+                        className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${
+                          attendeeName === `Bro. ${initialAttendeeName}`
+                            ? 'bg-(--lp-gold) text-white'
+                            : 'border border-(--color-border-secondary) bg-(--color-background-secondary) text-(--color-text-secondary) hover:border-(--lp-gold)'
+                        }`}
+                      >
+                        Bro. {initialAttendeeName}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAttendeeName(`Sis. ${initialAttendeeName}`)}
+                        className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${
+                          attendeeName === `Sis. ${initialAttendeeName}`
+                            ? 'bg-(--lp-gold) text-white'
+                            : 'border border-(--color-border-secondary) bg-(--color-background-secondary) text-(--color-text-secondary) hover:border-(--lp-gold)'
+                        }`}
+                      >
+                        Sis. {initialAttendeeName}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div className="mt-2">
                 <Input
                   value={attendeeName}
                   onChange={(e) => setAttendeeName(e.target.value)}
-                  placeholder="e.g. Sister Grace"
+                  placeholder="e.g. Sister Grace, Pastor David, Anuoluwapo"
                 />
               </div>
             </div>
