@@ -444,8 +444,49 @@ function ResponseEmailEditorPage() {
             </div>
           </section>
 
-          <section className="space-y-2">
-            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Email body message</label>
+          <section className="space-y-3">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Email body message</label>
+              <span className="text-xs text-[var(--color-text-tertiary)]">Supports dynamic personalization tags</span>
+            </div>
+
+            {/* Quick 1-click dynamic personalization tag chips */}
+            <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                Click tag to insert into message:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { tag: '{{FirstName}}', label: 'First Name', desc: 'Recipient first name' },
+                  { tag: '{{RecipientName}}', label: 'Full Name', desc: 'Full recipient name' },
+                  { tag: '{{FormTitle}}', label: 'Program Title', desc: 'Name of the program' },
+                  { tag: '{{RegistrationCode}}', label: 'Reg. Code', desc: 'Unique confirmation code' },
+                  { tag: '{{EventDate}}', label: 'Date', desc: 'Event date' },
+                  { tag: '{{EventTime}}', label: 'Time', desc: 'Event time' },
+                  { tag: '{{EventLocation}}', label: 'Venue', desc: 'Event location' },
+                  { tag: '{{AttendingFlyerURL}}', label: 'Attendee DP Link', desc: 'Link to create status flyer' },
+                ].map((item) => (
+                  <button
+                    key={item.tag}
+                    type="button"
+                    onClick={() => {
+                      setMessage((prev) => {
+                        const trimmed = prev.trimEnd();
+                        if (!trimmed) return item.tag + ' ';
+                        return `${trimmed} ${item.tag} `;
+                      });
+                      toast.success(`Inserted ${item.tag}`);
+                    }}
+                    title={item.desc}
+                    className="group inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--color-text-primary)] hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-accent-surface)] hover:text-[var(--color-accent-primary)] transition-all active:scale-95"
+                  >
+                    <span className="font-mono text-[11px] font-semibold text-[var(--color-accent-primary)]">{item.tag}</span>
+                    <span className="text-[10px] text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent-primary)]">({item.label})</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <textarea
               className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-4 py-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
               rows={7}
