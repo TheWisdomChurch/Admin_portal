@@ -13,6 +13,7 @@ import {
   Link2,
   Loader2,
   MapPin,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
@@ -179,16 +180,25 @@ const bucketBorderClass: Record<NormalizedStatus, string> = {
   completed: 'border-[var(--color-border-secondary)]',
 };
 
-function EventCard({ event, active, onPreview }: { event: EventData; active: boolean; onPreview: (event: EventData) => void }) {
+function EventCard({
+  event,
+  active,
+  onPreview,
+  onEdit,
+}: {
+  event: EventData;
+  active: boolean;
+  onPreview: (event: EventData) => void;
+  onEdit?: (event: EventData) => void;
+}) {
   const normalized = normalizeStatus(event.status, event.date);
   const hasRegisterLink = Boolean(event.registerLink);
   const hasImage = Boolean(event.image);
 
   return (
-    <button
-      type="button"
+    <div
       onClick={() => onPreview(event)}
-      className={`group grid w-full gap-4 rounded-[1.5rem] border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${
+      className={`group grid w-full cursor-pointer gap-4 rounded-[1.5rem] border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${
         active
           ? 'border-[var(--color-text-primary)] bg-[var(--color-text-primary)] text-[var(--color-text-inverse)] shadow-lg'
           : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] text-[var(--color-text-primary)] hover:border-[var(--color-border-primary)]'
@@ -231,18 +241,45 @@ function EventCard({ event, active, onPreview }: { event: EventData; active: boo
       </div>
 
       <div className="flex items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.14em]">
-        <span className={hasRegisterLink ? 'text-[var(--color-success-text)]' : active ? 'text-[var(--color-text-inverse)]/40' : 'text-[var(--color-text-tertiary)]'}>
-          {hasRegisterLink ? 'CTA ready' : 'No CTA'}
-        </span>
-        <span className={hasImage ? 'text-[var(--color-info-text)]' : active ? 'text-[var(--color-text-inverse)]/40' : 'text-[var(--color-text-tertiary)]'}>
-          {hasImage ? 'Media set' : 'No media'}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={hasRegisterLink ? 'text-[var(--color-success-text)]' : active ? 'text-[var(--color-text-inverse)]/40' : 'text-[var(--color-text-tertiary)]'}>
+            {hasRegisterLink ? 'CTA ready' : 'No CTA'}
+          </span>
+          <span className={active ? 'text-white/30' : 'text-[var(--color-text-tertiary)]'}>·</span>
+          <span className={hasImage ? 'text-[var(--color-info-text)]' : active ? 'text-[var(--color-text-inverse)]/40' : 'text-[var(--color-text-tertiary)]'}>
+            {hasImage ? 'Media set' : 'No media'}
+          </span>
+        </div>
+        {onEdit ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(event);
+            }}
+            className={`inline-flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-bold transition ${
+              active
+                ? 'bg-white/20 text-white hover:bg-white/30'
+                : 'bg-[var(--color-background-secondary)] text-[var(--color-text-primary)] hover:bg-[var(--color-background-tertiary)] border border-[var(--color-border-secondary)]'
+            }`}
+            title="Edit event"
+          >
+            <Pencil className="h-3 w-3" />
+            Edit
+          </button>
+        ) : null}
       </div>
-    </button>
+    </div>
   );
 }
 
-function PreviewPanel({ event }: { event: EventData | null }) {
+function PreviewPanel({
+  event,
+  onEdit,
+}: {
+  event: EventData | null;
+  onEdit?: (event: EventData) => void;
+}) {
   if (!event) {
     return (
       <section className="rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
@@ -259,12 +296,25 @@ function PreviewPanel({ event }: { event: EventData | null }) {
 
   return (
     <section className="overflow-hidden rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
-      <div className="border-b border-[var(--color-border-secondary)] p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">Frontend preview</p>
-        <h2 className="mt-1 text-xl font-bold tracking-tight text-[var(--color-text-primary)]">{event.title}</h2>
-        <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">
-          This mirrors the public event card state that users will see from saved event data.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between border-b border-[var(--color-border-secondary)] p-5">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">Frontend preview</p>
+          <h2 className="mt-1 text-xl font-bold tracking-tight text-[var(--color-text-primary)]">{event.title}</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">
+            This mirrors the public event card state that users will see from saved event data.
+          </p>
+        </div>
+        {onEdit ? (
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => onEdit(event)}
+            icon={<Pencil className="h-4 w-4" />}
+            className="shrink-0"
+          >
+            Edit Event
+          </Button>
+        ) : null}
       </div>
 
       <div className="p-5">
@@ -333,6 +383,7 @@ function PreviewPanel({ event }: { event: EventData | null }) {
 function EventPage() {
   const queryClient = useQueryClient();
   const [showComposer, setShowComposer] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftEvent>(emptyDraft);
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -489,16 +540,62 @@ function EventPage() {
     };
   }, [imagePreview]);
 
-  const resetDraft = useCallback(() => {
+  const startEditEvent = useCallback((event: EventData) => {
+    setEditingEventId(event.id);
+    setSelectedEventId(event.id);
+    setDraft({
+      title: event.title || '',
+      shortDescription: event.shortDescription || '',
+      description: event.description || '',
+      location: event.location || '',
+      date: event.date || '',
+      time: event.time || '',
+      registrationLink: event.registerLink || '',
+      category: (event.category as EventCategory) || 'Conference',
+      imageUrl: event.image || '',
+    });
+    setImageFile(null);
+    setImagePreview(event.image || null);
+    setShowComposer(true);
+    setTimeout(() => {
+      const el = document.getElementById('event-composer-section');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
+  }, []);
+
+  const startCreateEvent = useCallback(() => {
+    setEditingEventId(null);
     setDraft(emptyDraft);
     setImageFile(null);
-
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImagePreview(null);
+    setShowComposer(true);
+    setTimeout(() => {
+      const el = document.getElementById('event-composer-section');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
   }, [imagePreview]);
 
+  const resetDraft = useCallback(() => {
+    if (editingEventId) {
+      const existing = events.find((item) => item.id === editingEventId);
+      if (existing) {
+        startEditEvent(existing);
+        return;
+      }
+    }
+    setDraft(emptyDraft);
+    setImageFile(null);
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview(null);
+  }, [editingEventId, events, imagePreview, startEditEvent]);
+
   const closeComposer = () => {
-    if (!saving) setShowComposer(false);
+    if (!saving) {
+      setShowComposer(false);
+      setEditingEventId(null);
+      resetDraft();
+    }
   };
 
   const handleImageFile = (file: File | null) => {
@@ -514,7 +611,7 @@ function EventPage() {
     setImagePreview(URL.createObjectURL(file));
   };
 
-  const handleCreate = async () => {
+  const handleSaveEvent = async () => {
     if (!draft.title.trim() || !draft.date || !draft.time) {
       toast.error('Title, date, and time are required.');
       return;
@@ -542,6 +639,68 @@ function EventPage() {
       return;
     }
 
+    setSaving(true);
+
+    if (editingEventId) {
+      const existing = events.find((item) => item.id === editingEventId);
+      const updatePayload: EventPayload = {
+        title: draft.title.trim(),
+        shortDescription: draft.shortDescription.trim(),
+        description: draft.description.trim() || draft.shortDescription.trim(),
+        date: draft.date,
+        time: draft.time,
+        location: draft.location.trim(),
+        category: draft.category,
+        status: toRemoteStatus(deriveStatus(draft.date), draft.date),
+        isFeatured: existing?.isFeatured ?? false,
+        tags: existing?.tags ?? [],
+        registerLink: registerLink || undefined,
+        image: imageUrl || existing?.image || undefined,
+        speaker: existing?.speaker,
+        contactPhone: existing?.contactPhone,
+      };
+
+      try {
+        let updated = await apiClient.updateEvent(editingEventId, updatePayload);
+
+        if (imageFile) {
+          try {
+            const uploaded = await uploadAsset(imageFile, {
+              kind: 'image',
+              module: 'events',
+              ownerType: 'event',
+              ownerId: updated.id,
+              folder: `events/${updated.id}/images`,
+              aspectRatio: '16:9',
+            });
+            const uploadedImageURL = uploaded.publicUrl || uploaded.url;
+            if (uploadedImageURL && uploadedImageURL !== updated.image) {
+              updated = await apiClient.updateEvent(updated.id, toEventPayload(updated, { image: uploadedImageURL }));
+            }
+          } catch (imgError) {
+            console.error('Image upload failed during event update:', imgError);
+            toast.error('Event details updated, but the new image failed to upload.');
+          }
+        }
+
+        setEvents((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+        setSelectedEventId(updated.id);
+        toast.success('Event updated successfully');
+        setShowComposer(false);
+        setEditingEventId(null);
+        resetDraft();
+        setOpenBuckets((current) => ({ ...current, [normalizeStatus(updated.status, updated.date)]: true }));
+        void queryClient.invalidateQueries({ queryKey: ['dashboard', 'snapshot'] });
+      } catch (error) {
+        console.error('Failed to update event:', error);
+        toast.error('Failed to update event.');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    // CREATE FLOW
     const createPayload: EventPayload = {
       title: draft.title.trim(),
       shortDescription: draft.shortDescription.trim(),
@@ -559,7 +718,6 @@ function EventPage() {
 
     let created: EventData;
     try {
-      setSaving(true);
       created = await apiClient.createEvent(createPayload);
     } catch (error) {
       console.error('Failed to create event:', error);
@@ -568,11 +726,6 @@ function EventPage() {
       return;
     }
 
-    // The event now exists — from here on, failures are image-upload
-    // failures, not creation failures. Reporting them as "failed to create"
-    // would be false: the event is already live, just without its image,
-    // and this page has no edit flow to add one afterward, so the admin
-    // needs to know exactly that so they can use "Replace image" below.
     let finalEvent = created;
     if (imageFile) {
       try {
@@ -600,6 +753,7 @@ function EventPage() {
     setEvents((prev) => [finalEvent, ...prev.filter((item) => item.id !== finalEvent.id)]);
     setSelectedEventId(finalEvent.id);
     resetDraft();
+    setEditingEventId(null);
     setShowComposer(false);
     setOpenBuckets((current) => ({ ...current, [normalizeStatus(finalEvent.status, finalEvent.date)]: true }));
     void queryClient.invalidateQueries({ queryKey: ['dashboard', 'snapshot'] });
@@ -616,7 +770,7 @@ function EventPage() {
             <Button variant="outline" onClick={() => void loadEvents()} disabled={loading} icon={<RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />}>
               Refresh
             </Button>
-            <Button variant="primary" onClick={() => setShowComposer(true)} icon={<Plus className="h-4 w-4" />}>
+            <Button variant="primary" onClick={startCreateEvent} icon={<Plus className="h-4 w-4" />}>
               Create event
             </Button>
           </div>
@@ -727,7 +881,13 @@ function EventPage() {
                         ) : (
                           <div className="grid gap-4 xl:grid-cols-2">
                             {items.map((event) => (
-                              <EventCard key={event.id} event={event} active={selectedEvent?.id === event.id} onPreview={(item) => setSelectedEventId(item.id)} />
+                              <EventCard
+                                key={event.id}
+                                event={event}
+                                active={selectedEvent?.id === event.id}
+                                onPreview={(item) => setSelectedEventId(item.id)}
+                                onEdit={startEditEvent}
+                              />
                             ))}
                           </div>
                         )}
@@ -741,7 +901,7 @@ function EventPage() {
         </div>
 
         <div className="space-y-5">
-          <PreviewPanel event={selectedEvent} />
+          <PreviewPanel event={selectedEvent} onEdit={startEditEvent} />
 
           {selectedEvent ? (
             <section className="rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
@@ -807,18 +967,28 @@ function EventPage() {
       </section>
 
       {showComposer ? (
-        <section className="rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-xl">
+        <section id="event-composer-section" className="rounded-[2rem] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-xl">
           <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/95 p-5 backdrop-blur lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">Create event</p>
-              <h2 className="mt-1 text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">Event publishing studio</h2>
-              <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">Add event details, media, registration CTA, and preview the public card before saving.</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-primary)]">
+                {editingEventId ? 'Edit event' : 'Create event'}
+              </p>
+              <h2 className="mt-1 text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
+                {editingEventId ? `Editing: ${draft.title || 'Event'}` : 'Event publishing studio'}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-[var(--color-text-tertiary)]">
+                {editingEventId
+                  ? 'Update event details, change media, date, time, venue, or registration CTA.'
+                  : 'Add event details, media, registration CTA, and preview the public card before saving.'}
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={resetDraft} disabled={saving}>Reset</Button>
               <Button variant="ghost" onClick={closeComposer} disabled={saving}>Close</Button>
-              <Button variant="primary" onClick={handleCreate} loading={saving} disabled={saving} icon={<UploadCloud className="h-4 w-4" />}>Save event</Button>
+              <Button variant="primary" onClick={handleSaveEvent} loading={saving} disabled={saving} icon={<UploadCloud className="h-4 w-4" />}>
+                {editingEventId ? 'Save changes' : 'Save event'}
+              </Button>
             </div>
           </div>
 

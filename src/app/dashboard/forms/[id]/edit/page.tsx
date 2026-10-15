@@ -452,11 +452,16 @@ function EditFormPage() {
       seenKeys.add(key);
     }
 
-    setSaving(true);
+    const isTestimony =
+      form.settings?.submissionTarget === 'testimonial' ||
+      (form.settings?.formType as string) === 'testimonial' ||
+      Boolean(form.slug?.toLowerCase().includes('testimon')) ||
+      Boolean(form.title?.toLowerCase().includes('testimon'));
 
     const sanitizedSettings = form.settings
       ? {
           ...form.settings,
+          responseEmailEnabled: isTestimony ? false : (form.settings.responseEmailEnabled ?? true),
           contentSections: sanitizeContentSections(form.settings.contentSections),
           consent: getEffectiveFormConsent(form.settings.consent),
         }
@@ -508,9 +513,15 @@ function EditFormPage() {
     setFieldErrors({});
     setSavingResponseEmail(true);
 
+    const isTestimony =
+      form.settings?.submissionTarget === 'testimonial' ||
+      (form.settings?.formType as string) === 'testimonial' ||
+      Boolean(form.slug?.toLowerCase().includes('testimon')) ||
+      Boolean(form.title?.toLowerCase().includes('testimon'));
+
     const sanitizedSettings: FormSettings = {
       ...form.settings,
-      responseEmailEnabled,
+      responseEmailEnabled: isTestimony ? false : responseEmailEnabled,
       contentSections: sanitizeContentSections(form.settings?.contentSections),
     };
 
@@ -598,9 +609,14 @@ function EditFormPage() {
 
   if (!form) return null;
 
-  const responseEmailEnabled = form.settings?.responseEmailEnabled ?? true;
   const formType = form.settings?.formType ?? '';
   const submissionTarget = form.settings?.submissionTarget ?? '';
+  const isTestimonialForm =
+    submissionTarget === 'testimonial' ||
+    (formType as string) === 'testimonial' ||
+    Boolean(form.slug?.toLowerCase().includes('testimon')) ||
+    Boolean(form.title?.toLowerCase().includes('testimon'));
+  const responseEmailEnabled = isTestimonialForm ? false : (form.settings?.responseEmailEnabled ?? true);
   const isWorkforceTarget =
     submissionTarget === 'workforce' ||
     submissionTarget === 'workforce_new' ||
@@ -1032,14 +1048,24 @@ function EditFormPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-(--color-text-primary)">
-                  {responseEmailEnabled ? 'Auto-response is enabled' : 'Auto-response is disabled'}
+                  {isTestimonialForm
+                    ? 'Auto-response disabled for testimonials'
+                    : responseEmailEnabled
+                      ? 'Auto-response is enabled'
+                      : 'Auto-response is disabled'}
                 </p>
                 <p className="mt-1 text-sm text-(--color-text-secondary)">
-                  Design the confirmation email, branded header, subject, message, image, and saved template from the editor.
+                  {isTestimonialForm
+                    ? 'Testimonial submissions never send auto-response emails to submitters to protect submitter confidentiality.'
+                    : 'Design the confirmation email, branded header, subject, message, image, and saved template from the editor.'}
                 </p>
               </div>
               <span className="rounded-full border border-(--color-border-primary) px-3 py-1 text-xs font-semibold text-(--color-text-secondary)">
-                {form.settings?.responseEmailTemplateKey ? 'Template linked' : 'No template linked'}
+                {isTestimonialForm
+                  ? 'Suppressed'
+                  : form.settings?.responseEmailTemplateKey
+                    ? 'Template linked'
+                    : 'No template linked'}
               </span>
             </div>
           </div>
@@ -1047,6 +1073,7 @@ function EditFormPage() {
           <Checkbox
             label="Enable response email"
             checked={responseEmailEnabled}
+            disabled={isTestimonialForm}
             onChange={(event) => updateSettings({ responseEmailEnabled: event.target.checked })}
           />
 

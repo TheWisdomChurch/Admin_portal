@@ -43,6 +43,7 @@ function ResponseEmailEditorPage() {
   const [form, setForm] = useState<AdminForm | null>(null);
   const [template, setTemplate] = useState<EmailTemplate | null>(null);
 
+  const [responseEmailEnabled, setResponseEmailEnabled] = useState(true);
   const [subject, setSubject] = useState('');
   const [eyebrow, setEyebrow] = useState('');
   const [heading, setHeading] = useState('Registration Confirmed');
@@ -67,6 +68,19 @@ function ResponseEmailEditorPage() {
   // apiClient.previewAdminEmailTemplate.
   const [renderedPreviewHTML, setRenderedPreviewHTML] = useState('');
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  const isTestimonialForm = useMemo(() => {
+    const target = form?.settings?.submissionTarget?.trim().toLowerCase() || '';
+    const formType = form?.settings?.formType?.trim().toLowerCase() || '';
+    const slug = form?.slug?.toLowerCase() || '';
+    const title = form?.title?.toLowerCase() || '';
+    return (
+      target === 'testimonial' ||
+      formType === 'testimonial' ||
+      slug.includes('testimon') ||
+      title.includes('testimon')
+    );
+  }, [form]);
 
   const templateKeyPreview = useMemo(() => {
     const existing = form?.settings?.responseEmailTemplateKey?.trim();
@@ -175,13 +189,28 @@ function ResponseEmailEditorPage() {
 
         const target = loadedForm.settings?.submissionTarget?.trim().toLowerCase() || '';
         const formType = loadedForm.settings?.formType?.trim().toLowerCase() || '';
-        const isTestimonialForm = target === 'testimonial' || formType === 'testimonial';
+        const slug = loadedForm.slug?.toLowerCase() || '';
+        const title = loadedForm.title?.toLowerCase() || '';
+        const isTestimonial =
+          target === 'testimonial' ||
+          formType === 'testimonial' ||
+          slug.includes('testimon') ||
+          title.includes('testimon');
+
+        if (isTestimonial) {
+          setResponseEmailEnabled(false);
+        } else if (typeof loadedForm.settings?.responseEmailEnabled === 'boolean') {
+          setResponseEmailEnabled(loadedForm.settings.responseEmailEnabled);
+        } else {
+          setResponseEmailEnabled(true);
+        }
+
         const supportsRegistrationArtifacts =
-          !isTestimonialForm &&
+          !isTestimonial &&
           target !== 'member' &&
           target !== 'leadership' &&
           (formType === 'event' || formType === 'registration' || formType === 'workforce');
-        const subjectPrefix = isTestimonialForm
+        const subjectPrefix = isTestimonial
           ? 'Testimony received'
           : supportsRegistrationArtifacts
             ? 'Registration received'
@@ -321,10 +350,11 @@ function ResponseEmailEditorPage() {
         });
       }
 
+      const effectiveEmailEnabled = isTestimonialForm ? false : responseEmailEnabled;
       const settingsUpdate: UpdateFormRequest = {
         settings: {
           ...form.settings,
-          responseEmailEnabled: true,
+          responseEmailEnabled: effectiveEmailEnabled,
           responseEmailSubject: subject.trim() || undefined,
           responseEmailTemplateId: savedTemplate.id,
           responseEmailTemplateKey: templateKey,
@@ -339,7 +369,11 @@ function ResponseEmailEditorPage() {
       setImageFile(null);
       setImagePreview(null);
 
-      toast.success('Response email template saved.');
+      toast.success(
+        effectiveEmailEnabled
+          ? 'Response email template and settings saved.'
+          : 'Response email settings saved (auto-response disabled).'
+      );
     } catch (err) {
       toast.error(getServerErrorMessage(err, 'Failed to save response email template.'));
     } finally {
@@ -380,14 +414,35 @@ function ResponseEmailEditorPage() {
 
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4">
+          <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Auto-Response Status</p>
+          <div className="mt-2 flex items-center gap-2">
+            <span
+              className={`inline-block h-2.5 w-2.5 rounded-full ${
+                isTestimonialForm
+                  ? 'bg-amber-500'
+                  : responseEmailEnabled
+                    ? 'bg-emerald-500'
+                    : 'bg-zinc-400'
+              }`}
+            />
+            <p className="truncate text-base font-semibold text-[var(--color-text-primary)]">
+              {isTestimonialForm
+                ? 'Testimonial (Off)'
+                : responseEmailEnabled
+                  ? 'Active / Dispatched'
+                  : 'Disabled'}
+            </p>
+          </div>
+        </div>
+        <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Template Status</p>
-          <p className="mt-2 text-base font-semibold text-[var(--color-text-primary)]">{template ? 'Active' : 'Draft setup'}</p>
+          <p className="mt-2 text-base font-semibold text-[var(--color-text-primary)]">{template ? 'Saved & Linked' : 'Draft setup'}</p>
         </div>
         <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Form</p>
           <p className="mt-2 truncate text-base font-semibold text-[var(--color-text-primary)]">{form.title}</p>
         </div>
-        <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4 sm:col-span-2">
+        <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Template Key</p>
           <p className="mt-2 truncate font-mono text-sm text-[var(--color-text-primary)]">{templateKeyPreview || 'Not generated yet'}</p>
         </div>
@@ -399,6 +454,55 @@ function ResponseEmailEditorPage() {
           className="bg-[var(--color-background-secondary)]"
           contentClassName="space-y-6"
         >
+          {/* Form Auto-response toggle banner */}
+          <div
+            className={`rounded-[var(--radius-card)] border p-4 transition-all ${
+              isTestimonialForm
+                ? 'border-amber-500/30 bg-amber-500/10'
+                : responseEmailEnabled
+                  ? 'border-emerald-500/30 bg-emerald-500/5'
+                  : 'border-[var(--color-border-primary)] bg-[var(--color-background-primary)]'
+            }`}
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                  {isTestimonialForm
+                    ? 'Auto-Response Emails Suppressed for Testimonials'
+                    : 'Dispatch Auto-Response Email on Submission'}
+                </p>
+                <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                  {isTestimonialForm
+                    ? 'Testimonial and testimony forms never send emails to submitters to preserve confidentiality and avoid unwanted transactional messages.'
+                    : 'When enabled, submitters receive this branded confirmation email automatically. Turn off for internal process forms, silent staff workflows, or audit sheets.'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isTestimonialForm}
+                  onClick={() => setResponseEmailEnabled(!responseEmailEnabled)}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
+                    !isTestimonialForm && responseEmailEnabled
+                      ? 'bg-[var(--color-accent-primary)]'
+                      : 'bg-zinc-300 dark:bg-zinc-700'
+                  }`}
+                  aria-pressed={!isTestimonialForm && responseEmailEnabled}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      !isTestimonialForm && responseEmailEnabled ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+                <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+                  {isTestimonialForm ? 'Suppressed' : responseEmailEnabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+            </div>
+          </div>
+
           <section className="grid gap-4 md:grid-cols-2">
             <Input
               label="Email subject"
