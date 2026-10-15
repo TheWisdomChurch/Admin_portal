@@ -43,6 +43,7 @@ function ResponseEmailEditorPage() {
   const [form, setForm] = useState<AdminForm | null>(null);
   const [template, setTemplate] = useState<EmailTemplate | null>(null);
 
+  const [responseEmailEnabled, setResponseEmailEnabled] = useState(true);
   const [subject, setSubject] = useState('');
   const [eyebrow, setEyebrow] = useState('');
   const [heading, setHeading] = useState('Registration Confirmed');
@@ -67,6 +68,19 @@ function ResponseEmailEditorPage() {
   // apiClient.previewAdminEmailTemplate.
   const [renderedPreviewHTML, setRenderedPreviewHTML] = useState('');
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  const isTestimonialForm = useMemo(() => {
+    const target = form?.settings?.submissionTarget?.trim().toLowerCase() || '';
+    const formType = form?.settings?.formType?.trim().toLowerCase() || '';
+    const slug = form?.slug?.toLowerCase() || '';
+    const title = form?.title?.toLowerCase() || '';
+    return (
+      target === 'testimonial' ||
+      formType === 'testimonial' ||
+      slug.includes('testimon') ||
+      title.includes('testimon')
+    );
+  }, [form]);
 
   const templateKeyPreview = useMemo(() => {
     const existing = form?.settings?.responseEmailTemplateKey?.trim();
@@ -175,13 +189,28 @@ function ResponseEmailEditorPage() {
 
         const target = loadedForm.settings?.submissionTarget?.trim().toLowerCase() || '';
         const formType = loadedForm.settings?.formType?.trim().toLowerCase() || '';
-        const isTestimonialForm = target === 'testimonial' || formType === 'testimonial';
+        const slug = loadedForm.slug?.toLowerCase() || '';
+        const title = loadedForm.title?.toLowerCase() || '';
+        const isTestimonial =
+          target === 'testimonial' ||
+          formType === 'testimonial' ||
+          slug.includes('testimon') ||
+          title.includes('testimon');
+
+        if (isTestimonial) {
+          setResponseEmailEnabled(false);
+        } else if (typeof loadedForm.settings?.responseEmailEnabled === 'boolean') {
+          setResponseEmailEnabled(loadedForm.settings.responseEmailEnabled);
+        } else {
+          setResponseEmailEnabled(true);
+        }
+
         const supportsRegistrationArtifacts =
-          !isTestimonialForm &&
+          !isTestimonial &&
           target !== 'member' &&
           target !== 'leadership' &&
           (formType === 'event' || formType === 'registration' || formType === 'workforce');
-        const subjectPrefix = isTestimonialForm
+        const subjectPrefix = isTestimonial
           ? 'Testimony received'
           : supportsRegistrationArtifacts
             ? 'Registration received'
@@ -321,10 +350,11 @@ function ResponseEmailEditorPage() {
         });
       }
 
+      const effectiveEmailEnabled = isTestimonialForm ? false : responseEmailEnabled;
       const settingsUpdate: UpdateFormRequest = {
         settings: {
           ...form.settings,
-          responseEmailEnabled: true,
+          responseEmailEnabled: effectiveEmailEnabled,
           responseEmailSubject: subject.trim() || undefined,
           responseEmailTemplateId: savedTemplate.id,
           responseEmailTemplateKey: templateKey,
@@ -339,7 +369,11 @@ function ResponseEmailEditorPage() {
       setImageFile(null);
       setImagePreview(null);
 
-      toast.success('Response email template saved.');
+      toast.success(
+        effectiveEmailEnabled
+          ? 'Response email template and settings saved.'
+          : 'Response email settings saved (auto-response disabled).'
+      );
     } catch (err) {
       toast.error(getServerErrorMessage(err, 'Failed to save response email template.'));
     } finally {
@@ -380,14 +414,35 @@ function ResponseEmailEditorPage() {
 
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4">
+          <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Auto-Response Status</p>
+          <div className="mt-2 flex items-center gap-2">
+            <span
+              className={`inline-block h-2.5 w-2.5 rounded-full ${
+                isTestimonialForm
+                  ? 'bg-amber-500'
+                  : responseEmailEnabled
+                    ? 'bg-emerald-500'
+                    : 'bg-zinc-400'
+              }`}
+            />
+            <p className="truncate text-base font-semibold text-[var(--color-text-primary)]">
+              {isTestimonialForm
+                ? 'Testimonial (Off)'
+                : responseEmailEnabled
+                  ? 'Active / Dispatched'
+                  : 'Disabled'}
+            </p>
+          </div>
+        </div>
+        <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Template Status</p>
-          <p className="mt-2 text-base font-semibold text-[var(--color-text-primary)]">{template ? 'Active' : 'Draft setup'}</p>
+          <p className="mt-2 text-base font-semibold text-[var(--color-text-primary)]">{template ? 'Saved & Linked' : 'Draft setup'}</p>
         </div>
         <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Form</p>
           <p className="mt-2 truncate text-base font-semibold text-[var(--color-text-primary)]">{form.title}</p>
         </div>
-        <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4 sm:col-span-2">
+        <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Template Key</p>
           <p className="mt-2 truncate font-mono text-sm text-[var(--color-text-primary)]">{templateKeyPreview || 'Not generated yet'}</p>
         </div>
@@ -399,6 +454,55 @@ function ResponseEmailEditorPage() {
           className="bg-[var(--color-background-secondary)]"
           contentClassName="space-y-6"
         >
+          {/* Form Auto-response toggle banner */}
+          <div
+            className={`rounded-[var(--radius-card)] border p-4 transition-all ${
+              isTestimonialForm
+                ? 'border-amber-500/30 bg-amber-500/10'
+                : responseEmailEnabled
+                  ? 'border-emerald-500/30 bg-emerald-500/5'
+                  : 'border-[var(--color-border-primary)] bg-[var(--color-background-primary)]'
+            }`}
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                  {isTestimonialForm
+                    ? 'Auto-Response Emails Suppressed for Testimonials'
+                    : 'Dispatch Auto-Response Email on Submission'}
+                </p>
+                <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                  {isTestimonialForm
+                    ? 'Testimonial and testimony forms never send emails to submitters to preserve confidentiality and avoid unwanted transactional messages.'
+                    : 'When enabled, submitters receive this branded confirmation email automatically. Turn off for internal process forms, silent staff workflows, or audit sheets.'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isTestimonialForm}
+                  onClick={() => setResponseEmailEnabled(!responseEmailEnabled)}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
+                    !isTestimonialForm && responseEmailEnabled
+                      ? 'bg-[var(--color-accent-primary)]'
+                      : 'bg-zinc-300 dark:bg-zinc-700'
+                  }`}
+                  aria-pressed={!isTestimonialForm && responseEmailEnabled}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      !isTestimonialForm && responseEmailEnabled ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+                <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+                  {isTestimonialForm ? 'Suppressed' : responseEmailEnabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+            </div>
+          </div>
+
           <section className="grid gap-4 md:grid-cols-2">
             <Input
               label="Email subject"
@@ -444,8 +548,49 @@ function ResponseEmailEditorPage() {
             </div>
           </section>
 
-          <section className="space-y-2">
-            <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Email body message</label>
+          <section className="space-y-3">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Email body message</label>
+              <span className="text-xs text-[var(--color-text-tertiary)]">Supports dynamic personalization tags</span>
+            </div>
+
+            {/* Quick 1-click dynamic personalization tag chips */}
+            <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                Click tag to insert into message:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { tag: '{{FirstName}}', label: 'First Name', desc: 'Recipient first name' },
+                  { tag: '{{RecipientName}}', label: 'Full Name', desc: 'Full recipient name' },
+                  { tag: '{{FormTitle}}', label: 'Program Title', desc: 'Name of the program' },
+                  { tag: '{{RegistrationCode}}', label: 'Reg. Code', desc: 'Unique confirmation code' },
+                  { tag: '{{EventDate}}', label: 'Date', desc: 'Event date' },
+                  { tag: '{{EventTime}}', label: 'Time', desc: 'Event time' },
+                  { tag: '{{EventLocation}}', label: 'Venue', desc: 'Event location' },
+                  { tag: '{{AttendingFlyerURL}}', label: 'Attendee DP Link', desc: 'Link to create status flyer' },
+                ].map((item) => (
+                  <button
+                    key={item.tag}
+                    type="button"
+                    onClick={() => {
+                      setMessage((prev) => {
+                        const trimmed = prev.trimEnd();
+                        if (!trimmed) return item.tag + ' ';
+                        return `${trimmed} ${item.tag} `;
+                      });
+                      toast.success(`Inserted ${item.tag}`);
+                    }}
+                    title={item.desc}
+                    className="group inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--color-text-primary)] hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-accent-surface)] hover:text-[var(--color-accent-primary)] transition-all active:scale-95"
+                  >
+                    <span className="font-mono text-[11px] font-semibold text-[var(--color-accent-primary)]">{item.tag}</span>
+                    <span className="text-[10px] text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent-primary)]">({item.label})</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <textarea
               className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-4 py-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
               rows={7}

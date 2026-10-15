@@ -488,25 +488,33 @@ function convertEmailHtmlToText(value: string) {
 
 export function renderTemplateVariables(
   html: string,
-  variables: Partial<Record<'RecipientName' | 'RegistrationCode' | 'SubscribeURL' | 'UnsubscribeURL' | 'CalendarOptInURL', string>>
+  variables: Partial<Record<string, string>>
 ) {
-  const conditionalPattern = /{{if\s+\.([A-Za-z0-9_]+)}}([\s\S]*?){{end}}/g;
+  const conditionalPattern = /{{if\s+\.?([A-Za-z0-9_]+)}}([\s\S]*?){{end}}/g;
   let rendered = stripTemplateMeta(html).replace(conditionalPattern, (_, key: string, inner: string) => {
-    const value = variables[key as keyof typeof variables];
+    const value = variables[key];
     return value ? inner : '';
   });
 
   Object.entries(variables).forEach(([key, value]) => {
     const safeValue = value ?? '';
-    rendered = rendered.replace(new RegExp(`{{\\.${key}}}`, 'g'), safeValue);
+    rendered = rendered.replace(new RegExp(`{{\\.?${key}}}`, 'g'), safeValue);
   });
 
-  return rendered.replace(/{{\.[A-Za-z0-9_]+}}/g, '');
+  return rendered.replace(/{{\.?[A-Za-z0-9_]+}}/g, '');
 }
 
 export function toEmailPreview(html: string) {
   return renderTemplateVariables(html, {
     RecipientName: 'John Doe',
+    FirstName: 'John',
+    Name: 'John Doe',
+    FullName: 'John Doe',
+    FormTitle: 'Wisdom Church Program',
+    EventDate: 'Saturday, 25 October 2026',
+    EventTime: '10:00 AM WAT',
+    EventLocation: 'Main Sanctuary, Wisdom Church',
+    AttendingFlyerURL: '#',
     RegistrationCode: 'WHC-WPC-26-000001',
     SubscribeURL: '#',
     UnsubscribeURL: '#',
