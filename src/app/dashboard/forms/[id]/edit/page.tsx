@@ -458,10 +458,15 @@ function EditFormPage() {
       Boolean(form.slug?.toLowerCase().includes('testimon')) ||
       Boolean(form.title?.toLowerCase().includes('testimon'));
 
+    const effectiveResponseEmail =
+      typeof form.settings?.responseEmailEnabled === 'boolean'
+        ? form.settings.responseEmailEnabled
+        : !isTestimony;
+
     const sanitizedSettings = form.settings
       ? {
           ...form.settings,
-          responseEmailEnabled: isTestimony ? false : (form.settings.responseEmailEnabled ?? true),
+          responseEmailEnabled: effectiveResponseEmail,
           contentSections: sanitizeContentSections(form.settings.contentSections),
           consent: getEffectiveFormConsent(form.settings.consent),
         }
@@ -513,15 +518,9 @@ function EditFormPage() {
     setFieldErrors({});
     setSavingResponseEmail(true);
 
-    const isTestimony =
-      form.settings?.submissionTarget === 'testimonial' ||
-      (form.settings?.formType as string) === 'testimonial' ||
-      Boolean(form.slug?.toLowerCase().includes('testimon')) ||
-      Boolean(form.title?.toLowerCase().includes('testimon'));
-
     const sanitizedSettings: FormSettings = {
       ...form.settings,
-      responseEmailEnabled: isTestimony ? false : responseEmailEnabled,
+      responseEmailEnabled,
       contentSections: sanitizeContentSections(form.settings?.contentSections),
     };
 
@@ -616,7 +615,10 @@ function EditFormPage() {
     (formType as string) === 'testimonial' ||
     Boolean(form.slug?.toLowerCase().includes('testimon')) ||
     Boolean(form.title?.toLowerCase().includes('testimon'));
-  const responseEmailEnabled = isTestimonialForm ? false : (form.settings?.responseEmailEnabled ?? true);
+  const responseEmailEnabled =
+    typeof form.settings?.responseEmailEnabled === 'boolean'
+      ? form.settings.responseEmailEnabled
+      : !isTestimonialForm;
   const isWorkforceTarget =
     submissionTarget === 'workforce' ||
     submissionTarget === 'workforce_new' ||
@@ -1048,24 +1050,22 @@ function EditFormPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-(--color-text-primary)">
-                  {isTestimonialForm
-                    ? 'Auto-response disabled for testimonials'
-                    : responseEmailEnabled
-                      ? 'Auto-response is enabled'
-                      : 'Auto-response is disabled'}
+                  {responseEmailEnabled
+                    ? 'Auto-response is enabled'
+                    : 'Auto-response is disabled'}
                 </p>
                 <p className="mt-1 text-sm text-(--color-text-secondary)">
                   {isTestimonialForm
-                    ? 'Testimonial submissions never send auto-response emails to submitters to protect submitter confidentiality.'
+                    ? 'Testimonial forms default to disabled to respect submitter privacy, but you can enable auto-response if you want to send a confirmation.'
                     : 'Design the confirmation email, branded header, subject, message, image, and saved template from the editor.'}
                 </p>
               </div>
               <span className="rounded-full border border-(--color-border-primary) px-3 py-1 text-xs font-semibold text-(--color-text-secondary)">
-                {isTestimonialForm
-                  ? 'Suppressed'
-                  : form.settings?.responseEmailTemplateKey
+                {responseEmailEnabled
+                  ? form.settings?.responseEmailTemplateKey
                     ? 'Template linked'
-                    : 'No template linked'}
+                    : 'Enabled'
+                  : 'Disabled'}
               </span>
             </div>
           </div>
@@ -1073,7 +1073,6 @@ function EditFormPage() {
           <Checkbox
             label="Enable response email"
             checked={responseEmailEnabled}
-            disabled={isTestimonialForm}
             onChange={(event) => updateSettings({ responseEmailEnabled: event.target.checked })}
           />
 
