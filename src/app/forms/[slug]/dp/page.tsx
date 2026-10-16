@@ -41,6 +41,15 @@ function FormPersonalizedFlyerContent({ slug }: { slug: string }) {
           setFormData(data);
         }
       } catch {
+        try {
+          const adminForm = await apiClient.getAdminForm(slug);
+          if (mounted && adminForm) {
+            setFormData({ form: adminForm });
+            return;
+          }
+        } catch {
+          // Both failed
+        }
         if (mounted) {
           setError('Could not load program details for this flyer.');
         }
@@ -61,10 +70,10 @@ function FormPersonalizedFlyerContent({ slug }: { slug: string }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--color-background-primary)] p-6">
-        <div className="flex items-center gap-3 rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-6 py-4 shadow-xl">
-          <Loader2 className="h-5 w-5 animate-spin text-[var(--color-accent-primary)]" />
-          <span className="text-sm font-semibold text-[var(--color-text-primary)]">Loading Program E-Flyer...</span>
+      <div className="flex min-h-screen items-center justify-center bg-(--color-background-primary) p-6">
+        <div className="flex items-center gap-3 rounded-2xl border border-(--color-border-primary) bg-(--color-background-secondary) px-6 py-4 shadow-xl">
+          <Loader2 className="h-5 w-5 animate-spin text-(--color-accent-primary)" />
+          <span className="text-sm font-semibold text-(--color-text-primary)">Loading Program E-Flyer...</span>
         </div>
       </div>
     );
@@ -72,14 +81,14 @@ function FormPersonalizedFlyerContent({ slug }: { slug: string }) {
 
   if (error || !formData) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--color-background-primary)] p-6">
-        <div className="w-full max-w-md rounded-3xl border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-8 text-center shadow-xl">
-          <p className="text-base font-bold text-[var(--color-text-primary)]">{error || 'Program not found'}</p>
-          <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">Please check the link and try again.</p>
-          <div className="mt-6">
+      <div className="flex min-h-screen items-center justify-center bg-(--color-background-primary) p-6">
+        <div className="w-full max-w-md rounded-3xl border border-(--color-border-primary) bg-(--color-background-secondary) p-8 text-center shadow-xl">
+          <p className="text-base font-bold text-(--color-text-primary)">{error || 'Program not found'}</p>
+          <p className="mt-2 text-xs text-(--color-text-tertiary)">Please check the link and try again.</p>
+          <div className="mt-6 flex justify-center gap-3">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 rounded-xl bg-[var(--lp-ink)] px-5 py-2.5 text-xs font-bold text-white shadow-md"
+              className="inline-flex items-center gap-2 rounded-xl bg-(--lp-ink) px-5 py-2.5 text-xs font-bold text-white shadow-md hover:opacity-95"
             >
               <ArrowLeft className="h-4 w-4" /> Return Home
             </Link>
@@ -99,16 +108,16 @@ function FormPersonalizedFlyerContent({ slug }: { slug: string }) {
     '';
 
   return (
-    <div className="min-h-screen bg-[var(--color-background-secondary)] py-10 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-(--color-background-secondary) py-10 px-4 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-4xl">
         <div className="mb-6 flex items-center justify-between">
           <Link
             href={`/forms/${slug}`}
-            className="inline-flex items-center gap-2 text-xs font-bold text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+            className="inline-flex items-center gap-2 text-xs font-bold text-(--color-text-tertiary) hover:text-(--color-text-primary)"
           >
             <ArrowLeft className="h-4 w-4" /> Back to Registration
           </Link>
-          <span className="flex items-center gap-1.5 text-xs font-bold text-[var(--lp-gold)]">
+          <span className="flex items-center gap-1.5 text-xs font-bold text-(--lp-gold)">
             <Sparkles className="h-4 w-4" /> Official Wisdom Church Event
           </span>
         </div>
@@ -134,10 +143,10 @@ export default function FormPersonalizedFlyerPage({ params }: PageProps) {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[var(--color-background-primary)] p-6">
-          <div className="flex items-center gap-3 rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-6 py-4 shadow-xl">
-            <Loader2 className="h-5 w-5 animate-spin text-[var(--color-accent-primary)]" />
-            <span className="text-sm font-semibold text-[var(--color-text-primary)]">Loading Studio...</span>
+        <div className="flex min-h-screen items-center justify-center bg-(--color-background-primary) p-6">
+          <div className="flex items-center gap-3 rounded-2xl border border-(--color-border-primary) bg-(--color-background-secondary) px-6 py-4 shadow-xl">
+            <Loader2 className="h-5 w-5 animate-spin text-(--color-accent-primary)" />
+            <span className="text-sm font-semibold text-(--color-text-primary)">Loading Studio...</span>
           </div>
         </div>
       }
