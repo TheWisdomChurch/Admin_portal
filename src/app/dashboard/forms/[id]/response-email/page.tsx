@@ -76,6 +76,189 @@ const PERSONALIZATION_TAGS: PersonalizationTag[] = [
   { tag: '{{UnsubscribeURL}}', label: 'Unsubscribe URL', desc: 'Unsubscribe link' },
 ];
 
+function buildHighEndEmailTemplate(formTitle?: string, heading?: string, message?: string) {
+  const safeTitle = formTitle || 'Registration Confirmed';
+  const safeHeading = heading || 'Registration Confirmed';
+  const safeMessage =
+    message ||
+    'Thank you for registering. Your details have been received successfully, and your spot is confirmed.';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${safeTitle} - The Wisdom Church</title>
+  <style>
+    @media only screen and (max-width: 600px) {
+      .wc-outer { padding: 16px 8px !important; }
+      .wc-header { padding: 26px 20px 20px !important; }
+      .wc-divider { padding-left: 20px !important; padding-right: 20px !important; }
+      .wc-content { padding-left: 20px !important; padding-right: 20px !important; }
+      .wc-footer { padding: 22px 20px 28px !important; }
+      .wc-title { font-size: 22px !important; }
+    }
+    @media (prefers-color-scheme: dark) {
+      body, .wc-body-bg { background: #0B0F16 !important; }
+      .wc-outer { background: #0B0F16 !important; }
+      .wc-frame { background: #151B25 !important; border-color: #2B3440 !important; }
+      .wc-frame h1, .wc-frame strong { color: #F3F5F8 !important; }
+      .wc-frame p, .wc-frame td, .wc-frame div, .wc-frame span { color: #C6CCD6 !important; }
+      .wc-hairline { border-color: #2B3440 !important; }
+      .wc-callout { background: #1E2633 !important; border-color: #FBBF24 !important; }
+      .wc-code { color: #FBBF24 !important; }
+      .wc-footer { background: #111722 !important; }
+    }
+  </style>
+</head>
+<body class="wc-body-bg" style="margin:0;padding:0;background:#F9FAFB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F9FAFB;">
+  <tr>
+    <td class="wc-outer" align="center" style="padding:32px 16px;">
+      
+      <!-- Main Frame -->
+      <table class="wc-frame" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;background:#FFFFFF;border:1px solid #FDE68A;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(17,24,39,0.06);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+        
+        <!-- Accent Line -->
+        <tr>
+          <td style="height:3px;line-height:3px;font-size:0;background:#FBBF24;">&nbsp;</td>
+        </tr>
+
+        <!-- Identity Header -->
+        <tr>
+          <td class="wc-header" style="padding:32px 48px 22px;">
+            <table role="presentation" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="width:52px;vertical-align:middle;">
+                  <img src="https://admin.wisdomchurchhq.org/OIP.webp" width="52" height="52" alt="The Wisdom Church" style="display:block;width:52px;height:52px;border-radius:12px;object-fit:cover;" />
+                </td>
+                <td style="width:1px;padding:0 14px;">
+                  <table role="presentation" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td width="1" height="46" style="width:1px;font-size:0;line-height:0;background:#E5E7EB;">&nbsp;</td>
+                    </tr>
+                  </table>
+                </td>
+                <td style="vertical-align:middle;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+                  <div style="font-size:11px;font-weight:600;letter-spacing:0.08em;color:#9CA3AF;text-transform:uppercase;line-height:1.3;">The</div>
+                  <div style="font-size:18px;font-weight:800;letter-spacing:-.01em;color:#111827;line-height:1.25;">Wisdom Church</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Divider -->
+        <tr>
+          <td class="wc-divider" style="padding:0 48px;">
+            <div class="wc-hairline" style="border-top:1px solid #E5E7EB;"></div>
+          </td>
+        </tr>
+
+        <!-- Body Content -->
+        <tr>
+          <td class="wc-content" style="padding:34px 48px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#374151;font-size:15px;line-height:1.7;">
+            
+            <div style="display:inline-block;padding:4px 12px;background:#FEF3C7;color:#92400E;font-size:11px;font-weight:700;border-radius:9999px;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:14px;">
+              Confirmation
+            </div>
+
+            <h1 class="wc-title" style="margin:0 0 16px;color:#111827;font-size:24px;line-height:1.3;font-weight:800;letter-spacing:-0.01em;">
+              ${safeHeading}
+            </h1>
+
+            <p style="margin:0 0 14px;color:#111827;font-weight:600;">
+              Hello {{.RecipientName}},
+            </p>
+
+            <p style="margin:0 0 20px;color:#4B5563;">
+              ${safeMessage}
+            </p>
+
+            {{if .RegistrationCode}}
+            <!-- Registration Code Callout -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+              <tr>
+                <td class="wc-callout" style="background:#FFFDF7;border:1.5px dashed #FDE68A;border-radius:12px;padding:18px 22px;">
+                  <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#92400E;margin-bottom:6px;">
+                    Registration Passcode / ID
+                  </div>
+                  <div class="wc-code" style="font-size:24px;font-weight:800;letter-spacing:0.06em;color:#111827;font-variant-numeric:tabular-nums;line-height:1.2;">
+                    {{.RegistrationCode}}
+                  </div>
+                  <div style="font-size:12px;color:#6B7280;margin-top:6px;">
+                    Please have this code ready for check-in on arrival.
+                  </div>
+                </td>
+              </tr>
+            </table>
+            {{end}}
+
+            {{if .AttendingFlyerURL}}
+            <!-- Attendee DP / Flyer Button -->
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+              <tr>
+                <td style="border-radius:8px;background:#FBBF24;">
+                  <a href="{{.AttendingFlyerURL}}" target="_blank" style="display:inline-block;padding:12px 24px;font-size:13px;font-weight:700;color:#78350F;text-decoration:none;border-radius:8px;">
+                    🎨 Generate Your Personalized DP / Flyer
+                  </a>
+                </td>
+              </tr>
+            </table>
+            {{end}}
+
+            {{if .CalendarOptInURL}}
+            <!-- Calendar Action Button -->
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+              <tr>
+                <td style="border-radius:8px;background:#D97706;">
+                  <a href="{{.CalendarOptInURL}}" target="_blank" style="display:inline-block;padding:11px 22px;font-size:13px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:8px;">
+                    📅 Add Event to Calendar
+                  </a>
+                </td>
+              </tr>
+            </table>
+            {{end}}
+
+            <p style="margin:0;color:#6B7280;font-size:14px;line-height:1.6;">
+              Blessings,<br />
+              <strong style="color:#111827;font-size:15px;">The Wisdom Church</strong>
+            </p>
+
+          </td>
+        </tr>
+
+        <!-- Divider -->
+        <tr>
+          <td class="wc-divider" style="padding:0 48px;">
+            <div class="wc-hairline" style="border-top:1px solid #E5E7EB;"></div>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td class="wc-footer" style="padding:24px 48px 30px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#FAFBFD;">
+            <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:#4B5563;">The Wisdom Church</p>
+            <p style="margin:0 0 8px;font-size:12px;color:#6B7280;">
+              Need help? Reach out to <a href="mailto:wisdomchurch21@gmail.com" style="color:#92400E;text-decoration:none;">wisdomchurch21@gmail.com</a>
+            </p>
+            {{if .UnsubscribeURL}}
+            <p style="margin:0;font-size:11px;color:#9CA3AF;">
+              Received this by mistake? <a href="{{.UnsubscribeURL}}" style="color:#92400E;text-decoration:underline;">Unsubscribe here</a>.
+            </p>
+            {{end}}
+          </td>
+        </tr>
+
+      </table>
+
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+}
+
 function ResponseEmailEditorPage() {
   const params = useParams();
   const router = useRouter();
@@ -361,40 +544,20 @@ function ResponseEmailEditorPage() {
     toast.success('Default template HTML loaded into editor.');
   };
 
+  const handleLoadHighEndTemplate = () => {
+    const title = form?.title || 'Registration';
+    const standardHtml = buildHighEndEmailTemplate(title, heading, message);
+    setCustomHtmlBody(standardHtml);
+    setEditorMode('custom_html');
+    toast.success('Wisdom Church campaign standard template loaded into editor.');
+  };
+
   const handleStartBlankHtml = () => {
     const title = form?.title || 'Registration';
-    const blankHtml = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
-  <style>
-    body { margin: 0; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; color: #111827; }
-    .email-container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 32px; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
-    h1 { font-size: 24px; font-weight: 800; margin: 0 0 16px 0; color: #111827; }
-    p { font-size: 15px; line-height: 1.7; color: #374151; margin: 0 0 16px 0; }
-    .badge-box { display: inline-block; padding: 10px 16px; border-radius: 8px; background: #fffbeb; border: 1px solid #fde68a; font-size: 14px; font-weight: 600; color: #92400e; margin: 8px 0 20px 0; }
-    .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="email-container">
-    <h1>Thank you for registering, {{FirstName}}!</h1>
-    <p>Your registration for <strong>{{FormTitle}}</strong> has been received successfully.</p>
-    <div class="badge-box">
-      Confirmation Code: <strong>{{RegistrationCode}}</strong>
-    </div>
-    <p>We look forward to hosting you at <strong>{{EventLocation}}</strong>.</p>
-    <div class="footer">
-      <p>&copy; Wisdom Church. All rights reserved.</p>
-    </div>
-  </div>
-</body>
-</html>`;
-    setCustomHtmlBody(blankHtml);
+    const standardHtml = buildHighEndEmailTemplate(title, heading, message);
+    setCustomHtmlBody(standardHtml);
     setEditorMode('custom_html');
-    toast.success('Clean blank HTML starter loaded into editor.');
+    toast.success('Clean standard HTML template loaded into editor.');
   };
 
   const handleRevertToStructured = () => {
@@ -463,16 +626,18 @@ function ResponseEmailEditorPage() {
 
   const handleInsertDpButton = (targetRef: React.RefObject<HTMLTextAreaElement | null>) => {
     const snippet = `
+{{if .AttendingFlyerURL}}
 <!-- Attendee DP / Status Flyer Button -->
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px auto;">
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0;">
   <tr>
-    <td style="background:#92400e;border-radius:8px;text-align:center;">
-      <a href="{{AttendingFlyerURL}}" style="display:inline-block;padding:12px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.02em;">
-        ✨ Generate My Attendee DP
+    <td style="border-radius:8px;background:#FBBF24;">
+      <a href="{{.AttendingFlyerURL}}" target="_blank" style="display:inline-block;padding:12px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;font-weight:700;color:#78350F;text-decoration:none;border-radius:8px;">
+        🎨 Generate Your Personalized DP / Flyer
       </a>
     </td>
   </tr>
 </table>
+{{end}}
 `;
     insertSnippet(snippet, targetRef);
     toast.success('Inserted Attendee DP Button markup.');
@@ -690,8 +855,12 @@ function ResponseEmailEditorPage() {
                   type="button"
                   onClick={() => {
                     setEditorMode('custom_html');
-                    if (!customHtmlBody.trim() && (rawStructuredHtml || renderedPreviewHTML)) {
-                      setCustomHtmlBody(rawStructuredHtml || renderedPreviewHTML);
+                    if (!customHtmlBody.trim()) {
+                      setCustomHtmlBody(
+                        rawStructuredHtml ||
+                        renderedPreviewHTML ||
+                        buildHighEndEmailTemplate(form?.title, heading, message)
+                      );
                     }
                   }}
                   className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold transition-all ${
@@ -793,6 +962,15 @@ function ResponseEmailEditorPage() {
                     type="button"
                     variant="outline"
                     size="sm"
+                    onClick={handleLoadHighEndTemplate}
+                    icon={<Sparkles className="h-3.5 w-3.5 text-amber-500" />}
+                  >
+                    Load Standard Template
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={handleLoadStructuredHtml}
                     icon={<RotateCcw className="h-3.5 w-3.5" />}
                   >
@@ -805,7 +983,7 @@ function ResponseEmailEditorPage() {
                     onClick={handleStartBlankHtml}
                     icon={<FileCode2 className="h-3.5 w-3.5" />}
                   >
-                    Start Blank
+                    Reset Standard Template
                   </Button>
                   <Button
                     type="button"
