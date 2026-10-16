@@ -14,6 +14,7 @@ import {
   MailCheck,
   RotateCcw,
   Save,
+  Sparkles,
   Trash2,
 } from 'lucide-react';
 
@@ -43,15 +44,33 @@ import { getServerErrorMessage } from '@/lib/serverValidation';
 // (apiClient.previewAdminEmailTemplate), just not on every character typed.
 const PREVIEW_DEBOUNCE_MS = 400;
 
-const PERSONALIZATION_TAGS = [
+interface PersonalizationTag {
+  tag: string;
+  label: string;
+  desc: string;
+  highlight?: boolean;
+}
+
+const PERSONALIZATION_TAGS: PersonalizationTag[] = [
   { tag: '{{FirstName}}', label: 'First Name', desc: 'Recipient first name' },
   { tag: '{{RecipientName}}', label: 'Full Name', desc: 'Full recipient name' },
+  {
+    tag: '{{AttendingFlyerURL}}',
+    label: 'Attendee DP Link',
+    desc: 'Personalized status flyer link for attendee (/forms/[slug]/dp?name=...)',
+    highlight: true,
+  },
+  {
+    tag: '{{AttendingBadgeURL}}',
+    label: 'Attendee Badge Link',
+    desc: 'Alias for Attendee DP link',
+    highlight: true,
+  },
   { tag: '{{FormTitle}}', label: 'Program Title', desc: 'Name of the program' },
   { tag: '{{RegistrationCode}}', label: 'Reg. Code', desc: 'Unique confirmation code' },
   { tag: '{{EventDate}}', label: 'Date', desc: 'Event date' },
   { tag: '{{EventTime}}', label: 'Time', desc: 'Event time' },
   { tag: '{{EventLocation}}', label: 'Venue', desc: 'Event location' },
-  { tag: '{{AttendingFlyerURL}}', label: 'Attendee DP Link', desc: 'Link to create status flyer' },
   { tag: '{{CalendarOptInURL}}', label: 'Calendar Link', desc: 'Link to add event to calendar' },
   { tag: '{{SubscribeURL}}', label: 'Subscribe URL', desc: 'Subscription link' },
   { tag: '{{UnsubscribeURL}}', label: 'Unsubscribe URL', desc: 'Unsubscribe link' },
@@ -420,15 +439,70 @@ function ResponseEmailEditorPage() {
     toast.success(`Inserted ${tag}`);
   };
 
+  const insertSnippet = (snippet: string, targetRef: React.RefObject<HTMLTextAreaElement | null>) => {
+    const textarea = targetRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart ?? 0;
+      const end = textarea.selectionEnd ?? 0;
+      const base = customHtmlBody || rawStructuredHtml || renderedPreviewHTML;
+      const updated = base.substring(0, start) + snippet + base.substring(end);
+      setCustomHtmlBody(updated);
+      if (editorMode !== 'custom_html') setEditorMode('custom_html');
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + snippet.length, start + snippet.length);
+      }, 0);
+    } else {
+      setCustomHtmlBody((prev) => {
+        const base = prev || rawStructuredHtml || renderedPreviewHTML;
+        return base ? `${base}\n${snippet}\n` : snippet;
+      });
+      if (editorMode !== 'custom_html') setEditorMode('custom_html');
+    }
+  };
+
+  const handleInsertDpButton = (targetRef: React.RefObject<HTMLTextAreaElement | null>) => {
+    const snippet = `
+<!-- Attendee DP / Status Flyer Button -->
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px auto;">
+  <tr>
+    <td style="background:#92400e;border-radius:8px;text-align:center;">
+      <a href="{{AttendingFlyerURL}}" style="display:inline-block;padding:12px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.02em;">
+        ✨ Generate My Attendee DP
+      </a>
+    </td>
+  </tr>
+</table>
+`;
+    insertSnippet(snippet, targetRef);
+    toast.success('Inserted Attendee DP Button markup.');
+  };
+
+  const handleSetDpAsCta = () => {
+    setCtaLabel('✨ Generate My Attendee DP');
+    setCtaUrl('{{AttendingFlyerURL}}');
+    if (!nextStepsHeading.trim()) {
+      setNextStepsHeading('Get Your Attendee DP Flyer');
+    }
+    if (!nextStepsText.trim()) {
+      setNextStepsText('Generate your personalized status flyer to share on WhatsApp, Instagram, and social media!');
+    }
+    toast.success('Configured Attendee DP button in What Happens Next section.');
+  };
+
+  const handleAppendDpToMessage = () => {
+    setMessage((prev) => {
+      const trimmed = prev.trimEnd();
+      const dpSnippet = '\n\nGenerate your personalized attendee DP flyer here: {{AttendingFlyerURL}}';
+      return trimmed ? `${trimmed}${dpSnippet}` : `Generate your personalized attendee DP flyer here: {{AttendingFlyerURL}}`;
+    });
+    toast.success('Added Attendee DP flyer link to message body.');
+  };
+
   const saveTemplate = async () => {
     if (!form) return;
     if (!subject.trim()) {
       toast.error('Email subject is required.');
-      return;
-    }
-
-    if (subject.trim().length > 160) {
-      toast.error('Email subject cannot exceed 160 characters.');
       return;
     }
 
@@ -464,41 +538,17 @@ function ResponseEmailEditorPage() {
 
       let savedTemplate: EmailTemplate;
       if (template) {
-        try {
-          savedTemplate = await apiClient.updateAdminEmailTemplate(template.id, {
-            templateKey,
-            ownerType: 'form',
-            ownerId: form.id,
-            subject: subject.trim(),
-            content,
-            htmlBody,
-            textBody,
-            status: 'active',
-            activate: true,
-          });
-        } catch (updateErr: unknown) {
-          const errObj = updateErr as { status?: number; statusCode?: number; message?: string };
-          // If 404 (template was deleted or ID doesn't exist on backend), seamlessly create it
-          if (
-            errObj?.status === 404 ||
-            errObj?.statusCode === 404 ||
-            errObj?.message?.toLowerCase().includes('not found')
-          ) {
-            savedTemplate = await apiClient.createAdminEmailTemplate({
-              templateKey,
-              ownerType: 'form',
-              ownerId: form.id,
-              subject: subject.trim(),
-              content,
-              htmlBody,
-              textBody,
-              status: 'active',
-              activate: true,
-            });
-          } else {
-            throw updateErr;
-          }
-        }
+        savedTemplate = await apiClient.updateAdminEmailTemplate(template.id, {
+          templateKey,
+          ownerType: 'form',
+          ownerId: form.id,
+          subject: subject.trim(),
+          content,
+          htmlBody,
+          textBody,
+          status: 'active',
+          activate: true,
+        });
       } else {
         savedTemplate = await apiClient.createAdminEmailTemplate({
           templateKey,
@@ -778,6 +828,62 @@ function ResponseEmailEditorPage() {
                 </Button>
               </div>
 
+              {/* Dedicated Attendee DP Flyer Inserter Card */}
+              <div className="rounded-[var(--radius-card)] border-2 border-dashed border-[var(--color-accent-primary)]/40 bg-[var(--color-accent-surface)]/50 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-lg bg-[var(--color-accent-primary)]/15 p-2 text-[var(--color-accent-primary)] flex-shrink-0">
+                      <Sparkles className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-bold text-[var(--color-text-primary)]">
+                          Personalized Attendee DP / Status Flyer Link
+                        </p>
+                        <span className="rounded-full bg-[var(--color-accent-primary)]/15 px-2 py-0.5 font-mono text-[10px] font-semibold text-[var(--color-accent-primary)]">
+                          {'{{AttendingFlyerURL}}'}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                        Attendees can generate and download their personalized flyer from this confirmation email.
+                        Link route: <code className="font-mono text-[11px] text-[var(--color-text-primary)]">/forms/{form?.slug || '[slug]'}/dp?name={'{{FirstName}}'}</code>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="primary"
+                      onClick={() => handleInsertDpButton(leftHtmlEditorRef)}
+                      icon={<Sparkles className="h-3.5 w-3.5" />}
+                    >
+                      Insert DP Button Markup
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => insertTag('{{AttendingFlyerURL}}', leftHtmlEditorRef)}
+                    >
+                      Insert Tag
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText('{{AttendingFlyerURL}}');
+                        toast.success('Copied {{AttendingFlyerURL}} to clipboard');
+                      }}
+                      icon={<Copy className="h-3.5 w-3.5" />}
+                    >
+                      Copy Tag
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
               {/* Quick dynamic tags inserter */}
               <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-3">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
@@ -790,8 +896,13 @@ function ResponseEmailEditorPage() {
                       type="button"
                       onClick={() => insertTag(item.tag, leftHtmlEditorRef)}
                       title={item.desc}
-                      className="group inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--color-text-primary)] hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-accent-surface)] hover:text-[var(--color-accent-primary)] transition-all active:scale-95"
+                      className={`group inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-all active:scale-95 ${
+                        item.highlight
+                          ? 'border-[var(--color-accent-primary)] bg-[var(--color-accent-surface)] text-[var(--color-accent-primary)] shadow-sm'
+                          : 'border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] text-[var(--color-text-primary)] hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-accent-surface)] hover:text-[var(--color-accent-primary)]'
+                      }`}
                     >
+                      {item.highlight && <Sparkles className="h-3 w-3 text-[var(--color-accent-primary)]" />}
                       <span className="font-mono text-[11px] font-semibold text-[var(--color-accent-primary)]">{item.tag}</span>
                       <span className="text-[10px] text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent-primary)]">({item.label})</span>
                     </button>
@@ -876,6 +987,62 @@ function ResponseEmailEditorPage() {
                 </div>
               </section>
 
+              {/* Dedicated Attendee DP Flyer Helper Card (Structured Mode) */}
+              <div className="rounded-[var(--radius-card)] border-2 border-dashed border-[var(--color-accent-primary)]/40 bg-[var(--color-accent-surface)]/50 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-lg bg-[var(--color-accent-primary)]/15 p-2 text-[var(--color-accent-primary)] flex-shrink-0">
+                      <Sparkles className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-bold text-[var(--color-text-primary)]">
+                          Personalized Attendee DP / Status Flyer Link
+                        </p>
+                        <span className="rounded-full bg-[var(--color-accent-primary)]/15 px-2 py-0.5 font-mono text-[10px] font-semibold text-[var(--color-accent-primary)]">
+                          {'{{AttendingFlyerURL}}'}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                        Each registered attendee receives a unique DP flyer link generated on submission.
+                        Link route: <code className="font-mono text-[11px] text-[var(--color-text-primary)]">/forms/{form?.slug || '[slug]'}/dp?name={'{{FirstName}}'}</code>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="primary"
+                      onClick={handleSetDpAsCta}
+                      icon={<Sparkles className="h-3.5 w-3.5" />}
+                    >
+                      Set as Action Button
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={handleAppendDpToMessage}
+                    >
+                      Add to Message
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText('{{AttendingFlyerURL}}');
+                        toast.success('Copied {{AttendingFlyerURL}} to clipboard');
+                      }}
+                      icon={<Copy className="h-3.5 w-3.5" />}
+                    >
+                      Copy Tag
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
               <section className="space-y-3">
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Email body message</label>
@@ -901,8 +1068,13 @@ function ResponseEmailEditorPage() {
                           toast.success(`Inserted ${item.tag}`);
                         }}
                         title={item.desc}
-                        className="group inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--color-text-primary)] hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-accent-surface)] hover:text-[var(--color-accent-primary)] transition-all active:scale-95"
+                        className={`group inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-all active:scale-95 ${
+                          item.highlight
+                            ? 'border-[var(--color-accent-primary)] bg-[var(--color-accent-surface)] text-[var(--color-accent-primary)] shadow-sm'
+                            : 'border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] text-[var(--color-text-primary)] hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-accent-surface)] hover:text-[var(--color-accent-primary)]'
+                        }`}
                       >
+                        {item.highlight && <Sparkles className="h-3 w-3 text-[var(--color-accent-primary)]" />}
                         <span className="font-mono text-[11px] font-semibold text-[var(--color-accent-primary)]">{item.tag}</span>
                         <span className="text-[10px] text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent-primary)]">({item.label})</span>
                       </button>
@@ -964,12 +1136,30 @@ function ResponseEmailEditorPage() {
                   onChange={(e) => setCtaLabel(e.target.value)}
                   placeholder="View Upcoming Church Activities"
                 />
-                <Input
-                  label="Button link (optional)"
-                  value={ctaUrl}
-                  onChange={(e) => setCtaUrl(e.target.value)}
-                  placeholder="https://..."
-                />
+                <div className="space-y-1">
+                  <Input
+                    label="Button link (optional)"
+                    value={ctaUrl}
+                    onChange={(e) => setCtaUrl(e.target.value)}
+                    placeholder="https://... or {{AttendingFlyerURL}}"
+                  />
+                  <div className="flex items-center justify-between text-xs text-[var(--color-text-tertiary)] pt-1">
+                    <span>Target: URL or dynamic tag</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCtaLabel('✨ Generate My Attendee DP');
+                        setCtaUrl('{{AttendingFlyerURL}}');
+                        if (!nextStepsHeading.trim()) setNextStepsHeading('Get Your Attendee DP Flyer');
+                        toast.success('Set CTA button to Attendee DP Link');
+                      }}
+                      className="inline-flex items-center gap-1 font-semibold text-[var(--color-accent-primary)] hover:underline"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      Quick-fill Attendee DP ({"{{AttendingFlyerURL}}"})
+                    </button>
+                  </div>
+                </div>
                 <p className="md:col-span-2 text-xs text-[var(--color-text-tertiary)]">The button renders inside the “What happens next” section.</p>
               </section>
 
@@ -1114,6 +1304,15 @@ function ResponseEmailEditorPage() {
                   )}
                   <Button
                     type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleInsertDpButton(rightHtmlEditorRef)}
+                    icon={<Sparkles className="h-3.5 w-3.5" />}
+                  >
+                    + DP Button
+                  </Button>
+                  <Button
+                    type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => handleCopyHtml(currentHtmlValue)}
@@ -1135,8 +1334,13 @@ function ResponseEmailEditorPage() {
                     type="button"
                     onClick={() => insertTag(item.tag, rightHtmlEditorRef)}
                     title={item.desc}
-                    className="inline-flex flex-shrink-0 items-center gap-1 rounded border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-2 py-0.5 font-mono text-[11px] font-medium text-[var(--color-accent-primary)] hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-accent-surface)] transition-colors"
+                    className={`inline-flex flex-shrink-0 items-center gap-1 rounded border px-2 py-0.5 font-mono text-[11px] font-medium transition-colors ${
+                      item.highlight
+                        ? 'border-[var(--color-accent-primary)] bg-[var(--color-accent-surface)] text-[var(--color-accent-primary)] font-semibold shadow-sm'
+                        : 'border-[var(--color-border-primary)] bg-[var(--color-background-primary)] text-[var(--color-accent-primary)] hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-accent-surface)]'
+                    }`}
                   >
+                    {item.highlight && <Sparkles className="h-3 w-3 text-[var(--color-accent-primary)]" />}
                     {item.tag}
                   </button>
                 ))}

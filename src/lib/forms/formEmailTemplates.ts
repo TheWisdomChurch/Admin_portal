@@ -515,6 +515,7 @@ export function toEmailPreview(html: string) {
     EventTime: '10:00 AM WAT',
     EventLocation: 'Main Sanctuary, Wisdom Church',
     AttendingFlyerURL: '#',
+    AttendingBadgeURL: '#',
     RegistrationCode: 'WHC-WPC-26-000001',
     SubscribeURL: '#',
     UnsubscribeURL: '#',
