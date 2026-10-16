@@ -14,6 +14,7 @@ import {
   MailCheck,
   RotateCcw,
   Save,
+  Sparkles,
   Trash2,
 } from 'lucide-react';
 
@@ -43,15 +44,33 @@ import { getServerErrorMessage } from '@/lib/serverValidation';
 // (apiClient.previewAdminEmailTemplate), just not on every character typed.
 const PREVIEW_DEBOUNCE_MS = 400;
 
-const PERSONALIZATION_TAGS = [
+interface PersonalizationTag {
+  tag: string;
+  label: string;
+  desc: string;
+  highlight?: boolean;
+}
+
+const PERSONALIZATION_TAGS: PersonalizationTag[] = [
   { tag: '{{FirstName}}', label: 'First Name', desc: 'Recipient first name' },
   { tag: '{{RecipientName}}', label: 'Full Name', desc: 'Full recipient name' },
+  {
+    tag: '{{AttendingFlyerURL}}',
+    label: 'Attendee DP Link',
+    desc: 'Personalized status flyer link for attendee (/forms/[slug]/dp?name=...)',
+    highlight: true,
+  },
+  {
+    tag: '{{AttendingBadgeURL}}',
+    label: 'Attendee Badge Link',
+    desc: 'Alias for Attendee DP link',
+    highlight: true,
+  },
   { tag: '{{FormTitle}}', label: 'Program Title', desc: 'Name of the program' },
   { tag: '{{RegistrationCode}}', label: 'Reg. Code', desc: 'Unique confirmation code' },
   { tag: '{{EventDate}}', label: 'Date', desc: 'Event date' },
   { tag: '{{EventTime}}', label: 'Time', desc: 'Event time' },
   { tag: '{{EventLocation}}', label: 'Venue', desc: 'Event location' },
-  { tag: '{{AttendingFlyerURL}}', label: 'Attendee DP Link', desc: 'Link to create status flyer' },
   { tag: '{{CalendarOptInURL}}', label: 'Calendar Link', desc: 'Link to add event to calendar' },
   { tag: '{{SubscribeURL}}', label: 'Subscribe URL', desc: 'Subscription link' },
   { tag: '{{UnsubscribeURL}}', label: 'Unsubscribe URL', desc: 'Unsubscribe link' },
@@ -420,15 +439,70 @@ function ResponseEmailEditorPage() {
     toast.success(`Inserted ${tag}`);
   };
 
+  const insertSnippet = (snippet: string, targetRef: React.RefObject<HTMLTextAreaElement | null>) => {
+    const textarea = targetRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart ?? 0;
+      const end = textarea.selectionEnd ?? 0;
+      const base = customHtmlBody || rawStructuredHtml || renderedPreviewHTML;
+      const updated = base.substring(0, start) + snippet + base.substring(end);
+      setCustomHtmlBody(updated);
+      if (editorMode !== 'custom_html') setEditorMode('custom_html');
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + snippet.length, start + snippet.length);
+      }, 0);
+    } else {
+      setCustomHtmlBody((prev) => {
+        const base = prev || rawStructuredHtml || renderedPreviewHTML;
+        return base ? `${base}\n${snippet}\n` : snippet;
+      });
+      if (editorMode !== 'custom_html') setEditorMode('custom_html');
+    }
+  };
+
+  const handleInsertDpButton = (targetRef: React.RefObject<HTMLTextAreaElement | null>) => {
+    const snippet = `
+<!-- Attendee DP / Status Flyer Button -->
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px auto;">
+  <tr>
+    <td style="background:#92400e;border-radius:8px;text-align:center;">
+      <a href="{{AttendingFlyerURL}}" style="display:inline-block;padding:12px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.02em;">
+        ✨ Generate My Attendee DP
+      </a>
+    </td>
+  </tr>
+</table>
+`;
+    insertSnippet(snippet, targetRef);
+    toast.success('Inserted Attendee DP Button markup.');
+  };
+
+  const handleSetDpAsCta = () => {
+    setCtaLabel('✨ Generate My Attendee DP');
+    setCtaUrl('{{AttendingFlyerURL}}');
+    if (!nextStepsHeading.trim()) {
+      setNextStepsHeading('Get Your Attendee DP Flyer');
+    }
+    if (!nextStepsText.trim()) {
+      setNextStepsText('Generate your personalized status flyer to share on WhatsApp, Instagram, and social media!');
+    }
+    toast.success('Configured Attendee DP button in What Happens Next section.');
+  };
+
+  const handleAppendDpToMessage = () => {
+    setMessage((prev) => {
+      const trimmed = prev.trimEnd();
+      const dpSnippet = '\n\nGenerate your personalized attendee DP flyer here: {{AttendingFlyerURL}}';
+      return trimmed ? `${trimmed}${dpSnippet}` : `Generate your personalized attendee DP flyer here: {{AttendingFlyerURL}}`;
+    });
+    toast.success('Added Attendee DP flyer link to message body.');
+  };
+
   const saveTemplate = async () => {
     if (!form) return;
     if (!subject.trim()) {
       toast.error('Email subject is required.');
-      return;
-    }
-
-    if (subject.trim().length > 160) {
-      toast.error('Email subject cannot exceed 160 characters.');
       return;
     }
 
@@ -464,41 +538,17 @@ function ResponseEmailEditorPage() {
 
       let savedTemplate: EmailTemplate;
       if (template) {
-        try {
-          savedTemplate = await apiClient.updateAdminEmailTemplate(template.id, {
-            templateKey,
-            ownerType: 'form',
-            ownerId: form.id,
-            subject: subject.trim(),
-            content,
-            htmlBody,
-            textBody,
-            status: 'active',
-            activate: true,
-          });
-        } catch (updateErr: unknown) {
-          const errObj = updateErr as { status?: number; statusCode?: number; message?: string };
-          // If 404 (template was deleted or ID doesn't exist on backend), seamlessly create it
-          if (
-            errObj?.status === 404 ||
-            errObj?.statusCode === 404 ||
-            errObj?.message?.toLowerCase().includes('not found')
-          ) {
-            savedTemplate = await apiClient.createAdminEmailTemplate({
-              templateKey,
-              ownerType: 'form',
-              ownerId: form.id,
-              subject: subject.trim(),
-              content,
-              htmlBody,
-              textBody,
-              status: 'active',
-              activate: true,
-            });
-          } else {
-            throw updateErr;
-          }
-        }
+        savedTemplate = await apiClient.updateAdminEmailTemplate(template.id, {
+          templateKey,
+          ownerType: 'form',
+          ownerId: form.id,
+          subject: subject.trim(),
+          content,
+          htmlBody,
+          textBody,
+          status: 'active',
+          activate: true,
+        });
       } else {
         savedTemplate = await apiClient.createAdminEmailTemplate({
           templateKey,
@@ -548,8 +598,8 @@ function ResponseEmailEditorPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[300px] w-full items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-[var(--color-accent-primary)] border-r-transparent" />
+      <div className="flex min-h-75 w-full items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-(--color-accent-primary) border-r-transparent" />
       </div>
     );
   }
@@ -578,8 +628,8 @@ function ResponseEmailEditorPage() {
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4">
-          <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Auto-Response Status</p>
+        <div className="rounded-(--radius-card) border border-(--color-border-primary) bg-(--color-background-secondary) p-4">
+          <p className="text-xs uppercase tracking-[0.12em] text-(--color-text-tertiary)">Auto-Response Status</p>
           <div className="mt-2 flex items-center gap-2">
             <span
               className={`inline-block h-2.5 w-2.5 rounded-full ${
@@ -588,26 +638,26 @@ function ResponseEmailEditorPage() {
                   : 'bg-zinc-400'
               }`}
             />
-            <p className="truncate text-base font-semibold text-[var(--color-text-primary)]">
+            <p className="truncate text-base font-semibold text-(--color-text-primary)">
               {responseEmailEnabled
                 ? 'Active / Dispatched'
                 : 'Disabled'}
             </p>
           </div>
         </div>
-        <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4">
-          <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Template Format</p>
-          <p className="mt-2 text-base font-semibold text-[var(--color-text-primary)]">
+        <div className="rounded-(--radius-card) border border-(--color-border-primary) bg-(--color-background-secondary) p-4">
+          <p className="text-xs uppercase tracking-[0.12em] text-(--color-text-tertiary)">Template Format</p>
+          <p className="mt-2 text-base font-semibold text-(--color-text-primary)">
             {usingCustomHtml ? 'Custom HTML' : 'Standard Design'}
           </p>
         </div>
-        <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4">
-          <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Form</p>
-          <p className="mt-2 truncate text-base font-semibold text-[var(--color-text-primary)]">{form.title}</p>
+        <div className="rounded-(--radius-card) border border-(--color-border-primary) bg-(--color-background-secondary) p-4">
+          <p className="text-xs uppercase tracking-[0.12em] text-(--color-text-tertiary)">Form</p>
+          <p className="mt-2 truncate text-base font-semibold text-(--color-text-primary)">{form.title}</p>
         </div>
-        <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] p-4">
-          <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Template Key</p>
-          <p className="mt-2 truncate font-mono text-sm text-[var(--color-text-primary)]">{templateKeyPreview || 'Not generated yet'}</p>
+        <div className="rounded-(--radius-card) border border-(--color-border-primary) bg-(--color-background-secondary) p-4">
+          <p className="text-xs uppercase tracking-[0.12em] text-(--color-text-tertiary)">Template Key</p>
+          <p className="mt-2 truncate font-mono text-sm text-(--color-text-primary)">{templateKeyPreview || 'Not generated yet'}</p>
         </div>
       </div>
 
@@ -617,7 +667,7 @@ function ResponseEmailEditorPage() {
           title={
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between w-full">
               <span>{editorMode === 'custom_html' ? 'Custom HTML Editor' : 'Template Builder'}</span>
-              <div className="flex rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-0.5">
+              <div className="flex rounded-lg border border-(--color-border-primary) bg-(--color-background-primary) p-0.5">
                 <button
                   type="button"
                   onClick={() => {
@@ -629,8 +679,8 @@ function ResponseEmailEditorPage() {
                   }}
                   className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold transition-all ${
                     editorMode === 'structured' && !customHtmlBody.trim()
-                      ? 'bg-[var(--color-accent-primary)] text-white shadow-sm'
-                      : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                      ? 'bg-(--color-accent-primary) text-white shadow-sm'
+                      : 'text-(--color-text-secondary) hover:text-(--color-text-primary)'
                   }`}
                 >
                   <LayoutTemplate className="h-3.5 w-3.5" />
@@ -646,8 +696,8 @@ function ResponseEmailEditorPage() {
                   }}
                   className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold transition-all ${
                     editorMode === 'custom_html' || customHtmlBody.trim()
-                      ? 'bg-[var(--color-accent-primary)] text-white shadow-sm'
-                      : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                      ? 'bg-(--color-accent-primary) text-white shadow-sm'
+                      : 'text-(--color-text-secondary) hover:text-(--color-text-primary)'
                   }`}
                 >
                   <Code2 className="h-3.5 w-3.5" />
@@ -657,23 +707,23 @@ function ResponseEmailEditorPage() {
               </div>
             </div>
           }
-          className="bg-[var(--color-background-secondary)]"
+          className="bg-(--color-background-secondary)"
           contentClassName="space-y-6"
         >
           {/* Form Auto-response toggle banner */}
           <div
-            className={`rounded-[var(--radius-card)] border p-4 transition-all ${
+            className={`rounded-(--radius-card) border p-4 transition-all ${
               responseEmailEnabled
                 ? 'border-emerald-500/30 bg-emerald-500/5'
-                : 'border-[var(--color-border-primary)] bg-[var(--color-background-primary)]'
+                : 'border-(--color-border-primary) bg-(--color-background-primary)'
             }`}
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                <p className="text-sm font-semibold text-(--color-text-primary)">
                   Dispatch Auto-Response Email on Submission
                 </p>
-                <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                <p className="mt-1 text-xs text-(--color-text-tertiary)">
                   {isTestimonialForm
                     ? 'Testimonial forms default to disabled to respect submitter privacy, but you can enable auto-response if you want to automatically send a confirmation or thank-you email.'
                     : 'When enabled, submitters receive this branded confirmation email automatically. Turn off for internal process forms, silent staff workflows, or audit sheets.'}
@@ -683,9 +733,9 @@ function ResponseEmailEditorPage() {
                 <button
                   type="button"
                   onClick={() => setResponseEmailEnabled(!responseEmailEnabled)}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                     responseEmailEnabled
-                      ? 'bg-[var(--color-accent-primary)]'
+                      ? 'bg-(--color-accent-primary)'
                       : 'bg-zinc-300 dark:bg-zinc-700'
                   }`}
                   aria-pressed={responseEmailEnabled}
@@ -697,7 +747,7 @@ function ResponseEmailEditorPage() {
                     }`}
                   />
                 </button>
-                <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+                <span className="text-xs font-medium text-(--color-text-secondary)">
                   {responseEmailEnabled ? 'Enabled' : 'Disabled'}
                 </span>
               </div>
@@ -707,9 +757,9 @@ function ResponseEmailEditorPage() {
           {/* CUSTOM HTML MODE: Pure, unrestricted HTML editor */}
           {editorMode === 'custom_html' ? (
             <div className="space-y-5">
-              <div className="rounded-[var(--radius-card)] border border-amber-500/30 bg-amber-500/10 p-4">
+              <div className="rounded-(--radius-card) border border-amber-500/30 bg-amber-500/10 p-4">
                 <div className="flex items-start gap-3">
-                  <Code2 className="mt-0.5 h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                  <Code2 className="mt-0.5 h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
                   <div className="space-y-1">
                     <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
                       Custom HTML Mode Active
@@ -737,7 +787,7 @@ function ResponseEmailEditorPage() {
               </section>
 
               {/* Action Toolbar */}
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-(--radius-card) border border-(--color-border-primary) bg-(--color-background-primary) p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
                     type="button"
@@ -778,9 +828,65 @@ function ResponseEmailEditorPage() {
                 </Button>
               </div>
 
+              {/* Dedicated Attendee DP Flyer Inserter Card */}
+              <div className="rounded-(--radius-card) border-2 border-dashed border-(--color-accent-primary)/40 bg-(--color-accent-surface)/50 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-lg bg-(--color-accent-primary)/15 p-2 text-(--color-accent-primary) shrink-0">
+                      <Sparkles className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-bold text-(--color-text-primary)">
+                          Personalized Attendee DP / Status Flyer Link
+                        </p>
+                        <span className="rounded-full bg-(--color-accent-primary)/15 px-2 py-0.5 font-mono text-[10px] font-semibold text-(--color-accent-primary)">
+                          {'{{AttendingFlyerURL}}'}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-(--color-text-secondary) leading-relaxed">
+                        Attendees can generate and download their personalized flyer from this confirmation email.
+                        Link route: <code className="font-mono text-[11px] text-(--color-text-primary)">/forms/{form?.slug || '[slug]'}/dp?name={'{{FirstName}}'}</code>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="primary"
+                      onClick={() => handleInsertDpButton(leftHtmlEditorRef)}
+                      icon={<Sparkles className="h-3.5 w-3.5" />}
+                    >
+                      Insert DP Button Markup
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => insertTag('{{AttendingFlyerURL}}', leftHtmlEditorRef)}
+                    >
+                      Insert Tag
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText('{{AttendingFlyerURL}}');
+                        toast.success('Copied {{AttendingFlyerURL}} to clipboard');
+                      }}
+                      icon={<Copy className="h-3.5 w-3.5" />}
+                    >
+                      Copy Tag
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
               {/* Quick dynamic tags inserter */}
-              <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+              <div className="rounded-(--radius-card) border border-(--color-border-primary) bg-(--color-background-primary) p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-(--color-text-tertiary)">
                   Click tag to insert into HTML at cursor:
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -790,10 +896,15 @@ function ResponseEmailEditorPage() {
                       type="button"
                       onClick={() => insertTag(item.tag, leftHtmlEditorRef)}
                       title={item.desc}
-                      className="group inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--color-text-primary)] hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-accent-surface)] hover:text-[var(--color-accent-primary)] transition-all active:scale-95"
+                      className={`group inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-all active:scale-95 ${
+                        item.highlight
+                          ? 'border-(--color-accent-primary) bg-(--color-accent-surface) text-(--color-accent-primary) shadow-sm'
+                          : 'border-(--color-border-primary) bg-(--color-background-secondary) text-(--color-text-primary) hover:border-(--color-accent-primary) hover:bg-(--color-accent-surface) hover:text-(--color-accent-primary)'
+                      }`}
                     >
-                      <span className="font-mono text-[11px] font-semibold text-[var(--color-accent-primary)]">{item.tag}</span>
-                      <span className="text-[10px] text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent-primary)]">({item.label})</span>
+                      {item.highlight && <Sparkles className="h-3 w-3 text-(--color-accent-primary)" />}
+                      <span className="font-mono text-[11px] font-semibold text-(--color-accent-primary)">{item.tag}</span>
+                      <span className="text-[10px] text-(--color-text-tertiary) group-hover:text-(--color-accent-primary)">({item.label})</span>
                     </button>
                   ))}
                 </div>
@@ -802,16 +913,16 @@ function ResponseEmailEditorPage() {
               {/* HTML Editor Textarea */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="block text-sm font-semibold text-[var(--color-text-primary)]">
+                  <label className="block text-sm font-semibold text-(--color-text-primary)">
                     Custom Email HTML Markup
                   </label>
-                  <span className="text-xs text-[var(--color-text-tertiary)]">
+                  <span className="text-xs text-(--color-text-tertiary)">
                     Changes reflect immediately in Live Preview
                   </span>
                 </div>
                 <textarea
                   ref={leftHtmlEditorRef}
-                  className="h-[520px] w-full resize-y rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-4 font-mono text-xs leading-relaxed text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                  className="h-130 w-full resize-y rounded-(--radius-card) border border-(--color-border-primary) bg-(--color-background-primary) p-4 font-mono text-xs leading-relaxed text-(--color-text-primary) placeholder:text-(--color-text-tertiary) focus:outline-none focus:ring-2 focus:ring-(--color-border-focus) focus:ring-offset-2"
                   value={customHtmlBody}
                   onChange={(e) => handleHtmlChange(e.target.value)}
                   spellCheck={false}
@@ -819,11 +930,11 @@ function ResponseEmailEditorPage() {
                 />
               </div>
 
-              <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-4 text-xs space-y-2 text-[var(--color-text-tertiary)]">
-                <p className="font-semibold text-[var(--color-text-secondary)]">Tips for custom email HTML:</p>
+              <div className="rounded-(--radius-card) border border-(--color-border-primary) bg-(--color-background-primary) p-4 text-xs space-y-2 text-(--color-text-tertiary)">
+                <p className="font-semibold text-(--color-text-secondary)">Tips for custom email HTML:</p>
                 <ul className="list-disc list-inside space-y-1">
-                  <li>Use inline CSS styles on tags (e.g., <code className="text-[var(--color-text-primary)] font-mono">style=&quot;...&quot;</code>) for consistent display across Outlook, Gmail, and Apple Mail.</li>
-                  <li>Include dynamic personalization tags like <code className="text-[var(--color-text-primary)] font-mono">&#123;&#123;FirstName&#125;&#125;</code> and <code className="text-[var(--color-text-primary)] font-mono">&#123;&#123;RegistrationCode&#125;&#125;</code> to personalize each submission response.</li>
+                  <li>Use inline CSS styles on tags (e.g., <code className="text-(--color-text-primary) font-mono">style=&quot;...&quot;</code>) for consistent display across Outlook, Gmail, and Apple Mail.</li>
+                  <li>Include dynamic personalization tags like <code className="text-(--color-text-primary) font-mono">&#123;&#123;FirstName&#125;&#125;</code> and <code className="text-(--color-text-primary) font-mono">&#123;&#123;RegistrationCode&#125;&#125;</code> to personalize each submission response.</li>
                   <li>Check the live rendered appearance using the <strong>Rendered</strong> tab in the Live Preview panel on the right.</li>
                 </ul>
               </div>
@@ -863,28 +974,84 @@ function ResponseEmailEditorPage() {
                   placeholder="https://.../hero.png"
                   helperText="The church logo and header come from the shared brand design automatically."
                 />
-                <div className="rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-3 md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-[var(--color-text-secondary)]">Upload template image (optional)</label>
+                <div className="rounded-(--radius-button) border border-(--color-border-primary) bg-(--color-background-primary) p-3 md:col-span-2">
+                  <label className="mb-2 block text-sm font-medium text-(--color-text-secondary)">Upload template image (optional)</label>
                   {/* eslint-disable-next-line no-restricted-syntax -- file input, styled with tokens */}
                   <input
                     type="file"
                     accept="image/*"
                     onChange={(e) => handleImageFile(e.target.files?.[0])}
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm"
+                    className="w-full rounded-(--radius-button) border border-(--color-border-primary) bg-(--color-background-secondary) px-3 py-2 text-sm"
                   />
-                  <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">Max {MAX_EMAIL_IMAGE_MB}MB. JPEG, PNG, WebP.</p>
+                  <p className="mt-2 text-xs text-(--color-text-tertiary)">Max {MAX_EMAIL_IMAGE_MB}MB. JPEG, PNG, WebP.</p>
                 </div>
               </section>
 
+              {/* Dedicated Attendee DP Flyer Helper Card (Structured Mode) */}
+              <div className="rounded-(--radius-card) border-2 border-dashed border-(--color-accent-primary)/40 bg-(--color-accent-surface)/50 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-lg bg-(--color-accent-primary)/15 p-2 text-(--color-accent-primary) shrink-0">
+                      <Sparkles className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-bold text-(--color-text-primary)">
+                          Personalized Attendee DP / Status Flyer Link
+                        </p>
+                        <span className="rounded-full bg-(--color-accent-primary)/15 px-2 py-0.5 font-mono text-[10px] font-semibold text-(--color-accent-primary)">
+                          {'{{AttendingFlyerURL}}'}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-(--color-text-secondary) leading-relaxed">
+                        Each registered attendee receives a unique DP flyer link generated on submission.
+                        Link route: <code className="font-mono text-[11px] text-(--color-text-primary)">/forms/{form?.slug || '[slug]'}/dp?name={'{{FirstName}}'}</code>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="primary"
+                      onClick={handleSetDpAsCta}
+                      icon={<Sparkles className="h-3.5 w-3.5" />}
+                    >
+                      Set as Action Button
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={handleAppendDpToMessage}
+                    >
+                      Add to Message
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText('{{AttendingFlyerURL}}');
+                        toast.success('Copied {{AttendingFlyerURL}} to clipboard');
+                      }}
+                      icon={<Copy className="h-3.5 w-3.5" />}
+                    >
+                      Copy Tag
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
               <section className="space-y-3">
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Email body message</label>
-                  <span className="text-xs text-[var(--color-text-tertiary)]">Supports dynamic personalization tags</span>
+                  <label className="block text-sm font-medium text-(--color-text-secondary)">Email body message</label>
+                  <span className="text-xs text-(--color-text-tertiary)">Supports dynamic personalization tags</span>
                 </div>
 
                 {/* Quick 1-click dynamic personalization tag chips */}
-                <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-3">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                <div className="rounded-(--radius-card) border border-(--color-border-primary) bg-(--color-background-primary) p-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-(--color-text-tertiary)">
                     Click tag to insert into message:
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -901,17 +1068,22 @@ function ResponseEmailEditorPage() {
                           toast.success(`Inserted ${item.tag}`);
                         }}
                         title={item.desc}
-                        className="group inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--color-text-primary)] hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-accent-surface)] hover:text-[var(--color-accent-primary)] transition-all active:scale-95"
+                        className={`group inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-all active:scale-95 ${
+                          item.highlight
+                            ? 'border-(--color-accent-primary) bg-(--color-accent-surface) text-(--color-accent-primary) shadow-sm'
+                            : 'border-(--color-border-primary) bg-(--color-background-secondary) text-(--color-text-primary) hover:border-(--color-accent-primary) hover:bg-(--color-accent-surface) hover:text-(--color-accent-primary)'
+                        }`}
                       >
-                        <span className="font-mono text-[11px] font-semibold text-[var(--color-accent-primary)]">{item.tag}</span>
-                        <span className="text-[10px] text-[var(--color-text-tertiary)] group-hover:text-[var(--color-accent-primary)]">({item.label})</span>
+                        {item.highlight && <Sparkles className="h-3 w-3 text-(--color-accent-primary)" />}
+                        <span className="font-mono text-[11px] font-semibold text-(--color-accent-primary)">{item.tag}</span>
+                        <span className="text-[10px] text-(--color-text-tertiary) group-hover:text-(--color-accent-primary)">({item.label})</span>
                       </button>
                     ))}
                   </div>
                 </div>
 
                 <textarea
-                  className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-4 py-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                  className="w-full rounded-(--radius-button) border border-(--color-border-primary) bg-(--color-background-primary) px-4 py-3 text-sm text-(--color-text-primary) placeholder:text-(--color-text-tertiary) focus:outline-none focus:ring-2 focus:ring-(--color-border-focus) focus:ring-offset-2"
                   rows={7}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
@@ -928,15 +1100,15 @@ function ResponseEmailEditorPage() {
                 />
                 <div />
                 <div className="md:col-span-2 space-y-2">
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Scripture / spotlight text (optional)</label>
+                  <label className="block text-sm font-medium text-(--color-text-secondary)">Scripture / spotlight text (optional)</label>
                   <textarea
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-4 py-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                    className="w-full rounded-(--radius-button) border border-(--color-border-primary) bg-(--color-background-primary) px-4 py-3 text-sm text-(--color-text-primary) placeholder:text-(--color-text-tertiary) focus:outline-none focus:ring-2 focus:ring-(--color-border-focus) focus:ring-offset-2"
                     rows={3}
                     value={spotlightText}
                     onChange={(e) => setSpotlightText(e.target.value)}
                     placeholder="Now therefore ye are no more strangers and foreigners..."
                   />
-                  <p className="text-xs text-[var(--color-text-tertiary)]">Renders as a highlighted callout box after the message.</p>
+                  <p className="text-xs text-(--color-text-tertiary)">Renders as a highlighted callout box after the message.</p>
                 </div>
               </section>
 
@@ -949,9 +1121,9 @@ function ResponseEmailEditorPage() {
                 />
                 <div />
                 <div className="md:col-span-2 space-y-2">
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)]">“What happens next” text (optional)</label>
+                  <label className="block text-sm font-medium text-(--color-text-secondary)">“What happens next” text (optional)</label>
                   <textarea
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-4 py-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                    className="w-full rounded-(--radius-button) border border-(--color-border-primary) bg-(--color-background-primary) px-4 py-3 text-sm text-(--color-text-primary) placeholder:text-(--color-text-tertiary) focus:outline-none focus:ring-2 focus:ring-(--color-border-focus) focus:ring-offset-2"
                     rows={4}
                     value={nextStepsText}
                     onChange={(e) => setNextStepsText(e.target.value)}
@@ -964,20 +1136,38 @@ function ResponseEmailEditorPage() {
                   onChange={(e) => setCtaLabel(e.target.value)}
                   placeholder="View Upcoming Church Activities"
                 />
-                <Input
-                  label="Button link (optional)"
-                  value={ctaUrl}
-                  onChange={(e) => setCtaUrl(e.target.value)}
-                  placeholder="https://..."
-                />
-                <p className="md:col-span-2 text-xs text-[var(--color-text-tertiary)]">The button renders inside the “What happens next” section.</p>
+                <div className="space-y-1">
+                  <Input
+                    label="Button link (optional)"
+                    value={ctaUrl}
+                    onChange={(e) => setCtaUrl(e.target.value)}
+                    placeholder="https://... or {{AttendingFlyerURL}}"
+                  />
+                  <div className="flex items-center justify-between text-xs text-(--color-text-tertiary) pt-1">
+                    <span>Target: URL or dynamic tag</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCtaLabel('✨ Generate My Attendee DP');
+                        setCtaUrl('{{AttendingFlyerURL}}');
+                        if (!nextStepsHeading.trim()) setNextStepsHeading('Get Your Attendee DP Flyer');
+                        toast.success('Set CTA button to Attendee DP Link');
+                      }}
+                      className="inline-flex items-center gap-1 font-semibold text-(--color-accent-primary) hover:underline"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      Quick-fill Attendee DP ({"{{AttendingFlyerURL}}"})
+                    </button>
+                  </div>
+                </div>
+                <p className="md:col-span-2 text-xs text-(--color-text-tertiary)">The button renders inside the “What happens next” section.</p>
               </section>
 
               <section className="grid gap-4 md:grid-cols-2">
                 <div className="md:col-span-2 space-y-2">
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Closing message (optional)</label>
+                  <label className="block text-sm font-medium text-(--color-text-secondary)">Closing message (optional)</label>
                   <textarea
-                    className="w-full rounded-[var(--radius-button)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-4 py-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)] focus:ring-offset-2"
+                    className="w-full rounded-(--radius-button) border border-(--color-border-primary) bg-(--color-background-primary) px-4 py-3 text-sm text-(--color-text-primary) placeholder:text-(--color-text-tertiary) focus:outline-none focus:ring-2 focus:ring-(--color-border-focus) focus:ring-offset-2"
                     rows={3}
                     value={closingMessage}
                     onChange={(e) => setClosingMessage(e.target.value)}
@@ -994,12 +1184,12 @@ function ResponseEmailEditorPage() {
               </section>
 
               {/* Callout to switch to Custom HTML */}
-              <div className="rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="rounded-(--radius-card) border border-(--color-border-primary) bg-(--color-background-primary) p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                  <p className="text-sm font-semibold text-(--color-text-primary)">
                     Need full HTML control instead?
                   </p>
-                  <p className="text-xs text-[var(--color-text-tertiary)]">
+                  <p className="text-xs text-(--color-text-tertiary)">
                     You can switch to Custom HTML mode to write or edit raw HTML without using these default response fields.
                   </p>
                 </div>
@@ -1025,7 +1215,7 @@ function ResponseEmailEditorPage() {
         {/* Right Column: Live Preview & Directly Editable HTML Tab */}
         <Card
           title="Live Preview"
-          className="bg-[var(--color-background-secondary)] xl:sticky xl:top-24 h-fit"
+          className="bg-(--color-background-secondary) xl:sticky xl:top-24 h-fit"
           actions={
             <div className="flex items-center gap-2">
               <Button
@@ -1050,8 +1240,8 @@ function ResponseEmailEditorPage() {
           }
           contentClassName="space-y-3"
         >
-          <div className="flex items-center gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs text-[var(--color-text-tertiary)]">
-            <LayoutTemplate className="h-4 w-4 text-[var(--color-text-secondary)]" />
+          <div className="flex items-center gap-2 rounded-(--radius-button) border border-(--color-border-secondary) bg-(--color-background-primary) px-3 py-2 text-xs text-(--color-text-tertiary)">
+            <LayoutTemplate className="h-4 w-4 text-(--color-text-secondary)" />
             <span className="truncate">
               {usingCustomHtml
                 ? 'Custom HTML mode is active. Live preview renders your edited markup.'
@@ -1059,17 +1249,17 @@ function ResponseEmailEditorPage() {
                   ? 'Rendering preview…'
                   : `Uses sample values for name${includeRegistrationArtifacts ? ' and registration number' : ''} in preview.`}
             </span>
-            <MailCheck className="ml-auto h-4 w-4 text-[var(--color-accent-success)] flex-shrink-0" />
+            <MailCheck className="ml-auto h-4 w-4 text-(--color-accent-success) shrink-0" />
           </div>
 
           {previewMode === 'rendered' ? (
-            <div className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-white">
-              <iframe title="email-preview" srcDoc={previewHTML} className="h-[760px] w-full" />
+            <div className="overflow-hidden rounded-(--radius-card) border border-(--color-border-secondary) bg-white">
+              <iframe title="email-preview" srcDoc={previewHTML} className="h-190 w-full" />
             </div>
           ) : (
             <div className="space-y-3">
               {/* HTML Section Toolbar */}
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-card)] border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] p-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-(--radius-card) border border-(--color-border-primary) bg-(--color-background-primary) p-2.5">
                 <div className="flex items-center gap-2">
                   {usingCustomHtml ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
@@ -1077,7 +1267,7 @@ function ResponseEmailEditorPage() {
                       Custom HTML (Editable)
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border-primary)] bg-[var(--color-background-secondary)] px-2.5 py-0.5 text-xs font-medium text-[var(--color-text-secondary)]">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-(--color-border-primary) bg-(--color-background-secondary) px-2.5 py-0.5 text-xs font-medium text-(--color-text-secondary)">
                       Default Template (Type below to edit)
                     </span>
                   )}
@@ -1114,6 +1304,15 @@ function ResponseEmailEditorPage() {
                   )}
                   <Button
                     type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleInsertDpButton(rightHtmlEditorRef)}
+                    icon={<Sparkles className="h-3.5 w-3.5" />}
+                  >
+                    + DP Button
+                  </Button>
+                  <Button
+                    type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => handleCopyHtml(currentHtmlValue)}
@@ -1126,7 +1325,7 @@ function ResponseEmailEditorPage() {
 
               {/* Dynamic tag chips toolbar */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-                <span className="text-[11px] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wider whitespace-nowrap">
+                <span className="text-[11px] font-semibold text-(--color-text-tertiary) uppercase tracking-wider whitespace-nowrap">
                   Insert Tag:
                 </span>
                 {PERSONALIZATION_TAGS.map((item) => (
@@ -1135,8 +1334,13 @@ function ResponseEmailEditorPage() {
                     type="button"
                     onClick={() => insertTag(item.tag, rightHtmlEditorRef)}
                     title={item.desc}
-                    className="inline-flex flex-shrink-0 items-center gap-1 rounded border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-2 py-0.5 font-mono text-[11px] font-medium text-[var(--color-accent-primary)] hover:border-[var(--color-accent-primary)] hover:bg-[var(--color-accent-surface)] transition-colors"
+                    className={`inline-flex shrink-0 items-center gap-1 rounded border px-2 py-0.5 font-mono text-[11px] font-medium transition-colors ${
+                      item.highlight
+                        ? 'border-(--color-accent-primary) bg-(--color-accent-surface) text-(--color-accent-primary) font-semibold shadow-sm'
+                        : 'border-(--color-border-primary) bg-(--color-background-primary) text-(--color-accent-primary) hover:border-(--color-accent-primary) hover:bg-(--color-accent-surface)'
+                    }`}
                   >
+                    {item.highlight && <Sparkles className="h-3 w-3 text-(--color-accent-primary)" />}
                     {item.tag}
                   </button>
                 ))}
@@ -1151,11 +1355,11 @@ function ResponseEmailEditorPage() {
                   rows={28}
                   spellCheck={false}
                   placeholder="Paste or write full HTML for complete control..."
-                  className="h-[680px] w-full resize-y rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 font-mono text-xs leading-relaxed text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)]"
+                  className="h-170 w-full resize-y rounded-(--radius-card) border border-(--color-border-secondary) bg-(--color-background-primary) p-4 font-mono text-xs leading-relaxed text-(--color-text-primary) placeholder:text-(--color-text-tertiary) focus:outline-none focus:ring-2 focus:ring-(--color-border-focus)"
                 />
               </div>
 
-              <div className="flex items-center justify-between text-xs text-[var(--color-text-tertiary)]">
+              <div className="flex items-center justify-between text-xs text-(--color-text-tertiary)">
                 <span>Any edits made here directly override the default response email.</span>
                 <span>Switch to <strong>Rendered</strong> tab to preview live.</span>
               </div>
