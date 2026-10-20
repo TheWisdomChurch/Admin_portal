@@ -269,7 +269,7 @@ function SubmissionsPage() {
         header: 'Attendee / Name',
         cell: (row: FormSubmission) => (
           <div className="flex flex-col">
-            <span className="flex items-center gap-1.5 font-bold text-[var(--color-text-primary)]">
+            <span className="flex items-center gap-1.5 font-bold text-(--color-text-primary)">
               {resolveFormSubmissionName(row, 'Anonymous Attendee')}
               {submissionHasMedia(row) ? (
                 <span
@@ -280,7 +280,7 @@ function SubmissionsPage() {
                 </span>
               ) : null}
             </span>
-            <span className="text-xs text-[var(--color-text-tertiary)]">
+            <span className="text-xs text-(--color-text-tertiary)">
               {row.contactNumber || 'No phone'}
             </span>
           </div>
@@ -290,7 +290,7 @@ function SubmissionsPage() {
         key: 'email' as keyof FormSubmission,
         header: 'Email Address',
         cell: (row: FormSubmission) => (
-          <span className="break-all font-medium text-[var(--color-text-secondary)]">
+          <span className="break-all font-medium text-(--color-text-secondary)">
             {resolveFormSubmissionEmail(row) || '—'}
           </span>
         ),
@@ -304,14 +304,14 @@ function SubmissionsPage() {
               {row.registrationCode}
             </span>
           ) : (
-            <span className="text-xs text-[var(--color-text-tertiary)]">None</span>
+            <span className="text-xs text-(--color-text-tertiary)">None</span>
           ),
       },
       {
         key: 'createdAt' as keyof FormSubmission,
         header: 'Submitted At',
         cell: (row: FormSubmission) => (
-          <span className="text-xs text-[var(--color-text-secondary)]">
+          <span className="text-xs text-(--color-text-secondary)">
             {new Date(row.createdAt).toLocaleString(undefined, {
               dateStyle: 'medium',
               timeStyle: 'short',
@@ -329,7 +329,7 @@ function SubmissionsPage() {
               e.stopPropagation();
               setSelectedSubmission(row);
             }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] px-2.5 py-1 text-xs font-semibold text-[var(--color-text-primary)] transition hover:border-[var(--color-accent-primary)] hover:text-[var(--color-accent-primary)]"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-(--color-border-primary) bg-(--color-background-primary) px-2.5 py-1 text-xs font-semibold text-(--color-text-primary) transition hover:border-(--color-accent-primary) hover:text-(--color-accent-primary)"
           >
             <Eye className="h-3.5 w-3.5" />
             Inspect
@@ -467,9 +467,9 @@ function SubmissionsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[360px] flex-col items-center justify-center gap-3">
-        <RefreshCw className="h-8 w-8 animate-spin text-[var(--color-accent-primary)]" />
-        <p className="text-sm font-semibold text-[var(--color-text-secondary)]">
+      <div className="flex min-h-90 flex-col items-center justify-center gap-3">
+        <RefreshCw className="h-8 w-8 animate-spin text-(--color-accent-primary)" />
+        <p className="text-sm font-semibold text-(--color-text-secondary)">
           Loading form submissions portal...
         </p>
       </div>
@@ -584,10 +584,10 @@ function SubmissionsPage() {
       {/* Analytics Chart & Latest Registrations */}
       <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
         <Panel>
-          <h2 className="text-base font-bold text-[var(--color-text-primary)]">
+          <h2 className="text-base font-bold text-(--color-text-primary)">
             Latest Registrations
           </h2>
-          <p className="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+          <p className="mt-0.5 text-xs text-(--color-text-tertiary)">
             Recently received responses for this form
           </p>
           <div className="mt-4 space-y-2.5">
@@ -597,10 +597,10 @@ function SubmissionsPage() {
                   type="button"
                   key={submission.id}
                   onClick={() => setSelectedSubmission(submission)}
-                  className="w-full rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3.5 text-left transition hover:border-[var(--color-accent-primary)] hover:shadow-sm"
+                  className="w-full rounded-2xl border border-(--color-border-secondary) bg-(--color-background-secondary) p-3.5 text-left transition hover:border-(--color-accent-primary) hover:shadow-sm"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="flex items-center gap-1.5 truncate text-sm font-bold text-[var(--color-text-primary)]">
+                    <p className="flex items-center gap-1.5 truncate text-sm font-bold text-(--color-text-primary)">
                       {resolveFormSubmissionName(submission, 'Anonymous Attendee')}
                       {submissionHasMedia(submission) ? (
                         <Paperclip className="h-3 w-3 text-amber-600" />
@@ -612,12 +612,12 @@ function SubmissionsPage() {
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-1 truncate text-xs text-[var(--color-text-secondary)]">
+                  <p className="mt-1 truncate text-xs text-(--color-text-secondary)">
                     {resolveFormSubmissionEmail(submission) ||
                       submission.contactNumber ||
                       'No contact info provided'}
                   </p>
-                  <p className="mt-1.5 text-[11px] text-[var(--color-text-tertiary)]">
+                  <p className="mt-1.5 text-[11px] text-(--color-text-tertiary)">
                     {new Date(submission.createdAt).toLocaleString(undefined, {
                       dateStyle: 'short',
                       timeStyle: 'short',
@@ -626,7 +626,7 @@ function SubmissionsPage() {
                 </button>
               ))
             ) : (
-              <p className="py-6 text-center text-sm text-[var(--color-text-tertiary)]">
+              <p className="py-6 text-center text-sm text-(--color-text-tertiary)">
                 No registrations received yet.
               </p>
             )}
@@ -636,10 +636,10 @@ function SubmissionsPage() {
         <Panel>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-base font-bold text-[var(--color-text-primary)]">
+              <h2 className="text-base font-bold text-(--color-text-primary)">
                 Registrations Over Time
               </h2>
-              <p className="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+              <p className="mt-0.5 text-xs text-(--color-text-tertiary)">
                 Daily attendee enrollment activity series
               </p>
             </div>
@@ -667,9 +667,9 @@ function SubmissionsPage() {
               </Button>
             </div>
           </div>
-          <div className="mt-5 h-[260px]">
+          <div className="mt-5 h-65">
             {totalCount === 0 ? (
-              <div className="grid h-full place-items-center text-center text-sm text-[var(--color-text-tertiary)]">
+              <div className="grid h-full place-items-center text-center text-sm text-(--color-text-tertiary)">
                 No activity yet. This chart fills in automatically as submissions arrive.
               </div>
             ) : (
@@ -692,32 +692,32 @@ function SubmissionsPage() {
 
       {/* Main Submissions Table & Live Search/Filter Controls */}
       <Panel>
-        <div className="flex flex-col gap-4 border-b border-[var(--color-border-secondary)] pb-5">
+        <div className="flex flex-col gap-4 border-b border-(--color-border-secondary) pb-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-bold text-[var(--color-text-primary)]">
+              <h2 className="text-lg font-bold text-(--color-text-primary)">
                 Attendee Records & Responses
               </h2>
-              <p className="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+              <p className="mt-0.5 text-xs text-(--color-text-tertiary)">
                 Showing {sortedFilteredSubmissions.length} of {totalCount} total attendee submissions
               </p>
             </div>
 
             {/* Live Search Input */}
             <div className="relative w-full max-w-md">
-              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
+              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-(--color-text-tertiary)" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by name, email, phone, code, answers..."
-                className="h-10 w-full rounded-xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] pl-10 pr-9 text-xs text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] transition focus:border-[var(--color-accent-primary)] focus:outline-none"
+                className="h-10 w-full rounded-xl border border-(--color-border-primary) bg-(--color-background-primary) pl-10 pr-9 text-xs text-(--color-text-primary) placeholder-(--color-text-tertiary) transition focus:border-(--color-accent-primary) focus:outline-none"
               />
               {search ? (
                 <button
                   type="button"
                   onClick={() => setSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-(--color-text-tertiary) hover:text-(--color-text-primary)"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -728,7 +728,7 @@ function SubmissionsPage() {
           {/* Filter Pills & Toggles */}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold text-[var(--color-text-tertiary)]">
+              <span className="text-xs font-semibold text-(--color-text-tertiary)">
                 Filters:
               </span>
 
@@ -737,8 +737,8 @@ function SubmissionsPage() {
                 onClick={() => setRange(range === 'all' ? 7 : 'all')}
                 className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
                   range !== 'all'
-                    ? 'border-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)]'
-                    : 'border-[var(--color-border-primary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-hover)]'
+                    ? 'border-(--color-accent-primary) bg-(--color-accent-primary)/10 text-(--color-accent-primary)'
+                    : 'border-(--color-border-primary) text-(--color-text-secondary) hover:bg-(--color-background-hover)'
                 }`}
               >
                 <CalendarDays className="h-3 w-3" />
@@ -751,7 +751,7 @@ function SubmissionsPage() {
                 className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
                   onlyWithCode
                     ? 'border-amber-500 bg-amber-500/15 text-amber-800 dark:text-amber-300'
-                    : 'border-[var(--color-border-primary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-hover)]'
+                    : 'border-(--color-border-primary) text-(--color-text-secondary) hover:bg-(--color-background-hover)'
                 }`}
               >
                 <CheckCircle2 className="h-3 w-3" />
@@ -764,7 +764,7 @@ function SubmissionsPage() {
                 className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
                   onlyWithMedia
                     ? 'border-amber-500 bg-amber-500/15 text-amber-800 dark:text-amber-300'
-                    : 'border-[var(--color-border-primary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-hover)]'
+                    : 'border-(--color-border-primary) text-(--color-text-secondary) hover:bg-(--color-background-hover)'
                 }`}
               >
                 <Paperclip className="h-3 w-3" />
@@ -776,7 +776,7 @@ function SubmissionsPage() {
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-danger-text)] hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-(--color-danger-text) hover:underline"
               >
                 <X className="h-3.5 w-3.5" />
                 Clear all filters
