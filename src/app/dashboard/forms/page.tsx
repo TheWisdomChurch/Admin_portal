@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState, type MouseEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ChevronDown, Clipboard, Edit3, ExternalLink, FileText, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ChevronDown, Clipboard, Edit3, ExternalLink, FileText, Mail, Plus, RefreshCw, Search, Trash2, Users, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { PageHeader } from '@/layouts';
@@ -104,9 +104,21 @@ function SlugPill({ form }: { form: AdminForm }) {
 function FormAccordionRow({ form, deleting, onDelete }: { form: AdminForm; deleting: boolean; onDelete: (form: AdminForm) => void }) {
   const fields = [...(form.fields || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
   const editHref = `/dashboard/forms/${encodeURIComponent(form.id)}/edit`;
+  const submissionsHref = `/dashboard/forms/${encodeURIComponent(form.id)}/submissions`;
+  const reportHref = `/dashboard/forms/${encodeURIComponent(form.id)}/report`;
+  const emailHref = `/dashboard/forms/${encodeURIComponent(form.id)}/response-email`;
+  const subCount = getFormSubmissionCount(form);
 
   const actions = (
     <div className="flex flex-wrap items-center gap-2">
+      <Link
+        href={submissionsHref}
+        onClick={(event) => event.stopPropagation()}
+        className="inline-flex items-center gap-2 rounded-[var(--radius-button)] bg-[var(--color-accent-primary)] px-3 py-2 text-xs font-semibold text-[var(--color-accent-contrast)] shadow-sm hover:opacity-90"
+      >
+        <Users className="h-3.5 w-3.5" />
+        View Submissions ({formatNumber(subCount)})
+      </Link>
       <Link
         href={editHref}
         onClick={(event) => event.stopPropagation()}
@@ -114,6 +126,22 @@ function FormAccordionRow({ form, deleting, onDelete }: { form: AdminForm; delet
       >
         <Edit3 className="h-3.5 w-3.5" />
         Edit fields
+      </Link>
+      <Link
+        href={reportHref}
+        onClick={(event) => event.stopPropagation()}
+        className="inline-flex items-center gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-primary)] px-3 py-2 text-xs font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-background-hover)]"
+      >
+        <FileText className="h-3.5 w-3.5" />
+        Report
+      </Link>
+      <Link
+        href={emailHref}
+        onClick={(event) => event.stopPropagation()}
+        className="inline-flex items-center gap-2 rounded-[var(--radius-button)] border border-[var(--color-border-primary)] px-3 py-2 text-xs font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-background-hover)]"
+      >
+        <Mail className="h-3.5 w-3.5" />
+        Email
       </Link>
       <button
         type="button"
@@ -159,7 +187,16 @@ function FormAccordionRow({ form, deleting, onDelete }: { form: AdminForm; delet
           </div>
           <div>
             <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Submissions</dt>
-            <dd className="mt-0.5 font-semibold text-[var(--color-text-primary)]">{formatNumber(getFormSubmissionCount(form))}</dd>
+            <dd className="mt-0.5">
+              <Link
+                href={submissionsHref}
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 font-semibold text-[var(--color-accent-primary)] hover:underline"
+              >
+                {formatNumber(subCount)}
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            </dd>
           </div>
           <div className="col-span-2">
             <dt className="font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Updated</dt>
@@ -171,6 +208,23 @@ function FormAccordionRow({ form, deleting, onDelete }: { form: AdminForm; delet
       </summary>
 
       <div className="border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-4">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3.5">
+          <div>
+            <p className="text-sm font-bold text-[var(--color-text-primary)]">
+              Submissions & Data Portal
+            </p>
+            <p className="text-xs text-[var(--color-text-tertiary)]">
+              {formatNumber(subCount)} attendee {subCount === 1 ? 'response' : 'responses'} recorded. Inspect records, search attendees, or export structured PDF & Excel dossiers.
+            </p>
+          </div>
+          <Link
+            href={submissionsHref}
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-accent-primary)] px-3.5 py-1.5 text-xs font-bold text-[var(--color-accent-contrast)] shadow-sm hover:opacity-90"
+          >
+            <Users className="h-3.5 w-3.5" />
+            Open Submissions
+          </Link>
+        </div>
         {fields.length > 0 ? (
           <div>
             <div className="grid gap-3 lg:hidden">

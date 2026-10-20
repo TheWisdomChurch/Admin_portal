@@ -1,12 +1,14 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Download, ExternalLink, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
 import { Modal } from '@/ui/Modal';
 import {
+  exportSingleSubmissionReceiptPdf,
   isLikelyImageUrl,
   resolveFormSubmissionEmail,
   resolveFormSubmissionName,
@@ -143,6 +145,26 @@ export function SubmissionDetailModal({
     return result;
   }, [submission, form]);
 
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadReceipt = async () => {
+    if (!submission) return;
+    try {
+      setDownloading(true);
+      await exportSingleSubmissionReceiptPdf(submission, {
+        formTitle: form?.title,
+        formSlug: form?.slug,
+        formId: form?.id,
+        fields: form?.fields,
+      });
+      toast.success('Registration receipt PDF downloaded');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to download receipt');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   if (!submission) return null;
 
   const name = resolveFormSubmissionName(submission, 'Anonymous');
@@ -224,9 +246,20 @@ export function SubmissionDetailModal({
               ? ` · accepted ${new Date(consentRecordedAt).toLocaleString()}`
               : ''}
           </p>
-          <Button variant="outline" size="sm" onClick={onClose}>
-            Close
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Download className="h-4 w-4" />}
+              onClick={handleDownloadReceipt}
+              loading={downloading}
+            >
+              Download PDF Receipt
+            </Button>
+            <Button variant="outline" size="sm" onClick={onClose}>
+              Close
+            </Button>
+          </div>
         </div>
       </div>
     </Modal>

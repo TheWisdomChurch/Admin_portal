@@ -557,6 +557,46 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
   }
 }
 
+export async function apiFetchBlob(endpoint: string, options: RequestInit = {}): Promise<Blob> {
+  const proxyUrl = API_V1_BASE_URL + endpoint;
+  const headers: Record<string, string> = {
+    ...toHeaderRecord(options.headers),
+  };
+
+  const response = await fetch(proxyUrl, {
+    ...options,
+    headers,
+    credentials: 'include',
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 && endpoint.startsWith('/admin/') && typeof window !== 'undefined') {
+      clearAuthStorage();
+      window.location.href = '/login?reason=session_expired';
+    }
+    const errorJson = await safeParseJson(response);
+    const message =
+      (isRecord(errorJson) && getMessageFromPayload(errorJson)) ||
+      `Download request failed (${response.status})`;
+    throw createApiError(message, response.status, errorJson);
+  }
+
+  return response.blob();
+}
+
+export function triggerBlobDownload(blob: Blob, filename: string): void {
+  if (typeof window === 'undefined') return;
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  window.URL.revokeObjectURL(url);
+}
+
 async function uploadFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const proxyUrl = `${UPLOAD_V1_BASE_URL}${endpoint}`;
   const method = String(options.method || 'GET').toUpperCase();
@@ -1647,6 +1687,11 @@ export const apiClient = {
     const qs = toQueryString(params);
     const res = await apiFetch(`/admin/forms/${encodeURIComponent(id)}/submissions${qs}`, { method: 'GET' });
     return unwrapSimplePaginated<FormSubmission>(res, 'Invalid submissions payload');
+  },
+
+  async downloadFormSubmissionsPdf(id: string, params?: { start?: string; end?: string; protect?: boolean; password?: string }): Promise<Blob> {
+    const qs = toQueryString(params);
+    return apiFetchBlob(`/admin/forms/${encodeURIComponent(id)}/submissions/export.pdf${qs}`, { method: 'GET' });
   },
 
   async getFormSubmissionStats(id: string): Promise<FormSubmissionDailyStat[]> {
