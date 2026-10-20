@@ -3,6 +3,18 @@ import type { FormField, FormReportLinkPayload, FormSubmission } from '../types'
 import { normalizeEmail, validateEmail } from '../utils';
 import { formatStoredFormDate, isStoredFormDate } from './formatFieldDate';
 import type { FieldInsight, FormAnalytics } from './formAnalytics';
+import {
+  exportSingleSubmissionReceiptPdf,
+  exportStructuredSubmissionsPdf,
+  type StructuredSubmissionsPdfOptions,
+} from './formSubmissionsPdf';
+
+export {
+  exportSingleSubmissionReceiptPdf,
+  exportStructuredSubmissionsPdf,
+  type FormSubmission,
+  type StructuredSubmissionsPdfOptions,
+};
 
 export type FormSubmissionFilters = {
   query?: string;
@@ -48,7 +60,7 @@ function sanitizeFilePart(value?: string): string {
   return normalized || 'form-submissions';
 }
 
-function buildFilename(prefix: string, fileLabel?: string): string {
+export function buildFilename(prefix: string, fileLabel?: string): string {
   return `${prefix}-${sanitizeFilePart(fileLabel)}-${new Date().toISOString().slice(0, 10)}`;
 }
 
@@ -325,7 +337,7 @@ export function buildOrderedValueKeys(
   return orderedKeys;
 }
 
-function buildSubmissionResponseEntries(
+export function buildSubmissionResponseEntries(
   submission: FormSubmission,
   orderedValueKeys: string[]
 ): Array<[string, unknown]> {
@@ -388,7 +400,7 @@ export function sortFormSubmissionsByCreatedAt(submissions: FormSubmission[]): F
   });
 }
 
-function buildFilterSummary(filters?: FormSubmissionFilters): string[] {
+export function buildFilterSummary(filters?: FormSubmissionFilters): string[] {
   const summary: string[] = [];
 
   if (filters?.query?.trim()) {
@@ -471,201 +483,12 @@ export async function exportFormSubmissionsPdf(
   filters?: FormSubmissionFilters,
   fields?: ExportFormField[]
 ): Promise<void> {
-  const orderedSubmissions = sortFormSubmissionsByCreatedAt(submissions);
-  if (orderedSubmissions.length === 0) {
-    throw new Error('No submissions to export');
-  }
-
-  const { jsPDF } = await import('jspdf');
-  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-  const orderedValueKeys = buildOrderedValueKeys(orderedSubmissions, fields);
-  const fieldLabelMap = buildFieldLabelMap(fields);
-  const fieldTypeMap = new Map<string, string>();
-  (fields || []).forEach((field) => {
-    if (field.key) fieldTypeMap.set(field.key, String(field.type || ''));
+  return exportStructuredSubmissionsPdf(submissions, {
+    formTitle: fileLabel,
+    fileLabel,
+    filters,
+    fields,
   });
-  const margin = 44;
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const maxWidth = pageWidth - margin * 2;
-  const footerHeight = 28;
-  let y = margin;
-
-  const ensureSpace = (requiredHeight: number) => {
-    if (y + requiredHeight <= pageHeight - margin - footerHeight) return;
-    doc.addPage();
-    y = margin;
-  };
-
-  const writeText = (
-    text: string,
-    options?: {
-      fontSize?: number;
-      fontStyle?: 'normal' | 'bold';
-      color?: [number, number, number];
-      indent?: number;
-      gapAfter?: number;
-    }
-  ) => {
-    const {
-      fontSize = 11,
-      fontStyle = 'normal',
-      color = [31, 41, 55],
-      indent = 0,
-      gapAfter = 8,
-    } = options || {};
-    const lineHeight = fontSize * 1.35;
-    const lines = doc.splitTextToSize(text, Math.max(64, maxWidth - indent));
-
-    ensureSpace(lines.length * lineHeight + gapAfter);
-    doc.setFont('helvetica', fontStyle);
-    doc.setFontSize(fontSize);
-    doc.setTextColor(color[0], color[1], color[2]);
-    doc.text(lines, margin + indent, y);
-    y += lines.length * lineHeight + gapAfter;
-  };
-
-  const drawDivider = () => {
-    ensureSpace(12);
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(1);
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 12;
-  };
-
-  writeText(fileLabel?.trim() || 'Form submissions report', {
-    fontSize: 18,
-    fontStyle: 'bold',
-    color: [15, 23, 42],
-    gapAfter: 6,
-  });
-  writeText(`Generated ${formatDateTime(new Date().toISOString())}`, {
-    fontSize: 10,
-    color: [100, 116, 139],
-    gapAfter: 4,
-  });
-  writeText(`Total submissions: ${orderedSubmissions.length}`, {
-    fontSize: 10,
-    color: [71, 85, 105],
-    gapAfter: 10,
-  });
-
-  const filterSummary = buildFilterSummary(filters);
-  if (filterSummary.length > 0) {
-    writeText(`Filters: ${filterSummary.join(' | ')}`, {
-      fontSize: 10,
-      color: [71, 85, 105],
-      gapAfter: 12,
-    });
-  }
-
-  const embedImage = async (url: string) => {
-    const dataUrl = await fetchAsDataUrl(url);
-    if (!dataUrl) return false;
-    const format = dataUrlImageFormat(dataUrl);
-    if (!format) return false;
-    try {
-      const props = doc.getImageProperties(dataUrl);
-      const displayWidth = Math.min(140, maxWidth - 10);
-      const displayHeight = (props.height / props.width) * displayWidth;
-      ensureSpace(displayHeight + 10);
-      doc.addImage(dataUrl, format, margin + 10, y, displayWidth, displayHeight);
-      y += displayHeight + 10;
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  drawDivider();
-
-  for (const [index, submission] of orderedSubmissions.entries()) {
-    const resolvedName = resolveFormSubmissionName(submission, '');
-    const resolvedEmail = resolveFormSubmissionEmail(submission);
-    const heading = resolvedName || resolvedEmail || `Submission ${index + 1}`;
-    const details: Array<[string, string]> = [
-      ['Submitted', formatDateTime(submission.createdAt)],
-      ['Registration Code', submission.registrationCode || 'Not provided'],
-      ['Email', resolvedEmail || 'Not provided'],
-      ['Contact Number', submission.contactNumber || 'Not provided'],
-      ['Contact Address', submission.contactAddress || 'Not provided'],
-    ];
-    const responseEntries = buildSubmissionResponseEntries(submission, orderedValueKeys);
-
-    ensureSpace(80);
-    writeText(heading, {
-      fontSize: 13,
-      fontStyle: 'bold',
-      color: [15, 23, 42],
-      gapAfter: 6,
-    });
-
-    details.forEach(([label, value]) => {
-      writeText(`${label}: ${value}`, {
-        fontSize: 10,
-        color: [51, 65, 85],
-        gapAfter: 4,
-      });
-    });
-
-    if (responseEntries.length > 0) {
-      writeText('Responses', {
-        fontSize: 10,
-        fontStyle: 'bold',
-        color: [15, 23, 42],
-        gapAfter: 4,
-      });
-
-      for (const [key, value] of responseEntries) {
-        const label = resolveExportFieldLabel(key, fieldLabelMap);
-        const mediaUrl = resolveSubmissionMediaUrl(value);
-        const isImageField =
-          mediaUrl != null &&
-          (fieldTypeMap.get(key) === 'image' || isLikelyImageUrl(mediaUrl));
-
-        writeText(`${label}: ${serializeSubmissionValue(value) || 'Not provided'}`, {
-          fontSize: 10,
-          color: [71, 85, 105],
-          indent: 10,
-          gapAfter: isImageField ? 2 : 4,
-        });
-
-        if (isImageField) {
-          await embedImage(mediaUrl);
-        }
-      }
-    } else {
-      writeText('Responses: No custom fields submitted.', {
-        fontSize: 10,
-        color: [100, 116, 139],
-        gapAfter: 4,
-      });
-    }
-
-    if (index < orderedSubmissions.length - 1) {
-      drawDivider();
-    }
-  }
-
-  const pages = doc.getNumberOfPages();
-  for (let page = 1; page <= pages; page += 1) {
-    doc.setPage(page);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(148, 163, 184);
-    doc.text(`Page ${page} of ${pages}`, pageWidth - margin, pageHeight - 12, { align: 'right' });
-  }
-
-  const filename = `${buildFilename('form-submissions', fileLabel)}.pdf`;
-  const saveResult = (
-    doc as unknown as {
-      save: (name: string, options?: { returnPromise?: boolean }) => unknown;
-    }
-  ).save(filename, { returnPromise: true });
-
-  if (saveResult && typeof (saveResult as PromiseLike<unknown>).then === 'function') {
-    await saveResult;
-  }
 }
 
 export async function fetchAllFormSubmissions(formId: string): Promise<FormSubmission[]> {
