@@ -799,9 +799,36 @@ export default withAuth(function NewFormPage() {
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
           <SectionCard title="Core form setup" subtitle="Name the form, define the public link, choose routing, and attach event settings." icon={<FileText className="h-5 w-5" />}>
             <div className="grid gap-5 md:grid-cols-2">
-              <Input label="Title *" value={title} onChange={(event) => { clearFieldError('title'); setTitle(event.target.value); }} placeholder="e.g., Youth Summit Registration" error={fieldErrors.title} />
+              <Input
+                label="Title *"
+                value={title}
+                onChange={(event) => {
+                  clearFieldError('title');
+                  const newTitle = event.target.value;
+                  setTitle(newTitle);
+                  if (!slug || slug === normalizeSlug(title)) {
+                    setSlug(normalizeSlug(newTitle));
+                  }
+                }}
+                placeholder="e.g., Youth Summit Registration"
+                error={fieldErrors.title}
+              />
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-(--color-text-secondary)">Public Link Slug *</label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-(--color-text-secondary)">Public Link Slug *</label>
+                  {title && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearFieldError('slug');
+                        setSlug(normalizeSlug(title));
+                      }}
+                      className="text-xs font-semibold text-(--color-accent-primary) hover:underline"
+                    >
+                      Reset from Title
+                    </button>
+                  )}
+                </div>
                 <div className={`flex items-center rounded-(--radius-button) border bg-(--color-background-secondary) pl-3 text-sm transition focus-within:ring-2 focus-within:ring-(--color-border-focus) ${fieldErrors.slug ? 'border-(--color-border-error) focus-within:ring-(--color-border-error)' : 'border-(--color-border-primary)'}`}>
                   <span className="shrink-0 select-none font-mono text-(--color-text-tertiary)">/forms/</span>
                   {/* eslint-disable-next-line no-restricted-syntax -- compound input: "/forms/" prefix sits inline inside the same bordered box, which the shared <Input>'s standalone layout can't express */}
@@ -809,14 +836,19 @@ export default withAuth(function NewFormPage() {
                     value={slug}
                     onChange={(event) => { clearFieldError('slug'); setSlug(event.target.value); }}
                     onBlur={() => setSlug((current) => normalizeSlug(current))}
-                    placeholder="wpc"
+                    placeholder="youth-summit-2026"
                     className="h-10 w-full min-w-0 rounded-r-(--radius-button) bg-transparent py-2 pr-3 font-mono text-(--color-text-primary) outline-none placeholder:text-(--color-text-tertiary)"
                   />
                 </div>
+                {slug?.toLowerCase().trim() === 'test' && (
+                  <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                    ⚠️ Avoid generic &ldquo;test&rdquo; slugs. Set this to your event name so WhatsApp status links look official.
+                  </p>
+                )}
                 {fieldErrors.slug ? (
                   <p className="text-sm text-(--color-danger-text)">{fieldErrors.slug}</p>
                 ) : (
-                  <p className="text-xs font-semibold text-(--color-text-tertiary)">This becomes the public link visitors use to open the form.</p>
+                  <p className="text-xs font-semibold text-(--color-text-tertiary)">This becomes the official link visitors and DP generators use.</p>
                 )}
               </div>
 

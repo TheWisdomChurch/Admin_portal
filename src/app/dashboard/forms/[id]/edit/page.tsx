@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Copy, Save, Globe, Mail, MailCheck, Send, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Copy, Save, Globe, Mail, MailCheck, Send, ExternalLink, AlertTriangle, Sparkles } from 'lucide-react';
 
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
@@ -208,6 +208,14 @@ function sanitizeContentSections(sections?: FormContentSection[]): FormContentSe
 
   return normalized.length > 0 ? normalized : undefined;
 }
+
+const normalizeSlug = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-|-$/g, '');
 
 function EditFormPage() {
   const params = useParams();
@@ -702,13 +710,147 @@ function EditFormPage() {
             error={fieldErrors.title}
           />
 
-          <Input
-            label="Public form link"
-            value={form.slug || ''}
-            onChange={(event) => { clearFieldError('slug'); setForm({ ...form, slug: event.target.value }); }}
-            error={fieldErrors.slug}
-            helperText="Edit the final part of the link. Existing published links remain active as redirects after you save."
-          />
+          {/* Public Link Vanity Section */}
+          <div className="space-y-3 rounded-2xl border border-(--color-border-primary) bg-(--color-background-secondary) p-4">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <label className="block text-sm font-bold text-(--color-text-primary)">
+                  Public Form Link & Vanity Slug *
+                </label>
+                <p className="text-xs text-(--color-text-tertiary)">
+                  This slug defines the official church URL for both registration and the Attendee DP Studio.
+                </p>
+              </div>
+              {form.title && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearFieldError('slug');
+                    setForm({ ...form, slug: normalizeSlug(form.title) });
+                    toast.success('Slug generated from title');
+                  }}
+                  className="inline-flex items-center gap-1.5 self-start text-xs font-semibold text-(--color-accent-primary) hover:underline sm:self-auto"
+                >
+                  <Sparkles className="h-3.5 w-3.5" /> Auto-generate from Title
+                </button>
+              )}
+            </div>
+
+            <div
+              className={`flex items-center rounded-(--radius-button) border bg-(--color-background-primary) pl-3 text-sm transition focus-within:ring-2 focus-within:ring-(--color-border-focus) ${
+                fieldErrors.slug
+                  ? 'border-(--color-border-error) focus-within:ring-(--color-border-error)'
+                  : 'border-(--color-border-primary)'
+              }`}
+            >
+              <span className="shrink-0 select-none font-mono text-xs text-(--color-text-tertiary)">
+                /forms/
+              </span>
+              <input
+                value={form.slug || ''}
+                onChange={(event) => {
+                  clearFieldError('slug');
+                  setForm({ ...form, slug: event.target.value });
+                }}
+                onBlur={() => {
+                  if (form.slug) {
+                    setForm({ ...form, slug: normalizeSlug(form.slug) });
+                  }
+                }}
+                placeholder="celebrating-jesus"
+                className="h-10 w-full min-w-0 bg-transparent py-2 pr-3 font-mono text-sm text-(--color-text-primary) outline-none placeholder:text-(--color-text-tertiary)"
+              />
+            </div>
+            {fieldErrors.slug && (
+              <p className="text-xs font-semibold text-(--color-danger-text)">{fieldErrors.slug}</p>
+            )}
+
+            {/* Warning if slug is generic 'test' */}
+            {form.slug?.toLowerCase().trim() === 'test' && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-950 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-300">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                  <div>
+                    <p className="font-bold">Generic &ldquo;test&rdquo; link detected</p>
+                    <p className="mt-1 leading-relaxed">
+                      Your link is currently <code className="font-mono font-bold bg-amber-100 dark:bg-amber-900/60 px-1 py-0.5 rounded">/forms/test</code>. When attendees generate and share their e-flyer on WhatsApp, visitors will see <code className="font-mono font-bold bg-amber-100 dark:bg-amber-900/60 px-1 py-0.5 rounded">wisdomchurchhq.org/forms/test/dp</code>, which makes the program appear unverified or temporary.
+                    </p>
+                    <p className="mt-1.5 font-semibold">
+                      Click &ldquo;Auto-generate from Title&rdquo; above or enter your program name (e.g. &ldquo;celebrating-jesus&rdquo;) and save to ensure your links look 100% official and trustworthy.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Live URL Previews */}
+            <div className="mt-2 grid gap-2 pt-2 border-t border-(--color-border-secondary) sm:grid-cols-2">
+              <div className="flex items-center justify-between rounded-xl border border-(--color-border-secondary) bg-(--color-background-primary) p-2.5">
+                <div className="min-w-0 pr-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-(--color-text-tertiary)">
+                    Registration Link
+                  </p>
+                  <p className="truncate font-mono text-xs font-semibold text-(--color-text-primary)">
+                    /forms/{form.slug || '[slug]'}
+                  </p>
+                </div>
+                {form.slug && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const url = buildPublicFormUrl(form.slug, form.publicUrl);
+                      if (url) {
+                        await navigator.clipboard.writeText(url);
+                        toast.success('Registration link copied');
+                      }
+                    }}
+                    className="shrink-0 rounded-lg p-1.5 text-(--color-text-tertiary) hover:bg-(--color-background-secondary) hover:text-(--color-text-primary)"
+                    title="Copy registration link"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl border border-(--color-border-secondary) bg-(--color-background-primary) p-2.5">
+                <div className="min-w-0 pr-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-(--lp-gold)">
+                    DP / E-Flyer Studio Link
+                  </p>
+                  <p className="truncate font-mono text-xs font-semibold text-(--color-text-primary)">
+                    /forms/{form.slug || '[slug]'}/dp
+                  </p>
+                </div>
+                {form.slug && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const base =
+                          (typeof window !== 'undefined' && window.location.origin) ||
+                          'https://wisdomchurchhq.org';
+                        await navigator.clipboard.writeText(`${base}/forms/${form.slug}/dp`);
+                        toast.success('DP Studio link copied');
+                      }}
+                      className="shrink-0 rounded-lg p-1.5 text-(--color-text-tertiary) hover:bg-(--color-background-secondary) hover:text-(--color-text-primary)"
+                      title="Copy DP Studio link"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                    <a
+                      href={`/forms/${form.slug}/dp`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="shrink-0 rounded-lg p-1.5 text-(--color-text-tertiary) hover:bg-(--color-background-secondary) hover:text-(--color-text-primary)"
+                      title="Open DP Studio in new tab"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
 
           <div className="space-y-1">
             <label className="block text-sm font-medium text-(--color-text-secondary)">Description</label>
@@ -863,7 +1005,7 @@ function EditFormPage() {
             {form.settings?.attendingBadge?.enabled && (
               <div className="space-y-3 pt-2">
                 <Input
-                  label="Badge Tagline Script"
+                  label="Announcement Tagline (on Flyer & Callout Badge)"
                   value={form.settings?.attendingBadge?.badgeText || 'I Will Be Attending'}
                   onChange={(e) => {
                     updateSettings({
@@ -874,10 +1016,22 @@ function EditFormPage() {
                     });
                   }}
                   placeholder="e.g. I Will Be Attending"
+                  helperText="Rendered in the radiant gold luxury callout badge (✦ I WILL BE ATTENDING ✦) on the attendee's personalized e-flyer."
                 />
-                <p className="text-xs text-(--color-text-tertiary)">
-                  Registrants can access /forms/{form.slug || form.id}/dp to generate and download their Status Flyer (9:16) and Square DP (1:1).
-                </p>
+                <div className="flex items-center justify-between rounded-xl border border-(--color-border-secondary) bg-(--color-background-primary) p-3">
+                  <div>
+                    <p className="text-xs font-bold text-(--color-text-primary)">Live DP Studio Route</p>
+                    <p className="font-mono text-xs text-(--lp-gold)">/forms/{form.slug || form.id}/dp</p>
+                  </div>
+                  <a
+                    href={`/forms/${form.slug || form.id}/dp`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-(--color-border-primary) px-3 py-1.5 text-xs font-semibold text-(--color-text-primary) hover:bg-(--color-background-secondary)"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" /> Test Studio
+                  </a>
+                </div>
               </div>
             )}
           </div>
