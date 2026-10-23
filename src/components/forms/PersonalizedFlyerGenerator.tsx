@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
 import {
   ArrowDownToLine,
   Camera,
@@ -32,6 +31,7 @@ interface PersonalizedFlyerGeneratorProps {
 type FlyerFormat = 'status_9_16' | 'square_1_1';
 type BadgeStyle = 'polaroid' | 'badge' | 'glass_card' | 'minimal';
 type BuiltinTheme = 'event' | 'gold_majesty' | 'royal_midnight' | 'morning_glory' | 'sanctuary';
+type FlyerFitMode = 'ambient_studio' | 'full_cover';
 
 const THEME_OPTIONS: { id: BuiltinTheme; label: string; desc: string; gradient: string }[] = [
   {
@@ -66,6 +66,54 @@ const THEME_OPTIONS: { id: BuiltinTheme; label: string; desc: string; gradient: 
   },
 ];
 
+/**
+ * Universal cross-browser rounded rectangle generator.
+ * Works natively on ALL mobile WebViews and older browsers without relying on ctx.roundRect().
+ */
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number | number[]
+) {
+  let tl = 0;
+  let tr = 0;
+  let br = 0;
+  let bl = 0;
+
+  if (typeof radius === 'number') {
+    tl = tr = br = bl = radius;
+  } else if (Array.isArray(radius)) {
+    if (radius.length === 1) tl = tr = br = bl = radius[0];
+    else if (radius.length === 2) {
+      tl = br = radius[0];
+      tr = bl = radius[1];
+    } else if (radius.length === 4) {
+      [tl, tr, br, bl] = radius;
+    }
+  }
+
+  const maxR = Math.min(width / 2, height / 2);
+  tl = Math.min(tl, maxR);
+  tr = Math.min(tr, maxR);
+  br = Math.min(br, maxR);
+  bl = Math.min(bl, maxR);
+
+  ctx.beginPath();
+  ctx.moveTo(x + tl, y);
+  ctx.lineTo(x + width - tr, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + tr);
+  ctx.lineTo(x + width, y + height - br);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - br, y + height);
+  ctx.lineTo(x + bl, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - bl);
+  ctx.lineTo(x, y + tl);
+  ctx.quadraticCurveTo(x, y, x + tl, y);
+  ctx.closePath();
+}
+
 export function PersonalizedFlyerGenerator({
   flyerUrl: initialFlyerUrl = '',
   eventName: initialEventName,
@@ -91,12 +139,17 @@ export function PersonalizedFlyerGenerator({
 
   // Media states
   const [customTemplateSrc, setCustomTemplateSrc] = useState<string | null>(null);
-  const [selectedTheme, setSelectedTheme] = useState<BuiltinTheme>(initialFlyerUrl ? 'event' : 'gold_majesty');
+  const [selectedTheme, setSelectedTheme] = useState<BuiltinTheme>(
+    initialFlyerUrl ? 'event' : 'gold_majesty'
+  );
   const [photoSrc, setPhotoSrc] = useState<string | null>(null);
 
   // Layout & Style states
   const [format, setFormat] = useState<FlyerFormat>('status_9_16');
-  const [badgeStyle, setBadgeStyle] = useState<BadgeStyle>(badgeSettings?.templateStyle || 'polaroid');
+  const [flyerFitMode, setFlyerFitMode] = useState<FlyerFitMode>('ambient_studio');
+  const [badgeStyle, setBadgeStyle] = useState<BadgeStyle>(
+    badgeSettings?.templateStyle || 'polaroid'
+  );
   const [isGenerating, setIsGenerating] = useState(false);
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
 
@@ -200,14 +253,14 @@ export function PersonalizedFlyerGenerator({
     // Top Brand Bar
     ctx.save();
     ctx.fillStyle = '#d4af37';
-    ctx.font = '700 24px -apple-system, sans-serif';
-    ctx.letterSpacing = '4px';
+    ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    ctx.letterSpacing = '5px';
     ctx.textAlign = 'center';
     ctx.fillText('THE WISDOM CHURCH', width * 0.5, height * 0.07);
 
     ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-    ctx.font = '600 16px -apple-system, sans-serif';
-    ctx.letterSpacing = '2px';
+    ctx.font = '600 14px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.letterSpacing = '3px';
     ctx.fillText('SPECIAL CONVOCATION & WORSHIP EXPERIENCE', width * 0.5, height * 0.095);
     ctx.restore();
 
@@ -220,7 +273,7 @@ export function PersonalizedFlyerGenerator({
     ctx.shadowColor = 'rgba(212, 175, 55, 0.5)';
     ctx.shadowBlur = 18;
     ctx.fillStyle = '#ffffff';
-    ctx.font = '900 48px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    ctx.font = '900 46px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
     ctx.fillText(eventName, width * 0.5, titleY);
 
     ctx.shadowColor = 'transparent';
@@ -231,16 +284,16 @@ export function PersonalizedFlyerGenerator({
     const metaText = [eventDate, venueText].filter(Boolean).join('  ·  ');
     if (metaText) {
       ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
-      ctx.beginPath();
-      ctx.roundRect(width * 0.5 - 280, metaY - 24, 560, 48, 24);
+      drawRoundedRect(ctx, width * 0.5 - 280, metaY - 24, 560, 48, 24);
       ctx.fill();
 
       ctx.strokeStyle = 'rgba(212, 175, 55, 0.4)';
       ctx.lineWidth = 1.5;
+      drawRoundedRect(ctx, width * 0.5 - 280, metaY - 24, 560, 48, 24);
       ctx.stroke();
 
       ctx.fillStyle = '#fef08a';
-      ctx.font = '700 18px -apple-system, sans-serif';
+      ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillText(metaText, width * 0.5, metaY + 6);
     }
     ctx.restore();
@@ -263,37 +316,139 @@ export function PersonalizedFlyerGenerator({
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
 
-      // 1. Draw base flyer or designer theme
+      // 1. Draw Background Canvas
       let drawnBase = false;
       if (activeFlyerUrl) {
         try {
           const flyerImg = await loadImage(activeFlyerUrl);
-          // Scale to cover canvas
           const imgAspect = flyerImg.width / flyerImg.height;
           const canvasAspect = canvasWidth / canvasHeight;
-          let drawW = canvasWidth;
-          let drawH = canvasHeight;
-          let drawX = 0;
-          let drawY = 0;
 
-          if (imgAspect > canvasAspect) {
-            drawW = canvasHeight * imgAspect;
-            drawX = -(drawW - canvasWidth) / 2;
+          if (isStatus && flyerFitMode === 'ambient_studio') {
+            // === AMBIENT STUDIO SHOWCASE MODE (Recommended for standard landscape/square flyers) ===
+            // Layer 1: Ambient Blurred Backdrop covering full canvas
+            let bgW = canvasWidth;
+            let bgH = canvasHeight;
+            let bgX = 0;
+            let bgY = 0;
+            if (imgAspect > canvasAspect) {
+              bgW = canvasHeight * imgAspect;
+              bgX = -(bgW - canvasWidth) / 2;
+            } else {
+              bgH = canvasWidth / imgAspect;
+              bgY = -(bgH - canvasHeight) / 2;
+            }
+
+            // Draw blurred base
+            ctx.save();
+            ctx.drawImage(flyerImg, bgX, bgY, bgW, bgH);
+            ctx.restore();
+
+            // Dark ambient atmospheric wash overlay
+            const darkWash = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+            darkWash.addColorStop(0, 'rgba(8, 12, 22, 0.82)');
+            darkWash.addColorStop(0.5, 'rgba(8, 12, 22, 0.76)');
+            darkWash.addColorStop(1, 'rgba(5, 8, 16, 0.94)');
+            ctx.fillStyle = darkWash;
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+            // Subtle gold ambient glow in center
+            const ambientGlow = ctx.createRadialGradient(
+              canvasWidth * 0.5,
+              canvasHeight * 0.32,
+              60,
+              canvasWidth * 0.5,
+              canvasHeight * 0.32,
+              canvasWidth * 0.8
+            );
+            ambientGlow.addColorStop(0, 'rgba(217, 119, 6, 0.18)');
+            ambientGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = ambientGlow;
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+            // Layer 2: Top Church Brand Letterhead
+            ctx.save();
+            ctx.fillStyle = '#f59e0b';
+            ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.letterSpacing = '6px';
+            ctx.textAlign = 'center';
+            ctx.fillText('THE WISDOM CHURCH', canvasWidth * 0.5, 68);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+            ctx.font = '600 13px -apple-system, BlinkMacSystemFont, sans-serif';
+            ctx.letterSpacing = '3px';
+            ctx.fillText('OFFICIAL PROGRAM INVITATION & ATTENDEE E-FLYER', canvasWidth * 0.5, 96);
+            ctx.restore();
+
+            // Layer 3: Pristine, Unclipped Event Poster
+            // Preserves 100% of the flyer without cropping titles or speakers
+            const maxPosterW = 940;
+            const maxPosterH = 880;
+            const posterTopY = 125;
+            let posterW = maxPosterW;
+            let posterH = posterW / imgAspect;
+
+            if (posterH > maxPosterH) {
+              posterH = maxPosterH;
+              posterW = posterH * imgAspect;
+            }
+
+            const posterX = (canvasWidth - posterW) / 2;
+            const posterY = posterTopY + (maxPosterH - posterH) / 2;
+
+            // Poster Card Shadow
+            ctx.save();
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+            ctx.shadowBlur = 40;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 20;
+            ctx.fillStyle = '#0f172a';
+            drawRoundedRect(ctx, posterX, posterY, posterW, posterH, 20);
+            ctx.fill();
+            ctx.restore();
+
+            // Poster Image
+            ctx.save();
+            drawRoundedRect(ctx, posterX, posterY, posterW, posterH, 20);
+            ctx.clip();
+            ctx.drawImage(flyerImg, posterX, posterY, posterW, posterH);
+            ctx.restore();
+
+            // Poster Elegant Border
+            ctx.save();
+            ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
+            ctx.lineWidth = 2.5;
+            drawRoundedRect(ctx, posterX, posterY, posterW, posterH, 20);
+            ctx.stroke();
+            ctx.restore();
+
+            drawnBase = true;
           } else {
-            drawH = canvasWidth / imgAspect;
-            drawY = -(drawH - canvasHeight) / 2;
-          }
-          ctx.drawImage(flyerImg, drawX, drawY, drawW, drawH);
+            // === FULL BLEED COVER MODE ===
+            let drawW = canvasWidth;
+            let drawH = canvasHeight;
+            let drawX = 0;
+            let drawY = 0;
 
-          // Subtle dark vignette at top/bottom to enhance text contrast
-          const vignette = ctx.createLinearGradient(0, 0, 0, canvasHeight);
-          vignette.addColorStop(0, 'rgba(0,0,0,0.4)');
-          vignette.addColorStop(0.3, 'rgba(0,0,0,0)');
-          vignette.addColorStop(0.7, 'rgba(0,0,0,0)');
-          vignette.addColorStop(1, 'rgba(0,0,0,0.65)');
-          ctx.fillStyle = vignette;
-          ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-          drawnBase = true;
+            if (imgAspect > canvasAspect) {
+              drawW = canvasHeight * imgAspect;
+              drawX = -(drawW - canvasWidth) / 2;
+            } else {
+              drawH = canvasWidth / imgAspect;
+              drawY = -(drawH - canvasHeight) / 2;
+            }
+            ctx.drawImage(flyerImg, drawX, drawY, drawW, drawH);
+
+            // High-contrast vignette wash
+            const vignette = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+            vignette.addColorStop(0, 'rgba(5, 10, 20, 0.55)');
+            vignette.addColorStop(0.35, 'rgba(5, 10, 20, 0.15)');
+            vignette.addColorStop(0.7, 'rgba(5, 10, 20, 0.45)');
+            vignette.addColorStop(1, 'rgba(5, 10, 20, 0.88)');
+            ctx.fillStyle = vignette;
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+            drawnBase = true;
+          }
         } catch (e) {
           console.warn('Could not load flyer image, falling back to theme', e);
         }
@@ -303,7 +458,7 @@ export function PersonalizedFlyerGenerator({
         drawThemeBackground(ctx, canvasWidth, canvasHeight, selectedTheme);
       }
 
-      // 2. Load Attendee Photo or Placeholder
+      // 2. Load Attendee Photo
       let attendeeImg: HTMLImageElement | null = null;
       if (photoSrc) {
         try {
@@ -315,29 +470,41 @@ export function PersonalizedFlyerGenerator({
 
       const displayName = attendeeName.trim() || 'Special Guest';
 
-      // 3. Render Badges
+      // 3. Render Badges & Callout
       if (badgeStyle === 'polaroid') {
         // --- POLAROID BADGE ---
-        const frameCenterX = isStatus ? canvasWidth * 0.62 : canvasWidth * 0.66;
-        const frameCenterY = isStatus ? canvasHeight * 0.32 : canvasHeight * 0.38;
-        const frameWidth = isStatus ? 380 : 340;
-        const frameHeight = isStatus ? 460 : 410;
-        const rotationAngle = (-5 * Math.PI) / 180;
+        const isAmbientMode = isStatus && activeFlyerUrl && flyerFitMode === 'ambient_studio';
+
+        // Position polaroid in lower half for ambient mode, or upper-center for cover mode
+        const frameCenterX = isStatus
+          ? isAmbientMode
+            ? canvasWidth * 0.60
+            : canvasWidth * 0.62
+          : canvasWidth * 0.66;
+
+        const frameCenterY = isStatus
+          ? isAmbientMode
+            ? 1420
+            : canvasHeight * 0.36
+          : canvasHeight * 0.40;
+
+        const frameWidth = isStatus ? 420 : 360;
+        const frameHeight = isStatus ? 510 : 440;
+        const rotationAngle = (-4.5 * Math.PI) / 180;
 
         ctx.save();
         ctx.translate(frameCenterX, frameCenterY);
         ctx.rotate(rotationAngle);
 
         // Realistic Polaroid Shadow
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
-        ctx.shadowBlur = 32;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+        ctx.shadowBlur = 36;
         ctx.shadowOffsetX = 12;
-        ctx.shadowOffsetY = 20;
+        ctx.shadowOffsetY = 24;
 
         // White Polaroid Frame
         ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.roundRect(-frameWidth / 2, -frameHeight / 2, frameWidth, frameHeight, 12);
+        drawRoundedRect(ctx, -frameWidth / 2, -frameHeight / 2, frameWidth, frameHeight, 14);
         ctx.fill();
 
         ctx.shadowColor = 'transparent';
@@ -346,13 +513,12 @@ export function PersonalizedFlyerGenerator({
         // Photo area cut-out
         const margin = 20;
         const photoW = frameWidth - margin * 2;
-        const photoH = frameHeight - margin * 2 - 70;
+        const photoH = frameHeight - margin * 2 - 80;
         const photoX = -frameWidth / 2 + margin;
         const photoY = -frameHeight / 2 + margin;
 
         ctx.save();
-        ctx.beginPath();
-        ctx.rect(photoX, photoY, photoW, photoH);
+        drawRoundedRect(ctx, photoX, photoY, photoW, photoH, 4);
         ctx.clip();
 
         if (attendeeImg) {
@@ -375,92 +541,172 @@ export function PersonalizedFlyerGenerator({
           // Placeholder
           ctx.fillStyle = '#0f172a';
           ctx.fillRect(photoX, photoY, photoW, photoH);
-          ctx.fillStyle = 'rgba(255,255,255,0.4)';
-          ctx.font = 'bold 22px sans-serif';
+          ctx.fillStyle = '#fde047';
+          ctx.font = 'bold 24px -apple-system, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText('Tap to Upload Photo', photoX + photoW / 2, photoY + photoH / 2);
         }
+
+        // Golden Corner Sash Ribbon across photo: "✦ ATTENDING ✦"
+        ctx.save();
+        ctx.translate(photoX - 10, photoY + 28);
+        ctx.rotate((-42 * Math.PI) / 180);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(-60, -14, 180, 28);
+        ctx.strokeStyle = '#fef08a';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(-60, -14, 180, 28);
+        ctx.fillStyle = '#0f172a';
+        ctx.font = '900 13px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('✦ ATTENDING ✦', 30, 0);
         ctx.restore();
 
-        // Polaroid Top Pin / Tape
+        ctx.restore();
+
+        // Top Washi Tape on Polaroid
         ctx.save();
-        ctx.fillStyle = 'rgba(254, 240, 138, 0.85)';
-        ctx.shadowColor = 'rgba(0,0,0,0.2)';
-        ctx.shadowBlur = 6;
-        ctx.beginPath();
-        ctx.roundRect(-45, -frameHeight / 2 - 14, 90, 26, 4);
+        ctx.fillStyle = 'rgba(254, 240, 138, 0.9)';
+        ctx.shadowColor = 'rgba(0,0,0,0.25)';
+        ctx.shadowBlur = 8;
+        drawRoundedRect(ctx, -50, -frameHeight / 2 - 14, 100, 26, 4);
         ctx.fill();
         ctx.restore();
 
-        // Stamped Attendee Name at bottom of Polaroid
+        // Attendee Name at bottom of Polaroid
         ctx.fillStyle = '#0f172a';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-        ctx.fillText(displayName, 0, frameHeight / 2 - 36);
+        ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.fillText(displayName, 0, frameHeight / 2 - 42);
+
+        // Verification Pill below Name
+        ctx.fillStyle = '#eab308';
+        drawRoundedRect(ctx, -60, frameHeight / 2 - 22, 120, 16, 8);
+        ctx.fill();
+        ctx.fillStyle = '#000000';
+        ctx.font = '900 10px -apple-system, sans-serif';
+        ctx.fillText('CONFIRMED GUEST', 0, frameHeight / 2 - 14);
 
         ctx.restore();
 
-        // Script Tagline Box with Curved Directional Arrow
+        // High-Contrast "I WILL BE ATTENDING" Callout Badge & Directional Arrow
         ctx.save();
-        const textX = isStatus ? canvasWidth * 0.22 : canvasWidth * 0.26;
-        const textY = isStatus ? canvasHeight * 0.29 : canvasHeight * 0.34;
+        const calloutWidth = 340;
+        const calloutHeight = 64;
 
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
-        ctx.shadowBlur = 20;
-        ctx.fillStyle = '#0a0e17';
-        ctx.beginPath();
-        ctx.roundRect(textX - 120, textY - 34, 240, 68, 34);
+        // Position callout with guaranteed safe margin from left edge
+        const textX = isStatus
+          ? isAmbientMode
+            ? 250
+            : 240
+          : 220;
+
+        const textY = isStatus
+          ? isAmbientMode
+            ? frameCenterY - 140
+            : frameCenterY - 90
+          : frameCenterY - 70;
+
+        // Obsidian Glass Shadow & Glow
+        ctx.shadowColor = 'rgba(245, 158, 11, 0.45)';
+        ctx.shadowBlur = 24;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 6;
+
+        // Obsidian Gradient Pill Body
+        const pillGrad = ctx.createLinearGradient(
+          textX - calloutWidth / 2,
+          textY - calloutHeight / 2,
+          textX + calloutWidth / 2,
+          textY + calloutHeight / 2
+        );
+        pillGrad.addColorStop(0, '#090d16');
+        pillGrad.addColorStop(0.5, '#121824');
+        pillGrad.addColorStop(1, '#090d16');
+        ctx.fillStyle = pillGrad;
+        drawRoundedRect(
+          ctx,
+          textX - calloutWidth / 2,
+          textY - calloutHeight / 2,
+          calloutWidth,
+          calloutHeight,
+          calloutHeight / 2
+        );
         ctx.fill();
 
-        ctx.strokeStyle = '#eab308';
+        // Dual Metallic Gold Border
+        ctx.strokeStyle = '#f59e0b';
         ctx.lineWidth = 2.5;
+        drawRoundedRect(
+          ctx,
+          textX - calloutWidth / 2,
+          textY - calloutHeight / 2,
+          calloutWidth,
+          calloutHeight,
+          calloutHeight / 2
+        );
         ctx.stroke();
 
         ctx.shadowColor = 'transparent';
-        ctx.fillStyle = '#fde047';
+        ctx.shadowBlur = 0;
+
+        // Radiant Gold Typography
+        ctx.fillStyle = '#fef08a';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.font = '900 22px -apple-system, BlinkMacSystemFont, sans-serif';
-        ctx.fillText(badgeText, textX, textY);
+        ctx.font = '900 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.letterSpacing = '1px';
+        ctx.fillText(`✦  ${badgeText.toUpperCase()}  ✦`, textX, textY);
 
-        // Curved Arrow from badge script to polaroid
+        // Sweeping Curved Gold Arrow pointing to the polaroid
+        const arrowStartX = textX + calloutWidth / 2 - 20;
+        const arrowStartY = textY + 14;
+        const arrowTargetX = frameCenterX - frameWidth * 0.42;
+        const arrowTargetY = frameCenterY - 30;
+
         ctx.strokeStyle = '#facc15';
         ctx.lineWidth = 5;
         ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(textX + 100, textY + 8);
-        ctx.quadraticCurveTo(textX + 170, textY + 40, frameCenterX - 130, frameCenterY - 10);
+        ctx.moveTo(arrowStartX, arrowStartY);
+        ctx.quadraticCurveTo(
+          arrowStartX + 90,
+          arrowStartY + 45,
+          arrowTargetX,
+          arrowTargetY
+        );
         ctx.stroke();
 
         // Arrow head
         const arrowAngle = Math.atan2(
-          frameCenterY - 10 - (textY + 40),
-          frameCenterX - 130 - (textX + 170)
+          arrowTargetY - (arrowStartY + 45),
+          arrowTargetX - (arrowStartX + 90)
         );
         ctx.beginPath();
-        ctx.moveTo(frameCenterX - 130, frameCenterY - 10);
+        ctx.moveTo(arrowTargetX, arrowTargetY);
         ctx.lineTo(
-          frameCenterX - 130 - 18 * Math.cos(arrowAngle - Math.PI / 6),
-          frameCenterY - 10 - 18 * Math.sin(arrowAngle - Math.PI / 6)
+          arrowTargetX - 20 * Math.cos(arrowAngle - Math.PI / 6),
+          arrowTargetY - 20 * Math.sin(arrowAngle - Math.PI / 6)
         );
-        ctx.moveTo(frameCenterX - 130, frameCenterY - 10);
+        ctx.moveTo(arrowTargetX, arrowTargetY);
         ctx.lineTo(
-          frameCenterX - 130 - 18 * Math.cos(arrowAngle + Math.PI / 6),
-          frameCenterY - 10 - 18 * Math.sin(arrowAngle + Math.PI / 6)
+          arrowTargetX - 20 * Math.cos(arrowAngle + Math.PI / 6),
+          arrowTargetY - 20 * Math.sin(arrowAngle + Math.PI / 6)
         );
         ctx.stroke();
         ctx.restore();
       } else if (badgeStyle === 'badge') {
         // --- ROYAL GOLD VIP BADGE ---
         const cx = canvasWidth * 0.5;
-        const cy = isStatus ? canvasHeight * 0.38 : canvasHeight * 0.44;
-        const r = isStatus ? 170 : 145;
+        const cy = isStatus ? canvasHeight * 0.62 : canvasHeight * 0.48;
+        const r = isStatus ? 180 : 150;
 
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
-        ctx.shadowBlur = 36;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        ctx.shadowBlur = 40;
 
         // Outer Double Gold Ring
         ctx.strokeStyle = '#d4af37';
@@ -472,7 +718,7 @@ export function PersonalizedFlyerGenerator({
         ctx.strokeStyle = '#fef08a';
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(cx, cy, r + 16, 0, Math.PI * 2);
+        ctx.arc(cx, cy, r + 18, 0, Math.PI * 2);
         ctx.stroke();
 
         // Photo inside
@@ -495,62 +741,66 @@ export function PersonalizedFlyerGenerator({
 
         // Lower Badge Ribbon
         ctx.fillStyle = '#0b1120';
-        ctx.beginPath();
-        ctx.roundRect(cx - 170, cy + r - 26, 340, 60, 30);
+        drawRoundedRect(ctx, cx - 180, cy + r - 28, 360, 64, 32);
         ctx.fill();
 
         ctx.strokeStyle = '#d4af37';
         ctx.lineWidth = 3;
+        drawRoundedRect(ctx, cx - 180, cy + r - 28, 360, 64, 32);
         ctx.stroke();
 
         ctx.fillStyle = '#facc15';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.font = 'bold 22px sans-serif';
+        ctx.font = 'bold 24px sans-serif';
         ctx.fillText(displayName, cx, cy + r + 4);
 
         // Tagline Pill above
-        ctx.fillStyle = '#eab308';
-        ctx.beginPath();
-        ctx.roundRect(cx - 140, cy - r - 24, 280, 44, 22);
+        ctx.fillStyle = '#090d16';
+        drawRoundedRect(ctx, cx - 170, cy - r - 32, 340, 52, 26);
         ctx.fill();
 
-        ctx.fillStyle = '#000000';
-        ctx.font = '900 18px sans-serif';
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2.5;
+        drawRoundedRect(ctx, cx - 170, cy - r - 32, 340, 52, 26);
+        ctx.stroke();
+
+        ctx.fillStyle = '#fef08a';
+        ctx.font = '900 18px -apple-system, sans-serif';
         ctx.letterSpacing = '1px';
-        ctx.fillText(badgeText.toUpperCase(), cx, cy - r - 2);
+        ctx.fillText(`✦ ${badgeText.toUpperCase()} ✦`, cx, cy - r - 6);
 
         ctx.restore();
       } else if (badgeStyle === 'glass_card') {
-        // --- FROSTED GLASS EDITORIAL PASS ---
-        const cw = isStatus ? 480 : 420;
-        const ch = isStatus ? 580 : 480;
+        // --- FROSTED GLASS VIP PASS ---
+        const cw = isStatus ? 520 : 440;
+        const ch = isStatus ? 620 : 500;
         const cx = canvasWidth * 0.5;
-        const cy = isStatus ? canvasHeight * 0.4 : canvasHeight * 0.44;
+        const cy = isStatus ? canvasHeight * 0.65 : canvasHeight * 0.50;
 
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
-        ctx.shadowBlur = 40;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        ctx.shadowBlur = 45;
 
         // Card glass background
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-        ctx.beginPath();
-        ctx.roundRect(cx - cw / 2, cy - ch / 2, cw, ch, 28);
+        ctx.fillStyle = 'rgba(10, 16, 28, 0.92)';
+        drawRoundedRect(ctx, cx - cw / 2, cy - ch / 2, cw, ch, 30);
         ctx.fill();
 
-        ctx.strokeStyle = 'rgba(212, 175, 55, 0.6)';
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.7)';
         ctx.lineWidth = 2.5;
+        drawRoundedRect(ctx, cx - cw / 2, cy - ch / 2, cw, ch, 30);
         ctx.stroke();
 
         // Header inside card
-        ctx.fillStyle = '#facc15';
-        ctx.font = '900 18px sans-serif';
+        ctx.fillStyle = '#fef08a';
+        ctx.font = '900 20px -apple-system, sans-serif';
         ctx.textAlign = 'center';
-        ctx.letterSpacing = '3px';
-        ctx.fillText(badgeText.toUpperCase(), cx, cy - ch / 2 + 42);
+        ctx.letterSpacing = '2px';
+        ctx.fillText(`✦  ${badgeText.toUpperCase()}  ✦`, cx, cy - ch / 2 + 46);
 
         // Photo circle
-        const pr = 120;
+        const pr = 130;
         const py = cy - 20;
 
         ctx.save();
@@ -564,13 +814,13 @@ export function PersonalizedFlyerGenerator({
           ctx.fillStyle = '#1e293b';
           ctx.fill();
           ctx.fillStyle = '#fde047';
-          ctx.font = 'bold 20px sans-serif';
+          ctx.font = 'bold 22px sans-serif';
           ctx.fillText('Your Photo', cx, py);
         }
         ctx.restore();
 
         // Gold border around photo
-        ctx.strokeStyle = '#facc15';
+        ctx.strokeStyle = '#f59e0b';
         ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.arc(cx, py, pr, 0, Math.PI * 2);
@@ -578,30 +828,34 @@ export function PersonalizedFlyerGenerator({
 
         // Attendee Name
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 30px sans-serif';
+        ctx.font = 'bold 32px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(displayName, cx, cy + ch / 2 - 80);
+        ctx.fillText(displayName, cx, cy + ch / 2 - 82);
 
         // Verified Pill
-        ctx.fillStyle = 'rgba(250, 204, 21, 0.16)';
-        ctx.beginPath();
-        ctx.roundRect(cx - 110, cy + ch / 2 - 52, 220, 36, 18);
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.2)';
+        drawRoundedRect(ctx, cx - 130, cy + ch / 2 - 54, 260, 38, 19);
         ctx.fill();
 
-        ctx.fillStyle = '#fde047';
-        ctx.font = 'bold 15px sans-serif';
-        ctx.fillText('✓ CONFIRMED REGISTRATION', cx, cy + ch / 2 - 34);
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.6)';
+        ctx.lineWidth = 1.5;
+        drawRoundedRect(ctx, cx - 130, cy + ch / 2 - 54, 260, 38, 19);
+        ctx.stroke();
+
+        ctx.fillStyle = '#fef08a';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillText('✓ OFFICIAL VIP ATTENDEE', cx, cy + ch / 2 - 35);
 
         ctx.restore();
       } else {
         // --- MINIMAL BADGE ---
         const cx = canvasWidth * 0.5;
-        const cy = isStatus ? canvasHeight * 0.35 : canvasHeight * 0.4;
-        const r = 135;
+        const cy = isStatus ? canvasHeight * 0.62 : canvasHeight * 0.48;
+        const r = 150;
 
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 24;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+        ctx.shadowBlur = 30;
 
         ctx.save();
         ctx.beginPath();
@@ -616,26 +870,51 @@ export function PersonalizedFlyerGenerator({
         }
         ctx.restore();
 
-        ctx.strokeStyle = '#ffffff';
+        ctx.strokeStyle = '#f59e0b';
         ctx.lineWidth = 6;
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Floating name pill
+        // Tagline Pill above
+        ctx.fillStyle = '#090d16';
+        drawRoundedRect(ctx, cx - 160, cy - r - 30, 320, 50, 25);
+        ctx.fill();
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2;
+        drawRoundedRect(ctx, cx - 160, cy - r - 30, 320, 50, 25);
+        ctx.stroke();
+        ctx.fillStyle = '#fef08a';
+        ctx.font = '900 17px -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`✦ ${badgeText.toUpperCase()} ✦`, cx, cy - r - 5);
+
+        // Floating name pill below
         ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.roundRect(cx - 150, cy + r - 20, 300, 52, 26);
+        drawRoundedRect(ctx, cx - 160, cy + r - 24, 320, 56, 28);
         ctx.fill();
 
         ctx.fillStyle = '#0f172a';
-        ctx.font = 'bold 22px sans-serif';
+        ctx.font = 'bold 24px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(displayName, cx, cy + r + 6);
+        ctx.fillText(displayName, cx, cy + r + 4);
 
         ctx.restore();
       }
+
+      // 4. Bottom Official Church Footer
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+      ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctx.letterSpacing = '3px';
+      ctx.textAlign = 'center';
+      ctx.fillText(
+        'THE WISDOM CHURCH  ·  wisdomchurchhq.org',
+        canvasWidth * 0.5,
+        canvasHeight - 34
+      );
+      ctx.restore();
 
       const outputDataUrl = canvas.toDataURL('image/png', 0.95);
       setPreviewDataUrl(outputDataUrl);
@@ -649,6 +928,7 @@ export function PersonalizedFlyerGenerator({
     selectedTheme,
     photoSrc,
     format,
+    flyerFitMode,
     badgeStyle,
     badgeText,
     attendeeName,
@@ -658,15 +938,23 @@ export function PersonalizedFlyerGenerator({
   ]);
 
   useEffect(() => {
-    compositeCanvas();
+    const timer = setTimeout(() => {
+      void compositeCanvas();
+    }, 150);
+    return () => clearTimeout(timer);
   }, [compositeCanvas]);
 
   const handleDownload = () => {
     if (!previewDataUrl) return;
 
+    const safeName = (attendeeName || 'attendee')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    const filename = `wisdom-church-${safeName}-${format === 'status_9_16' ? 'status-flyer' : 'profile-dp'}.png`;
+
     const link = document.createElement('a');
-    const safeName = (attendeeName || 'attending').toLowerCase().replace(/[^a-z0-9]/g, '_');
-    const filename = `${safeName}_${eventName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${format}.png`;
     link.download = filename;
     link.href = previewDataUrl;
     link.click();
@@ -677,7 +965,7 @@ export function PersonalizedFlyerGenerator({
 
   const handleWhatsAppShare = () => {
     const text = encodeURIComponent(
-      `🎉 ${badgeText}: ${eventName}! Get your customized flyer and register here: ${
+      `🕊️ I'll be attending ${eventName} at The Wisdom Church!\n\n✨ Create your own personalized attendance flyer & register here:\n${
         shareUrl || window.location.href
       }`
     );
@@ -686,7 +974,7 @@ export function PersonalizedFlyerGenerator({
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(shareUrl || window.location.href);
-    toast.success('Registration & DP generator link copied!');
+    toast.success('Registration & DP studio link copied!');
   };
 
   return (
@@ -701,7 +989,7 @@ export function PersonalizedFlyerGenerator({
             Create Your &ldquo;{badgeText}&rdquo; Status Flyer
           </h2>
           <p className="mt-1 text-xs text-(--color-text-tertiary)">
-            Upload your photo, personalize the event text and flyer template, then download in high definition for WhatsApp Status & Instagram.
+            Upload your photo, customize your name, and download a high-definition status flyer ready for WhatsApp Status & Instagram.
           </p>
         </div>
 
@@ -741,22 +1029,23 @@ export function PersonalizedFlyerGenerator({
             }`}
           >
             {previewDataUrl ? (
-              <Image
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
                 src={previewDataUrl}
-                alt="Personalized flyer preview"
-                fill
-                className="object-contain"
-                unoptimized
+                alt="Personalized Flyer Preview"
+                className="h-full w-full object-contain"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs text-white/50">
-                Rendering preview...
+              <div className="flex h-full items-center justify-center text-white/50 text-xs">
+                Rendering flyer preview...
               </div>
             )}
 
             {isGenerating && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-xs">
-                <span className="rounded-full bg-black/80 px-4 py-2 text-xs font-bold text-white">Updating Canvas...</span>
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-xs">
+                <div className="rounded-xl bg-black/80 px-4 py-2 text-xs font-semibold text-white shadow-lg">
+                  Updating canvas...
+                </div>
               </div>
             )}
           </div>
@@ -772,7 +1061,7 @@ export function PersonalizedFlyerGenerator({
           <div>
             <div className="flex items-center justify-between">
               <label className="block text-xs font-bold uppercase tracking-wider text-(--color-text-secondary)">
-                1. Base Canvas / Flyer Template
+                1. Base Canvas / Flyer Presentation
               </label>
               {customTemplateSrc && (
                 <button
@@ -840,6 +1129,45 @@ export function PersonalizedFlyerGenerator({
               </div>
             )}
 
+            {/* Presentation Mode Toggle when flyer is present */}
+            {activeFlyerUrl && format === 'status_9_16' && (
+              <div className="mt-3">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-(--color-text-tertiary)">
+                  Flyer Layout Mode
+                </label>
+                <div className="mt-1.5 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFlyerFitMode('ambient_studio')}
+                    className={`rounded-xl border p-2.5 text-left text-xs transition ${
+                      flyerFitMode === 'ambient_studio'
+                        ? 'border-(--lp-gold) bg-(--color-warning-surface) ring-2 ring-(--lp-gold)'
+                        : 'border-(--color-border-primary) bg-(--color-background-secondary)'
+                    }`}
+                  >
+                    <span className="block font-bold text-(--color-text-primary)">✨ Ambient Poster Fit</span>
+                    <span className="mt-0.5 block text-[10px] text-(--color-text-tertiary)">
+                      Full uncropped flyer + blurred ambient backdrop
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFlyerFitMode('full_cover')}
+                    className={`rounded-xl border p-2.5 text-left text-xs transition ${
+                      flyerFitMode === 'full_cover'
+                        ? 'border-(--lp-gold) bg-(--color-warning-surface) ring-2 ring-(--lp-gold)'
+                        : 'border-(--color-border-primary) bg-(--color-background-secondary)'
+                    }`}
+                  >
+                    <span className="block font-bold text-(--color-text-primary)">🖼️ Full-Bleed Cover</span>
+                    <span className="mt-0.5 block text-[10px] text-(--color-text-tertiary)">
+                      Scales flyer to fill entire vertical canvas
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Built-in Theme Selector */}
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {THEME_OPTIONS.filter((t) => t.id !== 'event' || Boolean(initialFlyerUrl)).map((theme) => {
@@ -898,7 +1226,11 @@ export function PersonalizedFlyerGenerator({
               <div className="mt-2 flex items-center justify-between rounded-2xl border border-(--color-border-primary) bg-(--color-background-primary) p-3">
                 <div className="flex items-center gap-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={photoSrc} alt="Preview" className="h-11 w-11 rounded-full object-cover border border-(--color-border-secondary)" />
+                  <img
+                    src={photoSrc}
+                    alt="Preview"
+                    className="h-11 w-11 rounded-full object-cover border border-(--color-border-secondary)"
+                  />
                   <div>
                     <p className="text-xs font-bold text-(--color-text-primary)">Photo Attached</p>
                     <p className="text-[11px] text-(--color-text-tertiary)">Framed inside your badge</p>
@@ -940,7 +1272,7 @@ export function PersonalizedFlyerGenerator({
                 )}
               </div>
               <p className="mt-0.5 text-[11px] text-(--color-text-tertiary)">
-                This is the name rendered below your photo. You can pick your first name, full name, or enter any title.
+                This is the name rendered on your badge. Pick your first name, full name, or enter any title.
               </p>
 
               {/* Quick Display Name Preset Chips */}
@@ -960,7 +1292,7 @@ export function PersonalizedFlyerGenerator({
                       First Name ({initialAttendeeName})
                     </button>
                   )}
-                  {initialFullName && initialFullName.toLowerCase() !== initialAttendeeName.toLowerCase() && (
+                  {initialFullName && initialFullName !== initialAttendeeName && (
                     <button
                       type="button"
                       onClick={() => setAttendeeName(initialFullName)}
@@ -973,32 +1305,6 @@ export function PersonalizedFlyerGenerator({
                       Full Name ({initialFullName})
                     </button>
                   )}
-                  {initialAttendeeName && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setAttendeeName(`Bro. ${initialAttendeeName}`)}
-                        className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${
-                          attendeeName === `Bro. ${initialAttendeeName}`
-                            ? 'bg-(--lp-gold) text-white'
-                            : 'border border-(--color-border-secondary) bg-(--color-background-secondary) text-(--color-text-secondary) hover:border-(--lp-gold)'
-                        }`}
-                      >
-                        Bro. {initialAttendeeName}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAttendeeName(`Sis. ${initialAttendeeName}`)}
-                        className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${
-                          attendeeName === `Sis. ${initialAttendeeName}`
-                            ? 'bg-(--lp-gold) text-white'
-                            : 'border border-(--color-border-secondary) bg-(--color-background-secondary) text-(--color-text-secondary) hover:border-(--lp-gold)'
-                        }`}
-                      >
-                        Sis. {initialAttendeeName}
-                      </button>
-                    </>
-                  )}
                 </div>
               )}
 
@@ -1006,14 +1312,14 @@ export function PersonalizedFlyerGenerator({
                 <Input
                   value={attendeeName}
                   onChange={(e) => setAttendeeName(e.target.value)}
-                  placeholder="e.g. Sister Grace, Pastor David, Anuoluwapo"
+                  placeholder="e.g. Sister Grace"
                 />
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-(--color-text-secondary)">
-                Badge Tagline Script
+                Announcement Tagline
               </label>
               <div className="mt-1">
                 <Input
