@@ -466,8 +466,8 @@ function WorkforcePage() {
   const [rejectTarget, setRejectTarget] = useState<WorkforceMember | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
 
     try {
       const [workforceRes, statsRes, formsRes] = await Promise.allSettled([
@@ -476,26 +476,43 @@ function WorkforcePage() {
         apiClient.getAdminForms({ page: 1, limit: 300 }),
       ]);
 
-      setWorkforce(workforceRes.status === 'fulfilled' ? toArray<WorkforceMember>(workforceRes.value) : []);
-      setStats(statsRes.status === 'fulfilled' ? statsRes.value : null);
-      setForms(formsRes.status === 'fulfilled' && Array.isArray(formsRes.value.data) ? formsRes.value.data : []);
+      if (workforceRes.status === 'fulfilled') setWorkforce(toArray<WorkforceMember>(workforceRes.value));
+      else if (!silent) setWorkforce([]);
+      if (statsRes.status === 'fulfilled') setStats(statsRes.value);
+      else if (!silent) setStats(null);
+      if (formsRes.status === 'fulfilled' && Array.isArray(formsRes.value.data)) setForms(formsRes.value.data);
+      else if (!silent) setForms([]);
 
-      if ([workforceRes, statsRes, formsRes].some((result) => result.status === 'rejected')) {
+      if (!silent && [workforceRes, statsRes, formsRes].some((result) => result.status === 'rejected')) {
         toast.error('Some workforce records could not be loaded');
       }
     } catch (error) {
       console.error('Failed to load workforce dashboard:', error);
-      toast.error('Unable to load workforce dashboard');
-      setWorkforce([]);
-      setStats(null);
-      setForms([]);
+      if (!silent) {
+        toast.error('Unable to load workforce dashboard');
+        setWorkforce([]);
+        setStats(null);
+        setForms([]);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    const refreshVisiblePage = () => {
+      if (document.visibilityState === 'visible') void loadData(true);
+    };
+    const timer = window.setInterval(refreshVisiblePage, 60_000);
+    document.addEventListener('visibilitychange', refreshVisiblePage);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refreshVisiblePage);
+    };
   }, [loadData]);
 
   useEffect(() => {

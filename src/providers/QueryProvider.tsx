@@ -11,6 +11,10 @@ function createQueryClient() {
         // another administrator when a user returns to the portal.
         staleTime: 30_000,
         gcTime: 10 * 60_000,
+        // Keep mounted admin views reconciled with changes from other admins.
+        // Background tabs pause polling to avoid wasting API capacity.
+        refetchInterval: 60_000,
+        refetchIntervalInBackground: false,
         refetchOnWindowFocus: true,
         refetchOnReconnect: true,
         retry: (failureCount, error) => {

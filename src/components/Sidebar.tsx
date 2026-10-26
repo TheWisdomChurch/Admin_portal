@@ -145,14 +145,14 @@ const peopleMinistry: NavGroup = {
     },
     {
       href: '/dashboard/new-members',
-      label: 'New Members',
-      description: 'Membership intake',
+      label: 'Membership Intake',
+      description: 'Form submissions & follow-up',
       icon: UserPlus,
     },
     {
       href: '/dashboard/members',
-      label: 'Members',
-      description: 'Member directory',
+      label: 'Member Directory',
+      description: 'Approved membership records',
       icon: Users,
     },
     {

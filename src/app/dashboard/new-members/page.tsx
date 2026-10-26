@@ -19,6 +19,7 @@ import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
 import { Select } from '@/ui/Select';
 import { Panel } from '@/ui/Panel';
+import { Pagination } from '@/ui/Pagination';
 import { StatCard } from '@/ui/StatCard';
 import { apiClient } from '@/lib/api';
 import { buildPublicFormUrl } from '@/lib/utils';
@@ -31,6 +32,7 @@ import type { AdminUserAdmin, NewMemberContact, NewMemberDashboardResponse, NewM
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 type GrowthPoint = { period: string; count: number };
+const SUBMISSIONS_PAGE_SIZE = 50;
 
 function text(value: unknown): string {
   if (typeof value === 'string') return value.trim();
@@ -169,7 +171,7 @@ function FormLinkRow({ form }: { form: NewMemberFormSummary }) {
         <Badge variant={form.isPublished ? 'success' : 'secondary'}>{form.isPublished ? 'Live' : 'Draft'}</Badge>
       </div>
 
-      {publicUrl ? (
+      {publicUrl && form.isPublished ? (
         <div className="mt-3 flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] py-1 pl-3 pr-1 text-xs">
           <span className="truncate font-mono text-[var(--color-text-secondary)]">{publicUrl}</span>
           <button type="button" onClick={() => void copy()} aria-label="Copy public form link" className="shrink-0 rounded-full p-1.5 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-hover)] hover:text-[var(--color-text-primary)]">
@@ -179,8 +181,10 @@ function FormLinkRow({ form }: { form: NewMemberFormSummary }) {
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </div>
-      ) : (
+      ) : form.isPublished ? (
         <p className="mt-3 truncate text-xs text-[var(--color-text-tertiary)]">No slug configured for this form yet.</p>
+      ) : (
+        <div className="mt-3 flex items-center justify-between gap-3"><p className="text-xs text-[var(--color-text-tertiary)]">Draft · publish to activate the public link.</p><button type="button" className="text-xs font-semibold text-[var(--color-accent-primary)] hover:underline" onClick={() => window.location.assign(`/dashboard/forms/${encodeURIComponent(form.formId)}/edit`)}>Edit draft</button></div>
       )}
 
       <p className="mt-3 text-sm font-semibold text-[var(--color-text-secondary)]">{form.submissionCount} submissions</p>
@@ -193,6 +197,9 @@ function NewMembersPage() {
   const chartPalette = useMemo(() => getChartPalette(resolvedTheme), [resolvedTheme]);
   const [dashboard, setDashboard] = useState<NewMemberDashboardResponse | null>(null);
   const [submissions, setSubmissions] = useState<NewMemberSubmission[]>([]);
+  const [submissionTotal, setSubmissionTotal] = useState(0);
+  const [submissionsPage, setSubmissionsPage] = useState(1);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [workflows, setWorkflows] = useState<NewMemberWorkflow[]>([]);
   const [workflowStages, setWorkflowStages] = useState<Record<string, NewMemberWorkflowStage>>({});
   const [workflowOwners, setWorkflowOwners] = useState<Record<string, string>>({});
@@ -203,6 +210,7 @@ function NewMembersPage() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [refreshError, setRefreshError] = useState(false);
   const [exporting, setExporting] = useState<'pdf' | 'excel' | null>(null);
   const [section, setSection] = useState<'weekly' | 'monthly' | 'quarterly' | 'yearly'>('monthly');
 
@@ -210,19 +218,34 @@ function NewMembersPage() {
     setLoading(true);
     setLoadError(false);
     try {
-      const [dashboardRes, submissionsRes, workflowsRes, usersRes] = await Promise.all([
+      const [dashboardResult, submissionsResult, workflowsResult, usersResult] = await Promise.allSettled([
         apiClient.getNewMemberDashboard(),
-        apiClient.listNewMemberSubmissions({ page: 1, limit: 100 }),
+        apiClient.listNewMemberSubmissions({ page: submissionsPage, limit: SUBMISSIONS_PAGE_SIZE }),
         apiClient.listNewMemberWorkflows({ page: 1, limit: 100 }),
         apiClient.listAdminUsers(),
       ]);
+      if (dashboardResult.status === 'rejected') throw dashboardResult.reason;
+      if (submissionsResult.status === 'rejected') throw submissionsResult.reason;
+      const dashboardRes = dashboardResult.value;
+      const submissionsRes = submissionsResult.value;
       setDashboard(dashboardRes);
       setSubmissions(submissionsRes.data);
-      setWorkflows(workflowsRes.data);
-      setWorkflowStages(Object.fromEntries(workflowsRes.data.map((item) => [item.id, item.stage])));
-      setWorkflowOwners(Object.fromEntries(workflowsRes.data.map((item) => [item.id, item.assignedOwnerId || ''])));
-      setWorkflowNextActions(Object.fromEntries(workflowsRes.data.map((item) => [item.id, item.nextActionAt ? item.nextActionAt.slice(0, 16) : ''])));
-      setAdminUsers(usersRes.filter((item) => item.is_active && item.admin_approved));
+      setSubmissionTotal(submissionsRes.total);
+      if (workflowsResult.status === 'fulfilled') {
+        const loadedWorkflows = workflowsResult.value.data;
+        setWorkflows(loadedWorkflows);
+        setWorkflowStages(Object.fromEntries(loadedWorkflows.map((item) => [item.id, item.stage])));
+        setWorkflowOwners(Object.fromEntries(loadedWorkflows.map((item) => [item.id, item.assignedOwnerId || ''])));
+        setWorkflowNextActions(Object.fromEntries(loadedWorkflows.map((item) => [item.id, item.nextActionAt ? item.nextActionAt.slice(0, 16) : ''])));
+      } else {
+        setWorkflows([]);
+        toast.error('Intake loaded, but follow-up records are temporarily unavailable.');
+      }
+      if (usersResult.status === 'fulfilled') setAdminUsers(usersResult.value.filter((item) => item.is_active && item.admin_approved));
+      else setAdminUsers([]);
+      setLastUpdatedAt(new Date());
+      setRefreshError(workflowsResult.status === 'rejected' || usersResult.status === 'rejected');
+      setLoadError(false);
     } catch (error) {
       console.error('Failed to load new member dashboard:', error);
       toast.error('Unable to load new-member dashboard. Please sign in again if your session expired.');
@@ -234,16 +257,77 @@ function NewMembersPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [submissionsPage]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const refreshIntake = useCallback(async () => {
+    try {
+      const [dashboardResult, submissionsResult, workflowsResult] = await Promise.allSettled([
+        apiClient.getNewMemberDashboard(),
+        apiClient.listNewMemberSubmissions({ page: submissionsPage, limit: SUBMISSIONS_PAGE_SIZE }),
+        apiClient.listNewMemberWorkflows({ page: 1, limit: 100 }),
+      ]);
+      if (dashboardResult.status === 'rejected') throw dashboardResult.reason;
+      if (submissionsResult.status === 'rejected') throw submissionsResult.reason;
+      const dashboardRes = dashboardResult.value;
+      const submissionsRes = submissionsResult.value;
+      setDashboard(dashboardRes);
+      setSubmissions(submissionsRes.data);
+      setSubmissionTotal(submissionsRes.total);
+      if (workflowsResult.status === 'fulfilled') {
+        const refreshedWorkflows = workflowsResult.value.data;
+        const priorWorkflows = new Map(workflows.map((workflow) => [workflow.id, workflow]));
+        setWorkflows(refreshedWorkflows);
+        setWorkflowStages((current) => Object.fromEntries(refreshedWorkflows.map((workflow) => [
+          workflow.id,
+          current[workflow.id] !== undefined && current[workflow.id] !== priorWorkflows.get(workflow.id)?.stage
+            ? current[workflow.id]
+            : workflow.stage,
+        ])));
+        setWorkflowOwners((current) => Object.fromEntries(refreshedWorkflows.map((workflow) => [
+          workflow.id,
+          current[workflow.id] !== undefined && current[workflow.id] !== (priorWorkflows.get(workflow.id)?.assignedOwnerId || '')
+            ? current[workflow.id]
+            : workflow.assignedOwnerId || '',
+        ])));
+        setWorkflowNextActions((current) => Object.fromEntries(refreshedWorkflows.map((workflow) => {
+          const previousValue = priorWorkflows.get(workflow.id)?.nextActionAt?.slice(0, 16) || '';
+          return [workflow.id, current[workflow.id] !== undefined && current[workflow.id] !== previousValue
+            ? current[workflow.id]
+            : workflow.nextActionAt?.slice(0, 16) || ''];
+        })));
+      }
+      setLastUpdatedAt(new Date());
+      setRefreshError(workflowsResult.status === 'rejected');
+      setLoadError(false);
+    } catch {
+      // Keep the last confirmed data visible; manual refresh still reports errors.
+      setRefreshError(true);
+    }
+  }, [submissionsPage, workflowNextActions, workflowOwners, workflowStages, workflows]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void refreshIntake();
+    }, 30_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshIntake();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [refreshIntake]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return submissions;
     return submissions.filter((item) => `${displayName(item)} ${item.email || ''} ${item.contactNumber || ''} ${item.formTitle}`.toLowerCase().includes(needle));
   }, [query, submissions]);
-  const primaryForm = useMemo(() => dashboard?.forms?.find((form) => form.isPublished && form.slug) || dashboard?.forms?.find((form) => form.slug), [dashboard]);
+  const primaryForm = useMemo(() => dashboard?.forms?.find((form) => form.isPublished && form.slug), [dashboard]);
+  const draftForm = useMemo(() => dashboard?.forms?.find((form) => !form.isPublished), [dashboard]);
   const primaryFormUrl = buildPublicFormUrl(primaryForm?.slug);
   const submissionsById = useMemo(() => new Map(submissions.map((item) => [item.id, item])), [submissions]);
 
@@ -329,7 +413,7 @@ function NewMembersPage() {
       <PageHeader
         title="New Members"
         subtitle="Intake, growth trends, and follow-up records, separated from the main member registry."
-        actions={<div className="flex flex-wrap gap-2"><Button variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={() => void load()} loading={loading}>Refresh</Button>{primaryFormUrl ? <Button icon={<ExternalLink className="h-4 w-4" />} onClick={() => window.open(primaryFormUrl, '_blank', 'noopener,noreferrer')}>Open member form</Button> : <Button icon={<Plus className="h-4 w-4" />} onClick={() => window.location.assign('/dashboard/forms/new?preset=member')}>Prepare form</Button>}</div>}
+        actions={<div className="flex flex-wrap items-center gap-2"><span className={`mr-1 text-xs ${refreshError ? 'text-[var(--color-text-error)]' : 'text-[var(--color-text-tertiary)]'}`}>{refreshError ? `Refresh delayed · last successful update ${lastUpdatedAt?.toLocaleTimeString() || 'unavailable'}` : lastUpdatedAt ? `Updated ${lastUpdatedAt.toLocaleTimeString()}` : 'Loading live intake data'}</span><Button variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={() => void load()} loading={loading}>Refresh</Button>{primaryFormUrl ? <Button icon={<ExternalLink className="h-4 w-4" />} onClick={() => window.open(primaryFormUrl, '_blank', 'noopener,noreferrer')}>Open member form</Button> : draftForm ? <Button icon={<Plus className="h-4 w-4" />} onClick={() => window.location.assign(`/dashboard/forms/${encodeURIComponent(draftForm.formId)}/edit`)}>Finish member form</Button> : <Button icon={<Plus className="h-4 w-4" />} onClick={() => window.location.assign('/dashboard/forms/new?preset=member')}>Prepare form</Button>}</div>}
       />
 
       {loadError ? <Panel className="border-[var(--color-danger-border)] bg-[var(--color-danger-surface)]"><p className="text-sm font-semibold text-[var(--color-danger-text)]">Authoritative new-member data is unavailable. No substitute or placeholder values are being shown.</p></Panel> : null}
@@ -359,11 +443,11 @@ function NewMembersPage() {
         </Panel>
 
         <Panel>
-          <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Add New Member forms</h2>
+          <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Intake form links</h2>
           <div className="mt-4 space-y-3">
             {(dashboard?.forms || []).length === 0 ? (
               <div className="rounded-3xl border border-dashed border-[var(--color-border-secondary)] p-4 text-center">
-                <p className="text-sm text-[var(--color-text-tertiary)]">No Add New Member form detected.</p>
+                <p className="text-sm text-[var(--color-text-tertiary)]">No published member intake form is connected yet.</p>
                 <Button size="sm" className="mt-3" icon={<ExternalLink className="h-4 w-4" />} onClick={() => window.location.assign('/dashboard/forms/new?preset=member')}>
                   Prepare form
                 </Button>
@@ -416,8 +500,8 @@ function NewMembersPage() {
 
       <Panel>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="text-lg font-bold text-[var(--color-text-primary)]">Add New Member submissions</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Latest form-driven intake records. Downloads contain readable member information only.</p></div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end"><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" icon={<FileText className="h-4 w-4" />} loading={exporting === 'pdf'} disabled={loading || filtered.length === 0 || exporting !== null} onClick={() => void exportPdf(filtered)}>Download PDF</Button><Button size="sm" variant="outline" icon={<FileSpreadsheet className="h-4 w-4" />} loading={exporting === 'excel'} disabled={loading || filtered.length === 0 || exporting !== null} onClick={() => exportExcel(filtered)}>Download Excel</Button></div><div className="relative w-full sm:w-80"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" /><Input aria-label="Search new member submissions" className="pl-9" placeholder="Search submissions" value={query} onChange={(event) => setQuery(event.target.value)} /></div></div>
+          <div><h2 className="text-lg font-bold text-[var(--color-text-primary)]">Intake submissions</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Submitted through the member intake links above. Search and exports apply to this page.</p></div>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end"><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" icon={<FileText className="h-4 w-4" />} loading={exporting === 'pdf'} disabled={loading || filtered.length === 0 || exporting !== null} onClick={() => void exportPdf(filtered)}>Download PDF</Button><Button size="sm" variant="outline" icon={<FileSpreadsheet className="h-4 w-4" />} loading={exporting === 'excel'} disabled={loading || filtered.length === 0 || exporting !== null} onClick={() => exportExcel(filtered)}>Download Excel</Button></div><div className="relative w-full sm:w-80"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-tertiary)]" /><Input aria-label="Search submissions on this page" className="pl-9" placeholder="Search this page" value={query} onChange={(event) => setQuery(event.target.value)} /></div></div>
         </div>
 
         <div className="mt-5 overflow-hidden rounded-3xl border border-[var(--color-border-secondary)]">
@@ -438,6 +522,7 @@ function NewMembersPage() {
             ))}
           </div>
         </div>
+        <div className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row"><p className="text-xs text-[var(--color-text-tertiary)]">Showing {submissionTotal === 0 ? 0 : (submissionsPage - 1) * SUBMISSIONS_PAGE_SIZE + 1}–{Math.min(submissionsPage * SUBMISSIONS_PAGE_SIZE, submissionTotal)} of {submissionTotal.toLocaleString()} submissions</p><Pagination page={submissionsPage} pageCount={Math.max(1, Math.ceil(submissionTotal / SUBMISSIONS_PAGE_SIZE))} onPageChange={setSubmissionsPage} /></div>
       </Panel>
     </div>
   );

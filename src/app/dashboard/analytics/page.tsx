@@ -335,7 +335,7 @@ function AnalyticsPage() {
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Panel>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">New members this year</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Member intake submissions this year</p>
           <p className="mt-2 text-lg font-bold text-[var(--color-text-primary)]">
             {newMembersThisYear ? formatNumber(newMembersThisYear) : 'Unavailable'}
           </p>
@@ -414,8 +414,8 @@ function AnalyticsPage() {
           <dl className="mt-4 space-y-2 text-sm">
             <div className="flex items-center justify-between"><dt className="text-[var(--color-text-secondary)]">Total members</dt><dd className="font-semibold text-[var(--color-text-primary)]">{formatNumber(totalMembers)}</dd></div>
             <div className="flex items-center justify-between"><dt className="text-[var(--color-text-secondary)]">Active members</dt><dd className="font-semibold text-[var(--color-text-primary)]">{formatNumber(activeMembers)}</dd></div>
-            <div className="flex items-center justify-between"><dt className="text-[var(--color-text-secondary)]">New this month</dt><dd className="font-semibold text-[var(--color-text-primary)]">{formatNumber(newMembersThisMonth)}</dd></div>
-            <div className="flex items-center justify-between"><dt className="text-[var(--color-text-secondary)]">New this year</dt><dd className="font-semibold text-[var(--color-text-primary)]">{formatNumber(newMembersThisYear)}</dd></div>
+            <div className="flex items-center justify-between"><dt className="text-[var(--color-text-secondary)]">Intake submissions this month</dt><dd className="font-semibold text-[var(--color-text-primary)]">{formatNumber(newMembersThisMonth)}</dd></div>
+            <div className="flex items-center justify-between"><dt className="text-[var(--color-text-secondary)]">Intake submissions this year</dt><dd className="font-semibold text-[var(--color-text-primary)]">{formatNumber(newMembersThisYear)}</dd></div>
           </dl>
         </Panel>
 
