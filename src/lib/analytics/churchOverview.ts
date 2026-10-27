@@ -38,6 +38,7 @@ export interface OverviewFormTally {
 export interface ChurchOverviewResponse {
   generatedAt: string;
   range: 'month' | 'last30' | 'year';
+  degradedSections?: string[];
   window: {
     currentStart: string;
     currentEnd: string;
@@ -172,7 +173,7 @@ export interface FormIntakeItem {
 export interface ChurchOverview {
   generatedAt: string;
   range: 'month' | 'last30' | 'year';
-  /** Kept for API symmetry; the single endpoint is authoritative so this is []. */
+  /** Backend aggregation blocks that failed; do not interpret their zeros as real counts. */
   missing: string[];
 
   people: {
@@ -410,7 +411,7 @@ export function mapOverview(resp: ChurchOverviewResponse): ChurchOverview {
   return {
     generatedAt: resp.generatedAt,
     range: resp.range,
-    missing: [],
+    missing: resp.degradedSections ?? [],
     people: {
       members: { total: p.membersTotal, active: p.membersActive, activationRate },
       memberGrowth: lastTwoTrend(membersMonthly),

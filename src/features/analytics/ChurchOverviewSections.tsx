@@ -116,10 +116,9 @@ export function ChurchOverviewKpis({ overview }: { overview: ChurchOverview }) {
         trend={`${people.members.active.toLocaleString()} active · ${formatPercent(people.members.activationRate)}`}
       />
       <StatCard
-        label={`New members (${rangeWord})`}
+        label={`Member profiles added (${rangeWord})`}
         value={people.newMembersInRange.toLocaleString()}
-        tone={deltaTone(people.memberGrowth.deltaPct)}
-        trend={`${formatDeltaPct(people.memberGrowth.deltaPct)} vs prior month`}
+        trend="New member records created during this reporting window"
       />
       <StatCard
         label={`Form submissions (${rangeWord})`}
@@ -134,7 +133,7 @@ export function ChurchOverviewKpis({ overview }: { overview: ChurchOverview }) {
         tone={deltaTone(giving.trend.deltaPct)}
         trend={
           giving.hasData
-            ? `${formatDeltaPct(giving.trend.deltaPct)} vs last month · ${formatNaira(giving.ytdNaira)} YTD`
+            ? `${formatDeltaPct(giving.trend.deltaPct)} vs same point last month · ${formatNaira(giving.ytdNaira)} YTD`
             : 'No recorded giving yet'
         }
       />
@@ -368,6 +367,9 @@ export function ReadinessPanel({ overview }: { overview: ChurchOverview }) {
     score >= 70 ? 'text-[var(--color-success-text)]' : score >= 45 ? 'text-amber-600' : 'text-red-600';
   return (
     <Card title="Decision readiness & recommendations">
+      <p className="mb-4 text-xs text-[var(--color-text-tertiary)]">
+        Composite indicator: form intake 22%, giving 18%, attendance 15%, member activation 18%, volunteer coverage 17%, and open queues 10%. It uses selected-window intake and attendance, month-to-date giving, and current coverage. Bands: 70+ healthy, 45–69 watch, below 45 needs intervention. Review components before acting on the score.
+      </p>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div className="shrink-0 text-center">
           <p className={`text-5xl font-bold tracking-tight ${tone}`}>{score}</p>

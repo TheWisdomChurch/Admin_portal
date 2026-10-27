@@ -44,7 +44,6 @@ export function useChurchOverview(
       setError(
         'The analytics service did not respond. Check the API connection and refresh.'
       );
-      setOverview(null);
     } finally {
       setLoading(false);
     }
@@ -52,6 +51,18 @@ export function useChurchOverview(
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const refreshVisiblePage = () => {
+      if (document.visibilityState === 'visible') void load();
+    };
+    const timer = window.setInterval(refreshVisiblePage, 60_000);
+    document.addEventListener('visibilitychange', refreshVisiblePage);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refreshVisiblePage);
+    };
   }, [load]);
 
   return { overview, loading, error, refreshedAt, range, setRange, refresh: load };

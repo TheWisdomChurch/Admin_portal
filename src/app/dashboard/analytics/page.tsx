@@ -1,462 +1,113 @@
 'use client';
 
-import { useMemo } from 'react';
-import { Activity, BarChart3, CalendarDays, ClipboardList, LineChart as LineChartIcon, Megaphone, RefreshCw, ShoppingBag, Sparkles, Users } from 'lucide-react';
-import {
-  ArcElement,
-  BarElement,
-  CategoryScale,
-  Chart as ChartJS,
-  Filler,
-  Legend,
-  LinearScale,
-  LineElement,
-  PointElement,
-  Tooltip,
-} from 'chart.js';
-import { Bar, Doughnut, Line } from 'react-chartjs-2';
+import { Activity, BarChart3, RefreshCw } from 'lucide-react';
 
 import { PageHeader } from '@/layouts';
-import { Button } from '@/ui/Button';
-import { Panel } from '@/ui/Panel';
-import { EmptyState } from '@/ui/EmptyState';
-import { useDashboardSnapshot, type AuditLogRecord, type DashboardSnapshot } from '@/hooks/useDashboardSnapshot';
-import { getChartPalette } from '@/lib/charts/palette';
-import { useTheme } from '@/providers/ThemeProviders';
+import { useChurchOverview, type OverviewRange } from '@/hooks/useChurchOverview';
+import { RANGE_LABELS } from '@/lib/analytics/churchOverview';
 import { withAuth } from '@/providers/withAuth';
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Filler, Tooltip, Legend);
-
-type RawRecord = Record<string, unknown>;
-type RecordType = 'event' | 'submission' | 'campaign' | 'product' | 'order' | 'audit';
-
-type TimelineItem = {
-  id: string;
-  type: RecordType;
-  title: string;
-  description: string;
-  time?: string;
-  status?: string;
-};
-
-const numberFormatter = new Intl.NumberFormat('en-US');
-
-function formatNumber(value?: number | null): string {
-  return typeof value === 'number' && Number.isFinite(value) ? numberFormatter.format(value) : 'Unavailable';
-}
-
-function numberValue(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string') {
-    const parsed = Number(value.trim());
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  return 0;
-}
-
-function stringValue(value: unknown): string {
-  if (typeof value === 'string') return value.trim();
-  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
-  return '';
-}
-
-function asRecord(value: unknown): RawRecord {
-  return value && typeof value === 'object' && !Array.isArray(value) ? (value as RawRecord) : {};
-}
-
-function formatDateTime(value?: string): string {
-  if (!value) return 'No date';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
-function toDateValue(value?: string): number {
-  if (!value) return 0;
-  const parsed = new Date(value).getTime();
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
-function normalizeLabel(value: string): string {
-  return value
-    .replace(/[_-]+/g, ' ')
-    .split(' ')
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(' ');
-}
-
-function extractArray<T = unknown>(payload: unknown): T[] {
-  if (Array.isArray(payload)) return payload as T[];
-  const record = asRecord(payload);
-  const candidates = [record.items, record.results, record.records, record.data, record.logs];
-  const firstArray = candidates.find(Array.isArray);
-  return Array.isArray(firstArray) ? (firstArray as T[]) : [];
-}
-
-function getRecordIcon(type: RecordType) {
-  switch (type) {
-    case 'event':
-      return CalendarDays;
-    case 'submission':
-      return ClipboardList;
-    case 'campaign':
-      return Megaphone;
-    case 'product':
-    case 'order':
-      return ShoppingBag;
-    case 'audit':
-      return Activity;
-    default:
-      return Sparkles;
-  }
-}
-
-function buildTimeline(snapshot: DashboardSnapshot): TimelineItem[] {
-  const recentSubmissions = extractArray<unknown>((snapshot.formStats as RawRecord | null)?.recent ?? []);
-  const recentCampaigns = extractArray<unknown>((snapshot.marketing as RawRecord | null)?.recentCampaigns ?? []);
-
-  const events: TimelineItem[] = snapshot.events.slice(0, 6).map((event) => {
-    const raw = asRecord(event);
-    return {
-      id: `event-${stringValue(raw.id) || stringValue(raw.title)}`,
-      type: 'event',
-      title: stringValue(raw.title) || 'Untitled event',
-      description: stringValue(raw.category) || 'Event',
-      time: stringValue(raw.startDate) || stringValue(raw.date) || stringValue(raw.createdAt),
-      status: stringValue(raw.status) || 'scheduled',
-    };
-  });
-
-  const submissions: TimelineItem[] = recentSubmissions.slice(0, 6).map((submission) => {
-    const raw = asRecord(submission);
-    return {
-      id: `submission-${stringValue(raw.id) || stringValue(raw.email)}`,
-      type: 'submission',
-      title: stringValue(raw.formTitle) || stringValue(raw.form_title) || 'Form response',
-      description: stringValue(raw.name) || stringValue(raw.email) || 'Anonymous',
-      time: stringValue(raw.createdAt) || stringValue(raw.created_at),
-      status: stringValue(raw.status) || 'received',
-    };
-  });
-
-  const campaigns: TimelineItem[] = recentCampaigns.slice(0, 6).map((campaign) => {
-    const raw = asRecord(campaign);
-    const failed = numberValue(raw.failed);
-    return {
-      id: `campaign-${stringValue(raw.id) || stringValue(raw.subject)}`,
-      type: 'campaign',
-      title: stringValue(raw.subject) || 'Untitled campaign',
-      description: `Sent ${formatNumber(numberValue(raw.sent))} / ${formatNumber(numberValue(raw.targeted))}`,
-      time: stringValue(raw.startedAt) || stringValue(raw.createdAt),
-      status: failed > 0 ? 'attention' : 'sent',
-    };
-  });
-
-  const audits: TimelineItem[] = snapshot.auditLogs.slice(0, 10).map((audit: AuditLogRecord) => ({
-    id: `audit-${audit.id}`,
-    type: 'audit',
-    title: audit.action || audit.description || 'Audit event',
-    description: `${audit.actor || 'System'} · ${audit.resource || 'Platform'}`,
-    time: audit.createdAt || audit.created_at,
-    status: audit.status || 'logged',
-  }));
-
-  return [...events, ...submissions, ...campaigns, ...audits]
-    .sort((a, b) => toDateValue(b.time) - toDateValue(a.time))
-    .slice(0, 16);
-}
-
-const lineOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: { legend: { position: 'top' as const } },
-  scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } },
-};
-
-const barOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: { legend: { display: false } },
-  scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } },
-};
-
-const horizontalBarOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  indexAxis: 'y' as const,
-  plugins: { legend: { display: false } },
-  scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } },
-};
-
-const doughnutOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  cutout: '68%',
-  plugins: { legend: { position: 'bottom' as const } },
-};
+import { Badge } from '@/ui/Badge';
+import { Button } from '@/ui/Button';
+import { Card } from '@/ui/Card';
+import { Panel } from '@/ui/Panel';
+import { Select } from '@/ui/Select';
+import {
+  AttentionPanel,
+  ChurchOverviewKpis,
+  GivingBreakdown,
+  GrowthCharts,
+  ReadinessPanel,
+} from '@/features/analytics/ChurchOverviewSections';
 
 function AnalyticsPage() {
-  const { data, isLoading, isFetching, refetch } = useDashboardSnapshot();
-  const { resolvedTheme } = useTheme();
-  const chartPalette = useMemo(() => getChartPalette(resolvedTheme), [resolvedTheme]);
-
-  const monthlyStats = data?.analytics?.monthlyStats ?? [];
-  const eventsByCategory = data?.analytics?.eventsByCategory ?? {};
-  const recentSubmissions = useMemo(
-    () => extractArray<unknown>((data?.formStats as RawRecord | null)?.recent ?? []),
-    [data]
-  );
-
-  const submissionsTrend = useMemo(() => {
-    const counts: Record<string, number> = {};
-    recentSubmissions.forEach((submission) => {
-      const raw = asRecord(submission);
-      const date = stringValue(raw.createdAt) || stringValue(raw.created_at);
-      if (!date) return;
-      const key = new Date(date).toISOString().slice(0, 10);
-      counts[key] = (counts[key] || 0) + 1;
-    });
-    const labels = Object.keys(counts).sort().slice(-14);
-    return { labels, values: labels.map((label) => counts[label]) };
-  }, [recentSubmissions]);
-
-  const workforceDepartments = useMemo(
-    () =>
-      Object.entries(asRecord((data?.workforceStats as RawRecord | null)?.byDepartment))
-        .map(([department, count]) => [department, numberValue(count)] as const)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 8),
-    [data]
-  );
-
-  const timeline = useMemo(() => (data ? buildTimeline(data) : []), [data]);
-
-  const totalMembers = data?.memberStats?.total ?? null;
-  const activeMembers = data?.memberStats?.active ?? null;
-  const newMembersThisMonth = numberValue((data?.newMembers as RawRecord | null)?.thisMonth);
-  const newMembersThisYear = numberValue((data?.newMembers as RawRecord | null)?.thisYear);
-  const workforceServing = data?.workforceStats ? numberValue(data.workforceStats.byStatus.serving) : null;
-  const workforceTotal = data?.workforceStats?.total ?? null;
-  const activeProducts = data?.storeProducts.filter((item) => Boolean(asRecord(item).isActive ?? asRecord(item).is_active)).length ?? 0;
-  const lowStockProducts =
-    data?.storeProducts.filter((item) => {
-      const stock = numberValue(asRecord(item).stock);
-      return stock > 0 && stock <= 5;
-    }).length ?? 0;
-
-  const monthlyChartData = {
-    labels: monthlyStats.map((row) => row.month),
-    datasets: [
-      {
-        label: 'Events',
-        data: monthlyStats.map((row) => row.count),
-        borderColor: chartPalette.series.emerald.line,
-        backgroundColor: chartPalette.series.emerald.fill,
-        borderWidth: 3,
-        fill: true,
-        tension: 0.42,
-        pointRadius: 3,
-      },
-    ],
-  };
-
-  const categoryChartData = {
-    labels: Object.keys(eventsByCategory).map(normalizeLabel),
-    datasets: [
-      {
-        data: Object.values(eventsByCategory),
-        backgroundColor: chartPalette.categorical,
-        borderColor: chartPalette.surface,
-        borderWidth: 4,
-        hoverOffset: 8,
-      },
-    ],
-  };
-
-  const submissionsChartData = {
-    labels: submissionsTrend.labels.map((label) => new Date(label).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })),
-    datasets: [
-      {
-        label: 'Submissions',
-        data: submissionsTrend.values,
-        backgroundColor: chartPalette.series.amber.fill,
-        borderColor: chartPalette.series.amber.line,
-        borderWidth: 2,
-        borderRadius: 12,
-      },
-    ],
-  };
-
-  const workforceChartData = {
-    labels: workforceDepartments.map(([department]) => normalizeLabel(department)),
-    datasets: [
-      {
-        label: 'Workers',
-        data: workforceDepartments.map(([, count]) => count),
-        backgroundColor: chartPalette.series.blue.fill,
-        borderColor: chartPalette.series.blue.line,
-        borderWidth: 2,
-        borderRadius: 10,
-      },
-    ],
-  };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-14 animate-pulse rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]" />
-        <div className="grid gap-4 xl:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-80 animate-pulse rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]" />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const { overview, loading, error, range, setRange, refresh } = useChurchOverview('last30');
 
   return (
     <div className="space-y-6 pb-10">
       <PageHeader
-        title="Analytics & Insights"
-        subtitle="Deeper trends and activity across events, forms, workforce, and store operations."
+        title="Church health & decision analytics"
+        subtitle="Server-calculated church indicators with explicit sources and comparison periods. Windowed KPIs compare equivalent periods; the charts show rolling 12-month trends."
         actions={
-          <Button variant="outline" onClick={() => void refetch()} loading={isFetching} icon={<RefreshCw className="h-4 w-4" />}>
-            Refresh
-          </Button>
+          <div className="flex flex-wrap items-end gap-3">
+            <Select label="Reporting window" value={range} onChange={(event) => setRange(event.target.value as OverviewRange)}>
+              <option value="last30">Last 30 days</option>
+              <option value="month">This month</option>
+              <option value="year">This year</option>
+            </Select>
+            <Button variant="outline" onClick={() => void refresh()} loading={loading} icon={<RefreshCw className="h-4 w-4" />}>
+              Refresh data
+            </Button>
+          </div>
         }
       />
 
-      {data?.failedSources.length ? (
+      {error && overview ? (
         <Panel className="border-[var(--color-warning-border)] bg-[var(--color-warning-surface)]">
-          <p className="text-sm font-semibold text-[var(--color-warning-text)]">Some live data could not be loaded: {data.failedSources.join(', ')}. Available sections remain current; refresh to retry.</p>
+          <p className="text-sm font-semibold text-[var(--color-warning-text)]">Refresh failed. The last successful snapshot is still shown; its timestamp is below.</p>
         </Panel>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Panel>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Member intake submissions this year</p>
-          <p className="mt-2 text-lg font-bold text-[var(--color-text-primary)]">
-            {newMembersThisYear ? formatNumber(newMembersThisYear) : 'Unavailable'}
-          </p>
+      {overview?.missing.length ? (
+        <Panel className="border-[var(--color-warning-border)] bg-[var(--color-warning-surface)]">
+          <p className="text-sm font-semibold text-[var(--color-warning-text)]">Some analytics are incomplete. Affected sections: {overview.missing.join(', ')}. Treat those section values as unavailable, not as zero.</p>
         </Panel>
-        <Panel>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Attendance in last 30 days</p>
-          <p className="mt-2 text-lg font-bold text-[var(--color-text-primary)]">
-            {data?.analytics ? formatNumber(data.analytics.operations.attendance30d) : 'Unavailable'}
-          </p>
-        </Panel>
-        <Panel>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Operational watch</p>
-          <p className="mt-2 text-lg font-bold text-[var(--color-text-primary)]">
-            {formatNumber(lowStockProducts)} stock alerts
-          </p>
-        </Panel>
-      </div>
+      ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Panel>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Monthly performance</h2>
-              <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Events created by month.</p>
-            </div>
-            <LineChartIcon className="h-5 w-5 text-[var(--color-accent-primary)]" />
-          </div>
-          <div className="mt-4 h-[300px]">
-            {monthlyStats.length > 0 ? <Line data={monthlyChartData} options={lineOptions} /> : <EmptyState title="No monthly analytics available yet." />}
-          </div>
-        </Panel>
-
-        <Panel>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Event category mix</h2>
-              <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Distribution by event category.</p>
-            </div>
-            <BarChart3 className="h-5 w-5 text-[var(--color-accent-primary)]" />
-          </div>
-          <div className="mt-4 h-[300px]">
-            {Object.keys(eventsByCategory).length > 0 ? <Doughnut data={categoryChartData} options={doughnutOptions} /> : <EmptyState title="No event category data available." />}
-          </div>
-        </Panel>
-
-        <Panel>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Submission velocity</h2>
-              <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Recent form responses grouped by day.</p>
-            </div>
-            <ClipboardList className="h-5 w-5 text-[var(--color-accent-primary)]" />
-          </div>
-          <div className="mt-4 h-[300px]">
-            {submissionsTrend.labels.length > 0 ? <Bar data={submissionsChartData} options={barOptions} /> : <EmptyState title="No recent submissions captured yet." />}
-          </div>
-        </Panel>
-
-        <Panel>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Workforce department coverage</h2>
-              <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Department load from workforce records.</p>
-            </div>
-            <Users className="h-5 w-5 text-[var(--color-accent-primary)]" />
-          </div>
-          <div className="mt-4 h-[300px]">
-            {workforceDepartments.length > 0 ? <Bar data={workforceChartData} options={horizontalBarOptions} /> : <EmptyState title="No department records yet." />}
-          </div>
-        </Panel>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel>
-          <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Membership pulse</h2>
-          <dl className="mt-4 space-y-2 text-sm">
-            <div className="flex items-center justify-between"><dt className="text-[var(--color-text-secondary)]">Total members</dt><dd className="font-semibold text-[var(--color-text-primary)]">{formatNumber(totalMembers)}</dd></div>
-            <div className="flex items-center justify-between"><dt className="text-[var(--color-text-secondary)]">Active members</dt><dd className="font-semibold text-[var(--color-text-primary)]">{formatNumber(activeMembers)}</dd></div>
-            <div className="flex items-center justify-between"><dt className="text-[var(--color-text-secondary)]">Intake submissions this month</dt><dd className="font-semibold text-[var(--color-text-primary)]">{formatNumber(newMembersThisMonth)}</dd></div>
-            <div className="flex items-center justify-between"><dt className="text-[var(--color-text-secondary)]">Intake submissions this year</dt><dd className="font-semibold text-[var(--color-text-primary)]">{formatNumber(newMembersThisYear)}</dd></div>
-          </dl>
-        </Panel>
-
-        <Panel>
-          <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Workforce and store health</h2>
-          <dl className="mt-4 space-y-2 text-sm">
-            <div className="flex items-center justify-between"><dt className="text-[var(--color-text-secondary)]">Serving workforce</dt><dd className="font-semibold text-[var(--color-text-primary)]">{formatNumber(workforceServing)}</dd></div>
-            <div className="flex items-center justify-between"><dt className="text-[var(--color-text-secondary)]">Total workforce</dt><dd className="font-semibold text-[var(--color-text-primary)]">{formatNumber(workforceTotal)}</dd></div>
-            <div className="flex items-center justify-between"><dt className="text-[var(--color-text-secondary)]">Active products</dt><dd className="font-semibold text-[var(--color-text-primary)]">{formatNumber(activeProducts)}</dd></div>
-            <div className="flex items-center justify-between"><dt className="text-[var(--color-text-secondary)]">Low stock products</dt><dd className="font-semibold text-[var(--color-text-primary)]">{formatNumber(lowStockProducts)}</dd></div>
-          </dl>
-        </Panel>
-      </div>
-
-      <Panel>
-        <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Recent activity</h2>
-        <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Latest movement across events, forms, and campaigns.</p>
-        <div className="mt-4 space-y-3">
-          {timeline.map((item) => {
-            const Icon = getRecordIcon(item.type);
-            return (
-              <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]">
-                  <Icon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{item.title}</p>
-                  <p className="truncate text-xs text-[var(--color-text-tertiary)]">{item.description}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-semibold text-[var(--color-text-secondary)]">{normalizeLabel(item.status || item.type)}</p>
-                  <p className="text-xs text-[var(--color-text-tertiary)]">{formatDateTime(item.time)}</p>
-                </div>
-              </div>
-            );
-          })}
-          {timeline.length === 0 ? <EmptyState title="No activity records are available yet." /> : null}
+      {!overview && loading ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 8 }, (_, index) => <Panel key={index}><div className="h-16 animate-pulse rounded-xl bg-[var(--color-background-tertiary)]" /></Panel>)}
         </div>
-      </Panel>
+      ) : overview ? (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-3">
+            <div className="flex items-center gap-2"><Badge variant="info">{RANGE_LABELS[overview.range]}</Badge><span className="text-xs text-[var(--color-text-secondary)]">Selected period: member records, form intake, and attendance. Giving is shown month to date.</span></div>
+            <p className="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]"><Activity className="h-3.5 w-3.5" />Snapshot generated {new Date(overview.generatedAt).toLocaleString()}</p>
+          </div>
+
+          <ChurchOverviewKpis overview={overview} />
+
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+            <AttentionPanel overview={overview} />
+            <ReadinessPanel overview={overview} />
+          </div>
+
+          <GrowthCharts overview={overview} />
+          <GivingBreakdown overview={overview} />
+
+          <div className="grid gap-5 xl:grid-cols-3">
+            <Card title="Operational follow-through">
+              <div className="space-y-3 text-sm">
+                <Metric label="Stalled member journeys" value={overview.intake.workflowStalled} />
+                <Metric label="Prayer requests open" value={overview.engagement.attention.find((item) => item.key === 'prayer')?.count ?? 0} />
+                <Metric label="Upcoming visits to prepare" value={overview.engagement.attention.find((item) => item.key === 'visits')?.count ?? 0} />
+                <Metric label="Pending approvals" value={overview.engagement.attention.find((item) => item.key === 'approvals')?.count ?? 0} />
+              </div>
+            </Card>
+            <Card title="Ministry capacity">
+              <div className="space-y-3 text-sm">
+                <Metric label="Ministries" value={overview.ministry.ministries} />
+                <Metric label="Without assigned workforce" value={overview.ministry.ministriesUnstaffed} />
+                <Metric label="Cell groups" value={overview.ministry.cellGroups} />
+                <Metric label="Average group size" value={overview.ministry.cellGroupAvgSize.toFixed(1)} />
+                <Metric label="Meetings in 30 days" value={overview.ministry.cellGroupMeetings30d} />
+              </div>
+            </Card>
+            <Card title="Service attendance mix" actions={<BarChart3 className="h-4 w-4 text-[var(--color-text-tertiary)]" />}>
+              {overview.engagement.attendanceByServiceType.length ? (
+                <div className="space-y-3 text-sm">{overview.engagement.attendanceByServiceType.slice(0, 6).map((item) => <Metric key={item.name} label={item.name} value={item.count} />)}</div>
+              ) : <p className="text-sm text-[var(--color-text-tertiary)]">No service attendance has been recorded.</p>}
+            </Card>
+          </div>
+        </>
+      ) : (
+        <Card title="Analytics unavailable"><p className="text-sm text-[var(--color-text-secondary)]">{error ?? 'The analytics service did not respond. Check the API connection and refresh.'}</p></Card>
+      )}
     </div>
   );
+}
+
+function Metric({ label, value }: { label: string; value: string | number }) {
+  return <div className="flex items-center justify-between gap-4 border-b border-[var(--color-border-secondary)] pb-2 last:border-0 last:pb-0"><span className="text-[var(--color-text-secondary)]">{label}</span><strong className="text-[var(--color-text-primary)]">{value}</strong></div>;
 }
 
 export default withAuth(AnalyticsPage, { requiredRole: 'admin' });
