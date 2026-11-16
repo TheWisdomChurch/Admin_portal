@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
 import { getServerErrorMessage } from '@/lib/serverValidation';
+import { isValidIanaTimeZone, localDateInputValue } from '@/lib/timeZones';
 import type { AdminEmailRecurrence, AdminEmailScheduleDetail, SendAdminComposeEmailRequest } from '@/lib/types';
 import { Button } from '@/ui/Button';
 import { Checkbox } from '@/ui/Checkbox';
@@ -29,7 +30,7 @@ export function ScheduleCampaignModal({ open, onClose, compose, estimatedRecipie
   const tomorrow = useMemo(() => {
     const date = new Date();
     date.setDate(date.getDate() + 1);
-    return date.toISOString().slice(0, 10);
+    return localDateInputValue(date);
   }, []);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -57,6 +58,8 @@ export function ScheduleCampaignModal({ open, onClose, compose, estimatedRecipie
 
   async function save(status: 'draft' | 'active') {
     if (!name.trim()) { toast.error('Give this schedule a clear name.'); return; }
+    if (!isValidIanaTimeZone(timezone)) { toast.error('Enter a valid IANA timezone, such as Africa/Lagos or Europe/London.'); return; }
+    if (!/^\d{2}:\d{2}$/.test(sendTime) || Number(sendTime.slice(0, 2)) > 23 || Number(sendTime.slice(3, 5)) > 59) { toast.error('Choose a valid send time.'); return; }
     if (recurrence === 'weekly' && weekdays.length === 0) { toast.error('Select at least one weekday.'); return; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) { toast.error('Choose a valid start date.'); return; }
     if (endDate && endDate < startDate) { toast.error('The end date cannot be before the start date.'); return; }
@@ -67,7 +70,7 @@ export function ScheduleCampaignModal({ open, onClose, compose, estimatedRecipie
     setSaving(status);
     try {
       const payload = {
-        name: name.trim(), description: description.trim() || undefined, status, recurrence, timezone, sendTime,
+        name: name.trim(), description: description.trim() || undefined, status, recurrence, timezone: timezone.trim(), sendTime,
         weekdays: recurrence === 'weekly' ? weekdays : undefined,
         monthDays: recurrence === 'monthly' ? parsedMonthDays : undefined,
         startDate,
@@ -103,7 +106,7 @@ export function ScheduleCampaignModal({ open, onClose, compose, estimatedRecipie
         {recurrence === 'monthly' && <Input label="Days of the month" helperText="Comma-separated, for example 1, 15, 28. Months without a selected day are skipped." value={monthDays} onChange={(event) => setMonthDays(event.target.value)} />}
         <div className="grid gap-4 md:grid-cols-2">
           <Input label="Send time" type="time" required value={sendTime} onChange={(event) => setSendTime(event.target.value)} />
-          <Input label="IANA timezone" required value={timezone} onChange={(event) => setTimezone(event.target.value)} helperText="For example Africa/Lagos or Europe/London" />
+          <Input label="IANA timezone" required value={timezone} onChange={(event) => setTimezone(event.target.value)} helperText="Use a valid IANA region, such as Africa/Lagos or Europe/London." aria-invalid={Boolean(timezone.trim()) && !isValidIanaTimeZone(timezone)} />
           <Input label={recurrence === 'once' ? 'Send date' : 'Starts on'} type="date" required value={startDate} onChange={(event) => setStartDate(event.target.value)} />
           {recurrence !== 'once' && <Input label="Ends on (optional)" type="date" min={startDate} value={endDate} onChange={(event) => setEndDate(event.target.value)} />}
         </div>

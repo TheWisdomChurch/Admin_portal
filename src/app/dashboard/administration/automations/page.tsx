@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
 import { getServerErrorMessage } from '@/lib/serverValidation';
+import { isValidIanaTimeZone, formatScheduledDate } from '@/lib/timeZones';
 import type { CelebrationAutomationConfig } from '@/lib/types';
 import { withAuth } from '@/providers/withAuth';
 import { Badge } from '@/ui/Badge';
@@ -41,6 +42,14 @@ function AutomationPage() {
   const runs = runsQuery.data?.data ?? [];
   const latest = runs[0];
 
+  function savePolicy() {
+    if (!isValidIanaTimeZone(draft?.timezone ?? '')) { toast.error('Enter a valid IANA timezone, such as Africa/Lagos or Europe/London.'); return; }
+    if (!/^\d{2}:\d{2}$/.test(draft?.sendTime ?? '') || Number(draft!.sendTime.slice(0, 2)) > 23 || Number(draft!.sendTime.slice(3, 5)) > 59) { toast.error('Choose a valid daily send time.'); return; }
+    if (!Number.isInteger(draft?.maxAttempts) || draft!.maxAttempts < 1 || draft!.maxAttempts > 10) { toast.error('Maximum attempts must be between 1 and 10.'); return; }
+    if (!Number.isInteger(draft?.retryMinutes) || draft!.retryMinutes < 1 || draft!.retryMinutes > 1440) { toast.error('Retry delay must be between 1 and 1440 minutes.'); return; }
+    saveMutation.mutate({ ...draft!, timezone: draft!.timezone.trim() });
+  }
+
   if (statusQuery.isLoading) return <main className="p-8 text-center text-sm text-[var(--color-text-secondary)]">Loading automation control centre…</main>;
 
   if (statusQuery.isError || !draft) {
@@ -68,7 +77,7 @@ function AutomationPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Automation" value={draft.enabled ? 'Active' : 'Paused'} icon={draft.enabled ? <CheckCircle2 className="h-5 w-5" /> : <TriangleAlert className="h-5 w-5" />} tone={draft.enabled ? 'success' : 'warning'} />
-        <StatCard label="Next run" value={statusQuery.data?.nextRunAt ? new Date(statusQuery.data.nextRunAt).toLocaleString() : '—'} icon={<CalendarClock className="h-5 w-5" />} />
+        <StatCard label="Next run" value={statusQuery.data?.nextRunAt ? formatScheduledDate(statusQuery.data.nextRunAt, draft.timezone) : '—'} icon={<CalendarClock className="h-5 w-5" />} />
         <StatCard label="Latest sent" value={latest?.sent ?? 0} icon={<Cake className="h-5 w-5" />} tone="info" />
         <StatCard label="Worker health" value={statusQuery.data?.workerHealthy ? 'Healthy' : 'No heartbeat'} trend={statusQuery.data?.config.lastWorkerHeartbeat ? `Last seen ${new Date(statusQuery.data.config.lastWorkerHeartbeat).toLocaleString()}` : 'Worker has not checked in'} icon={<ShieldCheck className="h-5 w-5" />} tone={statusQuery.data?.workerHealthy ? 'success' : 'danger'} />
       </div>
@@ -77,10 +86,10 @@ function AutomationPage() {
         <div className="border-b border-[var(--color-border-secondary)] p-5"><h2 className="font-semibold text-[var(--color-text-primary)]">Delivery policy</h2><p className="mt-1 text-sm text-[var(--color-text-secondary)]">Configuration is persisted in PostgreSQL and shared by every application replica.</p></div>
         <div className="space-y-6 p-5">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"><Checkbox label="Enable automatic delivery" checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })} /><Checkbox label="Birthday greetings" checked={draft.birthdayEnabled} onChange={(event) => setDraft({ ...draft, birthdayEnabled: event.target.checked })} /><Checkbox label="Wedding anniversaries" checked={draft.anniversaryEnabled} onChange={(event) => setDraft({ ...draft, anniversaryEnabled: event.target.checked })} /></div>
-          <div className="grid gap-4 md:grid-cols-3"><Input label="Timezone" value={draft.timezone} onChange={(event) => setDraft({ ...draft, timezone: event.target.value })} helperText="IANA timezone, e.g. Africa/Lagos" /><Input label="Daily send time" type="time" value={draft.sendTime} onChange={(event) => setDraft({ ...draft, sendTime: event.target.value })} /><Select label="29 February policy" value={draft.feb29Policy} onChange={(event) => setDraft({ ...draft, feb29Policy: event.target.value as ConfigDraft['feb29Policy'] })}><option value="feb28">Celebrate on 28 February</option><option value="mar1">Celebrate on 1 March</option><option value="leap_only">Leap years only</option></Select></div>
+          <div className="grid gap-4 md:grid-cols-3"><Input label="Timezone" value={draft.timezone} onChange={(event) => setDraft({ ...draft, timezone: event.target.value })} helperText="IANA timezone, e.g. Africa/Lagos" aria-invalid={Boolean(draft.timezone) && !isValidIanaTimeZone(draft.timezone)} /><Input label="Daily send time" type="time" value={draft.sendTime} onChange={(event) => setDraft({ ...draft, sendTime: event.target.value })} /><Select label="29 February policy" value={draft.feb29Policy} onChange={(event) => setDraft({ ...draft, feb29Policy: event.target.value as ConfigDraft['feb29Policy'] })}><option value="feb28">Celebrate on 28 February</option><option value="mar1">Celebrate on 1 March</option><option value="leap_only">Leap years only</option></Select></div>
           <div className="grid gap-4 md:grid-cols-2"><Input label="Birthday subject" value={draft.birthdaySubject} onChange={(event) => setDraft({ ...draft, birthdaySubject: event.target.value })} /><Input label="Anniversary subject" value={draft.anniversarySubject} onChange={(event) => setDraft({ ...draft, anniversarySubject: event.target.value })} /><Input label="Birthday template key" value={draft.birthdayTemplateKey} onChange={(event) => setDraft({ ...draft, birthdayTemplateKey: event.target.value })} /><Input label="Anniversary template key" value={draft.anniversaryTemplateKey} onChange={(event) => setDraft({ ...draft, anniversaryTemplateKey: event.target.value })} /></div>
           <div className="grid gap-4 md:grid-cols-2"><Input label="Maximum attempts" type="number" min={1} max={10} value={draft.maxAttempts} onChange={(event) => setDraft({ ...draft, maxAttempts: Number(event.target.value) })} /><Input label="Retry delay (minutes)" type="number" min={1} max={1440} value={draft.retryMinutes} onChange={(event) => setDraft({ ...draft, retryMinutes: Number(event.target.value) })} /></div>
-          <div className="flex justify-end"><Button onClick={() => saveMutation.mutate(draft)} loading={saveMutation.isPending}>Save automation policy</Button></div>
+          <div className="flex justify-end"><Button onClick={savePolicy} loading={saveMutation.isPending}>Save automation policy</Button></div>
         </div>
       </section>
 

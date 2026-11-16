@@ -17,10 +17,13 @@ import {
   Loader2,
   Mail,
   MailCheck,
+  Monitor,
   Paperclip,
   RefreshCw,
   Search,
   Send,
+  Smartphone,
+  Sparkles,
   Users,
   X,
 } from 'lucide-react';
@@ -42,9 +45,18 @@ import { Button } from '@/ui/Button';
 import { EmptyState } from '@/ui/EmptyState';
 import { withAuth } from '@/providers/withAuth';
 import { CANONICAL_EMAIL_FRAME_CLASS } from '@/lib/forms/formEmailTemplates';
+import {
+  buildEditorialEmailHTML,
+  buildEditorialEmailText,
+  DEFAULT_EDITORIAL_DARK_CONFIG,
+  DEFAULT_EDITORIAL_LIGHT_CONFIG,
+  parseEditorialConfigFromHtml,
+  type EditorialTemplateConfig,
+} from '@/lib/email/editorialTemplate';
 
 import styles from './email-marketing.module.scss';
 import { ScheduleCampaignModal } from './ScheduleCampaignModal';
+import { VisualEditorialStudio } from './VisualEditorialStudio';
 
 // Design tokens mirror internal/email/theme.go on the backend (the single
 // source of truth for what a Wisdom Church email looks like). Keep these in
@@ -144,6 +156,20 @@ The Wisdom Church Team
 Unsubscribe: {{ .UnsubscribeURL }}`;
 
 const TEMPLATE_PRESETS = [
+  {
+    id: 'editorial-dark',
+    label: 'Editorial Showcase (Apple Dark)',
+    subject: 'Hello Wisdom Family: Highlights & Updates',
+    html: buildEditorialEmailHTML(DEFAULT_EDITORIAL_DARK_CONFIG),
+    text: buildEditorialEmailText(DEFAULT_EDITORIAL_DARK_CONFIG),
+  },
+  {
+    id: 'editorial-light',
+    label: 'Editorial Magazine (Clean Light)',
+    subject: 'The Wisdom Church: Monthly Editorial Edition',
+    html: buildEditorialEmailHTML(DEFAULT_EDITORIAL_LIGHT_CONFIG),
+    text: buildEditorialEmailText(DEFAULT_EDITORIAL_LIGHT_CONFIG),
+  },
   { id: 'church-update', label: 'Church Update', subject: 'A New Update from The Wisdom Church', html: DEFAULT_HTML_TEMPLATE, text: DEFAULT_TEXT_TEMPLATE },
   {
     id: 'event-reminder',
@@ -406,13 +432,15 @@ function EmailMarketingPage() {
   const [selectedAudienceTypes, setSelectedAudienceTypes] = useState<DirectoryAudience[]>([]);
   const [preview, setPreview] = useState<AdminEmailAudiencePreview | null>(null);
 
-  const [subject, setSubject] = useState('A New Update from The Wisdom Church');
-  const [htmlBody, setHtmlBody] = useState(DEFAULT_HTML_TEMPLATE);
-  const [textBody, setTextBody] = useState(DEFAULT_TEXT_TEMPLATE);
+  const [subject, setSubject] = useState('Hello Wisdom Family: Highlights & Updates');
+  const [editorialConfig, setEditorialConfig] = useState<EditorialTemplateConfig>(DEFAULT_EDITORIAL_DARK_CONFIG);
+  const [htmlBody, setHtmlBody] = useState(buildEditorialEmailHTML(DEFAULT_EDITORIAL_DARK_CONFIG));
+  const [textBody, setTextBody] = useState(buildEditorialEmailText(DEFAULT_EDITORIAL_DARK_CONFIG));
   const [manualRecipientsRaw, setManualRecipientsRaw] = useState('');
   const [formSearch, setFormSearch] = useState('');
-  const [selectedPresetId, setSelectedPresetId] = useState('church-update');
-  const [editorMode, setEditorMode] = useState<'html' | 'text'>('html');
+  const [selectedPresetId, setSelectedPresetId] = useState('editorial-dark');
+  const [editorMode, setEditorMode] = useState<'visual' | 'html' | 'text'>('visual');
+  const [previewViewport, setPreviewViewport] = useState<'desktop' | 'mobile'>('mobile');
   const [lastResult, setLastResult] = useState<SendAdminComposeEmailResponse | null>(null);
   const [attachments, setAttachments] = useState<ComposeAttachment[]>([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
@@ -531,9 +559,31 @@ function EmailMarketingPage() {
     if (!preset) return;
     setSelectedPresetId(preset.id);
     setSubject(preset.subject);
+    if (preset.id === 'editorial-dark') {
+      setEditorialConfig(DEFAULT_EDITORIAL_DARK_CONFIG);
+      setEditorMode('visual');
+    } else if (preset.id === 'editorial-light') {
+      setEditorialConfig(DEFAULT_EDITORIAL_LIGHT_CONFIG);
+      setEditorMode('visual');
+    } else {
+      const parsed = parseEditorialConfigFromHtml(preset.html);
+      if (parsed) {
+        setEditorialConfig(parsed);
+        setEditorMode('visual');
+      } else {
+        setEditorMode('html');
+      }
+    }
     setHtmlBody(applyEflierToHtml(preset.html, eflierUrl));
     setTextBody(preset.text);
     toast.success(`${preset.label} template loaded.`);
+  }
+
+  function handleEditorialConfigChange(nextConfig: EditorialTemplateConfig) {
+    setEditorialConfig(nextConfig);
+    const compiledHtml = buildEditorialEmailHTML(nextConfig);
+    setHtmlBody(applyEflierToHtml(compiledHtml, eflierUrl));
+    setTextBody(buildEditorialEmailText(nextConfig));
   }
 
   async function handleEflierSelect(event: React.ChangeEvent<HTMLInputElement>) {
@@ -821,9 +871,96 @@ function EmailMarketingPage() {
                   </div>
                 </div>
 
-                <div className={styles.templateBar}><div>{TEMPLATE_PRESETS.map((preset) => <button key={preset.id} type="button" data-active={selectedPresetId === preset.id} onClick={() => applyPreset(preset.id)}>{preset.label}</button>)}</div><div><button type="button" data-active={editorMode === 'html'} onClick={() => setEditorMode('html')}>HTML</button><button type="button" data-active={editorMode === 'text'} onClick={() => setEditorMode('text')}>Text</button></div></div>
-                <div className={styles.tokenRow}>{['{{ .FirstName }}', '{{ .RecipientName }}', '{{ .Email }}', '{{ .Subject }}', '{{ .Year }}', '{{ .UnsubscribeURL }}', '{{ .YouTubeLink }}', '{{ .InstagramLink }}', '{{ .FacebookLink }}', '{{ .WhatsAppLink }}', '{{ .TikTokLink }}', '{{ .XLink }}'].map((token) => <button key={token} type="button" onClick={() => editorMode === 'html' ? setHtmlBody((current) => `${current}\n${token}`) : setTextBody((current) => `${current}\n${token}`)}>{token}</button>)}</div>
-                <textarea className={styles.codeEditor} value={editorMode === 'html' ? htmlBody : textBody} onChange={(event) => editorMode === 'html' ? setHtmlBody(event.target.value) : setTextBody(event.target.value)} spellCheck={false} />
+                <div className={styles.templateBar}>
+                  <div>
+                    {TEMPLATE_PRESETS.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        data-active={selectedPresetId === preset.id}
+                        onClick={() => applyPreset(preset.id)}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      data-active={editorMode === 'visual'}
+                      onClick={() => {
+                        const parsed = parseEditorialConfigFromHtml(htmlBody);
+                        if (parsed) setEditorialConfig(parsed);
+                        setEditorMode('visual');
+                      }}
+                    >
+                      <Sparkles className="mr-1 inline-block h-3.5 w-3.5 text-amber-500" />
+                      Visual Studio
+                    </button>
+                    <button
+                      type="button"
+                      data-active={editorMode === 'html'}
+                      onClick={() => setEditorMode('html')}
+                    >
+                      HTML
+                    </button>
+                    <button
+                      type="button"
+                      data-active={editorMode === 'text'}
+                      onClick={() => setEditorMode('text')}
+                    >
+                      Text
+                    </button>
+                  </div>
+                </div>
+
+                {editorMode === 'visual' ? (
+                  <VisualEditorialStudio
+                    config={editorialConfig}
+                    onChange={handleEditorialConfigChange}
+                  />
+                ) : (
+                  <>
+                    <div className={styles.tokenRow}>
+                      {[
+                        '{{ .FirstName }}',
+                        '{{ .RecipientName }}',
+                        '{{ .Email }}',
+                        '{{ .Subject }}',
+                        '{{ .Year }}',
+                        '{{ .UnsubscribeURL }}',
+                        '{{ .YouTubeLink }}',
+                        '{{ .InstagramLink }}',
+                        '{{ .FacebookLink }}',
+                        '{{ .WhatsAppLink }}',
+                        '{{ .TikTokLink }}',
+                        '{{ .XLink }}',
+                      ].map((token) => (
+                        <button
+                          key={token}
+                          type="button"
+                          onClick={() =>
+                            editorMode === 'html'
+                              ? setHtmlBody((current) => `${current}\n${token}`)
+                              : setTextBody((current) => `${current}\n${token}`)
+                          }
+                        >
+                          {token}
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      className={styles.codeEditor}
+                      value={editorMode === 'html' ? htmlBody : textBody}
+                      onChange={(event) =>
+                        editorMode === 'html'
+                          ? setHtmlBody(event.target.value)
+                          : setTextBody(event.target.value)
+                      }
+                      spellCheck={false}
+                    />
+                  </>
+                )}
               </div>
             </section>
           </div>
@@ -839,7 +976,48 @@ function EmailMarketingPage() {
                 <span>{attachments.length} attachment{attachments.length === 1 ? '' : 's'}</span>
                 <span>{eflierUrl ? 'Eflier included' : 'No eflier'}</span>
               </div>
-              <div className={styles.previewFrame}><div><span>Subject</span><strong>{subject || 'No subject'}</strong></div><div className={styles.previewCanvas}><iframe title="Sandboxed email campaign preview" sandbox="" srcDoc={renderPreviewHtml(htmlBody)} /></div></div>
+              <div className={styles.previewFrame}>
+                <div>
+                  <span>Subject</span>
+                  <strong>{subject || 'No subject'}</strong>
+                </div>
+                <div className={styles.previewViewportBar}>
+                  <span className={styles.viewportLabel}>Device Viewport</span>
+                  <div className={styles.viewportButtons}>
+                    <button
+                      type="button"
+                      data-active={previewViewport === 'mobile'}
+                      onClick={() => setPreviewViewport('mobile')}
+                    >
+                      <Smartphone className="h-3.5 w-3.5" /> Mobile (375px)
+                    </button>
+                    <button
+                      type="button"
+                      data-active={previewViewport === 'desktop'}
+                      onClick={() => setPreviewViewport('desktop')}
+                    >
+                      <Monitor className="h-3.5 w-3.5" /> Desktop (620px)
+                    </button>
+                  </div>
+                </div>
+                <div className={styles.previewCanvas}>
+                  {previewViewport === 'mobile' ? (
+                    <div className={styles.previewPhoneFrame}>
+                      <iframe
+                        title="Sandboxed email campaign preview (Mobile)"
+                        sandbox=""
+                        srcDoc={renderPreviewHtml(htmlBody)}
+                      />
+                    </div>
+                  ) : (
+                    <iframe
+                      title="Sandboxed email campaign preview (Desktop)"
+                      sandbox=""
+                      srcDoc={renderPreviewHtml(htmlBody)}
+                    />
+                  )}
+                </div>
+              </div>
               <div className={styles.sendRow}><p>Overlapping recipients are deduplicated before delivery.</p><div className="flex flex-wrap gap-2"><Link href="/dashboard/email-marketing/schedules"><Button type="button" variant="ghost" icon={<CalendarClock className="h-4 w-4" />}>Manage schedules</Button></Link><Button type="button" variant="outline" onClick={() => setScheduleOpen(true)} icon={<Clock3 className="h-4 w-4" />}>Schedule</Button><Button type="button" onClick={handleSendCampaign} loading={sending} icon={<Send className="h-4 w-4" />}>Send campaign</Button></div></div>
             </section>
           </div>
