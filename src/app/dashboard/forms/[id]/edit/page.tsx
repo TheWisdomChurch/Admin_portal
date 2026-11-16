@@ -746,7 +746,7 @@ function EditFormPage() {
               <span className="shrink-0 select-none font-mono text-xs text-(--color-text-tertiary)">
                 /forms/
               </span>
-              <input
+              <Input
                 value={form.slug || ''}
                 onChange={(event) => {
                   clearFieldError('slug');
