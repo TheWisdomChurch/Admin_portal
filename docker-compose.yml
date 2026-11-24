@@ -11,8 +11,12 @@ services:
     environment:
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
-      API_INTERNAL_URL: "http://wisdom_api:8080"
-      NEXT_PUBLIC_API_URL: "https://api.wisdomchurchhq.org"
+      API_INTERNAL_URL: "${API_INTERNAL_URL:-http://host.docker.internal:8080}"
+      NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-https://api.wisdomchurchhq.org}"
+      NEXT_PUBLIC_API_BASE_URL: "${NEXT_PUBLIC_API_BASE_URL:-https://api.wisdomchurchhq.org}"
+      NEXT_PUBLIC_API_PROXY: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - .:/app
       - /app/node_modules
@@ -34,8 +38,13 @@ services:
     environment:
       NODE_ENV: "production"
       PORT: "3000"
-      API_INTERNAL_URL: "${API_INTERNAL_URL:-http://wisdom_api:8080}"
+      API_INTERNAL_URL: "${API_INTERNAL_URL:-http://host.docker.internal:8080}"
+      NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-https://api.wisdomchurchhq.org}"
+      NEXT_PUBLIC_API_BASE_URL: "${NEXT_PUBLIC_API_BASE_URL:-https://api.wisdomchurchhq.org}"
+      NEXT_PUBLIC_API_PROXY: "true"
       ADMIN_PUBLIC_ORIGIN: "${ADMIN_PUBLIC_ORIGIN:-https://admin.wisdomchurchhq.org}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r=>{if(r.status>=500)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 30s

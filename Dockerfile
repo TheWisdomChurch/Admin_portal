@@ -54,6 +54,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # ✅ Accept both names your code checks + portal url
 ARG NEXT_PUBLIC_BACKEND_URL
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_API_BASE_URL
 ARG NEXT_PUBLIC_API_PROXY
 ARG APP_ADMIN_PORTAL_URL
 
@@ -61,6 +62,7 @@ ARG APP_ADMIN_PORTAL_URL
 # traffic uses the same-origin BFF by default; API_INTERNAL_URL is runtime-only.
 ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-https://api.wisdomchurchhq.org}
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.wisdomchurchhq.org}
+ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-${NEXT_PUBLIC_API_URL:-https://api.wisdomchurchhq.org}}
 ENV NEXT_PUBLIC_API_PROXY=${NEXT_PUBLIC_API_PROXY:-true}
 ENV APP_ADMIN_PORTAL_URL=${APP_ADMIN_PORTAL_URL:-https://admin-portalwisdomchurch.org}
 

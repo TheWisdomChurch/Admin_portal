@@ -1,4 +1,4 @@
-import type { User, LoginCredentials, RegisterData, ApiResponse, MessageResponse, PaginatedResponse, SimplePaginatedResponse, Testimonial, CreateTestimonialData, UpdateTestimonialData, EventData, EventPayload, DashboardAnalytics, DecisionInsights, AdminAuditLog, SecurityOverview, ReelData, CreateReelData, AdminForm, CreateFormRequest, UpdateFormRequest, PublicFormPayload, SubmitFormRequest, FormSubmission, FormStatsResponse, FormStatus, FormSubmissionDailyStat, Subscriber, SubscribeRequest, UnsubscribeRequest, SendNotificationRequest, SendNotificationResult, SubscriberSummary, SendOTPRequest, VerifyOTPRequest, SendOTPResponse, VerifyOTPResponse, WorkforceMember, CreateWorkforceRequest, UpdateWorkforceRequest, WorkforceStatsResponse, Member, MemberStatsResponse, NewMemberDashboardResponse, NewMemberSubmission, NewMemberWorkflow, NewMemberContact, NewMemberWorkflowHistory, CreateMemberRequest, UpdateMemberRequest, LeadershipMember, CreateLeadershipRequest, UpdateLeadershipRequest, PasswordResetRequestPayload, PasswordResetConfirmPayload, LoginResult, LoginChallenge, AuthSecurityProfile, ChangePasswordData, HealthCheckResponse, UploadPresignRequest, UploadPresignResponse, UploadAssetData, UploadImageResponse, EmailTemplate, CreateEmailTemplateRequest, UpdateEmailTemplateRequest, AdminNotificationInbox, ApprovalRequest, ApprovalRequestsTimeline, TOTPSetupResponse, RecoveryCodesResponse, EmergencyResetRequestPayload, EmergencyResetConfirmPayload, FormReportLinkPayload, AdminEmailMarketingFormItem, AdminEmailMarketingSummary, AdminEmailAudiencePreview, SendAdminComposeEmailRequest, SendAdminComposeEmailResponse, AdminEmailDeliveryHistoryItem, HomepageAdContent, ConfessionPopupContent, AboutPageContent, PastoralCareRequestAdmin, PrayerRequestAdmin, PrayerRequestStatus, GivingIntentAdmin, StoreProductAdmin, UpsertStoreProductRequest, StoreOrdersPaginated, StoreOrderAdmin, StoreOrderStatus, MFAMethod, ServiceTypeAdmin, AttendanceSessionAdmin, AttendanceRecordAdmin, CreateSessionRequest, CheckInRequest, CellGroupAdmin, CellGroupMemberAdmin, CellGroupMeetingAdmin, MinistryAdmin, MinistryMemberAdmin, MinistryStructure, MinistryWorkforceRole, GivingTransactionAdmin, GivingMonthlySummaryRow, ContactMessageAdmin, VisitRequestAdmin, VisitStatus, AdminUserAdmin, CreateAdminUserRequest, UpdateAdminUserRequest } from './types';
+import type { User, LoginCredentials, RegisterData, ApiResponse, MessageResponse, PaginatedResponse, SimplePaginatedResponse, Testimonial, CreateTestimonialData, UpdateTestimonialData, EventData, EventPayload, DashboardAnalytics, DecisionInsights, AdminAuditLog, SecurityOverview, ReelData, CreateReelData, AdminForm, CreateFormRequest, UpdateFormRequest, PublicFormPayload, SubmitFormRequest, FormSubmission, FormStatsResponse, FormStatus, FormSubmissionDailyStat, Subscriber, SubscribeRequest, UnsubscribeRequest, SendNotificationRequest, SendNotificationResult, SubscriberSummary, SendOTPRequest, VerifyOTPRequest, SendOTPResponse, VerifyOTPResponse, WorkforceMember, CreateWorkforceRequest, UpdateWorkforceRequest, WorkforceStatsResponse, Member, MemberStatsResponse, NewMemberDashboardResponse, NewMemberSubmission, NewMemberWorkflow, NewMemberContact, NewMemberWorkflowHistory, CreateMemberRequest, UpdateMemberRequest, LeadershipMember, CreateLeadershipRequest, UpdateLeadershipRequest, PasswordResetRequestPayload, PasswordResetConfirmPayload, LoginResult, LoginChallenge, AuthSecurityProfile, ChangePasswordData, HealthCheckResponse, UploadPresignRequest, UploadPresignResponse, UploadAssetData, UploadImageResponse, EmailTemplate, CreateEmailTemplateRequest, UpdateEmailTemplateRequest, AdminNotificationInbox, ApprovalRequest, ApprovalRequestsTimeline, TOTPSetupResponse, RecoveryCodesResponse, EmergencyResetConfirmPayload, FormReportLinkPayload, AdminEmailMarketingFormItem, AdminEmailMarketingSummary, AdminEmailAudiencePreview, SendAdminComposeEmailRequest, SendAdminComposeEmailResponse, AdminEmailDeliveryHistoryItem, HomepageAdContent, ConfessionPopupContent, AboutPageContent, PastoralCareRequestAdmin, PrayerRequestAdmin, PrayerRequestStatus, GivingIntentAdmin, StoreProductAdmin, UpsertStoreProductRequest, StoreOrdersPaginated, StoreOrderAdmin, StoreOrderStatus, MFAMethod, ServiceTypeAdmin, AttendanceSessionAdmin, AttendanceRecordAdmin, CreateSessionRequest, CheckInRequest, CellGroupAdmin, CellGroupMemberAdmin, CellGroupMeetingAdmin, MinistryAdmin, MinistryMemberAdmin, MinistryStructure, MinistryWorkforceRole, GivingTransactionAdmin, GivingMonthlySummaryRow, ContactMessageAdmin, VisitRequestAdmin, VisitStatus, AdminUserAdmin, CreateAdminUserRequest, UpdateAdminUserRequest } from './types';
 import type { VisitActivityAdmin } from './types';
 import type { AdminEmailSchedule, AdminEmailScheduleDetail, AdminEmailScheduleRun, AdminEmailScheduleStatus, UpsertAdminEmailScheduleRequest } from './types';
 import type { FormEmailContent, EmailTemplatePreviewResponse } from './types';
@@ -28,12 +28,19 @@ function requireOrigin(origin: string, message: string): string {
 
 const USE_API_PROXY = process.env.NEXT_PUBLIC_API_PROXY !== 'false';
 
-const RAW_API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL;
+const RAW_API_ORIGIN =
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  process.env.NEXT_PUBLIC_BACKEND_URL;
 const API_ORIGIN = RAW_API_ORIGIN ? normalizeOrigin(RAW_API_ORIGIN) : '';
 
-const API_V1_BASE_URL = USE_API_PROXY ? '/api/v1' : `${requireOrigin(API_ORIGIN, '[api] Missing NEXT_PUBLIC_API_URL or NEXT_PUBLIC_BACKEND_URL while NEXT_PUBLIC_API_PROXY=false.')}/api/v1`;
+const API_V1_BASE_URL = USE_API_PROXY ? '/api/v1' : `${requireOrigin(API_ORIGIN, '[api] Missing NEXT_PUBLIC_API_BASE_URL, NEXT_PUBLIC_API_URL or NEXT_PUBLIC_BACKEND_URL while NEXT_PUBLIC_API_PROXY=false.')}/api/v1`;
 
-const RAW_UPLOAD_ORIGIN = process.env.NEXT_PUBLIC_UPLOAD_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL;
+const RAW_UPLOAD_ORIGIN =
+  process.env.NEXT_PUBLIC_UPLOAD_BASE_URL ??
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  process.env.NEXT_PUBLIC_BACKEND_URL;
 const UPLOAD_ORIGIN = RAW_UPLOAD_ORIGIN ? normalizeOrigin(RAW_UPLOAD_ORIGIN) : '';
 
 const UPLOAD_V1_BASE_URL = USE_API_PROXY ? '/api/v1' : `${requireOrigin(UPLOAD_ORIGIN, '[api] Missing NEXT_PUBLIC_UPLOAD_BASE_URL or API origin while NEXT_PUBLIC_API_PROXY=false.')}/api/v1`;
@@ -1137,7 +1144,7 @@ export const apiClient = {
         return isUserLike(data) ? (data as User) : null;
       }
     } catch (err) {
-      if (isUnauthorizedError(err) || isForbiddenError(err)) {
+      if (isUnauthorizedError(err) || isForbiddenError(err) || (isApiError(err) && err.statusCode === 404)) {
         return null;
       }
       throw err;
