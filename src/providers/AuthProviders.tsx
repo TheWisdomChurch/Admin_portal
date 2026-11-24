@@ -319,7 +319,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       const statusCode = getStatusCode(e);
 
-      if (statusCode === 401 || statusCode === 403) {
+      if (statusCode === 401 || statusCode === 403 || statusCode === 404) {
         clearAuthStorage();
         applyUnauthenticatedState();
         return null;

@@ -74,9 +74,19 @@ function getBackendBaseURL(): string {
   return raw.trim().replace(/\/+$/, '').replace(/\/api\/v1$/i, '');
 }
 
-function buildTargetURL(request: NextRequest, pathParts: string[]): string {
+function getPublicBackendBaseURL(): string {
+  const raw =
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    'https://api.wisdomchurchhq.org';
+
+  return raw.trim().replace(/\/+$/, '').replace(/\/api\/v1$/i, '');
+}
+
+function buildTargetURL(request: NextRequest, pathParts: string[], overrideBase?: string): string {
   const safePath = pathParts.map((part) => encodeURIComponent(part)).join('/');
-  const base = getBackendBaseURL();
+  const base = overrideBase || getBackendBaseURL();
 
   let target: URL;
   try {
@@ -236,7 +246,72 @@ async function proxy(
       signal: controller.signal,
     };
 
-    const upstream = await fetch(targetURL, init);
+    let upstream = await fetch(targetURL, init);
+
+    // Fallback logic if the primary target returns 404 (e.g. outdated internal upstream or route alias)
+    if (upstream.status === 404) {
+      const joinedPath = pathParts.join('/');
+
+      // 1. If /auth/me returns 404 (no active session on older upstreams), return standard 200 unauthenticated response
+      if (joinedPath === 'auth/me' && method === 'GET') {
+        const responseHeaders = buildResponseHeaders(upstream.headers);
+        return NextResponse.json(
+          {
+            status: 'success',
+            data: null,
+            message: 'No active session',
+            meta: {
+              access_code: '',
+              access_status: 'login_required',
+              authenticated: false,
+              next_step: '',
+            },
+          },
+          {
+            status: 200,
+            headers: responseHeaders,
+          }
+        );
+      }
+
+      // 2. Check known route aliases
+      let alternateParts: string[] | null = null;
+      if (joinedPath === 'auth/login/verify-otp') {
+        alternateParts = ['auth', 'otp', 'verify'];
+      } else if (joinedPath === 'auth/login/resend-otp') {
+        alternateParts = ['auth', 'otp', 'resend'];
+      }
+
+      if (alternateParts) {
+        try {
+          const alternateURL = buildTargetURL(request, alternateParts);
+          const alternateUpstream = await fetch(alternateURL, init);
+          if (alternateUpstream.status !== 404) {
+            upstream = alternateUpstream;
+          }
+        } catch {
+          // ignore error and proceed
+        }
+      }
+
+      // 3. If upstream is still 404 and target is internal, fallback to public backend
+      if (upstream.status === 404) {
+        const publicBase = getPublicBackendBaseURL();
+        const currentBase = getBackendBaseURL();
+        if (publicBase && publicBase !== currentBase) {
+          try {
+            const fallbackParts = alternateParts || pathParts;
+            const fallbackURL = buildTargetURL(request, fallbackParts, publicBase);
+            const fallbackUpstream = await fetch(fallbackURL, init);
+            if (fallbackUpstream.status !== 404) {
+              upstream = fallbackUpstream;
+            }
+          } catch {
+            // ignore error and proceed
+          }
+        }
+      }
+    }
 
     const responseHeaders = buildResponseHeaders(upstream.headers);
     const responseBody = await upstream.arrayBuffer();

@@ -1008,23 +1008,49 @@ export const apiClient = {
   },
 
   async verifyLoginOtp(payload: { email: string; code: string; purpose: string; method?: MFAMethod; rememberMe?: boolean }): Promise<User> {
-    const res = await apiFetch<ApiResponse<unknown>>('/auth/login/verify-otp', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-    return extractUser(res);
+    try {
+      const res = await apiFetch<ApiResponse<unknown>>('/auth/login/verify-otp', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      return extractUser(res);
+    } catch (err) {
+      if (isApiError(err) && (err.statusCode === 404 || getApiStatusCode(err) === 404)) {
+        const fallbackRes = await apiFetch<ApiResponse<unknown>>('/auth/otp/verify', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        return extractUser(fallbackRes);
+      }
+      throw err;
+    }
   },
 
   async resendLoginOtp(payload: { email: string }): Promise<LoginChallenge> {
-    const res = await apiFetch<ApiResponse<unknown>>('/auth/login/resend-otp', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-    const challenge = extractLoginResult(res);
-    if ('otp_required' in challenge && challenge.otp_required) {
-      return challenge;
+    try {
+      const res = await apiFetch<ApiResponse<unknown>>('/auth/login/resend-otp', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      const challenge = extractLoginResult(res);
+      if ('otp_required' in challenge && challenge.otp_required) {
+        return challenge;
+      }
+      throw createApiError('Invalid login challenge payload', 400, res);
+    } catch (err) {
+      if (isApiError(err) && (err.statusCode === 404 || getApiStatusCode(err) === 404)) {
+        const fallbackRes = await apiFetch<ApiResponse<unknown>>('/auth/otp/resend', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        const challenge = extractLoginResult(fallbackRes);
+        if ('otp_required' in challenge && challenge.otp_required) {
+          return challenge;
+        }
+        throw createApiError('Invalid login challenge payload', 400, fallbackRes);
+      }
+      throw err;
     }
-    throw createApiError('Invalid login challenge payload', 400, res);
   },
 
   async register(data: RegisterData): Promise<User> {
