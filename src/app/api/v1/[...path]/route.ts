@@ -69,16 +69,26 @@ function getBackendBaseURL(): string {
     process.env.NEXT_PUBLIC_API_BASE_URL ||
     process.env.NEXT_PUBLIC_API_URL ||
     process.env.NEXT_PUBLIC_BACKEND_URL ||
-    'http://api:8080';
+    (process.env.NODE_ENV === 'production' ? 'http://api:8080' : 'https://api.wisdomchurchhq.org');
 
   return raw.trim().replace(/\/+$/, '').replace(/\/api\/v1$/i, '');
 }
 
 function buildTargetURL(request: NextRequest, pathParts: string[]): string {
   const safePath = pathParts.map((part) => encodeURIComponent(part)).join('/');
-  const url = new URL(`/api/v1/${safePath}`, getBackendBaseURL());
-  url.search = request.nextUrl.search;
-  return url.toString();
+  const base = getBackendBaseURL();
+
+  let target: URL;
+  try {
+    target = new URL(base);
+  } catch {
+    target = new URL(`http://${base}`);
+  }
+
+  const basePath = target.pathname.replace(/\/+$/, '');
+  target.pathname = `${basePath}/api/v1/${safePath}`.replace(/\/+/g, '/');
+  target.search = request.nextUrl.search;
+  return target.toString();
 }
 
 function buildForwardHeaders(request: NextRequest): Headers {
@@ -235,8 +245,15 @@ async function proxy(
       console.error('[admin-api-proxy] upstream returned error', {
         method,
         path: request.nextUrl.pathname,
+        targetURL,
         status: upstream.status,
         statusText: upstream.statusText,
+      });
+    } else if (upstream.status === 404 && process.env.NODE_ENV !== 'production') {
+      console.warn('[admin-api-proxy] upstream returned 404', {
+        method,
+        path: request.nextUrl.pathname,
+        targetURL,
       });
     }
 

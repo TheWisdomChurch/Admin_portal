@@ -162,36 +162,6 @@ export function submissionHasMedia(
   );
 }
 
-/** Fetch a (usually cross-origin, public) media URL and inline it as a data URL
- *  so it can be embedded into a generated PDF. Returns null on any failure. */
-async function fetchAsDataUrl(url: string): Promise<string | null> {
-  if (url.startsWith('data:')) return url;
-  try {
-    const response = await fetch(url, { mode: 'cors' });
-    if (!response.ok) return null;
-    const blob = await response.blob();
-    if (!blob.type.startsWith('image/')) return null;
-    return await new Promise<string | null>((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
-  }
-}
-
-function dataUrlImageFormat(dataUrl: string): 'PNG' | 'JPEG' | null {
-  const match = /^data:image\/([a-z0-9.+-]+)/i.exec(dataUrl);
-  if (!match) return null;
-  const kind = match[1].toLowerCase();
-  if (kind === 'png') return 'PNG';
-  if (kind === 'jpeg' || kind === 'jpg') return 'JPEG';
-  // jsPDF addImage only reliably supports PNG/JPEG; other formats fall back to
-  // the plain URL line already written above.
-  return null;
-}
 
 export function serializeSubmissionValue(value: unknown): string {
   if (Array.isArray(value)) {
