@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useId, useImperativeHandle, useRef } from 'react';
 import type { ClipboardEvent, KeyboardEvent } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +19,10 @@ interface OtpInputProps {
   /** Shows a danger state (e.g. after a rejected code) without clearing the value. */
   error?: boolean;
   className?: string;
+  /** Base id for the digit inputs (e.g. "otp-code") -> renders "otp-code-0", "otp-code-1", etc. */
+  id?: string;
+  /** Base name for the digit inputs (e.g. "otp-code") -> renders "otp-code-0", "otp-code-1", etc. */
+  name?: string;
 }
 
 /**
@@ -28,11 +32,14 @@ interface OtpInputProps {
  * a verification code is entered.
  */
 export const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>(function OtpInput(
-  { length = 6, value, onChange, onComplete, disabled = false, error = false, className },
+  { length = 6, value, onChange, onComplete, disabled = false, error = false, className, id, name },
   ref
 ) {
   const boxRefs = useRef<Array<HTMLInputElement | null>>([]);
   const firedForValue = useRef<string | null>(null);
+  const reactId = useId().replace(/:/g, '');
+  const baseId = (id || `otp-field-${reactId}`).replace(/[^a-zA-Z0-9_-]/g, '-');
+  const baseName = (name || id || 'otp-code').replace(/[^a-zA-Z0-9_-]/g, '-');
 
   useImperativeHandle(ref, () => ({
     focus: () => boxRefs.current[0]?.focus(),
@@ -110,6 +117,8 @@ export const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>(function OtpIn
           ref={(el) => {
             boxRefs.current[index] = el;
           }}
+          id={`${baseId}-${index}`}
+          name={`${baseName}-${index}`}
           type="text"
           inputMode="numeric"
           pattern="[0-9]*"

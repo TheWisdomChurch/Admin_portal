@@ -357,7 +357,7 @@ function LoginInner() {
 
       const effectiveMethod: MFAMethod = isRecoveryCode ? 'recovery_code' : challengeMethod;
 
-      await completeLoginOtp({
+      const verifiedUser = await completeLoginOtp({
         email: otpEmail.trim().toLowerCase(),
         code: otpCode.trim(),
         purpose: challengePurpose || 'login',
@@ -365,7 +365,7 @@ function LoginInner() {
         rememberMe: pendingLogin.rememberMe,
       });
 
-      const me = await checkAuth();
+      const me = (await checkAuth()) || verifiedUser;
 
       if (!me) {
         toast.error('Login verified, but session was not established. Please refresh.');
@@ -521,13 +521,14 @@ function LoginInner() {
 
       <Container as="header" size="narrow" className="relative flex items-center justify-between py-6">
         <Link href="/" className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full border-2 border-white bg-black shadow-sm">
+          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-white bg-black shadow-sm">
             <Image
               src="/OIP.webp"
               alt="Wisdom Church logo"
               width={40}
               height={40}
-              className="rounded-full object-cover"
+              priority
+              className="h-10 w-10 aspect-square rounded-full object-cover"
             />
           </div>
           <div className="leading-tight">

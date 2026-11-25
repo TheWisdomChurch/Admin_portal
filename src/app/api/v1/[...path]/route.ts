@@ -252,29 +252,7 @@ async function proxy(
     if (upstream.status === 404) {
       const joinedPath = pathParts.join('/');
 
-      // 1. If /auth/me returns 404 (no active session on older upstreams), return standard 200 unauthenticated response
-      if (joinedPath === 'auth/me' && method === 'GET') {
-        const responseHeaders = buildResponseHeaders(upstream.headers);
-        return NextResponse.json(
-          {
-            status: 'success',
-            data: null,
-            message: 'No active session',
-            meta: {
-              access_code: '',
-              access_status: 'login_required',
-              authenticated: false,
-              next_step: '',
-            },
-          },
-          {
-            status: 200,
-            headers: responseHeaders,
-          }
-        );
-      }
-
-      // 2. Check known route aliases
+      // 1. Check known route aliases
       let alternateParts: string[] | null = null;
       if (joinedPath === 'auth/login/verify-otp') {
         alternateParts = ['auth', 'otp', 'verify'];
@@ -294,7 +272,7 @@ async function proxy(
         }
       }
 
-      // 3. If upstream is still 404 and target is internal, fallback to public backend
+      // 2. If upstream is still 404 and target is internal, fallback to public backend
       if (upstream.status === 404) {
         const publicBase = getPublicBackendBaseURL();
         const currentBase = getBackendBaseURL();
@@ -310,6 +288,29 @@ async function proxy(
             // ignore error and proceed
           }
         }
+      }
+
+      // 3. ONLY if both internal and public upstreams returned 404 for /auth/me:
+      // Return clean unauthenticated 200 rather than alarming the browser with a 404 network error
+      if (upstream.status === 404 && joinedPath === 'auth/me' && method === 'GET') {
+        const responseHeaders = buildResponseHeaders(upstream.headers);
+        return NextResponse.json(
+          {
+            status: 'success',
+            data: null,
+            message: 'No active session',
+            meta: {
+              access_code: '',
+              access_status: 'login_required',
+              authenticated: false,
+              next_step: '',
+            },
+          },
+          {
+            status: 200,
+            headers: responseHeaders,
+          }
+        );
       }
     }
 
