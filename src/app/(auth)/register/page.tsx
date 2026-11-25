@@ -178,10 +178,11 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">First name</label>
+                <label htmlFor="register-first-name" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">First name</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                   <Input
+                    id="register-first-name"
                     type="text"
                     placeholder="John"
                     className="pl-10"
@@ -197,10 +198,11 @@ export default function RegisterPage() {
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Last name</label>
+                <label htmlFor="register-last-name" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Last name</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                   <Input
+                    id="register-last-name"
                     type="text"
                     placeholder="Doe"
                     className="pl-10"
@@ -218,10 +220,11 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Email</label>
+              <label htmlFor="register-email" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Email</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                 <Input
+                  id="register-email"
                   type="email"
                   placeholder="you@example.com"
                   className="pl-10"
@@ -240,10 +243,11 @@ export default function RegisterPage() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Password</label>
+                <label htmlFor="register-password" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                   <Input
+                    id="register-password"
                     type="password"
                     placeholder="••••••••"
                     className="pl-10"
@@ -261,10 +265,11 @@ export default function RegisterPage() {
                 <PasswordStrengthMeter password={password || ''} />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Confirm password</label>
+                <label htmlFor="register-confirm-password" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Confirm password</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                   <Input
+                    id="register-confirm-password"
                     type="password"
                     placeholder="••••••••"
                     className="pl-10"
@@ -285,9 +290,10 @@ export default function RegisterPage() {
             <div>
               <p className="mb-2 block text-sm font-medium text-[var(--color-text-secondary)]">Account role</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 hover:bg-[var(--color-background-hover)]">
+                <label htmlFor="role-admin" className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 hover:bg-[var(--color-background-hover)]">
                   {/* eslint-disable-next-line no-restricted-syntax -- radio card: the label wraps rich title/subtitle content beside the input, which the label-above <Input> layout can't express */}
                   <input
+                    id="role-admin"
                     type="radio"
                     value="admin"
                     className="mt-1"
@@ -305,9 +311,10 @@ export default function RegisterPage() {
                   </span>
                 </label>
 
-                <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 hover:bg-[var(--color-background-hover)]">
+                <label htmlFor="role-super-admin" className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 hover:bg-[var(--color-background-hover)]">
                   {/* eslint-disable-next-line no-restricted-syntax -- radio card, see comment above */}
                   <input
+                    id="role-super-admin"
                     type="radio"
                     value="super_admin"
                     className="mt-1"

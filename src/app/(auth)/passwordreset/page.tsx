@@ -262,10 +262,11 @@ function PasswordResetInner() {
           {step === 'verify' ? (
             <div className="mt-6 space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Email</label>
+                <label htmlFor="reset-email" className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">Email</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                   <Input
+                    id="reset-email"
                     type="email"
                     className="pl-10"
                     placeholder="you@example.com"
