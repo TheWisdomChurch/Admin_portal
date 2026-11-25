@@ -58,7 +58,9 @@ function AnswerValue({
             <img
               src={mediaUrl}
               alt={field?.label || 'Uploaded file'}
-              className="h-24 w-24 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] object-cover"
+              width={96}
+              height={96}
+              className="aspect-square h-24 w-24 rounded-[var(--radius-card)] border border-[var(--color-border-secondary)] object-cover"
             />
           </a>
         ) : null}

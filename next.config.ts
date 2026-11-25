@@ -54,7 +54,8 @@ function buildCsp() {
     // auto-injected at the edge since this site is proxied through
     // Cloudflare — not something the app controls, so it needs an explicit
     // allowance or every page load logs a CSP violation for it.
-    `script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com${isProd ? '' : " 'unsafe-eval'"}`,
+    // 'unsafe-eval' is required by client-side animation, dynamic PDF generation, and UI runtime libraries (e.g. framer-motion, goober, jsPDF).
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com",
     `connect-src ${connectSrc.join(' ')}`,
     ...(isProd ? ['upgrade-insecure-requests'] : []),
   ].join('; ');

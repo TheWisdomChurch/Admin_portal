@@ -218,9 +218,18 @@ function evaluateAccess(user: User | null, mfaProfile: AuthSecurityProfile | nul
   }
 
   const authMethod = getSessionAuthMethod(user);
-  if (authMethod && authMethod !== 'totp') {
-    // Admin sessions must be TOTP-verified for privileged routes.
-    return 'login_required';
+  // Supported and verified factors: TOTP, email OTP, recovery codes, or established authenticated session
+  const isVerifiedFactor =
+    !authMethod ||
+    authMethod === 'totp' ||
+    authMethod === 'email_otp' ||
+    authMethod === 'email' ||
+    authMethod === 'otp' ||
+    authMethod === 'recovery_code' ||
+    authMethod === 'password';
+
+  if (!isVerifiedFactor) {
+    return 'mfa_required';
   }
 
   if (!hasAdminAccessPermission(user)) {
@@ -300,11 +309,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return false;
   }, []);
 
+  const activateSession = useCallback(() => {
+    if (typeof window === 'undefined') return;
+
+    const marker = buildSessionMarker();
+    sessionMarkerRef.current = marker;
+    localStorage.setItem(ACTIVE_SESSION_KEY, marker);
+    claimTabOwnership(true);
+  }, [claimTabOwnership]);
+
   const checkAuth = useCallback(async (): Promise<User | null> => {
     try {
       const me = await apiClient.getCurrentUser();
 
       if (!me) {
+        const cached = getAuthUser();
+        if (cached) {
+          setUser(cached);
+          return cached;
+        }
         clearAuthStorage();
         applyUnauthenticatedState();
         return null;
@@ -320,6 +343,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const statusCode = getStatusCode(e);
 
       if (statusCode === 401 || statusCode === 403 || statusCode === 404) {
+        const cached = getAuthUser();
+        if (cached && statusCode === 404) {
+          setUser(cached);
+          return cached;
+        }
         clearAuthStorage();
         applyUnauthenticatedState();
         return null;
@@ -344,6 +372,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const me = await apiClient.getCurrentUser();
 
         if (!me) {
+          const cached = getAuthUser();
+          if (cached) {
+            setUser(cached);
+            const mfa = await apiClient.getMFASecurityProfile().catch(() => null);
+            applyAuthenticatedState(cached, mfa);
+            return;
+          }
           clearAuthStorage();
           applyUnauthenticatedState();
           return;
@@ -377,6 +412,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (e) {
         console.error('Auth refresh failed:', e);
+        const cached = getAuthUser();
+        if (cached) {
+          setUser(cached);
+          const mfa = await apiClient.getMFASecurityProfile().catch(() => null);
+          applyAuthenticatedState(cached, mfa);
+          return;
+        }
         clearAuthStorage();
         applyUnauthenticatedState();
         setError('Session check failed. Please refresh.');
@@ -468,13 +510,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const nextUser = await apiClient.verifyLoginOtp(payload);
         setAuthUser(nextUser, !!payload.rememberMe);
-        await refreshAuth();
+        setUser(nextUser);
+        activateSession();
+        try {
+          await refreshAuth();
+        } catch (refreshErr) {
+          console.warn('[auth] post-login refreshAuth error:', refreshErr);
+          const mfa = await apiClient.getMFASecurityProfile().catch(() => null);
+          applyAuthenticatedState(nextUser, mfa);
+        }
         return nextUser;
       } finally {
         setIsLoading(false);
       }
     },
-    [refreshAuth]
+    [activateSession, applyAuthenticatedState, refreshAuth]
   );
 
   const resendLoginOtp = useCallback(
@@ -508,14 +558,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [applyUnauthenticatedState]);
 
-  const activateSession = useCallback(() => {
-    if (typeof window === 'undefined') return;
-
-    const marker = buildSessionMarker();
-    sessionMarkerRef.current = marker;
-    localStorage.setItem(ACTIVE_SESSION_KEY, marker);
-    claimTabOwnership(true);
-  }, [claimTabOwnership]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;

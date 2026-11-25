@@ -400,7 +400,7 @@ Important: Do not share these codes with anyone.`;
                   {qrCodeDataUrl ? (
                     <div className="flex justify-center">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={qrCodeDataUrl} alt="MFA QR code" className="max-w-full rounded-3xl bg-white p-4 shadow-sm" />
+                      <img src={qrCodeDataUrl} alt="MFA QR code" width={220} height={220} className="aspect-square h-[220px] w-[220px] max-w-full rounded-3xl bg-white p-4 shadow-sm" />
                     </div>
                   ) : null}
                   {qrBuildError ? <Notice type="warning">{qrBuildError}</Notice> : null}
@@ -430,8 +430,10 @@ Important: Do not share these codes with anyone.`;
 
             <form onSubmit={handleEnable} className="mt-6 space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-[var(--color-text-secondary)]">Authenticator code</label>
+                <label htmlFor="mfa-authenticator-code-0" className="text-sm font-medium text-[var(--color-text-secondary)]">Authenticator code</label>
                 <OtpInput
+                  id="mfa-authenticator-code"
+                  name="mfa_authenticator_code"
                   ref={codeInputRef}
                   value={code}
                   onChange={(value) => {

@@ -103,14 +103,16 @@ export function OtpModal({
 
           {isEmailStep ? (
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">{emailLabel}</label>
+              <label htmlFor="otp-modal-email" className="text-sm font-medium text-[var(--color-text-primary)]">{emailLabel}</label>
               <Input
                 ref={emailInputRef}
+                id="otp-modal-email"
+                name="email"
                 value={email}
                 onChange={(e) => onEmailChange(e.target.value)}
                 type="email"
                 placeholder="you@example.com"
-                autoComplete="off"
+                autoComplete="email"
                 inputMode="email"
                 autoCapitalize="none"
                 disabled={loading}
@@ -118,8 +120,10 @@ export function OtpModal({
             </div>
           ) : isRecoveryCode ? (
             <div className="space-y-3">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">Emergency recovery code</label>
+              <label htmlFor="otp-modal-recovery-code" className="text-sm font-medium text-[var(--color-text-primary)]">Emergency recovery code</label>
               <Input
+                id="otp-modal-recovery-code"
+                name="recovery_code"
                 value={code}
                 onChange={(e) => onCodeChange(e.target.value.toUpperCase())}
                 placeholder="e.g. 234A-BC56"
@@ -132,9 +136,11 @@ export function OtpModal({
             </div>
           ) : (
             <div className="space-y-3">
-              <label className="text-sm font-medium text-[var(--color-text-primary)]">{otpLabel}</label>
+              <label htmlFor="otp-verification-code-0" className="text-sm font-medium text-[var(--color-text-primary)]">{otpLabel}</label>
               <OtpInput
                 ref={otpInputRef}
+                id="otp-verification-code"
+                name="otp_code"
                 value={code}
                 onChange={onCodeChange}
                 onComplete={handleOtpComplete}

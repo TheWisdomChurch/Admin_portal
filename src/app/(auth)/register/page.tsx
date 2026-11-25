@@ -115,8 +115,8 @@ export default function RegisterPage() {
     <div className="auth-shell">
       <header className="mx-auto flex w-full max-w-[var(--content-max-width-narrow)] items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full border-2 border-white bg-black shadow-sm">
-            <Image src="/OIP.webp" alt="Wisdom Church logo" width={40} height={40} className="rounded-full object-cover" />
+          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-white bg-black shadow-sm">
+            <Image src="/OIP.webp" alt="Wisdom Church logo" width={40} height={40} priority className="h-10 w-10 aspect-square rounded-full object-cover" />
           </div>
           <div className="leading-tight">
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-tertiary)]">The Wisdom Church</p>

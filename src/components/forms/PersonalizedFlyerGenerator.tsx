@@ -1229,7 +1229,9 @@ export function PersonalizedFlyerGenerator({
                   <img
                     src={photoSrc}
                     alt="Preview"
-                    className="h-11 w-11 rounded-full object-cover border border-(--color-border-secondary)"
+                    width={44}
+                    height={44}
+                    className="aspect-square h-11 w-11 rounded-full object-cover border border-(--color-border-secondary)"
                   />
                   <div>
                     <p className="text-xs font-bold text-(--color-text-primary)">Photo Attached</p>
