@@ -648,12 +648,13 @@ function LoginInner() {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate autoComplete="on">
             <div>
-              <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+              <label htmlFor="login-email" className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
                 Email Address
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-text-tertiary)]" />
                 <Input
+                  id="login-email"
                   type="email"
                   placeholder="you@example.com"
                   className="pl-10"
@@ -675,12 +676,13 @@ function LoginInner() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+              <label htmlFor="login-password" className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
                 Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-text-tertiary)]" />
                 <Input
+                  id="login-password"
                   type="password"
                   placeholder="••••••••"
                   className="pl-10"
@@ -705,6 +707,7 @@ function LoginInner() {
                 control={control}
                 render={({ field }: { field: ControllerRenderProps<LoginFormData, 'rememberMe'> }) => (
                   <Checkbox
+                    id="login-remember-me"
                     label="Remember me"
                     disabled={isLoading}
                     checked={!!field.value}
@@ -833,6 +836,8 @@ function LoginInner() {
           <div className="mt-4 space-y-4">
             {forgotStep === 'email' && (
               <Input
+                label="Email address"
+                id="forgot-email"
                 type="email"
                 placeholder="you@example.com"
                 value={forgotEmail}
@@ -842,6 +847,8 @@ function LoginInner() {
             )}
             {forgotStep === 'otp' && (
               <Input
+                label="Verification code"
+                id="forgot-otp"
                 type="text"
                 placeholder="Enter OTP"
                 value={forgotOtp}

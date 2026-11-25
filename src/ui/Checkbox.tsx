@@ -1,6 +1,6 @@
 'use client';
 
-import React, { InputHTMLAttributes } from 'react';
+import React, { InputHTMLAttributes, useId } from 'react';
 import { cn } from '@/lib/utils'; // Assuming you have a cn utility for classnames
 
 interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
@@ -9,14 +9,21 @@ interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'typ
   className?: string;
 }
 
-export function Checkbox({ label, disabled, className, ...props }: CheckboxProps) {
+export function Checkbox({ id: customId, label, disabled, className, ...props }: CheckboxProps) {
+  const generatedId = useId();
+  const inputId = customId || `checkbox-${generatedId.replace(/:/g, '')}`;
+
   return (
-    <label className={cn(
-      'flex items-center gap-2 text-sm text-[var(--color-text-secondary)]',
-      disabled && 'opacity-50 cursor-not-allowed',
-      className
-    )}>
+    <label
+      htmlFor={inputId}
+      className={cn(
+        'flex items-center gap-2 text-sm text-[var(--color-text-secondary)] cursor-pointer',
+        disabled && 'opacity-50 cursor-not-allowed',
+        className
+      )}
+    >
       <input
+        id={inputId}
         type="checkbox"
         disabled={disabled}
         className={cn(
@@ -25,7 +32,7 @@ export function Checkbox({ label, disabled, className, ...props }: CheckboxProps
         )}
         {...props}
       />
-      {label}
+      <span>{label}</span>
     </label>
   );
 }
