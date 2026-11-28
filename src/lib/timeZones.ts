@@ -33,3 +33,19 @@ export function localDateInputValue(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+/** Convert an absolute timestamp into the browser-local datetime-local value. */
+export function toLocalDateTimeInput(value?: string | null): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** Convert a datetime-local value into an absolute ISO timestamp. */
+export function fromLocalDateTimeInput(value: string): string | null {
+  if (!value.trim()) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}

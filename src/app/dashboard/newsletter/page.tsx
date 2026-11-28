@@ -99,7 +99,7 @@ function NewsletterPage() {
               <Mail className="h-4 w-4" /> Newsletter
             </div>
             <h1 className="heading-page mt-4 text-[var(--color-text-primary)]">Subscriber Control Center</h1>
-            <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--color-text-secondary)]">Manage public newsletter subscribers and send clean audience-safe updates.</p>
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--color-text-secondary)]">Manage public newsletter subscribers and send clean audience-safe updates. Delivery uses the Mailcow primary route, with Brevo fallback when configured by the deployment.</p>
           </div>
           <Button variant="outline" onClick={() => void load()} disabled={loading} loading={loading} icon={<RefreshCw className="h-4 w-4" />}>Refresh</Button>
         </div>

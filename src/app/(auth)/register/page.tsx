@@ -307,28 +307,7 @@ export default function RegisterPage() {
                   />
                   <span>
                     <span className="block text-sm font-semibold text-[var(--color-text-primary)]">Admin</span>
-                    <span className="block text-xs text-[var(--color-text-tertiary)]">Operations and content workflows</span>
-                  </span>
-                </label>
-
-                <label htmlFor="role-super-admin" className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 hover:bg-[var(--color-background-hover)]">
-                  {/* eslint-disable-next-line no-restricted-syntax -- radio card, see comment above */}
-                  <input
-                    id="role-super-admin"
-                    type="radio"
-                    value="super_admin"
-                    className="mt-1"
-                    {...register('role', {
-                      onChange: () => {
-                        setServerError('');
-                        clearErrors('role');
-                      },
-                    })}
-                    disabled={isSubmitting}
-                  />
-                  <span>
-                    <span className="block text-sm font-semibold text-[var(--color-text-primary)]">Super Admin</span>
-                    <span className="block text-xs text-[var(--color-text-tertiary)]">Governance and platform controls</span>
+                    <span className="block text-xs text-[var(--color-text-tertiary)]">Access request reviewed by a super admin</span>
                   </span>
                 </label>
               </div>

@@ -56,6 +56,7 @@ ARG NEXT_PUBLIC_BACKEND_URL
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_API_BASE_URL
 ARG NEXT_PUBLIC_API_PROXY
+ARG NEXT_PUBLIC_FRONTEND_URL=https://wisdomchurchhq.org
 ARG APP_ADMIN_PORTAL_URL
 
 # Public values are intentionally non-secret build configuration. Browser API
@@ -64,6 +65,7 @@ ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-https://api.wisdomchurchh
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.wisdomchurchhq.org}
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-${NEXT_PUBLIC_API_URL:-https://api.wisdomchurchhq.org}}
 ENV NEXT_PUBLIC_API_PROXY=${NEXT_PUBLIC_API_PROXY:-true}
+ENV NEXT_PUBLIC_FRONTEND_URL=${NEXT_PUBLIC_FRONTEND_URL:-https://wisdomchurchhq.org}
 ENV APP_ADMIN_PORTAL_URL=${APP_ADMIN_PORTAL_URL:-https://admin-portalwisdomchurch.org}
 
 COPY --from=deps /app/node_modules ./node_modules

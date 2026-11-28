@@ -66,6 +66,7 @@ jobs:
           build-args: |
             NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
             NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_FRONTEND_URL=https://wisdomchurchhq.org
             APP_ADMIN_PORTAL_URL=${{ secrets.APP_ADMIN_PORTAL_URL }}
 
           # use registry-backed cache instead of gha cache

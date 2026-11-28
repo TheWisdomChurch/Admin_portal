@@ -2526,6 +2526,7 @@ export const apiClient = {
       stage?: NewMemberWorkflow['stage'];
       assignedOwnerId?: string | null;
       nextActionAt?: string | null;
+      clearNextActionAt?: boolean;
     },
   ): Promise<NewMemberWorkflow> {
     const res = await apiFetch<ApiResponse<NewMemberWorkflow>>(`/admin/new-members/workflows/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(payload) });

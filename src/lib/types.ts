@@ -1374,6 +1374,9 @@ export type NewMemberEscalationStatus = 'none' | 'due' | 'escalated' | 'resolved
 export interface NewMemberWorkflow {
   id: string;
   submissionId: string;
+  submissionName?: string;
+  submissionEmail?: string;
+  submissionFormTitle?: string;
   stage: NewMemberWorkflowStage;
   assignedOwnerId?: string;
   assignedOwnerName?: string;

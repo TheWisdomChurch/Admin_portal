@@ -17,7 +17,6 @@ import toast from 'react-hot-toast';
 import { PageHeader } from '@/layouts';
 import { Badge } from '@/ui/Badge';
 import { Button } from '@/ui/Button';
-import { Select } from '@/ui/Select';
 import { Input } from '@/ui/Input';
 import { SectionCard } from '@/ui/SectionCard';
 import { StatCard } from '@/ui/StatCard';
@@ -26,7 +25,7 @@ import { VerifyActionModal } from '@/ui/VerifyActionModal';
 import { apiClient } from '@/lib/api';
 import { useAuthContext } from '@/providers/AuthProviders';
 import { withAuth } from '@/providers/withAuth';
-import type { AdminUserAdmin, AdminUserRole } from '@/lib/types';
+import type { AdminUserAdmin } from '@/lib/types';
 
 function formatDate(value?: string): string {
   if (!value) return '—';
@@ -35,7 +34,7 @@ function formatDate(value?: string): string {
   return parsed.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' });
 }
 
-const emptyForm = { firstName: '', lastName: '', email: '', password: '', role: 'admin' as AdminUserRole };
+const emptyForm = { firstName: '', lastName: '', email: '', password: '' };
 
 function AdminUsersPage() {
   const { user: currentUser } = useAuthContext();
@@ -83,7 +82,7 @@ function AdminUsersPage() {
         last_name: form.lastName.trim(),
         email: form.email.trim(),
         password: form.password,
-        role: form.role,
+        role: 'admin',
       });
       toast.success(message);
       setForm(emptyForm);
@@ -252,21 +251,14 @@ function AdminUsersPage() {
       {showCreate ? (
         <SectionCard title="Create admin account" icon={<Plus className="h-5 w-5" />} actions={<button type="button" onClick={() => setShowCreate(false)} aria-label="Close" className="rounded-xl p-2 text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-secondary)]"><X className="h-4 w-4" /></button>}>
           <p className="mb-4 text-xs font-semibold text-[var(--color-text-tertiary)]">
-            Admin-role accounts require a super-admin to approve before they can sign in. Super-admin accounts activate immediately.
+            New admin accounts remain inactive until a super admin approves them. Super-admin privileges are provisioned through a trusted server-side process.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input value={form.firstName} onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))} placeholder="First name" />
             <Input value={form.lastName} onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))} placeholder="Last name" />
             <Input value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="Email" type="email" />
             <Input value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="Temporary password (min 8 characters)" type="password" />
-            <Select
-              value={form.role}
-              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as AdminUserRole }))}
-              className="sm:col-span-2"
-            >
-              <option value="admin">Admin</option>
-              <option value="super_admin">Super Admin</option>
-            </Select>
+
           </div>
           <div className="mt-4 flex justify-end">
             <Button loading={creating} onClick={() => void createUser()}>Create account</Button>
