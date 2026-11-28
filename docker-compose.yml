@@ -3,6 +3,8 @@ services:
     build:
       context: .
       target: development
+      args:
+        NEXT_PUBLIC_FRONTEND_URL: "${NEXT_PUBLIC_FRONTEND_URL:-https://wisdomchurchhq.org}"
     container_name: wisdomchurch-admin-dev
     restart: unless-stopped
     init: true
@@ -15,6 +17,7 @@ services:
       NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-https://api.wisdomchurchhq.org}"
       NEXT_PUBLIC_API_BASE_URL: "${NEXT_PUBLIC_API_BASE_URL:-https://api.wisdomchurchhq.org}"
       NEXT_PUBLIC_API_PROXY: "true"
+      NEXT_PUBLIC_FRONTEND_URL: "${NEXT_PUBLIC_FRONTEND_URL:-https://wisdomchurchhq.org}"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -29,6 +32,8 @@ services:
     build:
       context: .
       target: production
+      args:
+        NEXT_PUBLIC_FRONTEND_URL: "${NEXT_PUBLIC_FRONTEND_URL:-https://wisdomchurchhq.org}"
     image: ghcr.io/thewisdomchurch/wisdom-admin:main
     container_name: wisdomchurch-admin-prod
     restart: unless-stopped

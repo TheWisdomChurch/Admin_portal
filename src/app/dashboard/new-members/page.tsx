@@ -23,6 +23,8 @@ import { Pagination } from '@/ui/Pagination';
 import { StatCard } from '@/ui/StatCard';
 import { apiClient } from '@/lib/api';
 import { buildPublicFormUrl } from '@/lib/utils';
+import { fromLocalDateTimeInput, toLocalDateTimeInput } from '@/lib/timeZones';
+import { getServerErrorMessage } from '@/lib/serverValidation';
 import { getChartPalette } from '@/lib/charts/palette';
 import { buildNewMembersExcelXml, toNewMemberExportRecord, type NewMemberExportRecord } from '@/lib/newMemberExports';
 import { useTheme } from '@/providers/ThemeProviders';
@@ -32,7 +34,9 @@ import type { AdminUserAdmin, NewMemberContact, NewMemberDashboardResponse, NewM
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 type GrowthPoint = { period: string; count: number };
+type NewMemberWorkflowDetails = Awaited<ReturnType<typeof apiClient.getNewMemberWorkflow>>;
 const SUBMISSIONS_PAGE_SIZE = 50;
+const WORKFLOW_PAGE_SIZE = 25;
 
 function text(value: unknown): string {
   if (typeof value === 'string') return value.trim();
@@ -201,6 +205,10 @@ function NewMembersPage() {
   const [submissionsPage, setSubmissionsPage] = useState(1);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [workflows, setWorkflows] = useState<NewMemberWorkflow[]>([]);
+  const [workflowTotal, setWorkflowTotal] = useState(0);
+  const [workflowPage, setWorkflowPage] = useState(1);
+  const [workflowDetails, setWorkflowDetails] = useState<Record<string, NewMemberWorkflowDetails>>({});
+  const [loadingWorkflowDetails, setLoadingWorkflowDetails] = useState<Record<string, boolean>>({});
   const [workflowStages, setWorkflowStages] = useState<Record<string, NewMemberWorkflowStage>>({});
   const [workflowOwners, setWorkflowOwners] = useState<Record<string, string>>({});
   const [workflowNextActions, setWorkflowNextActions] = useState<Record<string, string>>({});
@@ -221,7 +229,7 @@ function NewMembersPage() {
       const [dashboardResult, submissionsResult, workflowsResult, usersResult] = await Promise.allSettled([
         apiClient.getNewMemberDashboard(),
         apiClient.listNewMemberSubmissions({ page: submissionsPage, limit: SUBMISSIONS_PAGE_SIZE }),
-        apiClient.listNewMemberWorkflows({ page: 1, limit: 100 }),
+        apiClient.listNewMemberWorkflows({ page: workflowPage, limit: WORKFLOW_PAGE_SIZE }),
         apiClient.listAdminUsers(),
       ]);
       if (dashboardResult.status === 'rejected') throw dashboardResult.reason;
@@ -234,11 +242,14 @@ function NewMembersPage() {
       if (workflowsResult.status === 'fulfilled') {
         const loadedWorkflows = workflowsResult.value.data;
         setWorkflows(loadedWorkflows);
+        setWorkflowTotal(workflowsResult.value.total);
+        setWorkflowPage((current) => Math.min(current, Math.max(1, Math.ceil(workflowsResult.value.total / WORKFLOW_PAGE_SIZE))));
         setWorkflowStages(Object.fromEntries(loadedWorkflows.map((item) => [item.id, item.stage])));
         setWorkflowOwners(Object.fromEntries(loadedWorkflows.map((item) => [item.id, item.assignedOwnerId || ''])));
-        setWorkflowNextActions(Object.fromEntries(loadedWorkflows.map((item) => [item.id, item.nextActionAt ? item.nextActionAt.slice(0, 16) : ''])));
+        setWorkflowNextActions(Object.fromEntries(loadedWorkflows.map((item) => [item.id, toLocalDateTimeInput(item.nextActionAt)])));
       } else {
         setWorkflows([]);
+        setWorkflowTotal(0);
         toast.error('Intake loaded, but follow-up records are temporarily unavailable.');
       }
       if (usersResult.status === 'fulfilled') setAdminUsers(usersResult.value.filter((item) => item.is_active && item.admin_approved));
@@ -248,16 +259,12 @@ function NewMembersPage() {
       setLoadError(false);
     } catch (error) {
       console.error('Failed to load new member dashboard:', error);
-      toast.error('Unable to load new-member dashboard. Please sign in again if your session expired.');
-      setDashboard(null);
-      setSubmissions([]);
-      setWorkflows([]);
-      setAdminUsers([]);
+      toast.error(getServerErrorMessage(error, 'Unable to refresh new-member data. The last loaded records are still available.'));
       setLoadError(true);
     } finally {
       setLoading(false);
     }
-  }, [submissionsPage]);
+  }, [submissionsPage, workflowPage]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -266,7 +273,7 @@ function NewMembersPage() {
       const [dashboardResult, submissionsResult, workflowsResult] = await Promise.allSettled([
         apiClient.getNewMemberDashboard(),
         apiClient.listNewMemberSubmissions({ page: submissionsPage, limit: SUBMISSIONS_PAGE_SIZE }),
-        apiClient.listNewMemberWorkflows({ page: 1, limit: 100 }),
+        apiClient.listNewMemberWorkflows({ page: workflowPage, limit: WORKFLOW_PAGE_SIZE }),
       ]);
       if (dashboardResult.status === 'rejected') throw dashboardResult.reason;
       if (submissionsResult.status === 'rejected') throw submissionsResult.reason;
@@ -277,6 +284,8 @@ function NewMembersPage() {
       setSubmissionTotal(submissionsRes.total);
       if (workflowsResult.status === 'fulfilled') {
         const refreshedWorkflows = workflowsResult.value.data;
+        setWorkflowTotal(workflowsResult.value.total);
+        setWorkflowPage((current) => Math.min(current, Math.max(1, Math.ceil(workflowsResult.value.total / WORKFLOW_PAGE_SIZE))));
         const priorWorkflows = new Map(workflows.map((workflow) => [workflow.id, workflow]));
         setWorkflows(refreshedWorkflows);
         setWorkflowStages((current) => Object.fromEntries(refreshedWorkflows.map((workflow) => [
@@ -292,10 +301,10 @@ function NewMembersPage() {
             : workflow.assignedOwnerId || '',
         ])));
         setWorkflowNextActions((current) => Object.fromEntries(refreshedWorkflows.map((workflow) => {
-          const previousValue = priorWorkflows.get(workflow.id)?.nextActionAt?.slice(0, 16) || '';
+          const previousValue = toLocalDateTimeInput(priorWorkflows.get(workflow.id)?.nextActionAt);
           return [workflow.id, current[workflow.id] !== undefined && current[workflow.id] !== previousValue
             ? current[workflow.id]
-            : workflow.nextActionAt?.slice(0, 16) || ''];
+            : toLocalDateTimeInput(workflow.nextActionAt)];
         })));
       }
       setLastUpdatedAt(new Date());
@@ -305,7 +314,7 @@ function NewMembersPage() {
       // Keep the last confirmed data visible; manual refresh still reports errors.
       setRefreshError(true);
     }
-  }, [submissionsPage, workflowNextActions, workflowOwners, workflowStages, workflows]);
+  }, [submissionsPage, workflowPage, workflows]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -331,18 +340,49 @@ function NewMembersPage() {
   const primaryFormUrl = buildPublicFormUrl(primaryForm?.slug);
   const submissionsById = useMemo(() => new Map(submissions.map((item) => [item.id, item])), [submissions]);
 
+  const loadWorkflowDetails = async (workflowId: string) => {
+    if (workflowDetails[workflowId] || loadingWorkflowDetails[workflowId]) return;
+    setLoadingWorkflowDetails((current) => ({ ...current, [workflowId]: true }));
+    try {
+      const response = await apiClient.getNewMemberWorkflow(workflowId);
+      const details = {
+        ...response,
+        contacts: Array.isArray(response.contacts) ? response.contacts : [],
+        history: Array.isArray(response.history) ? response.history : [],
+      };
+      setWorkflowDetails((current) => ({ ...current, [workflowId]: details }));
+    } catch (error) {
+      toast.error(getServerErrorMessage(error, 'Could not load this follow-up history.'));
+    } finally {
+      setLoadingWorkflowDetails((current) => ({ ...current, [workflowId]: false }));
+    }
+  };
+
   const saveWorkflowStage = async (workflow: NewMemberWorkflow) => {
     const stage = workflowStages[workflow.id] || workflow.stage;
     const owner = workflowOwners[workflow.id] ?? workflow.assignedOwnerId ?? '';
-    const nextAction = workflowNextActions[workflow.id];
+    const nextAction = workflowNextActions[workflow.id] || '';
+    const nextActionAt = fromLocalDateTimeInput(nextAction);
+    if (nextAction && !nextActionAt) {
+      toast.error('Enter a valid local date and time for the next action.');
+      return;
+    }
     setSavingWorkflow(workflow.id);
     try {
-      const updated = await apiClient.updateNewMemberWorkflow(workflow.id, { stage, assignedOwnerId: owner, nextActionAt: nextAction ? new Date(nextAction).toISOString() : undefined });
+      const updated = await apiClient.updateNewMemberWorkflow(workflow.id, {
+        stage,
+        assignedOwnerId: owner,
+        nextActionAt: nextActionAt || undefined,
+        clearNextActionAt: !nextAction,
+      });
       setWorkflows((current) => current.map((item) => item.id === updated.id ? updated : item));
-      toast.success('Follow-up stage updated.');
+      setWorkflowStages((current) => ({ ...current, [updated.id]: updated.stage }));
+      setWorkflowOwners((current) => ({ ...current, [updated.id]: updated.assignedOwnerId || '' }));
+      setWorkflowNextActions((current) => ({ ...current, [updated.id]: toLocalDateTimeInput(updated.nextActionAt) }));
+      toast.success('Follow-up updated.');
     } catch (error) {
       console.error('Workflow update failed:', error);
-      toast.error('Unable to update the persisted workflow.');
+      toast.error(getServerErrorMessage(error, 'Unable to update the persisted workflow.'));
     } finally {
       setSavingWorkflow(null);
     }
@@ -353,13 +393,16 @@ function NewMembersPage() {
     if (!draft.outcome.trim()) return toast.error('Enter the real contact outcome.');
     setSavingWorkflow(workflow.id);
     try {
-      await apiClient.addNewMemberContact(workflow.id, { channel: draft.channel, outcome: draft.outcome.trim(), notes: draft.notes.trim() || undefined });
+      const contact = await apiClient.addNewMemberContact(workflow.id, { channel: draft.channel, outcome: draft.outcome.trim(), notes: draft.notes.trim() || undefined });
       setContactDrafts((current) => ({ ...current, [workflow.id]: { channel: 'phone', outcome: '', notes: '' } }));
-      await load();
+      setWorkflowDetails((current) => current[workflow.id]
+        ? { ...current, [workflow.id]: { ...current[workflow.id], contacts: [contact, ...current[workflow.id].contacts] } }
+        : current);
+      void refreshIntake();
       toast.success('Contact history recorded.');
     } catch (error) {
       console.error('Contact history update failed:', error);
-      toast.error('Unable to persist the contact history.');
+      toast.error(getServerErrorMessage(error, 'Unable to persist the contact history.'));
     } finally { setSavingWorkflow(null); }
   };
 
@@ -461,8 +504,8 @@ function NewMembersPage() {
 
       <Panel>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="text-lg font-bold text-[var(--color-text-primary)]">Automated follow-up queue</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Persisted ownership, next actions, reminders, and escalation state from the backend.</p></div>
-          <Badge variant={workflows.some((item) => item.escalationStatus === 'escalated') ? 'danger' : 'success'}>{workflows.filter((item) => item.escalationStatus === 'escalated').length} escalated</Badge>
+          <div><h2 className="text-lg font-bold text-[var(--color-text-primary)]">Automated follow-up queue</h2><p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Assign an owner, schedule the next action in your local timezone, and review the contact audit trail. Leave the time blank to clear a reminder.</p></div>
+          <Badge variant={workflows.some((item) => item.escalationStatus === 'escalated') ? 'danger' : 'success'}>{workflows.filter((item) => item.escalationStatus === 'escalated').length} escalated on this page</Badge>
         </div>
         <div className="mt-5 overflow-hidden rounded-3xl border border-[var(--color-border-secondary)]">
           <div className="hidden grid-cols-[minmax(180px,1fr)_180px_180px_190px_120px] gap-4 bg-[var(--color-background-secondary)] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] lg:grid">
@@ -473,16 +516,48 @@ function NewMembersPage() {
             {workflows.map((workflow) => {
               const submission = submissionsById.get(workflow.submissionId);
               const draft = contactDrafts[workflow.id] || { channel: 'phone' as const, outcome: '', notes: '' };
-              return <article key={workflow.id} className="px-4 py-4"><div className="grid gap-3 lg:grid-cols-[minmax(180px,1fr)_180px_180px_190px_120px] lg:items-center">
-                <div><p className="text-sm font-bold text-[var(--color-text-primary)]">{submission ? displayName(submission) : workflow.submissionId}</p><p className="text-xs text-[var(--color-text-tertiary)]">{workflow.assignedOwnerName || (workflow.assignedOwnerId ? `Owner ${workflow.assignedOwnerId}` : 'Unassigned')}</p></div>
-                <Select aria-label="Follow-up stage" value={workflowStages[workflow.id] || workflow.stage} onChange={(event) => setWorkflowStages((current) => ({ ...current, [workflow.id]: event.target.value as NewMemberWorkflowStage }))}><option value="new">New</option><option value="contact_attempted">Contact attempted</option><option value="contacted">Contacted</option><option value="orientation_scheduled">Orientation scheduled</option><option value="orientation_completed">Orientation completed</option><option value="integrated">Integrated</option><option value="closed">Closed</option></Select>
-                <Select aria-label="Assigned owner" value={workflowOwners[workflow.id] || ''} onChange={(event) => setWorkflowOwners((current) => ({ ...current, [workflow.id]: event.target.value }))}><option value="">Unassigned</option>{adminUsers.map((user) => <option key={user.id} value={user.id}>{user.first_name} {user.last_name}</option>)}</Select>
-                <Input type="datetime-local" aria-label="Next follow-up action" value={workflowNextActions[workflow.id] || ''} onChange={(event) => setWorkflowNextActions((current) => ({ ...current, [workflow.id]: event.target.value }))} />
-                <div className="flex items-center gap-2"><Badge variant={workflow.escalationStatus === 'escalated' ? 'danger' : workflow.escalationStatus === 'due' ? 'warning' : 'secondary'}>{workflow.escalationStatus}</Badge><Button size="sm" loading={savingWorkflow === workflow.id} onClick={() => void saveWorkflowStage(workflow)}>Save</Button></div>
-              </div><details className="mt-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3"><summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">Record contact</summary><div className="mt-3 grid gap-3 md:grid-cols-[150px_1fr_1fr_auto]"><Select aria-label="Contact channel" value={draft.channel} onChange={(event) => setContactDrafts((current) => ({ ...current, [workflow.id]: { ...draft, channel: event.target.value as NewMemberContact['channel'] } }))}><option value="phone">Phone</option><option value="email">Email</option><option value="sms">SMS</option><option value="whatsapp">WhatsApp</option><option value="in_person">In person</option><option value="other">Other</option></Select><Input placeholder="Actual outcome" value={draft.outcome} onChange={(event) => setContactDrafts((current) => ({ ...current, [workflow.id]: { ...draft, outcome: event.target.value } }))} /><Input placeholder="Notes (optional)" value={draft.notes} onChange={(event) => setContactDrafts((current) => ({ ...current, [workflow.id]: { ...draft, notes: event.target.value } }))} /><Button loading={savingWorkflow === workflow.id} onClick={() => void recordContact(workflow)}>Record</Button></div></details></article>;
+              const details = workflowDetails[workflow.id];
+              return (
+                <article key={workflow.id} className="px-4 py-4">
+                  <div className="grid gap-3 lg:grid-cols-[minmax(180px,1fr)_180px_180px_190px_120px] lg:items-center">
+                    <div>
+                      <p className="text-sm font-bold text-[var(--color-text-primary)]">{workflow.submissionName || (submission ? displayName(submission) : `Submission ${workflow.submissionId.slice(0, 8)}`)}</p>
+                      <p className="text-xs text-[var(--color-text-tertiary)]">{workflow.submissionEmail ? `${workflow.submissionEmail} · ` : ''}{workflow.assignedOwnerName || (workflow.assignedOwnerId ? `Owner ${workflow.assignedOwnerId}` : 'Unassigned')}</p>
+                    </div>
+                    <Select aria-label="Follow-up stage" value={workflowStages[workflow.id] || workflow.stage} disabled={savingWorkflow === workflow.id} onChange={(event) => setWorkflowStages((current) => ({ ...current, [workflow.id]: event.target.value as NewMemberWorkflowStage }))}>
+                      <option value="new">New</option><option value="contact_attempted">Contact attempted</option><option value="contacted">Contacted</option><option value="orientation_scheduled">Orientation scheduled</option><option value="orientation_completed">Orientation completed</option><option value="integrated">Integrated</option><option value="closed">Closed</option>
+                    </Select>
+                    <Select aria-label="Assigned owner" value={workflowOwners[workflow.id] || ''} disabled={savingWorkflow === workflow.id} onChange={(event) => setWorkflowOwners((current) => ({ ...current, [workflow.id]: event.target.value }))}>
+                      <option value="">Unassigned</option>{adminUsers.map((user) => <option key={user.id} value={user.id}>{user.first_name} {user.last_name}</option>)}
+                    </Select>
+                    <Input type="datetime-local" aria-label="Next follow-up action" helperText="Your local time; leave blank to clear" disabled={savingWorkflow === workflow.id} value={workflowNextActions[workflow.id] || ''} onChange={(event) => setWorkflowNextActions((current) => ({ ...current, [workflow.id]: event.target.value }))} />
+                    <div className="flex items-center gap-2"><Badge variant={workflow.escalationStatus === 'escalated' ? 'danger' : workflow.escalationStatus === 'due' ? 'warning' : 'secondary'}>{workflow.escalationStatus}</Badge><Button size="sm" loading={savingWorkflow === workflow.id} onClick={() => void saveWorkflowStage(workflow)}>Save</Button></div>
+                  </div>
+                  <details className="mt-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3" onToggle={(event) => { if (event.currentTarget.open) void loadWorkflowDetails(workflow.id); }}>
+                    <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">Contact and change history</summary>
+                    <div className="mt-3 space-y-4">
+                      {loadingWorkflowDetails[workflow.id] ? <p className="text-sm text-[var(--color-text-tertiary)]">Loading history…</p> : null}
+                      {!loadingWorkflowDetails[workflow.id] && !details ? <p className="text-sm text-[var(--color-text-tertiary)]">History could not be loaded. Close and reopen to retry.</p> : null}
+                      {details && details.contacts.length === 0 && details.history.length === 0 ? <p className="text-sm text-[var(--color-text-tertiary)]">No contact or workflow changes recorded yet.</p> : null}
+                      {details?.contacts.length ? <div><h3 className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">Contact attempts</h3><ul className="mt-2 space-y-2">{details.contacts.map((contact) => <li key={contact.id} className="rounded-xl bg-[var(--color-background-primary)] p-3"><p className="text-sm font-semibold text-[var(--color-text-primary)]">{contact.channel.replaceAll('_', ' ')} · {contact.outcome}</p><p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{formatDate(contact.contactedAt)}{contact.notes ? ` · ${contact.notes}` : ''}</p></li>)}</ul></div> : null}
+                      {details?.history.length ? <div><h3 className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">Workflow changes</h3><ul className="mt-2 space-y-2">{details.history.map((entry) => <li key={entry.id} className="rounded-xl bg-[var(--color-background-primary)] p-3"><p className="text-sm font-semibold capitalize text-[var(--color-text-primary)]">{entry.eventType.replaceAll('_', ' ')}{entry.fromStage && entry.toStage ? ` · ${entry.fromStage.replaceAll('_', ' ')} → ${entry.toStage.replaceAll('_', ' ')}` : ''}</p><p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{formatDate(entry.createdAt)}</p></li>)}</ul></div> : null}
+                    </div>
+                  </details>
+                  <details className="mt-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                    <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">Record contact</summary>
+                    <div className="mt-3 grid gap-3 md:grid-cols-[150px_1fr_1fr_auto]">
+                      <Select aria-label="Contact channel" value={draft.channel} onChange={(event) => setContactDrafts((current) => ({ ...current, [workflow.id]: { ...draft, channel: event.target.value as NewMemberContact['channel'] } }))}><option value="phone">Phone</option><option value="email">Email</option><option value="sms">SMS</option><option value="whatsapp">WhatsApp</option><option value="in_person">In person</option><option value="other">Other</option></Select>
+                      <Input placeholder="Actual outcome" value={draft.outcome} onChange={(event) => setContactDrafts((current) => ({ ...current, [workflow.id]: { ...draft, outcome: event.target.value } }))} />
+                      <Input placeholder="Notes (optional)" value={draft.notes} onChange={(event) => setContactDrafts((current) => ({ ...current, [workflow.id]: { ...draft, notes: event.target.value } }))} />
+                      <Button loading={savingWorkflow === workflow.id} disabled={!draft.outcome.trim() || savingWorkflow === workflow.id} onClick={() => void recordContact(workflow)}>Record</Button>
+                    </div>
+                  </details>
+                </article>
+              );
             })}
           </div>
         </div>
+        {workflowTotal > 0 ? <div className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row"><p className="text-xs text-[var(--color-text-tertiary)]">Showing {(workflowPage - 1) * WORKFLOW_PAGE_SIZE + 1}–{Math.min(workflowPage * WORKFLOW_PAGE_SIZE, workflowTotal)} of {workflowTotal.toLocaleString()} follow-ups</p><Pagination page={workflowPage} pageCount={Math.max(1, Math.ceil(workflowTotal / WORKFLOW_PAGE_SIZE))} onPageChange={setWorkflowPage} /></div> : null}
       </Panel>
 
       <Panel>

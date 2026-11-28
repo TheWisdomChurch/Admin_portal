@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { normalizeEmail } from '@/lib/utils';
 
-const roleOptions = ['admin', 'super_admin'] as const;
+const roleOptions = ['admin'] as const;
 
 export const loginSchema = z.object({
   email: z

@@ -143,9 +143,9 @@ function isAdminUser(user: User | null): boolean {
   if (!user) return false;
 
   const role = getNormalizedUserRole(user);
-  const directAdminFlag = (user as unknown as { isAdmin?: unknown }).isAdmin === true;
-
-  return directAdminFlag || role === 'admin' || role === 'super_admin';
+  // Identity and privilege come from the server-issued role. A stale or client-controlled
+  // convenience flag must never grant administrative UI access.
+  return role === 'admin' || role === 'super_admin';
 }
 
 function hasAdminAccessPermission(user: User | null): boolean {
